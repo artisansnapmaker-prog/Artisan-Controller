@@ -28,10 +28,6 @@
 
 extern "C" {
 
-void vApplicationMallocFailedHook( void ) {
-    return;
-}
-
 void vApplicationStackOverflowHook(xTaskHandle *pxTask,
                                    signed char *pcTaskName) {
     /* This function will get called if a task overflows its stack.

@@ -29,6 +29,7 @@
  */
 
 #include "MarlinCore.h"
+#include "snapmaker.h"
 
 #include "HAL/shared/Delay.h"
 #include "HAL/shared/esp_wifi.h"
@@ -1622,6 +1623,8 @@ void setup() {
   marlin_state = MF_RUNNING;
 
   SETUP_LOG("setup() completed.");
+
+  smprinter.init(loop);
 }
 
 /**

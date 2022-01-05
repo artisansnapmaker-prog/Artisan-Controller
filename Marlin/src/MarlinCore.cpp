@@ -1657,3 +1657,34 @@ void loop() {
 
   } while (ENABLED(__AVR__)); // Loop forever on slower (AVR) boards
 }
+
+pin_t X_MAX_PIN_var = PE7;
+pin_t Y_MAX_PIN_var = PE8;
+pin_t Y2_MAX_PIN_var = PE9;
+pin_t Z_MAX_PIN_var = PE10;
+pin_t Z2_MAX_PIN_var = PE11;
+
+ pin_t X_STEP_PIN_var = PB4;
+ pin_t X_DIR_PIN_var = PB3;
+ pin_t X_ENABLE_PIN_var = PB5;
+ pin_t X_CS_PIN_var = PD12;
+
+ pin_t Y_STEP_PIN_var = PE6;
+ pin_t Y_DIR_PIN_var = PE5;
+ pin_t Y_ENABLE_PIN_var = PE4;
+ pin_t Y_CS_PIN_var = PD13;
+
+ pin_t Y2_STEP_PIN_var = PE5;
+ pin_t Y2_DIR_PIN_var = PE2;
+ pin_t Y2_ENABLE_PIN_var = PE6;
+ pin_t Y2_CS_PIN_var = PD14;
+
+ pin_t Z_STEP_PIN_var = PC6;
+ pin_t Z_DIR_PIN_var = PD15;
+ pin_t Z_ENABLE_PIN_var = PC7;
+ pin_t Z_CS_PIN_var = PC8;
+ 
+ pin_t Z2_STEP_PIN_var = PB14;
+ pin_t Z2_DIR_PIN_var = PD9;
+ pin_t Z2_ENABLE_PIN_var = PD8;
+ pin_t Z2_CS_PIN_var = PC9;

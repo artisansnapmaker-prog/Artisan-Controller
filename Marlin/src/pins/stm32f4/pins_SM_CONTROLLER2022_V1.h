@@ -49,44 +49,75 @@
 //
 // Limit Switches
 //
-#define X_MAX_PIN                           PE7
-#define Y_MAX_PIN                           PE8
-#define Y2_MAX_PIN                          PE9
-#define Z_MAX_PIN                           PE10
-#define Z2_MAX_PIN                          PE11
+extern pin_t X_MAX_PIN_var;
+extern pin_t Y_MAX_PIN_var;
+extern pin_t Y2_MAX_PIN_var;
+extern pin_t Z_MAX_PIN_var;
+extern pin_t Z2_MAX_PIN_var;
+#define X_MAX_PIN                           X_MAX_PIN_var
+#define Y_MAX_PIN                           Y_MAX_PIN_var
+#define Y2_MAX_PIN                          Y2_MAX_PIN_var
+#define Z_MAX_PIN                           Z_MAX_PIN_var
+#define Z2_MAX_PIN                          Z2_MAX_PIN_var
 
 //
 // Steppers
 //
-#define X_STEP_PIN                          PB4
-#define X_DIR_PIN                           PB3
-#define X_ENABLE_PIN                        PB5
-#define X_CS_PIN                            PD12
-#define X_DETECT_PIN                        PC3
+#define L1_DETECT_PIN                        PC3
+#define L2_DETECT_PIN                        PA0
+#define L3_DETECT_PIN                        PA1
+#define L4_DETECT_PIN                        PA2
+#define L5_DETECT_PIN                        PA3
 
-#define Y_STEP_PIN                          PE6
-#define Y_DIR_PIN                           PE5
-#define Y_ENABLE_PIN                        PE4
-#define Y_CS_PIN                            PD13
-#define Y_DETECT_PIN                        PA0
+extern pin_t X_STEP_PIN_var;
+extern pin_t X_DIR_PIN_var;
+extern pin_t X_ENABLE_PIN_var;
+extern pin_t X_CS_PIN_var;
 
-#define Y2_STEP_PIN                          PE5
-#define Y2_DIR_PIN                           PE2
-#define Y2_ENABLE_PIN                        PE6
-#define Y2_CS_PIN                            PD14
-#define Y2_DETECT_PIN                        PA1
+extern pin_t Y_STEP_PIN_var;
+extern pin_t Y_DIR_PIN_var;
+extern pin_t Y_ENABLE_PIN_var;
+extern pin_t Y_CS_PIN_var;
 
-#define Z_STEP_PIN                          PC6
-#define Z_DIR_PIN                           PD15
-#define Z_ENABLE_PIN                        PC7
-#define Z_CS_PIN                            PC8
-#define Z_DETECT_PIN                        PA2
+extern pin_t Y2_STEP_PIN_var;
+extern pin_t Y2_DIR_PIN_var;
+extern pin_t Y2_ENABLE_PIN_var;
+extern pin_t Y2_CS_PIN_var;
 
-#define Z2_STEP_PIN                          PB14
-#define Z2_DIR_PIN                           PD9
-#define Z2_ENABLE_PIN                        PD8
-#define Z2_CS_PIN                            PC9
-#define Z2_DETECT_PIN                        PA3
+extern pin_t Z_STEP_PIN_var;
+extern pin_t Z_DIR_PIN_var;
+extern pin_t Z_ENABLE_PIN_var;
+extern pin_t Z_CS_PIN_var;
+ 
+extern pin_t Z2_STEP_PIN_var;
+extern pin_t Z2_DIR_PIN_var;
+extern pin_t Z2_ENABLE_PIN_var;
+extern pin_t Z2_CS_PIN_var;
+
+#define X_STEP_PIN                          X_STEP_PIN_var
+#define X_DIR_PIN                           X_DIR_PIN_var
+#define X_ENABLE_PIN                        X_ENABLE_PIN_var
+#define X_CS_PIN                            X_CS_PIN_var
+
+#define Y_STEP_PIN                          Y_STEP_PIN_var
+#define Y_DIR_PIN                           Y_DIR_PIN_var
+#define Y_ENABLE_PIN                        Y_ENABLE_PIN_var
+#define Y_CS_PIN                            Y_CS_PIN_var
+
+#define Y2_STEP_PIN                          Y2_STEP_PIN_var
+#define Y2_DIR_PIN                           Y2_DIR_PIN_var
+#define Y2_ENABLE_PIN                        Y2_ENABLE_PIN_var
+#define Y2_CS_PIN                            Y2_CS_PIN_var
+
+#define Z_STEP_PIN                          Z_STEP_PIN_var
+#define Z_DIR_PIN                           Z_DIR_PIN_var
+#define Z_ENABLE_PIN                        Z_ENABLE_PIN_var
+#define Z_CS_PIN                            Z_CS_PIN_var
+
+#define Z2_STEP_PIN                          Z2_STEP_PIN_var
+#define Z2_DIR_PIN                           Z2_DIR_PIN_var
+#define Z2_ENABLE_PIN                        Z2_ENABLE_PIN_var
+#define Z2_CS_PIN                            Z2_CS_PIN_var
 
 #define E0_STEP_PIN                         PE13
 #define E0_DIR_PIN                          PB10

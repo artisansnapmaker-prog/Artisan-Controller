@@ -92,7 +92,8 @@ const PinName digitalPin[] = {
   PE_15,  PB_10,
   PB_11,  PB_12,  // D70, D71
   PB_13,  PB_14,
-  PB_4,
+  PB_4,   PB_2,
+  PC_14,  PC_15
 };
 #endif // ARDUINO_BLACK_F407VE || ARDUINO_BLACK_F407VG
 

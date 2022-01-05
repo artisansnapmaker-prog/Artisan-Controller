@@ -675,6 +675,8 @@
   #include "stm32f4/pins_MKS_EAGLE.h"           // STM32F4                                env:mks_eagle
 #elif MB(ARTILLERY_RUBY)
   #include "stm32f4/pins_ARTILLERY_RUBY.h"      // STM32F4                                env:Artillery_Ruby
+#elif MB(SM_CONTROLLER2022_V1)
+  #include "stm32f4/pins_SM_CONTROLLER2022_V1.h" // STM32F4                               env:snapmaker_controller2022
 
 //
 // ARM Cortex M7

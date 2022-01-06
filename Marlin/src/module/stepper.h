@@ -255,13 +255,10 @@ typedef struct {
 } axis_flags_t;
 
 // All the stepper enable pins
-constexpr pin_t ena_pins[] = {
-  LINEAR_AXIS_LIST(X_ENABLE_PIN, Y_ENABLE_PIN, Z_ENABLE_PIN, I_ENABLE_PIN, J_ENABLE_PIN, K_ENABLE_PIN),
-  LIST_N(E_STEPPERS, E0_ENABLE_PIN, E1_ENABLE_PIN, E2_ENABLE_PIN, E3_ENABLE_PIN, E4_ENABLE_PIN, E5_ENABLE_PIN, E6_ENABLE_PIN, E7_ENABLE_PIN)
-};
+extern pin_t ena_pins[];
 
 // Index of the axis or extruder element in a combined array
-constexpr uint8_t index_of_axis(const AxisEnum axis E_OPTARG(const uint8_t eindex=0)) {
+inline uint8_t index_of_axis(const AxisEnum axis E_OPTARG(const uint8_t eindex=0)) {
   return uint8_t(axis) + (E_TERN0(axis < LINEAR_AXES ? 0 : eindex));
 }
 //#define __IAX_N(N,V...)           _IAX_##N(V)
@@ -273,31 +270,24 @@ constexpr uint8_t index_of_axis(const AxisEnum axis E_OPTARG(const uint8_t einde
 #define INDEX_OF_AXIS(A,V...)     index_of_axis(A E_OPTARG(V+0))
 
 // Bit mask for a matching enable pin, or 0
-constexpr ena_mask_t ena_same(const uint8_t a, const uint8_t b) {
+inline ena_mask_t ena_same(const uint8_t a, const uint8_t b) {
   return ena_pins[a] == ena_pins[b] ? _BV(b) : 0;
 }
 
 // Recursively get the enable overlaps mask for a given linear axis or extruder
-constexpr ena_mask_t ena_overlap(const uint8_t a=0, const uint8_t b=0) {
+inline ena_mask_t ena_overlap(const uint8_t a=0, const uint8_t b=0) {
   return b >= ENABLE_COUNT ? 0 : (a == b ? 0 : ena_same(a, b)) | ena_overlap(a, b + 1);
 }
 
 // Recursively get whether there's any overlap at all
-constexpr bool any_enable_overlap(const uint8_t a=0) {
+inline bool any_enable_overlap(const uint8_t a=0) {
   return a >= ENABLE_COUNT ? false : ena_overlap(a) || any_enable_overlap(a + 1);
 }
 
 // Array of axes that overlap with each
 // TODO: Consider cases where >=2 steppers are used by a linear axis or extruder
 //       (e.g., CoreXY, Dual XYZ, or E with multiple steppers, etc.).
-constexpr ena_mask_t enable_overlap[] = {
-  #define _OVERLAP(N) ena_overlap(INDEX_OF_AXIS(AxisEnum(N))),
-  REPEAT(LINEAR_AXES, _OVERLAP)
-  #if HAS_EXTRUDERS
-    #define _E_OVERLAP(N) ena_overlap(INDEX_OF_AXIS(E_AXIS, N)),
-    REPEAT(E_STEPPERS, _E_OVERLAP)
-  #endif
-};
+extern ena_mask_t enable_overlap[];
 
 //static_assert(!any_enable_overlap(), "There is some overlap.");
 

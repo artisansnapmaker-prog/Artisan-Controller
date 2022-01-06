@@ -153,6 +153,24 @@ Stepper stepper; // Singleton
   #endif
 #endif
 
+// All the stepper enable pins
+pin_t ena_pins[] = {
+  LINEAR_AXIS_LIST(X_ENABLE_PIN, Y_ENABLE_PIN, Z_ENABLE_PIN, I_ENABLE_PIN, J_ENABLE_PIN, K_ENABLE_PIN),
+  LIST_N(E_STEPPERS, E0_ENABLE_PIN, E1_ENABLE_PIN, E2_ENABLE_PIN, E3_ENABLE_PIN, E4_ENABLE_PIN, E5_ENABLE_PIN, E6_ENABLE_PIN, E7_ENABLE_PIN)
+};
+
+// Array of axes that overlap with each
+// TODO: Consider cases where >=2 steppers are used by a linear axis or extruder
+//       (e.g., CoreXY, Dual XYZ, or E with multiple steppers, etc.).
+ena_mask_t enable_overlap[] = {
+  #define _OVERLAP(N) ena_overlap(INDEX_OF_AXIS(AxisEnum(N))),
+  REPEAT(LINEAR_AXES, _OVERLAP)
+  #if HAS_EXTRUDERS
+    #define _E_OVERLAP(N) ena_overlap(INDEX_OF_AXIS(E_AXIS, N)),
+    REPEAT(E_STEPPERS, _E_OVERLAP)
+  #endif
+};
+
 axis_flags_t Stepper::axis_enabled; // {0}
 
 // private:

@@ -49,6 +49,7 @@
 //
 // Limit Switches
 //
+// dynamic pins
 extern pin_t X_MAX_PIN_var;
 extern pin_t Y_MAX_PIN_var;
 extern pin_t Y2_MAX_PIN_var;
@@ -69,6 +70,7 @@ extern pin_t Z2_MAX_PIN_var;
 #define L4_DETECT_PIN                        PA2
 #define L5_DETECT_PIN                        PA3
 
+// dynamic pins
 extern pin_t X_STEP_PIN_var;
 extern pin_t X_DIR_PIN_var;
 extern pin_t X_ENABLE_PIN_var;
@@ -88,7 +90,7 @@ extern pin_t Z_STEP_PIN_var;
 extern pin_t Z_DIR_PIN_var;
 extern pin_t Z_ENABLE_PIN_var;
 extern pin_t Z_CS_PIN_var;
- 
+
 extern pin_t Z2_STEP_PIN_var;
 extern pin_t Z2_DIR_PIN_var;
 extern pin_t Z2_ENABLE_PIN_var;
@@ -119,21 +121,39 @@ extern pin_t Z2_CS_PIN_var;
 #define Z2_ENABLE_PIN                        Z2_ENABLE_PIN_var
 #define Z2_CS_PIN                            Z2_CS_PIN_var
 
-#define E0_STEP_PIN                         PE13
-#define E0_DIR_PIN                          PB10
-#define E0_ENABLE_PIN                       PB11
+// dynamic pins
+extern pin_t I_STEP_PIN_var;
+extern pin_t I_DIR_PIN_var;
+extern pin_t I_ENABLE_PIN_var;
 
-#define E1_STEP_PIN                         PE13
-#define E1_DIR_PIN                          PB10
-#define E1_ENABLE_PIN                       PB11
+extern pin_t J_STEP_PIN_var;
+extern pin_t J_DIR_PIN_var;
+extern pin_t J_ENABLE_PIN_var;
 
-#define I_STEP_PIN                         PA15
-#define I_DIR_PIN                          PC10
-#define I_ENABLE_PIN                       PC11
+#define I_STEP_PIN                          I_STEP_PIN_var
+#define I_DIR_PIN                           I_DIR_PIN_var
+#define I_ENABLE_PIN                        I_ENABLE_PIN_var
 
-#define J_STEP_PIN                         PB15
-#define J_DIR_PIN                          PC12
-#define J_ENABLE_PIN                       PD2
+#define J_STEP_PIN                          J_STEP_PIN_var
+#define J_DIR_PIN                           J_DIR_PIN_var
+#define J_ENABLE_PIN                        J_ENABLE_PIN_var
+
+// dynamic pins
+extern pin_t E0_STEP_PIN_var;
+extern pin_t E0_DIR_PIN_var;
+extern pin_t E0_ENABLE_PIN_var;
+
+extern pin_t E1_STEP_PIN_var;
+extern pin_t E1_DIR_PIN_var;
+extern pin_t E1_ENABLE_PIN_var;
+
+#define E0_STEP_PIN                         E0_STEP_PIN_var
+#define E0_DIR_PIN                          E0_DIR_PIN_var
+#define E0_ENABLE_PIN                       E0_ENABLE_PIN_var
+
+#define E1_STEP_PIN                         E1_STEP_PIN_var
+#define E1_DIR_PIN                          E1_DIR_PIN_var
+#define E1_ENABLE_PIN                       E1_ENABLE_PIN_var
 
 
 //

@@ -60,6 +60,8 @@ extern pin_t Z2_MAX_PIN_var;
 #define Y2_MAX_PIN                          Y2_MAX_PIN_var
 #define Z_MAX_PIN                           Z_MAX_PIN_var
 #define Z2_MAX_PIN                          Z2_MAX_PIN_var
+#define I_MAX_PIN                           -1
+#define J_MAX_PIN                           -1
 
 //
 // Steppers

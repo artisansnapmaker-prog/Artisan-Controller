@@ -30,7 +30,7 @@
 void UartHost::Init(HardwareSerial *serial, uint8_t interrupt_prio) {
   uint8_t *buffer;
 
-  struct usart_dev* dev = serial->c_dev();
+  //struct usart_dev* dev = serial->c_dev();
 
   buffer = (uint8_t *)pvPortMalloc(1024);
   configASSERT(buffer);
@@ -39,11 +39,11 @@ void UartHost::Init(HardwareSerial *serial, uint8_t interrupt_prio) {
 
   serial->begin(115200);
 
-  nvic_irq_set_priority(dev->irq_num, interrupt_prio);
+  //nvic_irq_set_priority(dev->irq_num, interrupt_prio);
 
   serial_ = serial;
 
-  rb_ = dev->rb;
+  //rb_ = dev->rb;
 
   mlock_uart_ = xSemaphoreCreateMutex();
   configASSERT(mlock_uart_);
@@ -55,19 +55,19 @@ void UartHost::Init(HardwareSerial *serial, uint8_t interrupt_prio) {
  * for one complete event
  */
 ErrCode UartHost::CheckoutCmd(uint8_t *cmd, uint16_t &length) {
-  // int c = -1;
+  int c = -1;
 
-  // for (;;) {
-  //   c = serial_->read();
-  //   if (c == -1)
-  //     break;
+  for (;;) {
+    c = serial_->read();
+    if (c == -1)
+      break;
 
-  //   cmd_buffer_.InsertOne((uint8_t)c);
-  // }
+    cmd_buffer_.InsertOne((uint8_t)c);
+  }
 
-  // return sstp_.Parse(cmd_buffer_, cmd, length);
+  return sstp_.Parse(cmd_buffer_, cmd, length);
 
-  return sstp_.Parse(rb_, cmd, length);
+  //return sstp_.Parse(rb_, cmd, length);
 }
 
 
@@ -128,10 +128,10 @@ ErrCode UartHost::Send(SSTP_Event_t &event) {
     }
   }
   for (j = 0; j < i; j++)
-    serial_->write_directly(pdu_header[j]);
+    serial_->write(pdu_header[j]);
 
   for (j = 0; j < event.length; j++)
-    serial_->write_directly(event.data[j]);
+    serial_->write(event.data[j]);
 
   if (ret == pdPASS)
     xSemaphoreGive(mlock_uart_);

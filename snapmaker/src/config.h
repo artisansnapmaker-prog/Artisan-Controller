@@ -35,4 +35,47 @@
 #define SM_MAC_RECV_EVENT_PRIORITY         SNAPMAKER_APP_PRIORITY
 #define SM_MAC_RECV_EVENT_STACK_SIZE       (256)
 
+
+// task parameters for can event handler task
+#define CAN_EVENT_HANDLER_PRIORITY    (3)
+#define CAN_EVENT_HANDLER_STACK_DEPTH (512)
+
+// task parameters for can receive handler task
+#define CAN_RECEIVE_HANDLER_PRIORITY    (3)
+#define CAN_RECEIVE_HANDLER_STACK_DEPTH (512)
+
+// task parameters for marlin loop task
+#define MARLIN_LOOP_TASK_PRIO (3)
+#define MARLIN_LOOP_STACK_DEPTH 1024
+
+// task parameters for hmi task
+#define HMI_TASK_PRIO (3)
+#define HMI_TASK_STACK_DEPTH 512
+
+// task parameters for heartbeat task
+#define HB_TASK_PRIO (3)
+#define HB_TASK_STACK_DEPTH 512
+
+// priority for UARTs
+#define EXECUTOR_SERIAL_IRQ_PRIORITY 7
+#define HMI_SERIAL_IRQ_PRIORITY 8
+#define MARLIN_SERIAL_IRQ_PRIORITY 9
+
+
+#define DEFAUT_LEVELING_HEIGHT  9 // uint: mm
+
+#define MODULE_LINEAR_PITCH_20        160
+#define MODULE_LINEAR_PITCH_8         400
+
+
+//FLASH layout
+#define FLASH_SIZE      (1024*1024)
+#define BOOT_CODE_SIZE	(32*1024)
+#define BOOT_PARA_SIZE	(4*1024)
+#define MARLIN_POWERPANIC_SIZE  (6*1024)
+#define MARLIN_EEPROM_SIZE (4*1024)
+#define UPDATE_CONTENT_INFO_SIZE (2*1024)
+#define MARLIN_CODE_SIZE	((FLASH_SIZE - BOOT_CODE_SIZE - BOOT_PARA_SIZE - MARLIN_EEPROM_SIZE - MARLIN_POWERPANIC_SIZE - UPDATE_CONTENT_INFO_SIZE) / 2)
+
+
 #endif  // #ifndef SNAPMAKER_CONFIG_H_

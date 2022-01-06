@@ -19,10 +19,11 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "emergency_stop.h"
-#include "../common/config.h"
+#include "../config.h"
 #include "../common/protocol_sstp.h"
 #include "../common/debug.h"
-#include "../service/system.h"
+#include "../host/event_handler.h"
+//#include "../service/system.h"
 
 EmergencyStop emergency_stop;
 
@@ -93,7 +94,7 @@ void EmergencyStop::Process() {
   if (event_state_ != EMERGENCY_STOP_TRIGGER) {
     if (state_ == EMERGENCY_STOP_TRIGGER) {
       event_state_ = EMERGENCY_STOP_TRIGGER;
-      systemservice.StopTrigger(TRIGGER_SOURCE_STOP_BUTTON, SYSCTL_OPC_STOP);
+      //systemservice.StopTrigger(TRIGGER_SOURCE_STOP_BUTTON, SYSCTL_OPC_STOP);
       ModuleBase::LockMarlinUart(LOCK_SOURCE_EMERGENCY_STOP);
       ReportStatus();
       LOG_I("emergency stop!\n");
@@ -111,5 +112,6 @@ ErrCode EmergencyStop::ReportStatus() {
   event.length = 1;
   event.data = &state;
   LOG_I("SC req emergency stop sta:%d\n", state);
-  return hmi.Send(event);
+  //return hmi.Send(event);
+  return 0;
 }

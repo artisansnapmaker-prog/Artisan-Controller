@@ -23,8 +23,8 @@
 
 #include <stdio.h>
 #include "config.h"
-
-#include "src/core/macros.h"
+#include "protocol_sstp.h"
+//#include "src/core/macros.h"
 
 #include "error.h"
 
@@ -55,7 +55,8 @@ enum GcodeState : uint8_t {
 #if (SNAP_DEBUG)
 
 // massage will output to this interface
-#define CONSOLE_OUTPUT(log) MYSERIAL0.print_directly(log)
+//#define CONSOLE_OUTPUT(log) MYSERIAL0.print_directly(log)
+#define CONSOLE_OUTPUT(log) 
 
 // log buffer size, max length for one debug massage
 #define SNAP_LOG_BUFFER_SIZE 256

@@ -45,7 +45,7 @@ public:
 
 private:
   HardwareSerial *serial_;
-  ring_buffer    *rb_;
+  RingBuffer<uint8_t> rb_;
 
   ProtocolSSTP sstp_;
 

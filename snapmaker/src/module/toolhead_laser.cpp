@@ -20,23 +20,25 @@
  */
 #include "toolhead_laser.h"
 
-#include "../common/config.h"
+#include "../config.h"
 #include "../common/debug.h"
-#include "../gcode/M1028.h"
-
+//#include "../gcode/M1028.h"
+#include "../host/event_handler.h"
 #include "../snapmaker.h"
+#include "toolhead_3dp.h"
 
 // marlin headers
-#include "src/core/macros.h"
-#include "src/core/boards.h"
-#include "Configuration.h"
-#include "src/pins/pins.h"
-#include "src/module/motion.h"
-#include "src/module/planner.h"
+//#include "src/core/macros.h"
+// #include "src/core/boards.h"
+// #include "Configuration.h"
+// #include "src/pins/pins.h"
+// #include "src/module/motion.h"
+// #include "src/module/planner.h"
 #include "rotary_module.h"
-#include "src/module/stepper.h"
-#include "../service/system.h"
-#include "toolhead_3dp.h"
+// #include "src/module/stepper.h"
+// #include "../service/system.h"
+// #include "src/inc/MarlinConfig.h"
+// #include HAL_PATH(src/HAL, HAL.h)
 
 
 #define LASER_CLOSE_FAN_DELAY     (300)
@@ -75,6 +77,27 @@ static __attribute__((section(".data"))) uint8_t power_table_10W[]= {
   255
 };
 
+void Tim1SetCCR1(uint16_t Value) {
+  //TIM1->CCR1 = Value;
+}
+
+void Tim1SetCCR2(uint16_t Value) {
+  //TIM1->CCR2 = Value;
+}
+
+void Tim1SetCCR3(uint16_t Value) {
+  //TIM1->CCR3 = Value;
+}
+
+void Tim1SetCCR4(uint16_t Value) {
+  //TIM1->CCR4 = Value;
+}
+
+uint16_t Tim1GetCCR4(void) {
+	//return TIM1->CCR4;
+  return 0;
+}
+
 static void CallbackAckLaserFocus(CanStdDataFrame_t &cmd) {
   laser->focus(cmd.data[0]<<8 | cmd.data[1]);
 }
@@ -91,11 +114,11 @@ static void CallbackAckReportSecurity(CanStdDataFrame_t &cmd) {
   if (laser->security_status_ != 0) {
     laser->need_to_turnoff_laser_ = true;
 
-    if (systemservice.GetCurrentStage() == SYSTAGE_WORK || systemservice.GetCurrentStage() == SYSTAGE_PAUSE) {
-      quickstop.Trigger(QS_SOURCE_SECURITY, true);
-    } else if (laser->laser_10w_status_ == LASER_10W_ENABLE) {
-      laser->TurnOff();
-    }
+    // if (systemservice.GetCurrentStage() == SYSTAGE_WORK || systemservice.GetCurrentStage() == SYSTAGE_PAUSE) {
+    //   quickstop.Trigger(QS_SOURCE_SECURITY, true);
+    // } else if (laser->laser_10w_status_ == LASER_10W_ENABLE) {
+    //   laser->TurnOff();
+    // }
   }
 }
 
@@ -108,12 +131,13 @@ ErrCode ToolHeadLaser::Init(MAC_t &mac, uint8_t mac_index) {
   Function_t    function;
   message_id_t  message_id[12];
 
-  if (axis_to_port[E_AXIS] != PORT_8PIN_1) {
-    LOG_E("toolhead Laser failed: Please use the <M1029 E1> set E port\n");
-    return E_HARDWARE;
-  }
+  // if (axis_to_port[E_AXIS] != PORT_8PIN_1) {
+  //   LOG_E("toolhead Laser failed: Please use the <M1029 E1> set E port\n");
+  //   return E_HARDWARE;
+  // }
 
-  ret = ModuleBase::InitModule8p(mac, E0_DIR_PIN, 0);
+  // extern pin_t E0_DIR_PIN_var;
+  // ret = ModuleBase::InitModule8p(mac, E0_DIR_PIN_var, 0);
   if (ret != E_SUCCESS)
     return ret;
 
@@ -156,8 +180,8 @@ ErrCode ToolHeadLaser::Init(MAC_t &mac, uint8_t mac_index) {
 
   ret = canhost.BindMessageID(cmd, message_id);
 
-  Tim1PwmInit();
-  //esp32_.Init(&MSerial3, EXECUTOR_SERIAL_IRQ_PRIORITY);
+  // Tim1PwmInit();
+  // esp32_.Init(&MSerial3, EXECUTOR_SERIAL_IRQ_PRIORITY);
 
   mac_index_ = mac_index;
   state_     = TOOLHEAD_LASER_STATE_OFF;
@@ -366,7 +390,7 @@ ErrCode ToolHeadLaser::GetFocus(SSTP_Event_t &event) {
   event.length = 5;
   event.data   = buff;
 
-  return hmi.Send(event);
+  return 0;
 }
 
 
@@ -382,7 +406,7 @@ ErrCode ToolHeadLaser::SetFocus(SSTP_Event_t &event) {
     LOG_E("Must specify Focus!\n");
     event.length = 1;
     event.data = &err;
-    return hmi.Send(event);
+    return 0;
   }
 
   PDU_TO_LOCAL_WORD(focus, event.data);
@@ -395,7 +419,7 @@ ErrCode ToolHeadLaser::SetFocus(SSTP_Event_t &event) {
 
   if (focus > TOOLHEAD_LASER_CAMERA_FOCUS_MAX) {
     LOG_E("new focus[%u] is out of range!\n", focus);
-    return hmi.Send(event);
+    return 0;
   }
 
   buff[0] = (uint8_t)(focus >> 8);
@@ -416,23 +440,24 @@ ErrCode ToolHeadLaser::SetFocus(SSTP_Event_t &event) {
     LoadFocus();
   LOG_I("SC new focal length: %.3f\n", focus_);
 
-  return hmi.Send(event);
+  return 0;
 }
 
 
 ErrCode ToolHeadLaser::DoManualFocusing(SSTP_Event_t &event) {
   ErrCode err = E_FAILURE;
 
-  float pos[XYZ];
+  //float pos[XYZ];
+  float pos[3];
 
   float max_z_speed;
 
   LOG_I("SC req manual focusing\n");
 
-  if (!all_axes_homed()) {
-    LOG_E("Machine is not be homed!\n");
-    goto out;
-  }
+  // if (!all_axes_homed()) {
+  //   LOG_E("Machine is not be homed!\n");
+  //   goto out;
+  // }
 
   if (!IsOnline()) {
     LOG_E("Laser is offline!\n");
@@ -444,31 +469,31 @@ ErrCode ToolHeadLaser::DoManualFocusing(SSTP_Event_t &event) {
     goto out;
   }
 
-  planner.synchronize();
+  // planner.synchronize();
 
-  max_z_speed = planner.settings.max_feedrate_mm_s[Z_AXIS];
+  // max_z_speed = planner.settings.max_feedrate_mm_s[Z_AXIS];
 
-  PDU_TO_LOCAL_WORD(pos[X_AXIS], event.data);
-  PDU_TO_LOCAL_WORD(pos[Y_AXIS], event.data+4);
-  PDU_TO_LOCAL_WORD(pos[Z_AXIS], event.data+8);
-  LOG_I("Laser will move to (%.2f, %.2f, %.2f)\n", pos[X_AXIS], pos[Y_AXIS], pos[Z_AXIS]);
+  // PDU_TO_LOCAL_WORD(pos[X_AXIS], event.data);
+  // PDU_TO_LOCAL_WORD(pos[Y_AXIS], event.data+4);
+  // PDU_TO_LOCAL_WORD(pos[Z_AXIS], event.data+8);
+  // LOG_I("Laser will move to (%.2f, %.2f, %.2f)\n", pos[X_AXIS], pos[Y_AXIS], pos[Z_AXIS]);
 
-  planner.settings.max_feedrate_mm_s[Z_AXIS] = max_speed_in_calibration[Z_AXIS];
+  // planner.settings.max_feedrate_mm_s[Z_AXIS] = max_speed_in_calibration[Z_AXIS];
 
-  // Move to the Certain point
-  do_blocking_move_to_logical_xy(pos[X_AXIS], pos[Y_AXIS], speed_in_calibration[X_AXIS]);
+  // // Move to the Certain point
+  // do_blocking_move_to_logical_xy(pos[X_AXIS], pos[Y_AXIS], speed_in_calibration[X_AXIS]);
 
-  // Move to the Z
-  do_blocking_move_to_logical_z( pos[Z_AXIS], speed_in_calibration[Z_AXIS]);
+  // // Move to the Z
+  // do_blocking_move_to_logical_z( pos[Z_AXIS], speed_in_calibration[Z_AXIS]);
 
-  planner.synchronize();
+  // planner.synchronize();
 
-  planner.settings.max_feedrate_mm_s[Z_AXIS] = max_z_speed;
+  // planner.settings.max_feedrate_mm_s[Z_AXIS] = max_z_speed;
 
 out:
   event.length = 1;
   event.data   = &err;
-  return hmi.Send(event);
+  return 0;
 }
 
 
@@ -478,7 +503,8 @@ ErrCode ToolHeadLaser::DoAutoFocusing(SSTP_Event_t &event) {
   uint8_t Count = 21;
   float z_interval = 0.5;
 
-  float start_pos[XYZ];
+  //float start_pos[XYZ];
+  float start_pos[3];
 
   int   i = 0;
   float next_x, next_y, next_z;
@@ -488,10 +514,10 @@ ErrCode ToolHeadLaser::DoAutoFocusing(SSTP_Event_t &event) {
 
   LOG_I("SC req auto focusing\n");
 
-  if (!all_axes_homed()) {
-    LOG_E("Machine is not be homed!\n");
-    goto out;
-  }
+  // if (!all_axes_homed()) {
+  //   LOG_E("Machine is not be homed!\n");
+  //   goto out;
+  // }
 
   if (!IsOnline()) {
     LOG_E("Laser is offline!\n");
@@ -504,15 +530,15 @@ ErrCode ToolHeadLaser::DoAutoFocusing(SSTP_Event_t &event) {
     LOG_I("SC specify Z interval: %.2f\n", z_interval);
   }
 
-  planner.synchronize();
+  // planner.synchronize();
 
-  LOOP_XYZ(i) {
-    start_pos[i] = current_position[i];
-  }
+  // LOOP_XYZ(i) {
+  //   start_pos[i] = current_position[i];
+  // }
 
-  next_x = start_pos[X_AXIS] - (int)(Count / 2) * 2;
-  next_y = start_pos[Y_AXIS];
-  next_z = start_pos[Z_AXIS] - ((float)(Count - 1) / 2.0 * z_interval);
+  // next_x = start_pos[X_AXIS] - (int)(Count / 2) * 2;
+  // next_y = start_pos[Y_AXIS];
+  // next_z = start_pos[Z_AXIS] - ((float)(Count - 1) / 2.0 * z_interval);
 
   // too low
   if(next_z <= 10) {
@@ -521,49 +547,49 @@ ErrCode ToolHeadLaser::DoAutoFocusing(SSTP_Event_t &event) {
   }
 
   // Move to next Z
-  move_to_limited_z(next_z, 20.0f);
+  // move_to_limited_z(next_z, 20.0f);
 
   // Draw 10 Line
   do {
     // Move to the start point
-    move_to_limited_xy(next_x, next_y, speed_in_calibration[X_AXIS]);
-    planner.synchronize();
+    // move_to_limited_xy(next_x, next_y, speed_in_calibration[X_AXIS]);
+    // planner.synchronize();
 
     // Laser on
-    SetOutput(laser_pwr_in_cali);
+    // SetOutput(laser_pwr_in_cali);
 
     // Draw Line
-    if((i % 5) == 0)
-      move_to_limited_xy(next_x, next_y + line_len_long, speed_in_draw_ruler);
-    else
-      move_to_limited_xy(next_x, next_y + line_len_short, speed_in_draw_ruler);
+    // if((i % 5) == 0)
+    //   move_to_limited_xy(next_x, next_y + line_len_long, speed_in_draw_ruler);
+    // else
+    //   move_to_limited_xy(next_x, next_y + line_len_short, speed_in_draw_ruler);
 
-    planner.synchronize();
+    // planner.synchronize();
 
     // Laser off
     SetOutput(0);
 
     // Move up Z increase
-    if(i != (Count - 1))
-      move_to_limited_z(current_position[Z_AXIS] + z_interval, 20.0f);
+    // if(i != (Count - 1))
+    //   move_to_limited_z(current_position[Z_AXIS] + z_interval, 20.0f);
 
     next_x = next_x + line_space;
     i++;
   } while(i < Count);
 
-  planner.synchronize();
+  // planner.synchronize();
 
-  // Move to beginning
-  move_to_limited_z(start_pos[Z_AXIS], 20.0f);
-  move_to_limited_xy(start_pos[X_AXIS], start_pos[Y_AXIS], 20.0f);
-  planner.synchronize();
+  // // Move to beginning
+  // move_to_limited_z(start_pos[Z_AXIS], 20.0f);
+  // move_to_limited_xy(start_pos[X_AXIS], start_pos[Y_AXIS], 20.0f);
+  // planner.synchronize();
 
   err = E_SUCCESS;
 
 out:
   event.data   = &err;
   event.length = 1;
-  return hmi.Send(event);
+  return err;
 }
 
 
@@ -674,7 +700,7 @@ ErrCode ToolHeadLaser::SetCameraBtName(SSTP_Event_t &event) {
   event.data   = &err;
   event.length = 1;
 
-  return hmi.Send(event);
+  return 0;
 }
 
 
@@ -702,7 +728,7 @@ ErrCode ToolHeadLaser::GetCameraBtName(SSTP_Event_t &event) {
     event.length -= 1;
   }
 
-  return hmi.Send(event);
+  return 0;
 }
 
 
@@ -731,7 +757,7 @@ ErrCode ToolHeadLaser::GetCameraBtMAC(SSTP_Event_t &event) {
     LOG_I("\t0x%08X, 0x%08X\n", *(uint32_t *)(buffer), *(uint32_t *)(buffer + 4));
   }
 
-  return hmi.Send(event);
+  return ret;
 }
 
 /**
@@ -802,7 +828,7 @@ ErrCode ToolHeadLaser::SetAutoFocusLight(SSTP_Event_t &event) {
   event_hmi.length = 1;
   event_hmi.data = buff;
 
-  return hmi.Send(event_hmi);
+  return 0;
 }
 
 ErrCode ToolHeadLaser::GetSecurityStatus(SSTP_Event_t &event) {
@@ -828,7 +854,7 @@ ErrCode ToolHeadLaser::SendSecurityStatus() {
   event.length = 6;
   event.data = buff;
 
-  return hmi.Send(event);
+  return 0;
 }
 
 ErrCode ToolHeadLaser::SendPauseStatus() {
@@ -837,7 +863,7 @@ ErrCode ToolHeadLaser::SendPauseStatus() {
   event.length = 0;
   event.data = NULL;
 
-  return hmi.Send(event);
+  return 0;
 }
 
 ErrCode ToolHeadLaser::SetOnlineSyncId(SSTP_Event_t &event) {
@@ -860,7 +886,7 @@ ErrCode ToolHeadLaser::SetOnlineSyncId(SSTP_Event_t &event) {
   event_hmi.length = 1;
   event_hmi.data = buff;
 
-  return hmi.Send(event_hmi);
+  return 0;
 }
 
 ErrCode ToolHeadLaser::GetOnlineSyncId(SSTP_Event_t &event) {
@@ -891,7 +917,7 @@ ErrCode ToolHeadLaser::GetOnlineSyncId(SSTP_Event_t &event) {
   event_tmp.length = 4;
   event_tmp.data = buff;
 
-  hmi.Send(event_tmp);
+  0;
 
   return E_SUCCESS;
 }
@@ -945,17 +971,17 @@ ErrCode ToolHeadLaser::LaserGetHWVersion() {
   buff[0] = cmd.data[0];
   event_tmp.length = 1;
   event_tmp.data = buff;
-  hmi.Send(event_tmp);
+  0;
 
   return E_SUCCESS;
 }
 
 void ToolHeadLaser::TellSecurityStatus() {
   SendSecurityStatus();
-  SERIAL_ECHO("Laser 10w security state: 0x");
-  SERIAL_PRINTLN(laser->security_status_, HEX);
+  // SERIAL_ECHO("Laser 10w security state: 0x");
+  // SERIAL_PRINTLN(laser->security_status_, HEX);
 
-  SERIAL_ECHOLNPAIR("Laser 10w temp: ", laser->laser_temperature_, ", imu temp: ", laser->imu_temperature_, ", roll: ", laser->roll_, ", pitch: ", laser->pitch_, ", pwm_pin_pulldown_state_: ", laser->pwm_pin_pulldown_state_, ", pwm_pin_pullup_state_: ", laser->pwm_pin_pullup_state_);
+  // SERIAL_ECHOLNPAIR("Laser 10w temp: ", laser->laser_temperature_, ", imu temp: ", laser->imu_temperature_, ", roll: ", laser->roll_, ", pitch: ", laser->pitch_, ", pwm_pin_pulldown_state_: ", laser->pwm_pin_pulldown_state_, ", pwm_pin_pullup_state_: ", laser->pwm_pin_pullup_state_);
 }
 
 uint8_t ToolHeadLaser::LaserGetPwmPinState() {

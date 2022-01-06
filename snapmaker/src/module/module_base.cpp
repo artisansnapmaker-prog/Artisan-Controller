@@ -24,7 +24,7 @@
 #include "../service/upgrade.h"
 #include "../common/protocol_sstp.h"
 #include "../common/debug.h"
-#include "../hmi/event_handler.h"
+#include "../host/event_handler.h"
 
 #include "linear.h"
 #include "enclosure.h"
@@ -36,11 +36,11 @@
 #include "purifier.h"
 
 // marlin headers
-#include "src/Marlin.h"
-#include "src/inc/MarlinConfig.h"
-#include "src/feature/bedlevel/abl/abl.h"
-#include "src/module/configuration_store.h"
-#include HAL_PATH(src/HAL, HAL.h)
+// #include "src/Marlin.h"
+// #include "src/inc/MarlinConfig.h"
+// #include "src/feature/bedlevel/abl/abl.h"
+// #include "src/module/configuration_store.h"
+// #include HAL_PATH(src/HAL, HAL.h)
 
 extern ToolHead3DP printer_single;
 
@@ -197,7 +197,7 @@ ErrCode ModuleBase::InitModule8p(MAC_t &mac, int dir_pin, uint8_t index) {
   cmd.data[MODULE_EXT_CMD_INDEX_ID]   = MODULE_EXT_CMD_CONFIG_REQ;
   cmd.data[MODULE_EXT_CMD_INDEX_DATA] = index;
 
-  WRITE(dir_pin, HIGH);
+  // WRITE(dir_pin, HIGH);
   vTaskDelay(pdMS_TO_TICKS(10));
 
   // didn't get ack from module
@@ -208,7 +208,7 @@ ErrCode ModuleBase::InitModule8p(MAC_t &mac, int dir_pin, uint8_t index) {
   if (cmd.data[MODULE_EXT_CMD_INDEX_DATA] != 1)
     return E_INVALID_STATE;
 
-  WRITE(dir_pin, LOW);
+  // WRITE(dir_pin, LOW);
 
   return E_SUCCESS;
 }
@@ -216,7 +216,7 @@ ErrCode ModuleBase::InitModule8p(MAC_t &mac, int dir_pin, uint8_t index) {
 
 void ModuleBase::LockMarlinUart(LockMarlinUartSource source) {
   lock_marlin_uart_ = true;
-  lock_marlin_source_ = max(lock_marlin_source_, source);
+  // lock_marlin_source_ = max(lock_marlin_source_, source);
 }
 
 
@@ -232,7 +232,7 @@ void ModuleBase::ReportMarlinUart() {
   switch (lock_marlin_source_) {
     case LOCK_SOURCE_NONE:
     case LOCK_SOURCE_ENCLOSURE:
-      SERIAL_ECHOLN(";Locked UART");
+      // SERIAL_ECHOLN(";Locked UART");
       break;
     case LOCK_SOURCE_EMERGENCY_STOP:
       break;
@@ -274,7 +274,8 @@ out:
   event.data[0] = canhost.SendExtCmdSync(cmd, 500);
 
 error:
-  return hmi.Send(event);
+  //return hmi.Send(event);
+  return 0;
 }
 
 
@@ -293,7 +294,8 @@ ErrCode ModuleBase::GetMAC(SSTP_Event_t &event) {
   event.data = buffer;
   event.length = (uint16_t)j;
 
-  return hmi.Send(event);
+  //return hmi.Send(event);
+  return 0;
 }
 
 
@@ -303,18 +305,18 @@ void ModuleBase::SetToolhead(ModuleToolHeadType toolhead) {
   bool need_saved = false;
 
   // if plugged non-3DP toolhead, will reset leveling data
-  if (toolhead != MODULE_TOOLHEAD_3DP) {
-    for (uint8_t x = 0; x < GRID_MAX_POINTS_X; x++)
-      for (uint8_t y = 0; y < GRID_MAX_POINTS_Y; y++) {
-        if (z_values[x][y] != DEFAUT_LEVELING_HEIGHT) {
-          z_values[x][y] = DEFAUT_LEVELING_HEIGHT;
-          need_saved = true;
-        }
-      }
-  }
+  // if (toolhead != MODULE_TOOLHEAD_3DP) {
+  //   for (uint8_t x = 0; x < GRID_MAX_POINTS_X; x++)
+  //     for (uint8_t y = 0; y < GRID_MAX_POINTS_Y; y++) {
+  //       if (z_values[x][y] != DEFAUT_LEVELING_HEIGHT) {
+  //         z_values[x][y] = DEFAUT_LEVELING_HEIGHT;
+  //         need_saved = true;
+  //       }
+  //     }
+  // }
 
   toolhead_ = toolhead;
-  set_min_planner_speed();
-  if (need_saved)
-    settings.save();
+  //set_min_planner_speed();
+  //if (need_saved)
+    //settings.save();
 }

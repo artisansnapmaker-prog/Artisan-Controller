@@ -20,13 +20,13 @@
  */
 #include "linear.h"
 
-#include "../common/config.h"
+#include "../config.h"
 #include "../common/debug.h"
-#include "../service/system.h"
+//#include "../service/system.h"
 
 // marlin headers
-#include "src/inc/MarlinConfig.h"
-#include "src/module/endstops.h"
+// #include "src/inc/MarlinConfig.h"
+// #include "src/module/endstops.h"
 
 Linear linear(MODULE_DEVICE_ID_LINEAR);
 Linear linear_tmc(MODULE_DEVICE_ID_LINEAR_TMC);
@@ -38,17 +38,18 @@ LinearAxisType Linear::DetectAxis(MAC_t &mac, uint8_t &endstop) {
   uint8_t     buffer[16];
 
   int i;
-  int pins[3] = {X_DIR_PIN, Y_DIR_PIN, Z_DIR_PIN};
+  // int pins[3] = {X_DIR_PIN, Y_DIR_PIN, Z_DIR_PIN};
+  int pins[3];
 
   cmd.mac    = mac;
   cmd.data   = buffer;
 
-  WRITE(X_DIR_PIN, LOW);
-  WRITE(Y_DIR_PIN, LOW);
-  WRITE(Z_DIR_PIN, LOW);
+  // WRITE(X_DIR_PIN, LOW);
+  // WRITE(Y_DIR_PIN, LOW);
+  // WRITE(Z_DIR_PIN, LOW);
 
   for (i = LINEAR_AXIS_X1; i <= LINEAR_AXIS_Z1; i++)  {
-    WRITE(pins[i], HIGH);
+    // WRITE(pins[i], HIGH);
 
     vTaskDelay(pdMS_TO_TICKS(10));
 
@@ -63,7 +64,7 @@ LinearAxisType Linear::DetectAxis(MAC_t &mac, uint8_t &endstop) {
       }
     }
 
-    WRITE(pins[i], LOW);
+    // WRITE(pins[i], LOW);
   }
 
   if (i > LINEAR_AXIS_Z1) {
@@ -72,7 +73,7 @@ LinearAxisType Linear::DetectAxis(MAC_t &mac, uint8_t &endstop) {
     i = LINEAR_AXIS_UNKNOWN;
   }
   else {
-    WRITE(pins[i], LOW);
+    // WRITE(pins[i], LOW);
   }
 
   return (LinearAxisType)i;
@@ -84,31 +85,31 @@ static void LinearCallbackEndstopX1(CanStdDataFrame_t &cmd) {
   {
   case MACHINE_SIZE_A250:
   case MACHINE_SIZE_A350:
-    linear_p->SetEndstopBit(X_MIN, cmd.data[0]);
+    //linear_p->SetEndstopBit(X_MIN, cmd.data[0]);
     break;
 
   case MACHINE_SIZE_A150:
   default:
-    linear_p->SetEndstopBit(X_MAX, cmd.data[0]);
+    // linear_p->SetEndstopBit(X_MAX, cmd.data[0]);
     break;
   }
 }
 
 
 static void LinearCallbackEndstopY1(CanStdDataFrame_t &cmd) {
-  linear_p->SetEndstopBit(Y_MAX, cmd.data[0]);
+  // linear_p->SetEndstopBit(Y_MAX, cmd.data[0]);
 }
 
 static void LinearCallbackEndstopY2(CanStdDataFrame_t &cmd) {
-  linear_p->SetEndstopBit(Y_MAX, cmd.data[0]);
+  // linear_p->SetEndstopBit(Y_MAX, cmd.data[0]);
 }
 
 static void LinearCallbackEndstopZ1(CanStdDataFrame_t &cmd) {
-  linear_p->SetEndstopBit(Z_MAX, cmd.data[0]);
+  // linear_p->SetEndstopBit(Z_MAX, cmd.data[0]);
 }
 
 static void LinearCallbackEndstopZ2(CanStdDataFrame_t &cmd) {
-  linear_p->SetEndstopBit(Z_MAX, cmd.data[0]);
+  // linear_p->SetEndstopBit(Z_MAX, cmd.data[0]);
 }
 
 
@@ -132,7 +133,7 @@ ErrCode Linear::Init(MAC_t &mac, uint8_t mac_index) {
     return E_FAILURE;
   }
 
-  LOG_I("\tGot axis %c, endstop: %u\n", axis_codes[type], endstop);
+  // LOG_I("\tGot axis %c, endstop: %u\n", axis_codes[type], endstop);
 
   // check if X/Y/Z-1 is exist
   if (mac_index_[type] != 0xFF) {
@@ -233,27 +234,28 @@ ErrCode Linear::CheckModuleType() {
   uint32_t id;
   MAC_t mac_t;
   // Initialize variables before detecting errors to avoid M999 movement errors
-  float axis_steps_per_unit[] = DEFAULT_AXIS_STEPS_PER_UNIT;
+  // float axis_steps_per_unit[] = DEFAULT_AXIS_STEPS_PER_UNIT;
+  float axis_steps_per_unit[4];
   if ((mac_index_[LINEAR_AXIS_X1] != 0xff) || (mac_index_[LINEAR_AXIS_X2] != 0xff)) {
-    axis_steps_per_unit[X_AXIS] = mac_index_[LINEAR_AXIS_X1] != 0xff ? lead_[LINEAR_AXIS_X1] : lead_[LINEAR_AXIS_X2];
+    // axis_steps_per_unit[X_AXIS] = mac_index_[LINEAR_AXIS_X1] != 0xff ? lead_[LINEAR_AXIS_X1] : lead_[LINEAR_AXIS_X2];
   }
 
   if ((mac_index_[LINEAR_AXIS_Y1] != 0xff) || (mac_index_[LINEAR_AXIS_Y2] != 0xff)) {
-    axis_steps_per_unit[Y_AXIS] = mac_index_[LINEAR_AXIS_Y1] != 0xff ? lead_[LINEAR_AXIS_Y1] : lead_[LINEAR_AXIS_Y2];
+    // axis_steps_per_unit[Y_AXIS] = mac_index_[LINEAR_AXIS_Y1] != 0xff ? lead_[LINEAR_AXIS_Y1] : lead_[LINEAR_AXIS_Y2];
   }
 
   if ((mac_index_[LINEAR_AXIS_Z1] != 0xff) || (mac_index_[LINEAR_AXIS_Z2] != 0xff) || (mac_index_[LINEAR_AXIS_Z3] != 0xff)) {
-    axis_steps_per_unit[Z_AXIS] = mac_index_[LINEAR_AXIS_Z1] != 0xff ? lead_[LINEAR_AXIS_Z1] : mac_index_[LINEAR_AXIS_Z2] != 0xff ? lead_[LINEAR_AXIS_Z2] : lead_[LINEAR_AXIS_Z3];
+    // axis_steps_per_unit[Z_AXIS] = mac_index_[LINEAR_AXIS_Z1] != 0xff ? lead_[LINEAR_AXIS_Z1] : mac_index_[LINEAR_AXIS_Z2] != 0xff ? lead_[LINEAR_AXIS_Z2] : lead_[LINEAR_AXIS_Z3];
   }
 
-  LOOP_XYZ(i) {
-    if (!planner.is_user_set_lead) {
-      planner.settings.axis_steps_per_mm[i] = axis_steps_per_unit[i];
-    }
-    SERIAL_ECHOLNPAIR("axis index:", i, "  pitch:", planner.settings.axis_steps_per_mm[i]);
-  }
+  // LOOP_XYZ(i) {
+  //   if (!planner.is_user_set_lead) {
+  //     planner.settings.axis_steps_per_mm[i] = axis_steps_per_unit[i];
+  //   }
+  //   SERIAL_ECHOLNPAIR("axis index:", i, "  pitch:", planner.settings.axis_steps_per_mm[i]);
+  // }
 
-  planner.refresh_positioning();
+  // planner.refresh_positioning();
 
   // check if all linear modules are the same generation
   for (i = LINEAR_AXIS_X1; i < LINEAR_AXIS_MAX; i++) {
@@ -266,7 +268,7 @@ ErrCode Linear::CheckModuleType() {
     }
     else if (device_id != id) {
       LOG_I("device id error\n");
-      systemservice.ThrowException(EHOST_LINEAR, ETYPE_LINEAR_MODULE_DIFF_DRIVER);
+      //systemservice.ThrowException(EHOST_LINEAR, ETYPE_LINEAR_MODULE_DIFF_DRIVER);
       return E_FAILURE;
     }
   }
@@ -282,7 +284,7 @@ ErrCode Linear::CheckModuleType() {
         case LINEAR_AXIS_Y1:
         case LINEAR_AXIS_Y2:
           if (lead_[i] != MODULE_LINEAR_PITCH_20) {
-            systemservice.ThrowException(EHOST_LINEAR, ETYPE_LINEAR_MODULE_LEAD_ERROR);
+            //systemservice.ThrowException(EHOST_LINEAR, ETYPE_LINEAR_MODULE_LEAD_ERROR);
             return E_FAILURE;
           }
           break;
@@ -290,7 +292,7 @@ ErrCode Linear::CheckModuleType() {
         case LINEAR_AXIS_Z2:
         case LINEAR_AXIS_Z3:
           if (lead_[i] != MODULE_LINEAR_PITCH_8) {
-            systemservice.ThrowException(EHOST_LINEAR, ETYPE_LINEAR_MODULE_LEAD_ERROR);
+            //systemservice.ThrowException(EHOST_LINEAR, ETYPE_LINEAR_MODULE_LEAD_ERROR);
             return E_FAILURE;
           }
           break;
@@ -351,99 +353,99 @@ MachineSize Linear::UpdateMachineSize() {
     if (length_[LINEAR_AXIS_X1] < 200 &&
         length_[LINEAR_AXIS_Y1] < 200 &&
         length_[LINEAR_AXIS_Z1] < 200) {
-      X_HOME_DIR = 1;
-      X_DIR = false;
-      Y_HOME_DIR = 1;
-      Y_DIR = false;
-      Z_HOME_DIR = 1;
-      Z_DIR = false;
+      // X_HOME_DIR = 1;
+      // //X_DIR = false;
+      // Y_HOME_DIR = 1;
+      // //Y_DIR = false;
+      // Z_HOME_DIR = 1;
+      // //Z_DIR = false;
     } else {
-      X_HOME_DIR = -1;
-      X_DIR = true;
-      Y_HOME_DIR = 1;
-      Y_DIR = false;
-      Z_HOME_DIR = 1;
-      Z_DIR = false;
+      // X_HOME_DIR = -1;
+      // //X_DIR = true;
+      // Y_HOME_DIR = 1;
+      // //Y_DIR = false;
+      // Z_HOME_DIR = 1;
+      // //Z_DIR = false;
     }
-    X_MAX_POS = length_[LINEAR_AXIS_X1];
-    Y_MAX_POS = length_[LINEAR_AXIS_Y1];
-    Z_MAX_POS = length_[LINEAR_AXIS_Z1];
-    UpdateMachineDefines();
-    systemservice.ThrowException(EHOST_LINEAR, ETYPE_NO_HOST);
+    // X_MAX_POS = length_[LINEAR_AXIS_X1];
+    // Y_MAX_POS = length_[LINEAR_AXIS_Y1];
+    // Z_MAX_POS = length_[LINEAR_AXIS_Z1];
+    // UpdateMachineDefines();
+    //systemservice.ThrowException(EHOST_LINEAR, ETYPE_NO_HOST);
     return (machine_size_ = MACHINE_SIZE_UNKNOWN);
   } else if (length_[LINEAR_AXIS_X1] < 200) {
     LOG_I("Model: A150\n");
-    X_MAX_POS = 167;
-    Y_MAX_POS = 165;
-    Z_MAX_POS = 150;
-    X_HOME_DIR = 1;
-    X_DIR = false;
-    Y_HOME_DIR = 1;
-    Y_DIR = false;
-    Z_HOME_DIR = 1;
-    Z_DIR = false;
+    // X_MAX_POS = 167;
+    // Y_MAX_POS = 165;
+    // Z_MAX_POS = 150;
+    // X_HOME_DIR = 1;
+    // //X_DIR = false;
+    // Y_HOME_DIR = 1;
+    // //Y_DIR = false;
+    // Z_HOME_DIR = 1;
+    // //Z_DIR = false;
 
-    LOOP_XN(i) home_offset[i] = s_home_offset[i];
+    // LOOP_XN(i) home_offset[i] = s_home_offset[i];
 
-    X_DEF_SIZE = 160;
-    Y_DEF_SIZE = 160;
-    Z_DEF_SIZE = 145;
+    // X_DEF_SIZE = 160;
+    // Y_DEF_SIZE = 160;
+    // Z_DEF_SIZE = 145;
 
-    MAGNET_X_SPAN = 114;
-    MAGNET_Y_SPAN = 114;
+    // MAGNET_X_SPAN = 114;
+    // MAGNET_Y_SPAN = 114;
 
     machine_size_ = MACHINE_SIZE_A150;
 
   } else if (length_[LINEAR_AXIS_X1] < 300) {
     LOG_I("Model: A250\n");
-    X_MAX_POS = 252;
-    Y_MAX_POS = 260;
-    Z_MAX_POS = 235;
-    X_HOME_DIR = -1;
-    X_DIR = true;
-    Y_HOME_DIR = 1;
-    Y_DIR = false;
-    Z_HOME_DIR = 1;
-    Z_DIR = false;
+    // X_MAX_POS = 252;
+    // Y_MAX_POS = 260;
+    // Z_MAX_POS = 235;
+    // X_HOME_DIR = -1;
+    // //X_DIR = true;
+    // Y_HOME_DIR = 1;
+    // //Y_DIR = false;
+    // Z_HOME_DIR = 1;
+    // //Z_DIR = false;
 
-    LOOP_XN(i) home_offset[i] = m_home_offset[i];
+    // LOOP_XN(i) home_offset[i] = m_home_offset[i];
 
-    X_DEF_SIZE = 230;
-    Y_DEF_SIZE = 250;
-    Z_DEF_SIZE = 235;
+    // X_DEF_SIZE = 230;
+    // Y_DEF_SIZE = 250;
+    // Z_DEF_SIZE = 235;
 
-    MAGNET_X_SPAN = 184;
-    MAGNET_Y_SPAN = 204;
+    // MAGNET_X_SPAN = 184;
+    // MAGNET_Y_SPAN = 204;
 
     machine_size_ = MACHINE_SIZE_A250;
   } else if (length_[LINEAR_AXIS_X1] < 400) {
     LOG_I("Model: A350\n");
-    X_MAX_POS = 345;
-    Y_MAX_POS = 357;
-    Z_MAX_POS = 334;
-    X_HOME_DIR = -1;
-    X_DIR = true;
-    Y_HOME_DIR = 1;
-    Y_DIR = false;
-    Z_HOME_DIR = 1;
-    Z_DIR = false;
+    // X_MAX_POS = 345;
+    // Y_MAX_POS = 357;
+    // Z_MAX_POS = 334;
+    // X_HOME_DIR = -1;
+    // //X_DIR = true;
+    // Y_HOME_DIR = 1;
+    // //Y_DIR = false;
+    // Z_HOME_DIR = 1;
+    // //Z_DIR = false;
 
-    LOOP_XN(i) home_offset[i] = l_home_offset[i];
+    // LOOP_XN(i) home_offset[i] = l_home_offset[i];
 
-    X_DEF_SIZE = 320;
-    Y_DEF_SIZE = 340;
-    Z_DEF_SIZE = 330; // unused & spec is lager than actual size.  334 - 6 = 328?
+    // X_DEF_SIZE = 320;
+    // Y_DEF_SIZE = 340;
+    // Z_DEF_SIZE = 330; // unused & spec is lager than actual size.  334 - 6 = 328?
 
-    MAGNET_X_SPAN = 274;
-    MAGNET_Y_SPAN = 304;
+    // MAGNET_X_SPAN = 274;
+    // MAGNET_Y_SPAN = 304;
 
     machine_size_ = MACHINE_SIZE_A350;
   }
 
-  UpdateMachineDefines();
-  endstops.reinit_hit_status();
+  //UpdateMachineDefines();
+  //endstops.reinit_hit_status();
   PollEndstop(LINEAR_AXIS_ALL);
-  systemservice.ClearException(EHOST_MC, ETYPE_NO_HOST);
+  //systemservice.ClearException(EHOST_MC, ETYPE_NO_HOST);
   return machine_size_;
 }
 
@@ -483,7 +485,8 @@ out:
   event.data[0] = canhost.SendExtCmdSync(cmd, 500);
 
 error:
-  return hmi.Send(event);
+  //return hmi.Send(event);
+  return 0;
 }
 
 
@@ -524,5 +527,6 @@ ErrCode Linear::GetLengthOrLead(SSTP_Event_t &event, uint8_t ext_cmd) {
   event.data   = buffer;
   event.length = (uint16_t)j;
 
-  return hmi.Send(event);
+  //return hmi.Send(event);
+  return 0;
 }

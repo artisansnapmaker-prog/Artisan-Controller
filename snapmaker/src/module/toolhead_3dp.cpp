@@ -20,16 +20,16 @@
  */
 #include "toolhead_3dp.h"
 
-#include "../common/config.h"
+#include "../config.h"
 #include "common/debug.h"
 
 // marlin headers
-#include "src/core/macros.h"
-#include "src/core/boards.h"
-#include "Configuration.h"
-#include "src/pins/pins.h"
-#include "src/inc/MarlinConfig.h"
-#include HAL_PATH(src/HAL, HAL.h)
+//#include "src/core/macros.h"
+// #include "src/core/boards.h"
+// #include "Configuration.h"
+// #include "src/pins/pins.h"
+// #include "src/inc/MarlinConfig.h"
+// #include HAL_PATH(src/HAL, HAL.h)
 
 ToolHead3DP printer_single(MODULE_DEVICE_ID_3DP_SINGLE);
 
@@ -63,12 +63,12 @@ void ToolHead3DP::GetFilamentState() {
 }
 
 void ToolHead3DP::IOInit(void) {
-  SET_OUTPUT(E0_STEP_PIN);
+  // SET_OUTPUT(E0_STEP_PIN);
 
-  SET_OUTPUT(E0_DIR_PIN);
+  // SET_OUTPUT(E0_DIR_PIN);
 
-  SET_OUTPUT(E0_ENABLE_PIN);
-  if (!E_ENABLE_ON) WRITE(E0_ENABLE_PIN, HIGH);
+  // SET_OUTPUT(E0_ENABLE_PIN);
+  // if (!E_ENABLE_ON) WRITE(E0_ENABLE_PIN, HIGH);
 }
 
 
@@ -87,7 +87,8 @@ ErrCode ToolHead3DP::Init(MAC_t &mac, uint8_t mac_index) {
 
   CanStdCmdCallback_t cb = NULL;
 
-  ret = ModuleBase::InitModule8p(mac, E0_DIR_PIN, 0);
+  // extern pin_t E0_DIR_PIN_var;
+  // ret = ModuleBase::InitModule8p(mac, E0_DIR_PIN_var, 0);
   if (ret != E_SUCCESS)
     return ret;
 

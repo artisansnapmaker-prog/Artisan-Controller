@@ -20,15 +20,15 @@
  */
 
 #include "debug.h"
-#include "../service/system.h"
-#include "../service/power_loss_recovery.h"
+//#include "../service/system.h"
+//#include "../service/power_loss_recovery.h"
 #include "../snapmaker.h"
 
 // marlin headers
-#include "src/Marlin.h"
-#include "src/gcode/gcode.h"
-#include "src/module/motion.h"
-#include "src/core/minmax.h"
+// #include "src/Marlin.h"
+// #include "src/gcode/gcode.h"
+// #include "src/module/motion.h"
+// #include "src/core/minmax.h"
 
 #if (SNAP_DEBUG == 1)
 
@@ -94,27 +94,28 @@ const char *snap_debug_str[SNAP_DEBUG_LEVEL_MAX] = {
 
 
 void SnapDebug::SendLog2Screen(SnapDebugLevel l) {
-  SSTP_Event_t event = {EID_SYS_CTRL_ACK, SYSCTL_OPC_TRANS_LOG};
+  // SSTP_Event_t event = {EID_SYS_CTRL_ACK, SYSCTL_OPC_TRANS_LOG};
 
-  int size = strlen(log_buf+2);
+  // int size = strlen(log_buf+2);
 
-  if (size == 0)
-    return;
-  else if (size >= 255) {
-    size = 255;
-    log_buf[255 + 2] = '\0';
-  }
+  // if (size == 0)
+  //   return;
+  // else if (size >= 255) {
+  //   size = 255;
+  //   log_buf[255 + 2] = '\0';
+  // }
 
-  // to include the end '\0'
-  size++;
+  // // to include the end '\0'
+  // size++;
 
-  log_buf[0] = l;
-  log_buf[1] = size;
+  // log_buf[0] = l;
+  // log_buf[1] = size;
 
-  event.length = size + 2;
-  event.data = (uint8_t *)log_buf;
+  // event.length = size + 2;
+  // event.data = (uint8_t *)log_buf;
 
-  hmi.Send(event);
+  // hmi.Send(event);
+  return;
 }
 
 // output debug message, will not output message whose level
@@ -175,7 +176,8 @@ ErrCode SnapDebug::SetLogLevel(SSTP_Event_t &event) {
     event.data[0] = E_SUCCESS;
   }
 
-  return hmi.Send(event);
+  //return hmi.Send(event);
+  return 0;
 }
 
 
@@ -200,23 +202,24 @@ void SnapDebug::CmdChecksumError(bool screen) {
 void SnapDebug::ShowInfo() {
   char tmp_buf[100];
 
-  SERIAL_ECHOPAIR("systat: ", systemservice.GetCurrentStatus(), "\n");
-  SERIAL_ECHOPAIR("SC checksum error: ", info.screen_cmd_checksum_err, "\n");
-  SERIAL_ECHOPAIR("Last recv line: ", systemservice.current_line(), "\n");
-  SERIAL_ECHOPAIR("Last ack line: ", info.last_line_num_of_sc_gcode, "\n");
-  SERIAL_ECHOPAIR("Last st line: ", pl_recovery.LastLine(), "\n");
-  sprintf(tmp_buf, "Fault: 0x%08X, action ban: 0x%X, power ban: 0x%X\n",
-        (int)systemservice.GetFaultFlag(), (int)action_ban, (int)power_ban);
-  SERIAL_ECHOPAIR(tmp_buf);
-  sprintf(tmp_buf, "Homing: 0x%X, axes_known: 0x%X\n", axis_homed, axis_known_position);
-  SERIAL_ECHOPAIR(tmp_buf);
-  SERIAL_ECHOPAIR("active coordinate: ", gcode.active_coordinate_system, "\n");
-  SERIAL_ECHOPAIR("coordinate 1: X: ", gcode.coordinate_system[0][X_AXIS], "Y: ", gcode.coordinate_system[0][Y_AXIS], "Z: ", gcode.coordinate_system[0][Z_AXIS], "B: ", gcode.coordinate_system[0][B_AXIS], "\n");
+  // SERIAL_ECHOPAIR("systat: ", systemservice.GetCurrentStatus(), "\n");
+  // SERIAL_ECHOPAIR("SC checksum error: ", info.screen_cmd_checksum_err, "\n");
+  // SERIAL_ECHOPAIR("Last recv line: ", systemservice.current_line(), "\n");
+  // SERIAL_ECHOPAIR("Last ack line: ", info.last_line_num_of_sc_gcode, "\n");
+  // SERIAL_ECHOPAIR("Last st line: ", pl_recovery.LastLine(), "\n");
+  // sprintf(tmp_buf, "Fault: 0x%08X, action ban: 0x%X, power ban: 0x%X\n",
+  //       (int)systemservice.GetFaultFlag(), (int)action_ban, (int)power_ban);
+  // SERIAL_ECHOPAIR(tmp_buf);
+  // sprintf(tmp_buf, "Homing: 0x%X, axes_known: 0x%X\n", axis_homed, axis_known_position);
+  // SERIAL_ECHOPAIR(tmp_buf);
+  // SERIAL_ECHOPAIR("active coordinate: ", gcode.active_coordinate_system, "\n");
+  // SERIAL_ECHOPAIR("coordinate 1: X: ", gcode.coordinate_system[0][X_AXIS], "Y: ", gcode.coordinate_system[0][Y_AXIS], "Z: ", gcode.coordinate_system[0][Z_AXIS], "B: ", gcode.coordinate_system[0][B_AXIS], "\n");
 }
 
 void SnapDebug::ShowException() {
   uint8_t i;
-  uint32_t fault_flag = systemservice.GetFaultFlag();
+  //uint32_t fault_flag = systemservice.GetFaultFlag();
+  uint32_t fault_flag = 0;
 
   if (!fault_flag) {
     Log(SNAP_DEBUG_LEVEL_INFO, "No excption happened!\n");

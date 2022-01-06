@@ -22,7 +22,10 @@
 #include "purifier.h"
 #include "../common/debug.h"
 #include "can_host.h"
-#include "src/inc/MarlinConfig.h"
+// #include "src/inc/MarlinConfig.h"
+#include "../host/event_handler.h"
+
+#include <Arduino.h>
 
 Purifier purifier;
 
@@ -32,17 +35,17 @@ void Purifier::DisplayErrInfo(uint8_t err) {
   if (!err) {
     return;
   }
-  LOG_E("%s err code:%#X\n", TAG,err);
-  if (TEST(err, ERR_ADDON_POWER))
-    LOG_E("%s addon power err\n", TAG);
-  if (TEST(err, ERR_EXTEND_POWER))
-    LOG_E("%s extand power err\n", TAG);
-  if (TEST(err, ERR_FAN_SPEED_TOO_LOW))
-    LOG_E("%s fan speed too low\n", TAG);
-  if (TEST(err, ERR_NO_FILTER))
-    LOG_E("%s no filter\n", TAG);
-  if (TEST(err, ERR_ELEC_TOO_HIGH))
-    LOG_E("%s fan electricity too high\n", TAG);
+  // LOG_E("%s err code:%#X\n", TAG,err);
+  // if (TEST(err, ERR_ADDON_POWER))
+  //   LOG_E("%s addon power err\n", TAG);
+  // if (TEST(err, ERR_EXTEND_POWER))
+  //   LOG_E("%s extand power err\n", TAG);
+  // if (TEST(err, ERR_FAN_SPEED_TOO_LOW))
+  //   LOG_E("%s fan speed too low\n", TAG);
+  // if (TEST(err, ERR_NO_FILTER))
+  //   LOG_E("%s no filter\n", TAG);
+  // if (TEST(err, ERR_ELEC_TOO_HIGH))
+  //   LOG_E("%s fan electricity too high\n", TAG);
 }
 
 void Purifier::DisplayInfo() {
@@ -211,7 +214,8 @@ ErrCode Purifier::ReportStatus() {
     GetInfo(PURIFIER_INFO_ERR, 200);
     if (!info_.err) {
       buff[0] = 0;  // online and normal
-    } else if (TEST(info_.err, ERR_EXTEND_POWER)) {
+    // } else if (TEST(info_.err, ERR_EXTEND_POWER)) {
+    } else if (info_.err & (1<<ERR_EXTEND_POWER)) {
       buff[0] = 2;  // online but power loss
     } else {
       buff[0] = 3;  // online but error
@@ -226,7 +230,8 @@ ErrCode Purifier::ReportStatus() {
   event.data = buff;
   LOG_I("SC req purifier sta:%d, err:0x%x\n", buff[0], buff[1]);
 
-  return hmi.Send(event);
+  //return hmi.Send(event);
+  return 0;
 }
 
 ErrCode Purifier::ReportLifetimeStatus() {
@@ -239,7 +244,8 @@ ErrCode Purifier::ReportLifetimeStatus() {
   event.data = buff;
   LOG_I("SC req purifier lifetime sta:%d\n", buff[0]);
 
-  return hmi.Send(event);
+  //return hmi.Send(event);
+  return 0;
 }
 
 void Purifier::ErrCheckLoop() {

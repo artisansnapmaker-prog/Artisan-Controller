@@ -19,11 +19,17 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "can_channel.h"
-#include "../common/config.h"
+#include "../config.h"
 #include "../common/debug.h"
 
-#include "src/inc/MarlinConfig.h"
-#include HAL_PATH(src/HAL, HAL_can_STM32F1.h)
+// #include "src/inc/MarlinConfig.h"
+//#include HAL_PATH(src/HAL, HAL_can_STM32F1.h)
+
+#define FRAME_DATA  0
+#define FRAME_REMOTE  1
+
+#define IDTYPE_STDID  0
+#define IDTYPE_EXTID  1
 
 CanChannel can;
 
@@ -53,7 +59,7 @@ ErrCode CanChannel::Init(CANIrqCallback_t irq_cb) {
 
   irq_cb_ = irq_cb;
 
-  CanInit();
+  //CanInit();
 
   return E_SUCCESS;
 }
@@ -75,25 +81,25 @@ ErrCode CanChannel::Write(CanPacket_t &packet) {
       return E_PARAM;
     }
 
-    ret_send = CanSendPacked(packet.id, IDTYPE_STDID, packet.ch + 1, FRAME_DATA, packet.length, packet.data);
+    //ret_send = CanSendPacked(packet.id, IDTYPE_STDID, packet.ch + 1, FRAME_DATA, packet.length, packet.data);
 
     break;
 
   case CAN_FRAME_EXT_DATA:
     for (int32_t  i = 0; i < packet.length; i += 8) {
-      if (packet.length - i > 8)
-        ret_send = CanSendPacked(packet.id, IDTYPE_EXTID, packet.ch + 1, FRAME_DATA, 8, packet.data + i);
-      else
-        ret_send = CanSendPacked(packet.id, IDTYPE_EXTID, packet.ch + 1, FRAME_DATA, packet.length - i, packet.data + i);
+      //if (packet.length - i > 8)
+        //ret_send = CanSendPacked(packet.id, IDTYPE_EXTID, packet.ch + 1, FRAME_DATA, 8, packet.data + i);
+      //else
+        //ret_send = CanSendPacked(packet.id, IDTYPE_EXTID, packet.ch + 1, FRAME_DATA, packet.length - i, packet.data + i);
     }
     break;
 
   case CAN_FRAME_EXT_REMOTE:
-    ret_send = CanSendPacked(packet.id, IDTYPE_EXTID, packet.ch + 1, FRAME_REMOTE, 0, 0);
+    //ret_send = CanSendPacked(packet.id, IDTYPE_EXTID, packet.ch + 1, FRAME_REMOTE, 0, 0);
     break;
 
   case CAN_FRAME_STD_REMOTE:
-    ret_send = CanSendPacked(packet.id, IDTYPE_STDID, packet.ch + 1, FRAME_REMOTE, 0, 0);
+    //ret_send = CanSendPacked(packet.id, IDTYPE_STDID, packet.ch + 1, FRAME_REMOTE, 0, 0);
     break;
 
   default:
@@ -189,11 +195,13 @@ void CanChannel::Irq(CanChannelNumber ch,  uint8_t fifo_index) {
   // read data
   switch (ch) {
   case CAN_CH_1:
-    filter_index = Canbus1ParseData(&can_id, &id_type, &frame_type, std_data_frame.data, &length, fifo_index);
+    //filter_index = Canbus1ParseData(&can_id, &id_type, &frame_type, std_data_frame.data, &length, fifo_index);
+    filter_index = 0;
     break;
 
   case CAN_CH_2:
-    filter_index = Canbus2ParseData(&can_id, &id_type, &frame_type, std_data_frame.data, &length, fifo_index);
+    //filter_index = Canbus2ParseData(&can_id, &id_type, &frame_type, std_data_frame.data, &length, fifo_index);
+    filter_index = 1;
     break;
 
   default:

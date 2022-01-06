@@ -24,16 +24,16 @@
 #include "module_base.h"
 #include "can_host.h"
 
-#include "../common/config.h"
+#include "../config.h"
 
 #define TOOLHEAD_3DP_FAN_MAX    (2)
 
-#define EXTRUDERS 1
+#define SUPPORT_EXTRUDERS 2
 
 class ToolHead3DP: public ModuleBase {
   public:
     ToolHead3DP(ModuleDeviceID id): ModuleBase(id) {
-      for (int i = 0; i < EXTRUDERS; i++) {
+      for (int i = 0; i < SUPPORT_EXTRUDERS; i++) {
         cur_temp_[i]  = 0;
       }
 
@@ -70,7 +70,7 @@ class ToolHead3DP: public ModuleBase {
     }
 
     void probe_state(uint8_t state, uint8_t extrude_index=0) {
-      if (extrude_index >= EXTRUDERS)
+      if (extrude_index >= SUPPORT_EXTRUDERS)
         return;
 
       if (state)
@@ -83,7 +83,7 @@ class ToolHead3DP: public ModuleBase {
     }
 
     void filament_state(uint8_t state, uint8_t extrude_index=0) {
-      if (extrude_index >= EXTRUDERS)
+      if (extrude_index >= SUPPORT_EXTRUDERS)
         return;
 
       if (state)
@@ -96,13 +96,13 @@ class ToolHead3DP: public ModuleBase {
     }
 
     void SetTemp(int16_t temp, uint8_t extrude_index=0) {
-      if (extrude_index >= EXTRUDERS)
+      if (extrude_index >= SUPPORT_EXTRUDERS)
         return;
 
       cur_temp_[extrude_index] = temp;
     }
     int16_t GetTemp(uint8_t extrude_index=0) {
-      if (extrude_index >= EXTRUDERS)
+      if (extrude_index >= SUPPORT_EXTRUDERS)
         return 0;
 
       return cur_temp_[extrude_index];
@@ -116,7 +116,7 @@ class ToolHead3DP: public ModuleBase {
 
     uint16_t timer_in_process_;
 
-    int16_t cur_temp_[EXTRUDERS];
+    int16_t cur_temp_[SUPPORT_EXTRUDERS];
     uint8_t  fan_speed_[TOOLHEAD_3DP_FAN_MAX];
 
     // 1 bit indicates one sensor

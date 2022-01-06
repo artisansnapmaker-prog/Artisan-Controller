@@ -25,7 +25,7 @@
 
 // marlin headers
 #include "src/core/serial.h"
-#include "src/libs/hex_print_routines.h"
+//#include "src/libs/hex_print_routines.h"
 
 #define LOG_HEAD  "SSTP: "
 #define TIMEOUT_FOR_HEADER      (2)

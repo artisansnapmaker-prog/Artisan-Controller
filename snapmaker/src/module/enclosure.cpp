@@ -20,10 +20,10 @@
  */
 #include "enclosure.h"
 
-#include "../common/config.h"
+#include "../config.h"
 #include "../common/debug.h"
 #include "../module/toolhead_laser.h"
-#include "../service/system.h"
+//#include "../service/system.h"
 
 Enclosure enclosure;
 
@@ -129,18 +129,16 @@ ErrCode Enclosure::SetFanSpeed(uint8_t speed) {
 
 void Enclosure::ReportStatus() {
   if (IsOnline()) {
-    SERIAL_ECHOLN("Enclosure online: On");
-    SERIAL_ECHO("Enclosure: ");
-    SERIAL_ECHOLN((enabled_)? "On" : "Off");
-    SERIAL_ECHO("Enclosure door: ");
-    SERIAL_ECHOLN((door_state_ == ENCLOSURE_DOOR_STATE_OPEN)? "Open" : "Closed");
-    SERIAL_ECHO("Enclosure light power: ");
-    SERIAL_PRINTLN(brightness_, DEC);
-    SERIAL_ECHO("Enclosure fan power: ");
-    SERIAL_PRINTLN(fan_speed_, DEC);
+    LOG_I("Enclosure online: On");
+    LOG_I("Enclosure: ");
+    LOG_I((enabled_)? "On" : "Off\n");
+    LOG_I("Enclosure door: ");
+    LOG_I((door_state_ == ENCLOSURE_DOOR_STATE_OPEN)? "Open\n" : "Closed\n");
+    LOG_I("Enclosure light power: %d\n", brightness_);
+    LOG_I("Enclosure fan power: %d\n", fan_speed_);
   }
   else {
-    SERIAL_ECHOLN("Enclosure online: Off");
+    LOG_I("Enclosure online: Off\n");
   }
 }
 
@@ -178,7 +176,7 @@ void Enclosure::Enable() {
 
 void Enclosure::HandleDoorOpened() {
   LOG_I("door opened!\n");
-  systemservice.PauseTrigger(TRIGGER_SOURCE_DOOR_OPEN);
+  //systemservice.PauseTrigger(TRIGGER_SOURCE_DOOR_OPEN);
   if (laser->IsOnline())
     laser->SetPowerLimit(TOOLHEAD_LASER_POWER_SAFE_LIMIT);
 
@@ -188,7 +186,7 @@ void Enclosure::HandleDoorOpened() {
 
 void Enclosure::HandleDoorClosed() {
   LOG_I("door closed!\n");
-  systemservice.ClearSystemFaultBit(FAULT_FLAG_DOOR_OPENED);
+  //systemservice.ClearSystemFaultBit(FAULT_FLAG_DOOR_OPENED);
 
   if (laser->IsOnline())
     laser->SetPowerLimit(TOOLHEAD_LASER_POWER_NORMAL_LIMIT);
@@ -249,7 +247,8 @@ ErrCode Enclosure::ReportStatus(SSTP_Event_t &event) {
   event.length = 4;
   event.data = buff;
 
-  return hmi.Send(event);
+  //return hmi.Send(event);
+  return 0;
 }
 
 ErrCode Enclosure::SetLightBar(SSTP_Event_t &event) {
@@ -267,7 +266,8 @@ OUT:
   event.data = &err;
   event.length = 1;
 
-  return hmi.Send(event);
+  //return hmi.Send(event);
+  return 0;
 }
 
 ErrCode Enclosure::SetFan(SSTP_Event_t &event) {
@@ -285,7 +285,8 @@ OUT:
   event.data = &err;
   event.length = 1;
 
-  return hmi.Send(event);
+  //return hmi.Send(event);
+  return 0;
 }
 
 ErrCode Enclosure::SetDetection(SSTP_Event_t &event) {
@@ -314,5 +315,6 @@ OUT:
   event.data = &err;
   event.length = 1;
 
-  return hmi.Send(event);
+  //return hmi.Send(event);
+  return 0;
 }

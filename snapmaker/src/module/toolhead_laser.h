@@ -23,6 +23,7 @@
 
 #include "module_base.h"
 #include "can_host.h"
+#include "../host/uart_host.h"
 
 #define TOOLHEAD_LASER_POWER_SAFE_LIMIT   (0.5)
 #define TOOLHEAD_LASER_POWER_NORMAL_LIMIT (100)
@@ -195,7 +196,7 @@ class ToolHeadLaser: public ModuleBase {
     uint16_t focus_;
     message_id_t msg_id_set_fan_;
     message_id_t msg_id_get_focus_;
-    //UartHost esp32_;
+    UartHost esp32_;
 
     bool laser_pwm_pin_checked_;
     uint8_t pwm_pin_pullup_state_;

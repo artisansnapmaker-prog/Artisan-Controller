@@ -23,7 +23,7 @@
 #include "../common/debug.h"
 #include "../snapmaker.h"
 
-#include "src/Marlin.h"
+//#include "src/Marlin.h"
 
 #define CAN_CHANNEL_MASK      (0x3)
 #define CAN_CHANNEL_SHIFT     (10)
@@ -425,7 +425,8 @@ void CanHost::EventHandler(void *parameter) {
   uint16_t length = 0;
   MAC_t   mac;
 
-  EventGroupHandle_t event_group = ((SnapmakerHandle_t)parameter)->event_group;
+  //EventGroupHandle_t event_group = ((SnapmakerHandle_t)parameter)->event_group;
+  EventGroupHandle_t event_group = NULL;
 
   CanPacket_t pkt = {CAN_CH_2, CAN_FRAME_EXT_REMOTE, 0x01, 0, 0};
 
@@ -507,7 +508,7 @@ ErrCode CanHost::AssignMessageRegion() {
   }
 
   if (total_message >= MODULE_SUPPORT_MESSAGE_ID_MAX) {
-    SERIAL_ECHOLN("message is not enough for used!");
+    //SERIAL_ECHOLN("message is not enough for used!");
     return E_NO_RESRC;
   }
 
@@ -515,12 +516,12 @@ ErrCode CanHost::AssignMessageRegion() {
   message_region_[MODULE_FUNC_PRIORITY_HIGH][0]     += (MODULE_SPARE_MESSAGE_ID_HIGH + message_region_[MODULE_FUNC_PRIORITY_EMERGENT][0]);
   message_region_[MODULE_FUNC_PRIORITY_MEDIUM][0]   += (MODULE_SPARE_MESSAGE_ID_MEDIUM + message_region_[MODULE_FUNC_PRIORITY_HIGH][0]);
   message_region_[MODULE_FUNC_PRIORITY_LOW][0]      = MODULE_SUPPORT_MESSAGE_ID_MAX;
-  SERIAL_ECHOLN("Message ID region:");
-  SERIAL_ECHOLNPAIR("emergent: ", 0, " - ", message_region_[MODULE_FUNC_PRIORITY_EMERGENT][0]-1);
-  SERIAL_ECHOLNPAIR("high    : ", message_region_[MODULE_FUNC_PRIORITY_EMERGENT][0], " - ", message_region_[MODULE_FUNC_PRIORITY_HIGH][0]-1);
-  SERIAL_ECHOLNPAIR("medium  : ", message_region_[MODULE_FUNC_PRIORITY_HIGH][0], " - ", message_region_[MODULE_FUNC_PRIORITY_MEDIUM][0]-1);
-  SERIAL_ECHOLNPAIR("low     : ", message_region_[MODULE_FUNC_PRIORITY_MEDIUM][0], " - ", message_region_[MODULE_FUNC_PRIORITY_LOW][0]-1);
-  SERIAL_EOL();
+  // SERIAL_ECHOLN("Message ID region:");
+  // SERIAL_ECHOLNPAIR("emergent: ", 0, " - ", message_region_[MODULE_FUNC_PRIORITY_EMERGENT][0]-1);
+  // SERIAL_ECHOLNPAIR("high    : ", message_region_[MODULE_FUNC_PRIORITY_EMERGENT][0], " - ", message_region_[MODULE_FUNC_PRIORITY_HIGH][0]-1);
+  // SERIAL_ECHOLNPAIR("medium  : ", message_region_[MODULE_FUNC_PRIORITY_HIGH][0], " - ", message_region_[MODULE_FUNC_PRIORITY_MEDIUM][0]-1);
+  // SERIAL_ECHOLNPAIR("low     : ", message_region_[MODULE_FUNC_PRIORITY_MEDIUM][0], " - ", message_region_[MODULE_FUNC_PRIORITY_LOW][0]-1);
+  // SERIAL_EOL();
 
   return E_SUCCESS;
 }
@@ -534,16 +535,16 @@ void CanHost::ShowModuleVersion(MAC_t mac) {
 
   // version of modules
   sprintf(buffer, "Module 0x%08X: ", (int)mac.bits.id);
-  SERIAL_ECHOPAIR(buffer);
+  //SERIAL_ECHOPAIR(buffer);
   cmd.data = (uint8_t *)buffer;
   cmd.mac     = mac;
   cmd.data[0] = MODULE_EXT_CMD_VERSION_REQ;
   cmd.length  = 1;
   if (canhost.SendExtCmdSync(cmd, 500) != E_SUCCESS) {
-    SERIAL_ECHOPAIR("failed or failed to get ver\n");
+    //SERIAL_ECHOPAIR("failed or failed to get ver\n");
   } else {
     buffer[cmd.length] = 0;
-    SERIAL_ECHOPAIR(buffer+2, "\n");
+    //SERIAL_ECHOPAIR(buffer+2, "\n");
   }
 }
 
@@ -646,7 +647,7 @@ ErrCode CanHost::InitDynamicModule(MAC_t &mac, uint8_t mac_index) {
  */
 ErrCode CanHost::BindMessageID(CanExtCmd_t &cmd, message_id_t *msg_buffer) {
   uint8_t     map_buffer[MODULE_FUNCTION_MAX_IN_ONE*4 + 2];
-  uint8       *func_buffer = cmd.data;
+  uint8_t     *func_buffer = cmd.data;
 
   int i;
 
@@ -782,9 +783,9 @@ ErrCode CanHost::UpgradeModules(uint32_t fw_addr, uint32_t length) {
   vTaskDelay(pdMS_TO_TICKS(200));
   LOG_I("All upgraded!\n");
   // Restart all module
-  disable_power_domain(POWER_DOMAIN_1|POWER_DOMAIN_2);
+  // disable_power_domain(POWER_DOMAIN_1|POWER_DOMAIN_2);
   vTaskDelay(pdMS_TO_TICKS(1000));
-  enable_power_domain(POWER_DOMAIN_1|POWER_DOMAIN_2);
+  // enable_power_domain(POWER_DOMAIN_1|POWER_DOMAIN_2);
   vTaskDelay(pdMS_TO_TICKS(1000));
 
   CanPacket_t pkt = {CAN_CH_2, CAN_FRAME_EXT_REMOTE, 0x01, 0, 0};

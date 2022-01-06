@@ -60,23 +60,56 @@ void GcodeSuite::M42() {
 
   const pin_t pin = GET_PIN_MAP_PIN(pin_index);
 
-  if (!parser.boolval('I') && pin_is_protected(pin)) return protected_pin_err();
+  bool ignore = parser.boolval('I');
+
+  if (!ignore && pin_is_protected(pin)) return protected_pin_err();
 
   bool avoidWrite = false;
+  uint32_t input = 0;
   if (parser.seenval('M')) {
     switch (parser.value_byte()) {
-      case 0: pinMode(pin, INPUT); avoidWrite = true; break;
-      case 1: pinMode(pin, OUTPUT); break;
-      case 2: pinMode(pin, INPUT_PULLUP); avoidWrite = true; break;
+      case 0:
+        if (!ignore)
+          pinMode(pin, INPUT);
+        avoidWrite = true;
+        SERIAL_ECHOPGM("digital input value: ");
+        SERIAL_ECHOLN(digitalRead(pin));
+        break;
+
+      case 1: if (!ignore) pinMode(pin, OUTPUT); break;
+
+      case 2:
+        if (!ignore)
+          pinMode(pin, INPUT_PULLUP);
+        avoidWrite = true;
+        SERIAL_ECHOPGM("digital input value with pullup: ");
+        SERIAL_ECHOLN(digitalRead(pin));
+        break;
+
       #ifdef INPUT_PULLDOWN
-        case 3: pinMode(pin, INPUT_PULLDOWN); avoidWrite = true; break;
+        case 3:
+          if (!ignore)
+            pinMode(pin, INPUT_PULLDOWN);
+          avoidWrite = true;
+          SERIAL_ECHOPGM("digital input value with pulldown: ");
+          SERIAL_ECHOLN(digitalRead(pin));
+          break;
       #endif
+
       #ifdef INPUT_ANALOG
-        case 4: pinMode(pin, INPUT_ANALOG); avoidWrite = true; break;
+        case 4:
+          if (!ignore)
+            pinMode(pin, INPUT_ANALOG);
+          avoidWrite = true;
+          SERIAL_ECHOPGM("analog input value: ");
+          SERIAL_ECHOLN(analogRead(pin));
+          break;
       #endif
+
       #ifdef OUTPUT_OPEN_DRAIN
-        case 5: pinMode(pin, OUTPUT_OPEN_DRAIN); break;
+        case 5: if (!ignore) pinMode(pin, OUTPUT_OPEN_DRAIN); break;
       #endif
+
       default: SERIAL_ECHOLNPGM("Invalid Pin Mode"); return;
     }
   }

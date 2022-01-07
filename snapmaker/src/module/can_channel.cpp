@@ -61,9 +61,12 @@ void HAL_CAN_MspInit(CAN_HandleTypeDef* hcan) {
   gpio_init_cfg.Alternate = GPIO_AF9_CAN1;
   HAL_GPIO_Init(GPIOD, &gpio_init_cfg);
 
+// This is for controller 2019 
+#if 0
   gpio_init_cfg.Pin   = GPIO_PIN_12 | GPIO_PIN_13;
   gpio_init_cfg.Alternate = GPIO_AF9_CAN2;
   HAL_GPIO_Init(GPIOB, &gpio_init_cfg);
+#endif
 
   HAL_NVIC_SetPriorityGrouping(NVIC_PRIORITYGROUP_2);
   HAL_NVIC_SetPriority(CAN1_RX0_IRQn, 2, 0);
@@ -81,7 +84,7 @@ ErrCode CanChannel::config_baudrate(CanChannelNumber bus, CANBaudrateSet_t br) {
   CAN_InitTypeDef		init_cfg;
 
   init_cfg.Prescaler            = br.prescale;
-  init_cfg.Mode                 = CAN_MODE_LOOPBACK;//CAN_MODE_NORMAL;
+  init_cfg.Mode                 = CAN_MODE_NORMAL;
   init_cfg.SyncJumpWidth        = br.sjw;
   init_cfg.TimeSeg1             = br.bs1;
   init_cfg.TimeSeg2             = br.bs2;

@@ -24,12 +24,8 @@
 
 // #include "src/inc/MarlinConfig.h"
 //#include HAL_PATH(src/HAL, HAL_can_STM32F1.h)
+#include "arduino.h"
 #include "stm32f4xx_hal_can.h"
-#include "stm32f4xx_hal_gpio.h"
-#include "stm32f4xx_hal_rcc.h"
-#include "stm32f4xx_hal_rcc_ex.h"
-#include "stm32f4xx_hal_cortex.h"
-#include "stm32f4xx_hal.h"
 
 CanChannel can;
 
@@ -42,9 +38,6 @@ static const CANBaudrateSet_t baudrates[] = {
   {CAN_SJW_1TQ, CAN_BS1_10TQ, CAN_BS2_3TQ, 3}, /* 1Mbps */
 };
 
-static inline uint32_t sys_millis() {
-    return HAL_GetTick();
-}
 
 void HAL_CAN_MspInit(CAN_HandleTypeDef* hcan) {
   GPIO_InitTypeDef gpio_init_cfg;
@@ -172,7 +165,7 @@ ErrCode CanChannel::hal_init() {
 uint32_t CanChannel::canbus_send_packet(uint32_t id, uint8_t port_num, CanFrameType frame_type, uint8_t data_len, uint8_t *p_data) {
   CAN_TxHeaderTypeDef tx_message;
   uint8_t retry, ret;
-  uint32_t tmptick, regtsr, can_esr = 0, tx_mail_box;
+  uint32_t count, regtsr, can_esr = 0, tx_mail_box;
 
   if (data_len > 8)
     return false;
@@ -222,10 +215,10 @@ uint32_t CanChannel::canbus_send_packet(uint32_t id, uint8_t port_num, CanFrameT
     if (ret == pdPASS)
       xSemaphoreGive(can_lock);
 
-    tmptick = sys_millis();
     //while pending
     do {
-      if ((sys_millis() - tmptick) > 500)
+      delay(1);
+      if (++count > 10)
         break;
 
       regtsr = bus_handler[port_num].Instance->TSR & (CAN_TSR_TXOK0 | CAN_TSR_RQCP0 | CAN_TSR_TME0);

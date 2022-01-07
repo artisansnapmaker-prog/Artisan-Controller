@@ -304,6 +304,10 @@ extern "C" {
 // Do not use basic timer: OC is required
 #define TIMER_SERVO             TIM2  //TODO: advanced-control timers don't work
 
+#ifndef TIMER_SERIAL
+  #define TIMER_SERIAL          TIM5
+#endif
+
 // UART Definitions
 // Define here Serial instance number to map on Serial generic name
 #define SERIAL_UART_INSTANCE    1 //ex: 2 for Serial2 (USART2)

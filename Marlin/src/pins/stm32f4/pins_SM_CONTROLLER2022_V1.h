@@ -123,6 +123,30 @@ extern pin_t Z2_CS_PIN_var;
 #define Z2_ENABLE_PIN                        Z2_ENABLE_PIN_var
 #define Z2_CS_PIN                            Z2_CS_PIN_var
 
+#if HAS_TMC_UART
+  //
+  // Software serial
+  // No Hardware serial for steppers
+  //
+  #define X_SERIAL_TX_PIN                   PE6
+  #define X_SERIAL_RX_PIN        X_SERIAL_TX_PIN
+
+  #define Y_SERIAL_TX_PIN                   PE3
+  #define Y_SERIAL_RX_PIN        Y_SERIAL_TX_PIN
+
+  #define Y2_SERIAL_TX_PIN                   PB7
+  #define Y2_SERIAL_RX_PIN        Y2_SERIAL_TX_PIN
+
+  #define Z_SERIAL_TX_PIN                  PB3
+  #define Z_SERIAL_RX_PIN      Z_SERIAL_TX_PIN
+
+  #define Z2_SERIAL_TX_PIN                  PD4
+  #define Z2_SERIAL_RX_PIN      Z2_SERIAL_TX_PIN
+
+  // Reduce baud rate to improve software serial reliability
+  #define TMC_BAUD_RATE                    9600
+#endif
+
 // dynamic pins
 extern pin_t I_STEP_PIN_var;
 extern pin_t I_DIR_PIN_var;

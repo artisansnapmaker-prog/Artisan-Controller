@@ -34,6 +34,21 @@
 #define CAN_EXT_CMD_QUEUE_SIZE    1024
 
 
+enum CANBaudrate: uint8_t {
+  CAN_BUADRATE_125K,
+  CAN_BUADRATE_250K,
+  CAN_BUADRATE_500K,
+  CAN_BUADRATE_1M
+};
+
+typedef struct CANBaudrateSet {
+  uint32_t sjw;
+  uint32_t bs1;
+  uint32_t bs2;
+  uint32_t prescale;
+} CANBaudrateSet_t;
+
+
 enum CanFrameType {
   CAN_FRAME_STD,
   CAN_FRAME_EXT,
@@ -97,6 +112,13 @@ class CanChannel {
     RingBuffer<uint8_t> &ext_cmd() { return ext_cmd_; }
 
   private:
+    ErrCode hal_init(void);
+    ErrCode config_baudrate(CanChannelNumber bus, CANBaudrateSet_t br);
+    ErrCode config_filter(int bus, int filter_bank, int filter_len, uint32_t filt_id, uint32_t mask_id, int rxfifo_num);
+    uint32_t canbus_send_packet(uint32_t id, uint8_t port_num, CanFrameType frame_type, uint8_t data_len, uint8_t *p_data);
+    uint8_t canbus_parse_data(uint32_t *id, uint8_t *id_type, uint8_t port_num, uint8_t *frame_type, uint8_t *p_data, uint8_t *len, uint8_t fifo_num);
+
+  private:
     RingBuffer<uint32_t> mac_id_;
     RingBuffer<uint8_t> ext_cmd_;
 
@@ -108,6 +130,7 @@ class CanChannel {
     CANIrqCallback_t irq_cb_;
 
     SemaphoreHandle_t lock_[CAN_CH_MAX];
+    SemaphoreHandle_t can_lock;
 };
 
 extern CanChannel can;

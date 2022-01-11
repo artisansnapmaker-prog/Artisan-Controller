@@ -39,12 +39,12 @@ extern "C" {
 #define HAL_EXTI_MODULE_ENABLED   // Needed for Endstop (and other external) Interrupts
 #define HAL_FLASH_MODULE_ENABLED
 #define HAL_GPIO_MODULE_ENABLED
-//#define HAL_I2C_MODULE_ENABLED
+#define HAL_I2C_MODULE_ENABLED
 #define HAL_PWR_MODULE_ENABLED
 #define HAL_RCC_MODULE_ENABLED
 #define HAL_RTC_MODULE_ENABLED
 //#define HAL_SD_MODULE_ENABLED
-//#define HAL_SPI_MODULE_ENABLED
+#define HAL_SPI_MODULE_ENABLED
 #define HAL_TIM_MODULE_ENABLED
 #define HAL_CORTEX_MODULE_ENABLED
 //#define HAL_PCD_MODULE_ENABLED // Automatically added if any type of USB is enabled, as in Arduino IDE. (STM32 v3.10700.191028)

@@ -426,7 +426,7 @@ void CanHost::EventHandler(void *parameter) {
   MAC_t   mac;
 
   //EventGroupHandle_t event_group = ((SnapmakerHandle_t)parameter)->event_group;
-  EventGroupHandle_t event_group = NULL;
+  // EventGroupHandle_t event_group = NULL;
 
   CanPacket_t pkt = {CAN_CH_2, CAN_FRAME_EXT_REMOTE, 0x01, 0, 0};
 
@@ -455,7 +455,7 @@ void CanHost::EventHandler(void *parameter) {
       static_modules[i]->PostInit();
   }
   // broadcase modules have been initialized
-  xEventGroupSetBits(event_group, EVENT_GROUP_MODULE_READY);
+  // xEventGroupSetBits(event_group, EVENT_GROUP_MODULE_READY);
 
   for (;;) {
     if (can.Read(CAN_FRAME_EXT_REMOTE, (uint8_t *)&mac, 1)) {

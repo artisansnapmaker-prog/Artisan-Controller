@@ -1,4 +1,6 @@
 #include "snapmaker.h"
+#include "src/HAL/HAL.h"
+#include "src/pins/pins.h"
 
 SnapmakerPrinter smprinter;
 
@@ -18,17 +20,51 @@ extern "C" {
   void vApplicationMallocFailedHook( void ) {
     return;
   }
+
+  // can recv handler
+  static void can_recv_handler(void *param) {
+    canhost.ReceiveHandler(param);
+  }
+
+  // can event handler
+  static void can_event_handler(void *param) {
+    canhost.EventHandler(param);
+  }
 }
 
 
 void SnapmakerPrinter::init(void (*marlin)()) {
   BaseType_t ret;
 
+  OUT_WRITE(POWER_CTRL_8P, POWER_CTRL_8P_ON);
+
   marlin_loop = marlin;
+
+  canhost.Init();
 
   if (marlin_loop) {
     ret = xTaskCreate((TaskFunction_t)marlin_loop_warpper, "Marlin", MARLIN_TASK_STACK_SIZE, NULL,
           MARLIN_TASK_PRIORITY, &thandle_marlin);
+  }
+
+  ret = xTaskCreate((TaskFunction_t)can_recv_handler, "Can Receive Task", CAN_RECEIVE_HANDLER_STACK_DEPTH,
+        (void *)(this), CAN_RECEIVE_HANDLER_PRIORITY,  &thandle_can_recv);
+  if (ret != pdPASS) {
+    LOG_E("Failed to create can receive task!\n");
+    while(1);
+  }
+  else {
+    LOG_I("Created can receive task!\n");
+  }
+
+  ret = xTaskCreate((TaskFunction_t)can_event_handler, "Can Event Task", CAN_EVENT_HANDLER_STACK_DEPTH,
+        (void *)(this), CAN_EVENT_HANDLER_PRIORITY, &thandle_can_event);
+  if (ret != pdPASS) {
+    LOG_E("Failed to create can event task!\n");
+    while(1);
+  }
+  else {
+    LOG_I("Created can event task!\n");
   }
 
   vTaskStartScheduler();

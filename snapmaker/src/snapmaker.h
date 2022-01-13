@@ -57,6 +57,8 @@ class SnapmakerPrinter
 
   private:
     TaskHandle_t thandle_marlin;
+    TaskHandle_t thandle_can_recv;
+    TaskHandle_t thandle_can_event;
 };
 
 extern SnapmakerPrinter smprinter;

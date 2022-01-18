@@ -1670,14 +1670,14 @@ pin_t X_DIR_PIN_var = PB3;
 pin_t X_ENABLE_PIN_var = PB5;
 pin_t X_CS_PIN_var = PD12;
 
-pin_t Y_STEP_PIN_var = PE6;
-pin_t Y_DIR_PIN_var = PE5;
-pin_t Y_ENABLE_PIN_var = PE4;
+pin_t Y_STEP_PIN_var = PB7;
+pin_t Y_DIR_PIN_var = PB6;
+pin_t Y_ENABLE_PIN_var = PE3;
 pin_t Y_CS_PIN_var = PD13;
 
-pin_t Y2_STEP_PIN_var = PE5;
-pin_t Y2_DIR_PIN_var = PE2;
-pin_t Y2_ENABLE_PIN_var = PE6;
+pin_t Y2_STEP_PIN_var = PE6;
+pin_t Y2_DIR_PIN_var = PE5;
+pin_t Y2_ENABLE_PIN_var = PE4;
 pin_t Y2_CS_PIN_var = PD14;
 
 pin_t Z_STEP_PIN_var = PC6;
@@ -1690,11 +1690,11 @@ pin_t Z2_DIR_PIN_var = PD9;
 pin_t Z2_ENABLE_PIN_var = PD8;
 pin_t Z2_CS_PIN_var = PC9;
 
-pin_t E0_STEP_PIN_var = PE13;
+pin_t E0_STEP_PIN_var = PE14;
 pin_t E0_DIR_PIN_var = PB10;
 pin_t E0_ENABLE_PIN_var = PB11;
 
-pin_t E1_STEP_PIN_var = PE13;
+pin_t E1_STEP_PIN_var = PE14;
 pin_t E1_DIR_PIN_var = PB10;
 pin_t E1_ENABLE_PIN_var = PB11;
 

@@ -36,7 +36,13 @@ extern "C" {
 void SnapmakerPrinter::init(void (*marlin)()) {
   BaseType_t ret;
 
-  OUT_WRITE(POWER_CTRL_8P, POWER_CTRL_8P_ON);
+  // enable power
+  OUT_WRITE(POWER_CTRL_8P, POWER_CTRL_ON);
+  OUT_WRITE(POWER_CTRL_BED, POWER_CTRL_ON);
+  OUT_WRITE(POWER_CTRL_MOTION, POWER_CTRL_ON);
+  OUT_WRITE(POWER_CTRL_HMI, POWER_CTRL_ON);
+  OUT_WRITE(POWER_CTRL_MOTOR, POWER_CTRL_ON);
+  OUT_WRITE(POWER_CTRL_4P, POWER_CTRL_ON);
 
   marlin_loop = marlin;
 

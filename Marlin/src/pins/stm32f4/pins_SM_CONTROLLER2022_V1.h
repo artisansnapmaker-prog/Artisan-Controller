@@ -230,4 +230,5 @@ extern pin_t E1_ENABLE_PIN_var;
 #define POWER_CTRL_8P                       PD3
 #define POWER_CTRL_4P                       PD4
 
-#define POWER_CTRL_8P_ON                    1
+#define POWER_CTRL_ON                    HIGH
+#define POWER_CTRL_OFF                   LOW

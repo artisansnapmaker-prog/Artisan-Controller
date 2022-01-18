@@ -129,7 +129,7 @@ extern "C" {
 // Below ADC, DAC and PWM definitions already done in the core
 // Could be redefined here if needed
 // ADC resolution is 12bits
-//#define ADC_RESOLUTION          12
+#define ADC_RESOLUTION          12
 //#define DACC_RESOLUTION         12
 
 // PWM resolution

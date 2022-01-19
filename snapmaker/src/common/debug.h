@@ -56,8 +56,8 @@ enum GcodeState : uint8_t {
 
 // massage will output to this interface
 //#define CONSOLE_OUTPUT(log) MYSERIAL0.print_directly(log)
-extern void serialprintPGM(const char* str);
-#define CONSOLE_OUTPUT(log) serialprintPGM(log)
+extern void serial_print_P(const char* str);
+#define CONSOLE_OUTPUT(log) serial_print_P(log)
 
 // log buffer size, max length for one debug massage
 #define SNAP_LOG_BUFFER_SIZE 256

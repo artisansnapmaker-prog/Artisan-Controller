@@ -65,7 +65,6 @@ void GcodeSuite::M42() {
   if (!ignore && pin_is_protected(pin)) return protected_pin_err();
 
   bool avoidWrite = false;
-  uint32_t input = 0;
   if (parser.seenval('M')) {
     switch (parser.value_byte()) {
       case 0:

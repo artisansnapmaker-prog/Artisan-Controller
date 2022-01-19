@@ -161,6 +161,9 @@ class TFilamentMonitor : public FilamentMonitorBase {
 };
 
 /*************************** FILAMENT PRESENCE SENSORS ***************************/
+#if MB_SNAPMAKER
+  #include "snapmaker.h"
+#endif
 
 class FilamentSensorBase {
   protected:
@@ -206,7 +209,11 @@ class FilamentSensorBase {
 
     // Return a bitmask of runout pin states
     static inline uint8_t poll_runout_pins() {
-      #define _OR_RUNOUT(N) | (READ(FIL_RUNOUT##N##_PIN) ? _BV((N) - 1) : 0)
+      #if MB_SNAPMAKER
+        #define _OR_RUNOUT(N) | (smprinter.runout_state(FIL_RUNOUT##N##_PIN) ? _BV((N) - 1) : 0)
+      #else
+        #define _OR_RUNOUT(N) | (READ(FIL_RUNOUT##N##_PIN) ? _BV((N) - 1) : 0)
+      #endif
       return (0 REPEAT_1(NUM_RUNOUT_SENSORS, _OR_RUNOUT));
       #undef _OR_RUNOUT
     }

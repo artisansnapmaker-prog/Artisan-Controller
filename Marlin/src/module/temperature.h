@@ -45,6 +45,10 @@
   #define SOFT_PWM_SCALE 0
 #endif
 
+#if MB_SNAPMAKER
+  #include "snapmaker.h"
+#endif
+
 #define HOTEND_INDEX TERN(HAS_MULTI_HOTEND, e, 0)
 #define E_NAME TERN_(HAS_MULTI_HOTEND, e)
 
@@ -727,6 +731,9 @@ class Temperature {
         #endif
         TERN_(AUTO_POWER_CONTROL, if (celsius) powerManager.power_on());
         temp_hotend[ee].target = _MIN(celsius, hotend_max_target(ee));
+        #if MB_SNAPMAKER
+          smprinter.set_hotend_temp(temp_hotend[ee].target, ee);
+        #endif
         start_watching_hotend(ee);
       }
 

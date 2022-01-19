@@ -48,12 +48,22 @@ void disable_action_ban(uint8_t ab);
 #define POWER_DOMAIN_HOTEND   POWER_DOMAIN_1
 
 
+
+// wrapper of snapmaker for marlin
 class SnapmakerPrinter
 {
   public:
     SnapmakerPrinter() {}
 
     void init(void (*marlin)());
+
+    // API for marlin
+    // FDM 3DP
+    void set_hotend_temp(int16_t temp, uint8_t heater_id) { return; }
+    float get_hotend_temp(uint8_t heater_id) { return 0.0; }
+    void set_fan_speed(uint8_t fan, uint16_t speed) { return; }
+
+    uint8_t runout_state(uint8_t pin_index) { return 0x0; }
 
   private:
     TaskHandle_t thandle_marlin;

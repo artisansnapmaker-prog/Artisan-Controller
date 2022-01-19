@@ -392,6 +392,11 @@ PGMSTR(str_t_heating_failed, STR_T_HEATING_FAILED);
     if (fan >= FAN_COUNT) return;
 
     fan_speed[fan] = speed;
+
+    #if MB_SNAPMAKER
+      smprinter.set_fan_speed(fan, speed);
+    #endif
+
     #if REDUNDANT_PART_COOLING_FAN
       if (fan == 0) fan_speed[REDUNDANT_PART_COOLING_FAN] = speed;
     #endif
@@ -2079,7 +2084,11 @@ void Temperature::updateTemperaturesFromRawValues() {
   TERN_(TEMP_SENSOR_REDUNDANT_IS_MAX_TC, temp_redundant.raw = READ_MAX_TC(HEATER_ID(TEMP_SENSOR_REDUNDANT_SOURCE)));
 
   #if HAS_HOTEND
-    HOTEND_LOOP() temp_hotend[e].celsius = analog_to_celsius_hotend(temp_hotend[e].raw, e);
+    #if MB_SNAPMAKER
+      HOTEND_LOOP() temp_hotend[e].celsius = smprinter.get_hotend_temp(e);
+    #else
+      HOTEND_LOOP() temp_hotend[e].celsius = analog_to_celsius_hotend(temp_hotend[e].raw, e);
+    #endif
   #endif
 
   TERN_(HAS_HEATED_BED,     temp_bed.celsius       = analog_to_celsius_bed(temp_bed.raw));

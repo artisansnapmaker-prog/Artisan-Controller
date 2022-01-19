@@ -181,6 +181,10 @@ extern pin_t E1_ENABLE_PIN_var;
 #define E1_DIR_PIN                          E1_DIR_PIN_var
 #define E1_ENABLE_PIN                       E1_ENABLE_PIN_var
 
+//
+// Filament runout sensor
+//
+#define FIL_RUNOUT_PIN                      PC0   // fake pin
 
 //
 // Temperature Sensors
@@ -196,17 +200,22 @@ extern pin_t E1_ENABLE_PIN_var;
 //
 // Heaters / Fans
 //
-#define HEATER_0_PIN                        PC13   // fake pin
-#define HEATER_1_PIN                        PC13   // fake pin
-#define HEATER_BED_PIN                      PA6   // Hotbed 1
-#define HEATER_CHAMBER_PIN                  PA7   // Hotbed 2
+#define HEATER_0_PIN                        PC13    // fake pin
+#define HEATER_1_PIN                        PC13    // fake pin
+#define HEATER_BED_PIN                      PA6     // Heatedbed 1
+#define HEATER_CHAMBER_PIN                  PA7     // Heatedbed 2
 
-#define TEMP_BOARD_PIN                      PB1   // sensor to detect temperature on board
-#define FAN3_PIN                            PB8   // controller cooling fan
+#define TEMP_BOARD_PIN                      PB1     // sensor to detect temperature on board
 
-#define FAN_PIN                             PB9   // actully is red led
-#define FAN1_PIN                            PA5   // actully is green led
-#define FAN2_PIN                            PA8   // actully is blue led
+#define FAN_PIN                             -1   // fake pin, actul fan0 is controlled with CAN bus
+#define FAN1_PIN                            -2   // fake pin, actul fan1 is controlled with CAN bus
+#define FAN2_PIN                            -3   // fake pin, actul fan2 is controlled with CAN bus
+#define FAN3_PIN                            -4   // fake pin, actul fan3 is controlled with CAN bus
+#define FAN4_PIN                            PB8    // fan in controller
+
+#define FAN5_PIN                            LED_RED_PIN
+#define FAN6_PIN                            LED_GREEN_PIN
+#define FAN7_PIN                            LED_BLUE_PIN
 
 //
 // Misc. Functions

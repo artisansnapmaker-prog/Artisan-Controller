@@ -456,3 +456,6 @@
 
 #define _MB_1(B)  (defined(BOARD_##B) && MOTHERBOARD==BOARD_##B)
 #define MB(V...)  DO(MB,||,V)
+
+// for now, we develop the firmware on controller2022, but we will port it to controller2019 later
+#define MB_SNAPMAKER (MB(SM_CONTROLLER2022_V1))

@@ -1117,6 +1117,8 @@ void setup() {
     BOARD_PREINIT(); // Low-level init (before serial init)
   #endif
 
+  smprinter.pre_init();
+
   tmc_standby_setup();  // TMC Low Power Standby pins must be set early or they're not usable
 
   // Check startup - does nothing if bootloader sets MCUSR to 0

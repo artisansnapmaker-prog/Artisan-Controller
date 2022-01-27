@@ -55,6 +55,7 @@ class SnapmakerPrinter
   public:
     SnapmakerPrinter() {}
 
+    void pre_init(void);
     void init(void (*marlin)());
 
     // API for marlin

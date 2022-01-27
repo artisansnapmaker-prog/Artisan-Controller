@@ -128,23 +128,23 @@ extern pin_t Z2_CS_PIN_var;
   // Software serial
   // No Hardware serial for steppers
   //
-  #define X_SERIAL_TX_PIN                   PE6
-  #define X_SERIAL_RX_PIN        X_SERIAL_TX_PIN
+  #define X_SERIAL_TX_PIN                   PD12
+  #define X_SERIAL_RX_PIN                   PD12
 
-  #define Y_SERIAL_TX_PIN                   PE3
-  #define Y_SERIAL_RX_PIN        Y_SERIAL_TX_PIN
+  #define Y_SERIAL_TX_PIN                   PD13
+  #define Y_SERIAL_RX_PIN                   PD13
 
-  #define Y2_SERIAL_TX_PIN                   PB7
-  #define Y2_SERIAL_RX_PIN        Y2_SERIAL_TX_PIN
+  #define Y2_SERIAL_TX_PIN                  PD14
+  #define Y2_SERIAL_RX_PIN                  PD14
 
-  #define Z_SERIAL_TX_PIN                  PB3
-  #define Z_SERIAL_RX_PIN      Z_SERIAL_TX_PIN
+  #define Z_SERIAL_TX_PIN                   PC8
+  #define Z_SERIAL_RX_PIN                   PC8
 
-  #define Z2_SERIAL_TX_PIN                  PD4
-  #define Z2_SERIAL_RX_PIN      Z2_SERIAL_TX_PIN
+  #define Z2_SERIAL_TX_PIN                  PC9
+  #define Z2_SERIAL_RX_PIN                  PC9
 
   // Reduce baud rate to improve software serial reliability
-  #define TMC_BAUD_RATE                    9600
+  #define TMC_BAUD_RATE                    115200
 #endif
 
 // dynamic pins

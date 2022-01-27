@@ -2916,6 +2916,7 @@
   #define  Z_SLAVE_ADDRESS 3
   #define X2_SLAVE_ADDRESS 3
   #define Y2_SLAVE_ADDRESS 3
+  #define Z2_SLAVE_ADDRESS 3
   //#define Z2_SLAVE_ADDRESS 0
   //#define Z3_SLAVE_ADDRESS 0
   //#define Z4_SLAVE_ADDRESS 0

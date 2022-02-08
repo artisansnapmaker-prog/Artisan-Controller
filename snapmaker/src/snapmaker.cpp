@@ -2,6 +2,11 @@
 #include "src/HAL/HAL.h"
 #include "src/pins/pins.h"
 
+#include "service/module.h"
+#include "service/system.h"
+
+#include "host/sacp.h"
+
 SnapmakerPrinter smprinter;
 
 // dynamic pins defination and default value
@@ -98,11 +103,45 @@ extern "C" {
   loop_func marlin_loop = NULL;
 
   // wapper to call marlin loop
-  static void marlin_loop_warpper(void *param) {
+  static void marlin_thread(void *param) {
     for (;;) {
       marlin_loop();
     }
   }
+
+
+  void system_thread(void *p) {
+    BaseType_t ret;
+    TaskHandle_t thandle_marlin;
+
+    // module init
+    module_svc.init();
+
+    // sacp host init
+    host_hmi.init();
+    host_luban.init();
+
+    // start marlin thread
+    if (marlin_loop) {
+      ret = xTaskCreate((TaskFunction_t)marlin_thread, "marin", MARLIN_TASK_STACK_SIZE, NULL,
+            MARLIN_TASK_PRIORITY, &thandle_marlin);
+      if (ret != pdPASS) {
+        LOG_E("Failed to create marlin task!\n");
+        while(1);
+      }
+      else {
+        LOG_I("Created marlin task!\n");
+      }
+    }
+
+    // loop
+    for (;;) {
+      module_svc.background_thread();
+      system_svc.background_thread();
+    }
+
+  }
+
 
   // hook for failing to apply memory in freeRTOS
   void vApplicationMallocFailedHook( void ) {
@@ -120,7 +159,10 @@ extern "C" {
   }
 }
 
+
+
 void SnapmakerPrinter::pre_init(void) {
+  // enable the power to do TMC initialization in arduino setup()
   OUT_WRITE(POWER_CTRL_MOTOR, POWER_CTRL_ON);
 }
 
@@ -140,9 +182,17 @@ void SnapmakerPrinter::init(void (*marlin)()) {
 
   canhost.Init();
 
-  if (marlin_loop) {
-    ret = xTaskCreate((TaskFunction_t)marlin_loop_warpper, "Marlin", MARLIN_TASK_STACK_SIZE, NULL,
-          MARLIN_TASK_PRIORITY, &thandle_marlin);
+
+
+
+  ret = xTaskCreate((TaskFunction_t)system_thread, "system", CAN_RECEIVE_HANDLER_STACK_DEPTH,
+        (void *)(this), CAN_RECEIVE_HANDLER_PRIORITY,  &thandle_can_recv);
+  if (ret != pdPASS) {
+    LOG_E("Failed to create can receive task!\n");
+    while(1);
+  }
+  else {
+    LOG_I("Created can receive task!\n");
   }
 
   ret = xTaskCreate((TaskFunction_t)can_recv_handler, "Can Receive Task", CAN_RECEIVE_HANDLER_STACK_DEPTH,

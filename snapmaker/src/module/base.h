@@ -1,0 +1,341 @@
+/*
+ * Snapmaker2-Controller Firmware
+ * Copyright (C) 2019-2020 Snapmaker [https://github.com/Snapmaker]
+ *
+ * This file is part of Snapmaker2-Controller
+ * (see https://github.com/Snapmaker/Snapmaker2-Controller)
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+#ifndef SNAPMAKER_MODULE_BASE_H_
+#define SNAPMAKER_MODULE_BASE_H_
+
+#include <stdint.h>
+
+#include "../common/list.h"
+
+#define MODULE_MAC_ID_MASK        (0x1FFFFFFF)
+#define MODULE_MAC_ID_INVALID     (0xFFFFFFFF)
+#define MODULE_MAC_INDEX_INVALID   (0xFF)
+
+#define MODULE_FUNCTION_ID_INVALID       (0xFFFF)
+#define MODULE_FUNCTION_PRIORITY_INVALID (0xFF)
+#define MODULE_FUNCTION_MAX_IN_ONE       (16) // upper limit of functions in one module
+
+#define MODULE_MESSAGE_ID_INVALID   (0xFFFF)
+#define MODULE_MESSAGE_ID_MASK      (0x1FF)
+#define MODULE_MESSAGE_ID_MAX       (0x1FF + 1)
+
+#define MODULE_DEVICE_ID_MASK       (0x1ff00000)
+#define MODULE_DEVICE_ID_SHIFT      (20)
+
+#define MODULE_MAKE_DEVICE_ID(id)   (id<<MODULE_DEVICE_ID_SHIFT)
+#define MODULE_GET_DEVICE_ID(mac)   ((mac&MODULE_DEVICE_ID_MASK)>>MODULE_DEVICE_ID_SHIFT)
+
+#define MODULE_SN_MASK              (0x000FFFFF)
+#define MODULE_SN_INVALID           (MODULE_SN_MASK)
+#define MODULE_GET_SN(mac)          (mac&MODULE_SN_MASK)
+
+#define MODULE_CHANNEL_INVALID      (0xFF)
+
+#define MODULE_MAKE_MAC(device_id, sn) ((device_id)<<MODULE_DEVICE_ID_SHIFT | (sn))
+
+// to save memory, just support assign message id up to 64
+#define MODULE_SUPPORT_MESSAGE_ID_MAX (128)
+#define MODULE_SUPPORT_CONNECTED_MAX  (32)
+
+#define MODULE_SUPPORT_SAME_DEVICE_MAX  (8)
+
+#define MODULE_UPGRADE_PACKET_SIZE      (128)
+
+#define MODULE_TYPE_STATIC  (1)
+#define MODULE_TYPE_DYNAMIC (0)
+
+
+#define MODULE_TYPE_REAL        (0x8000)
+#define MODULE_TYPE_VIRTUAL     (0)
+#define MODULE_TYPE(device_id)  ((device_id) & 0x8000)
+
+
+enum ModuleStatus: uint8_t {
+  MODULE_STATUS_UNCONFIGURE,
+  MODULE_STATUS_INIT,
+
+  MODULE_STATUS_NORMAL,
+
+  MODULE_STATUS_UPGRADING,
+  MODULE_STATUS_UPGRADE_FAILED,
+
+  MODULE_STATUS_INVALID
+};
+
+
+enum ModuleLinearIndex {
+  MODULE_LINEAR_X1 = 1,
+  MODULE_LINEAR_Y1,
+  MODULE_LINEAR_Z1,
+  MODULE_LINEAR_X2,
+  MODULE_LINEAR_Y2,
+  MODULE_LINEAR_Z2,
+};
+
+enum ModuleDeviceID {
+  MODULE_DEVICE_ID_FDM_1EXTRUDER      ,    // 0
+  MODULE_DEVICE_ID_CNC                ,    // 1
+  MODULE_DEVICE_ID_1_6_W_LASER        ,    // 2
+  MODULE_DEVICE_ID_LINEAR             ,    // 3
+  MODULE_DEVICE_ID_LIGHT              ,    // 4
+  MODULE_DEVICE_ID_ENCLOSURE          ,    // 5
+  MODULE_DEVICE_ID_ROTARY             ,    // 6
+  MODULE_DEVICE_ID_PURIFIER           ,    // 7
+  MODULE_DEVICE_ID_EMERGENCY_STOP     ,    // 8
+  MODULE_DEVICE_ID_CNC_TOOL_SETTING   ,    // 9
+  MODULE_DEVICE_ID_PRINT_V_SM1        ,    // 10
+  MODULE_DEVICE_ID_FAN                ,    // 11
+  MODULE_DEVICE_ID_LINEAR_TMC         ,    // 12
+  MODULE_DEVICE_ID_FDM_2EXTRUDER      ,    // 13
+  MODULE_DEVICE_ID_10W_LASER          ,    // 14
+
+
+  // below is virtual module
+  MODULE_DEVICE_ID_A400_LINEAR  = 0x8001,
+  MODULE_DEVICE_ID_A400_BED,
+  MODULE_DEVICE_ID_SM2_BED,
+  MODULE_DEVICE_ID_INVALID
+};
+
+enum ModuleFunctionPriority {
+  MODULE_FUNC_PRIORITY_EMERGENT,
+  MODULE_FUNC_PRIORITY_HIGH,
+  MODULE_FUNC_PRIORITY_MEDIUM,
+  MODULE_FUNC_PRIORITY_LOW,
+
+  MODULE_FUNC_PRIORITY_MAX,
+  MODULE_FUNC_PRIORITY_DEFAULT
+};
+
+/* for dynamic functions, controller also need to assign message id to them
+ * so we need to save some spare message id, below defined the spare message id account
+ * for each priority except priority LOW
+ */
+#define MODULE_SPARE_MESSAGE_ID_EMERGENT 2
+#define MODULE_SPARE_MESSAGE_ID_HIGH     5
+#define MODULE_SPARE_MESSAGE_ID_MEDIUM   5
+
+/* following function id are known for controller, they are named as STATIC FUNCTION (ID)
+ * in the future, there will be some new module plugged in system, and controller doesn't
+ * know its functions, they are named as DYNAMIC FUNCTION (ID)
+ */
+enum ModuleFunctionID {
+  MODULE_FUNC_ENDSTOP_STATE         ,  // 0
+  MODULE_FUNC_PROBE_STATE           ,  // 1
+  MODULE_FUNC_RUNOUT_SENSOR_STATE   ,  // 2
+  MODULE_FUNC_STEPPER_CTRL          ,  // 3
+  MODULE_FUNC_SET_SPINDLE_SPEED     ,  // 4
+  MODULE_FUNC_GET_SPINDLE_SPEED     ,  // 5
+  MODULE_FUNC_GET_NOZZLE_TEMP       ,  // 6
+  MODULE_FUNC_SET_NOZZLE_TEMP       ,  // 7
+  MODULE_FUNC_SET_FAN1              ,  // 8
+  MODULE_FUNC_SET_FAN2              ,  // 9
+  MODULE_FUNC_SET_3DP_PID           ,  // 10
+  MODULE_FUNC_SET_CAMERA_POWER      ,  // 11
+  MODULE_FUNC_SET_LASER_FOCUS       ,  // 12
+  MODULE_FUNC_GET_LASER_FOCUS       ,  // 13
+  MODULE_FUNC_SET_LIGHTBAR_COLOR    ,  // 14
+  MODULE_FUNC_ENCLOSURE_DOOR_STATE  ,  // 15
+  MODULE_FUNC_REPORT_3DP_PID        ,  // 16
+  MODULE_FUNC_PROOFREAD_KNIFE       ,  // 17
+  MODULE_FUNC_SET_ENCLOSURE_LIGHT   ,  // 18
+  MODULE_FUNC_SET_ENCLOSURE_FAN     ,  // 19
+  MODULE_FUNC_REPORT_EMERGENCY_STOP ,  // 20
+  MODULE_FUNC_TMC_IOCTRL            ,  // 21
+  MODULE_FUNC_TMC_PUBLISH           ,  // 22
+  MODULE_FUNC_SET_PURIFIER          ,  // 23
+  MODULE_FUNC_REPORT_PURIFIER       ,  // 24
+  MODULE_FUNC_SET_AUTOFOCUS_LIGHT   ,  // 25
+  MODULE_FUNC_REPORT_SECURITY_STATUS,  // 26
+  MODULE_FUNC_ONLINE_SYNC           ,  // 27
+  MODULE_FUNC_SET_PROTECT_TEMP      ,  // 28
+  MODULE_FUNC_LASER_CTRL            ,  // 29
+  MODULE_FUNC_GET_LASER_HW_VERSION  ,  // 30
+  MODULE_FUNC_REPORT_PIN_STATE      ,  // 31
+  MODULE_FUNC_CONFIRM_PIN_STATE     ,  // 32
+  MODULE_FUNC_SWITCH_EXTRUDER       ,  // 33
+  MODULE_FUNC_REPORT_NOZZLE_TYPE    ,  // 34
+  MODULE_FUNC_SET_FAN3              ,  // 35
+  MODULE_REPORT_EXTRUDER_INFO       ,  // 36
+  MODULE_SET_EXTRUDER_CHECK         ,  // 37
+
+  MODULE_FUNC_MAX
+};
+
+
+// index is function id
+const uint8_t module_prio_table[][2] = {
+  // FUNCID                               Priority(0-3)              possible total of function in network
+  {/* MODULE_FUNC_ENDSTOP_STATE       */  MODULE_FUNC_PRIORITY_HIGH,      5}, // for now we have 5 axes in A250/A350
+  {/* MODULE_FUNC_PROBE_STATE         */  MODULE_FUNC_PRIORITY_HIGH,      2}, // we may have 2 probes in system
+  {/* MODULE_FUNC_RUNOUT_SENSOR_STATE */  MODULE_FUNC_PRIORITY_HIGH,      2},
+  {/* MODULE_FUNC_STEPPER_CTRL        */  MODULE_FUNC_PRIORITY_LOW,       0},
+  {/* MODULE_FUNC_SET_SPINDLE_SPEED   */  MODULE_FUNC_PRIORITY_MEDIUM,    1},
+  {/* MODULE_FUNC_GET_SPINDLE_SPEED   */  MODULE_FUNC_PRIORITY_MEDIUM,    1},
+  {/* MODULE_FUNC_GET_NOZZLE_TEMP     */  MODULE_FUNC_PRIORITY_MEDIUM,    2},
+  {/* MODULE_FUNC_SET_NOZZLE_TEMP     */  MODULE_FUNC_PRIORITY_MEDIUM,    2},
+  {/* MODULE_FUNC_SET_FAN1            */  MODULE_FUNC_PRIORITY_MEDIUM,    2},
+  {/* MODULE_FUNC_SET_FAN2            */  MODULE_FUNC_PRIORITY_MEDIUM,    2},
+  {/* MODULE_FUNC_SET_3DP_PID         */  MODULE_FUNC_PRIORITY_MEDIUM,    2},
+  {/* MODULE_FUNC_SET_CAMERA_POWER    */  MODULE_FUNC_PRIORITY_MEDIUM,    1},
+  {/* MODULE_FUNC_SET_LASER_FOCUS     */  MODULE_FUNC_PRIORITY_MEDIUM,    1},
+  {/* MODULE_FUNC_GET_LASER_FOCUS     */  MODULE_FUNC_PRIORITY_MEDIUM,    1},
+  {/* MODULE_FUNC_SET_LIGHTBAR_COLOR  */  MODULE_FUNC_PRIORITY_LOW,       0},
+  {/* MODULE_FUNC_ENCLOSURE_STATE     */  MODULE_FUNC_PRIORITY_HIGH,      1},
+  {/* MODULE_FUNC_REPORT_3DP_PID      */  MODULE_FUNC_PRIORITY_MEDIUM,    1},
+  {/* MODULE_FUNC_PROOFREAD_KNIFE     */  MODULE_FUNC_PRIORITY_MEDIUM,    1},
+  {/* MODULE_FUNC_SET_ENCLOSURE_LIGHT */  MODULE_FUNC_PRIORITY_MEDIUM,    1},
+  {/* MODULE_FUNC_SET_ENCLOSURE_FAN   */  MODULE_FUNC_PRIORITY_MEDIUM,    1},
+  {/* FUNC_REPORT_EMERGENCY_STOP      */  MODULE_FUNC_PRIORITY_EMERGENT,  1},
+  {/* MODULE_FUNC_TMC_IOCTRL          */  MODULE_FUNC_PRIORITY_MEDIUM,    1},
+  {/* MODULE_FUNC_TMC_PUBLISH         */  MODULE_FUNC_PRIORITY_MEDIUM,    1},
+  {/* MODULE_FUNC_SET_PURIFIER        */  MODULE_FUNC_PRIORITY_MEDIUM,    1},
+  {/* MODULE_FUNC_REPORT_PURIFIER     */  MODULE_FUNC_PRIORITY_MEDIUM,    1},
+  {/* MODULE_FUNC_SET_AUTOFOCUS_LIGHT    */  MODULE_FUNC_PRIORITY_MEDIUM, 1},
+  {/* MODULE_FUNC_REPORT_SECURITY_STATUS */  MODULE_FUNC_PRIORITY_MEDIUM, 1},
+  {/* MODULE_FUNC_ONLINE_SYNC            */  MODULE_FUNC_PRIORITY_MEDIUM, 1},
+  {/* MODULE_FUNC_SET_PROTECT_TEMP       */  MODULE_FUNC_PRIORITY_MEDIUM, 1},
+  {/* MODULE_FUNC_LASER_CTRL        */  MODULE_FUNC_PRIORITY_MEDIUM,      1},
+  {/* MODULE_FUNC_GET_LASER_HW_VERSION  */  MODULE_FUNC_PRIORITY_MEDIUM,  1},
+  {/* MODULE_FUNC_REPORT_PIN_STATE   */  MODULE_FUNC_PRIORITY_MEDIUM,     1},
+  {/* MODULE_FUNC_CONFIRM_PIN_STATE  */  MODULE_FUNC_PRIORITY_MEDIUM,     1},
+  {/* MODULE_FUNC_SWITCH_EXTRUDER        */  MODULE_FUNC_PRIORITY_MEDIUM, 1},
+  {/* MODULE_FUNC_REPORT_NOZZLE_TYPE     */  MODULE_FUNC_PRIORITY_MEDIUM, 1},
+  {/* MODULE_SET_FAN_NOZZLE              */  MODULE_FUNC_PRIORITY_MEDIUM, 1},
+  {/* MODULE_REPORT_EXTRUDER_INFO        */  MODULE_FUNC_PRIORITY_MEDIUM, 1},
+  {/* MODULE_SET_EXTRUDER_CHECK          */  MODULE_FUNC_PRIORITY_MEDIUM, 1},
+};
+
+
+#define MODULE_EXT_CMD_INDEX_ID   (0)
+#define MODULE_EXT_CMD_INDEX_DATA (1)
+enum ModuleExtendCommand {
+  MODULE_EXT_CMD_CONFIG_REQ = 0,
+  MODULE_EXT_CMD_CONFIG_ACK,
+
+  MODULE_EXT_CMD_GET_FUNCID_REQ,
+  MODULE_EXT_CMD_GET_FUNCID_ACK,
+
+  MODULE_EXT_CMD_SET_MESG_ID_REQ,
+  MODULE_EXT_CMD_SET_MESG_ID_ACK,
+
+  MODULE_EXT_CMD_START_UPGRADE_REQ,
+  MODULE_EXT_CMD_START_UPGRADE_ACK,
+
+  MODULE_EXT_CMD_TRANS_FW_REQ,
+  MODULE_EXT_CMD_TRANS_FW_ACK,
+
+  MODULE_EXT_CMD_END_UPGRADE_REQ,
+
+  MODULE_EXT_CMD_VERSION_REQ,
+  MODULE_EXT_CMD_VERSION_ACK,
+
+  MODULE_EXT_CMD_SSID_REQ,
+  MODULE_EXT_CMD_SSID_ACK,
+
+  MODULE_EXT_CMD_LINEAR_LENGTH_REQ,
+  MODULE_EXT_CMD_LINEAR_LENGTH_ACK,
+
+  MODULE_EXT_CMD_LINEAR_LEAD_REQ,
+  MODULE_EXT_CMD_LINEAR_LEAD_ACK,
+
+  MODULE_EXT_CMD_SET_ENDSTOP_POS_REQ,
+  MODULE_EXT_CMD_SET_ENDSTOP_POS_ACK,
+
+  MODULE_EXT_CMD_GET_UPGRADE_STATUS_REQ,
+  MODULE_EXT_CMD_GET_UPGRADE_STATUS_ACK,
+
+  MODULE_EXT_CMD_INFORM_UPGRADE_START,
+
+  MODULE_EXT_CMD_INVALID
+};
+
+
+typedef struct {
+  list_node node;       // list node in priority list
+  uint16_t function_id; // function id
+  uint16_t message_id;  // message id
+} function_node_t;
+
+
+class ModuleBase {
+  // public methods
+  public:
+    ModuleBase() {}
+
+    ModuleBase(uint32_t mac, uint8_t ch, uint8_t key):
+    channel(ch), key(key) {
+      device_id = MODULE_GET_DEVICE_ID(mac);
+      sn = MODULE_GET_SN(mac);
+    }
+
+    virtual int pre_init() { return 0; }
+    virtual int post_init() { return 0; }
+    virtual void deinit() { return; };
+
+    virtual bool check_online() { return true; };
+
+    virtual int get_function_priority(uint16_t function_id) { return MODULE_FUNC_PRIORITY_LOW; }
+
+    uint16_t get_device_id() { return device_id; }
+
+    uint32_t get_mac() { return MODULE_MAKE_MAC(device_id, sn); }
+    void set_mac(uint32_t mac) {
+      device_id = MODULE_GET_DEVICE_ID(mac);
+      sn = MODULE_GET_SN(mac);
+    }
+
+    uint8_t get_channel() { return channel; }
+    void set_channel(uint8_t ch) { channel = ch; }
+
+    ModuleStatus get_status() { return status; }
+
+    uint8_t get_function_nodes(function_node_t **nodes) { if (nodes) nodes = &function_nodes; return func_length; }
+    void set_function_nodes(function_node_t *nodes, uint8_t len) { function_nodes = nodes; func_length = len; }
+
+  // private methods
+  private:
+
+
+  // public properties
+  public:
+
+
+  // private properties
+  private:
+    uint16_t device_id;
+    uint8_t  channel; // can channel
+    uint8_t  key;
+    uint8_t  index;
+
+    ModuleStatus status = MODULE_STATUS_UNCONFIGURE;
+    uint32_t sn;
+    uint8_t  hw_ver;
+    char     fw_ver[33];
+
+    function_node_t *function_nodes;
+    uint8_t          func_length = 0;
+};
+
+
+ModuleBase *module_factory(uint32_t mac, uint8_t channel, uint8_t key, uint8_t sub_index=0);
+
+#endif

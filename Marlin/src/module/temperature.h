@@ -383,7 +383,12 @@ class Temperature {
     #if HAS_TEMP_REDUNDANT
       static redundant_info_t temp_redundant;
     #endif
-
+    #if ENABLED(CUSTOM_DOUBLE_ZONED_HEAT_BED)
+      static uint8_t active_bed_state;
+      static uint8_t active_bed_index;
+      static inline uint8_t get_double_heated_bed_info(void) {return active_bed_state;}
+      static inline uint8_t get_double_heated_bed_index(void) {return active_bed_index;}
+	  #endif
     #if EITHER(AUTO_POWER_E_FANS, HAS_FANCHECK)
       static uint8_t autofan_speed[HOTENDS];
     #endif

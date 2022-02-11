@@ -445,6 +445,10 @@ PGMSTR(str_t_heating_failed, STR_T_HEATING_FAILED);
           Temperature::maxtemp_raw_BED = TEMP_SENSOR_BED_RAW_HI_TEMP;
   TERN_(WATCH_BED, bed_watch_t Temperature::watch_bed); // = { 0 }
   IF_DISABLED(PIDTEMPBED, millis_t Temperature::next_bed_check_ms);
+  #if ENABLED(CUSTOM_DOUBLE_ZONED_HEAT_BED)
+    uint8_t Temperature::active_bed_state = 0,
+            Temperature::active_bed_index = 0;
+  #endif
 #endif
 
 #if HAS_TEMP_CHAMBER
@@ -3083,12 +3087,46 @@ void Temperature::isr() {
         REPEAT(HOTENDS, _PWM_MOD_E);
       #endif
 
-      #if HAS_HEATED_BED
-        _PWM_MOD(BED, soft_pwm_bed, temp_bed);
-      #endif
+      #if ENABLED(CUSTOM_DOUBLE_ZONED_HEAT_BED)
+        bool bed_on = soft_pwm_bed.add(pwm_mask, temp_bed.soft_pwm_amount);
+        bool chamber_on = soft_pwm_chamber.add(pwm_mask, temp_chamber.soft_pwm_amount);
+        if (bed_on && chamber_on) {
+          if (active_bed_index) {
+            WRITE_HEATER_CHAMBER(LOW);
+            WRITE_HEATER_BED(HIGH);
+          }
+          else {
+            WRITE_HEATER_BED(LOW);
+            WRITE_HEATER_CHAMBER(HIGH);
+          }
+          active_bed_index = !active_bed_index;
+          active_bed_state = (1 << 0 | 1 << 1);
+        }
+        else if (!bed_on && !chamber_on) {
+          WRITE_HEATER_BED(LOW);
+          WRITE_HEATER_CHAMBER(LOW);
+          active_bed_state = 0;
+        }
+        else {
+          if (bed_on) {
+            WRITE_HEATER_CHAMBER(LOW);
+            WRITE_HEATER_BED(HIGH);
+          }
+          else {
+            WRITE_HEATER_BED(LOW);
+            WRITE_HEATER_CHAMBER(HIGH);
+          }
+          active_bed_index = !bed_on;
+          active_bed_state = 1 << active_bed_index;
+        }
+      #else
+        #if HAS_HEATED_BED
+          _PWM_MOD(BED, soft_pwm_bed, temp_bed);
+        #endif
 
-      #if HAS_HEATED_CHAMBER
-        _PWM_MOD(CHAMBER, soft_pwm_chamber, temp_chamber);
+        #if HAS_HEATED_CHAMBER
+          _PWM_MOD(CHAMBER, soft_pwm_chamber, temp_chamber);
+        #endif
       #endif
 
       #if HAS_COOLER
@@ -3136,6 +3174,10 @@ void Temperature::isr() {
       #if HAS_HOTEND
         #define _PWM_LOW_E(N) _PWM_LOW(N, soft_pwm_hotend[N]);
         REPEAT(HOTENDS, _PWM_LOW_E);
+      #endif
+
+      #if ENABLED(CUSTOM_DOUBLE_ZONED_HEAT_BED)
+        active_bed_index ? WRITE_HEATER_BED(LOW) : WRITE_HEATER_CHAMBER(LOW);
       #endif
 
       #if HAS_HEATED_BED

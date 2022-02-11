@@ -199,6 +199,9 @@
 // :[0, 1, 2, 3, 4, 5, 6, 7, 8]
 #define EXTRUDERS 2
 
+// Enable CUSTOM_DOUBLE_ZONED_HEAT_BED will treat the chamber as a second hotbed
+#define CUSTOM_DOUBLE_ZONED_HEAT_BED 
+
 // Generally expected filament diameter (1.75, 2.85, 3.0, ...). Used for Volumetric, Filament Width Sensor, etc.
 #define DEFAULT_NOMINAL_FILAMENT_DIA 1.75
 
@@ -499,9 +502,9 @@
 #define TEMP_SENSOR_5 0
 #define TEMP_SENSOR_6 0
 #define TEMP_SENSOR_7 0
-#define TEMP_SENSOR_BED 1
+#define TEMP_SENSOR_BED 11
 #define TEMP_SENSOR_PROBE 0
-#define TEMP_SENSOR_CHAMBER 1
+#define TEMP_SENSOR_CHAMBER 11
 #define TEMP_SENSOR_COOLER 0
 #define TEMP_SENSOR_BOARD 1
 #define TEMP_SENSOR_REDUNDANT 0
@@ -569,7 +572,7 @@
 #define HEATER_6_MAXTEMP 275
 #define HEATER_7_MAXTEMP 275
 #define BED_MAXTEMP      150
-#define CHAMBER_MAXTEMP  60
+#define CHAMBER_MAXTEMP  150
 
 /**
  * Thermal Overshoot

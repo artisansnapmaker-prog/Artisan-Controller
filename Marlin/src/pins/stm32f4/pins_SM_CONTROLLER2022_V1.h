@@ -191,10 +191,10 @@ extern pin_t E1_ENABLE_PIN_var;
 //
 #define TEMP_0_PIN                          PC0   // fake pin
 #define TEMP_1_PIN                          PC0   // fake pin
-#define TEMP_BED_PIN                        PC4   // TB1
+#define TEMP_BED_PIN                        PC5   // TB2
 
 #ifndef TEMP_CHAMBER_PIN
-  #define TEMP_CHAMBER_PIN                  PC5   // TB2
+  #define TEMP_CHAMBER_PIN                  PC4   // TB1
 #endif
 
 //
@@ -202,8 +202,8 @@ extern pin_t E1_ENABLE_PIN_var;
 //
 #define HEATER_0_PIN                        PC13    // fake pin
 #define HEATER_1_PIN                        PC13    // fake pin
-#define HEATER_BED_PIN                      PA6     // Heatedbed 1
-#define HEATER_CHAMBER_PIN                  PA7     // Heatedbed 2
+#define HEATER_BED_PIN                      PA7   // Hotbed 2
+#define HEATER_CHAMBER_PIN                  PA6   // Hotbed 1
 
 #define TEMP_BOARD_PIN                      PB1     // sensor to detect temperature on board
 

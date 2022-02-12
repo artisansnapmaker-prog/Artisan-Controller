@@ -3091,13 +3091,15 @@ void Temperature::isr() {
         bool bed_on = soft_pwm_bed.add(pwm_mask, temp_bed.soft_pwm_amount);
         bool chamber_on = soft_pwm_chamber.add(pwm_mask, temp_chamber.soft_pwm_amount);
         if (bed_on && chamber_on) {
-          if (active_bed_index) {
-            WRITE_HEATER_CHAMBER(LOW);
-            WRITE_HEATER_BED(HIGH);
-          }
-          else {
-            WRITE_HEATER_BED(LOW);
-            WRITE_HEATER_CHAMBER(HIGH);
+          if (active_bed_state == 3) {
+            if (active_bed_index) {
+              WRITE_HEATER_CHAMBER(LOW);
+              WRITE_HEATER_BED(HIGH);
+            }
+            else {
+              WRITE_HEATER_BED(LOW);
+              WRITE_HEATER_CHAMBER(HIGH);
+            }
           }
           active_bed_index = !active_bed_index;
           active_bed_state = (1 << 0 | 1 << 1);
@@ -3108,14 +3110,18 @@ void Temperature::isr() {
           active_bed_state = 0;
         }
         else {
-          if (bed_on) {
-            WRITE_HEATER_CHAMBER(LOW);
-            WRITE_HEATER_BED(HIGH);
-          }
-          else {
-            WRITE_HEATER_BED(LOW);
-            WRITE_HEATER_CHAMBER(HIGH);
-          }
+            if (bed_on) {
+              if (active_bed_index == 0) {
+                WRITE_HEATER_CHAMBER(LOW);
+                WRITE_HEATER_BED(HIGH);
+              }
+            }
+            else {
+              if (active_bed_index == 1) {
+                WRITE_HEATER_BED(LOW);
+                WRITE_HEATER_CHAMBER(HIGH);
+              }
+            }
           active_bed_index = !bed_on;
           active_bed_state = 1 << active_bed_index;
         }
@@ -3177,15 +3183,16 @@ void Temperature::isr() {
       #endif
 
       #if ENABLED(CUSTOM_DOUBLE_ZONED_HEAT_BED)
+        #define _PWM_LOW_PRO(N,S) do{ if (S.count <= pwm_count_tmp + (active_bed_state == 3)) WRITE_HEATER_##N(LOW); }while(0)
         active_bed_index ? WRITE_HEATER_BED(LOW) : WRITE_HEATER_CHAMBER(LOW);
       #endif
 
       #if HAS_HEATED_BED
-        _PWM_LOW(BED, soft_pwm_bed);
+        TERN(CUSTOM_DOUBLE_ZONED_HEAT_BED,_PWM_LOW_PRO(BED, soft_pwm_bed),_PWM_LOW(BED, soft_pwm_bed));
       #endif
 
       #if HAS_HEATED_CHAMBER
-        _PWM_LOW(CHAMBER, soft_pwm_chamber);
+        TERN(CUSTOM_DOUBLE_ZONED_HEAT_BED,_PWM_LOW_PRO(CHAMBER, soft_pwm_chamber),_PWM_LOW(CHAMBER, soft_pwm_chamber));
       #endif
 
       #if HAS_COOLER

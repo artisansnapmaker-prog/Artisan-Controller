@@ -36,9 +36,9 @@ class UartHost {
 public:
   void Init(HardwareSerial *serial, uint8_t interrupt_prio);
 
-  ErrCode CheckoutCmd(uint8_t *cmd, uint16_t &length);
+  err_code_t CheckoutCmd(uint8_t *cmd, uint16_t &length);
 
-  ErrCode Send(SSTP_Event_t &e);
+  err_code_t Send(SSTP_Event_t &e);
 
   void FlushOutput();
   void FlushInput();

@@ -55,16 +55,16 @@ enum UpgradeTarget {
 
 class UpgradeService {
   public:
-    ErrCode StartUpgrade(SSTP_Event_t &event);
-    ErrCode ReceiveFW(SSTP_Event_t &event);
-    ErrCode EndUpgarde(SSTP_Event_t &event);
-    ErrCode GetMainControllerVer(SSTP_Event_t &event);
-    ErrCode CompareMCVer(SSTP_Event_t &event);
-    ErrCode GetUpgradeStatus(SSTP_Event_t &event);
-    ErrCode GetModuleVer(SSTP_Event_t &event);
+    err_code_t StartUpgrade(SSTP_Event_t &event);
+    err_code_t ReceiveFW(SSTP_Event_t &event);
+    err_code_t EndUpgarde(SSTP_Event_t &event);
+    err_code_t GetMainControllerVer(SSTP_Event_t &event);
+    err_code_t CompareMCVer(SSTP_Event_t &event);
+    err_code_t GetUpgradeStatus(SSTP_Event_t &event);
+    err_code_t GetModuleVer(SSTP_Event_t &event);
 
-    ErrCode SendModuleUpgradeStatus(uint8_t sta);
-    ErrCode SendModuleVer(uint32_t mac, char ver[VERSION_STRING_SIZE]);
+    err_code_t SendModuleUpgradeStatus(uint8_t sta);
+    err_code_t SendModuleVer(uint32_t mac, char ver[VERSION_STRING_SIZE]);
 
     void CheckIfUpgradeModule();
 
@@ -77,7 +77,7 @@ class UpgradeService {
     }
 
   private:
-    ErrCode RequestNextPacket();
+    err_code_t RequestNextPacket();
 
   private:
     static const uint16_t max_packet_ = MARLIN_CODE_SIZE / 512;

@@ -84,15 +84,15 @@ typedef enum {
 class CanHost {
   public:
 
-    ErrCode Init();
+    err_code_t Init();
 
-    ErrCode SendStdCmd(CanStdMesgCmd_t &message);
-    ErrCode SendStdCmd(CanStdFuncCmd_t &function, uint8_t sub_index=0);
-    ErrCode SendStdCmdSync(CanStdFuncCmd_t &function, uint32_t timeout_ms=0, uint8_t retry=1, uint8_t sub_index=0);
+    err_code_t SendStdCmd(CanStdMesgCmd_t &message);
+    err_code_t SendStdCmd(CanStdFuncCmd_t &function, uint8_t sub_index=0);
+    err_code_t SendStdCmdSync(CanStdFuncCmd_t &function, uint32_t timeout_ms=0, uint8_t retry=1, uint8_t sub_index=0);
 
-    ErrCode SendExtCmd(CanExtCmd_t &cmd);
-    ErrCode SendExtCmdSync(CanExtCmd_t &cmd, uint32_t timeout_ms=0, uint8_t retry=1);
-    ErrCode WaitExtCmdAck(CanExtCmd_t &cmd, uint32_t timeout_ms=0, uint8_t retry=1);
+    err_code_t SendExtCmd(CanExtCmd_t &cmd);
+    err_code_t SendExtCmdSync(CanExtCmd_t &cmd, uint32_t timeout_ms=0, uint8_t retry=1);
+    err_code_t WaitExtCmdAck(CanExtCmd_t &cmd, uint32_t timeout_ms=0, uint8_t retry=1);
 
     void SendHeartbeat();
     void SendEmergencyStop();
@@ -100,13 +100,13 @@ class CanHost {
     void ReceiveHandler(void *parameter);
     void EventHandler(void *parameter);
 
-    ErrCode UpgradeModules(uint32_t fw_addr, uint32_t length);
+    err_code_t UpgradeModules(uint32_t fw_addr, uint32_t length);
 
     message_id_t RegisterFunction(Function_t const &function, CanStdCmdCallback_t callback);
 
     bool IrqCallback(CanStdDataFrame_t &frame);
 
-    ErrCode BindMessageID(CanExtCmd_t &cmd, message_id_t *msg_buffer);
+    err_code_t BindMessageID(CanExtCmd_t &cmd, message_id_t *msg_buffer);
     void ShowModuleVersion(MAC_t mac);
     void SetReceiverSpeed(RECEIVER_SPEED_E speed);
     uint32_t mac(uint8_t index) {
@@ -118,14 +118,14 @@ class CanHost {
 
   private:
     message_id_t GetMessageID(func_id_t function_id, uint8_t sub_index = 0);
-    ErrCode BindMessageID(MAC_t &mac, uint8_t mac_index);
+    err_code_t BindMessageID(MAC_t &mac, uint8_t mac_index);
 
-    ErrCode InitModules(MAC_t &mac);
-    ErrCode InitDynamicModule(MAC_t &mac, uint8_t mac_index);
+    err_code_t InitModules(MAC_t &mac);
+    err_code_t InitDynamicModule(MAC_t &mac, uint8_t mac_index);
 
-    ErrCode AssignMessageRegion();
+    err_code_t AssignMessageRegion();
 
-    ErrCode HandleExtCmd(uint8_t *cmd, uint16_t length);
+    err_code_t HandleExtCmd(uint8_t *cmd, uint16_t length);
 
 
   private:

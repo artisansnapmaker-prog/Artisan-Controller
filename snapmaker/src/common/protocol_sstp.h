@@ -131,10 +131,10 @@ class ProtocolSSTP {
       state_ = PROTOCOL_SSTP_STATE_IDLE;
     }
 
-    ErrCode Parse(RingBuffer<uint8_t> &ring, uint8_t *out, uint16_t &length);
-    //ErrCode Parse(ring_buffer *rb, uint8_t *out, uint16_t &length);
+    err_code_t Parse(RingBuffer<uint8_t> &ring, uint8_t *out, uint16_t &length);
+    //err_code_t Parse(ring_buffer *rb, uint8_t *out, uint16_t &length);
 
-    ErrCode Package(uint8_t *in_data, uint8_t *out, uint16_t &length);
+    err_code_t Package(uint8_t *in_data, uint8_t *out, uint16_t &length);
 
     uint16_t CalcChecksum(SSTP_Event_t &event);
 

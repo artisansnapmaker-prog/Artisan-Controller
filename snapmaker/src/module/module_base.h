@@ -18,8 +18,8 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#ifndef SNAPMAKER_MODULE_BASE_H_
-#define SNAPMAKER_MODULE_BASE_H_
+#ifndef SNAPMAKER_MODULE_1BASE_H_
+#define SNAPMAKER_MODULE_1BASE_H_
 
 #include "../common/error.h"
 #include "../common/protocol_sstp.h"
@@ -262,8 +262,8 @@ class ModuleBase {
   public:
     ModuleBase(uint16_t id): device_id_(id) {}
 
-    static ErrCode Upgrade(MAC_t &mac, uint32_t fw_addr, uint32_t length);
-    static ErrCode InitModule8p(MAC_t &mac, int dir_pin, uint8_t index);
+    static err_code_t Upgrade(MAC_t &mac, uint32_t fw_addr, uint32_t length);
+    static err_code_t InitModule8p(MAC_t &mac, int dir_pin, uint8_t index);
 
     static ModuleToolHeadType toolhead() { return toolhead_; }
 
@@ -280,11 +280,11 @@ class ModuleBase {
       ReportMarlinUart();
     }
 
-    static ErrCode SetMAC(SSTP_Event_t &event);
-    static ErrCode GetMAC(SSTP_Event_t &event);
+    static err_code_t SetMAC(SSTP_Event_t &event);
+    static err_code_t GetMAC(SSTP_Event_t &event);
 
-    virtual ErrCode Init(MAC_t &mac, uint8_t mac_index) { return E_SUCCESS; }
-    virtual ErrCode PostInit() { return E_SUCCESS; }  // Called after all modules are initialized
+    virtual err_code_t Init(MAC_t &mac, uint8_t mac_index) { return E_SUCCESS; }
+    virtual err_code_t PostInit() { return E_SUCCESS; }  // Called after all modules are initialized
     virtual void Process() { return; }
 
     virtual bool IsOnline(uint8_t sub_index = 0) { return false; }

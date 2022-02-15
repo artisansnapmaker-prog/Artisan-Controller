@@ -41,7 +41,7 @@
  * Note that we may call this function many times
  * for one complete event
  */
-/*ErrCode ProtocolSSTP::Parse(ring_buffer *rb, uint8_t *out, uint16_t &size) {
+/*err_code_t ProtocolSSTP::Parse(ring_buffer *rb, uint8_t *out, uint16_t &size) {
   int16_t   c = -1;
   int       i;
   uint16_t  timeout = 0;
@@ -172,7 +172,7 @@
   return E_SUCCESS;
 }*/
 
-ErrCode ProtocolSSTP::Parse(RingBuffer<uint8_t> &ring, uint8_t *out, uint16_t &length) {
+err_code_t ProtocolSSTP::Parse(RingBuffer<uint8_t> &ring, uint8_t *out, uint16_t &length) {
   uint16_t calc_chk = 0;
 
 
@@ -248,7 +248,7 @@ ErrCode ProtocolSSTP::Parse(RingBuffer<uint8_t> &ring, uint8_t *out, uint16_t &l
 }
 
 
-ErrCode ProtocolSSTP::Package(uint8_t *in, uint8_t *out, uint16_t &length) {
+err_code_t ProtocolSSTP::Package(uint8_t *in, uint8_t *out, uint16_t &length) {
   uint16_t checksum;
   uint16_t index = 0;
 

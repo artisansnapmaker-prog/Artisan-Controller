@@ -41,8 +41,8 @@ static void CallbackAckSpindleSpeed(CanStdDataFrame_t &cmd) {
 }
 
 
-ErrCode ToolHeadCNC::Init(MAC_t &mac, uint8_t mac_index) {
-  ErrCode ret;
+err_code_t ToolHeadCNC::Init(MAC_t &mac, uint8_t mac_index) {
+  err_code_t ret;
 
   CanExtCmd_t cmd;
   uint8_t     func_buffer[16];
@@ -105,7 +105,7 @@ ErrCode ToolHeadCNC::Init(MAC_t &mac, uint8_t mac_index) {
 }
 
 
-ErrCode ToolHeadCNC::SetOutput(uint8_t power) {
+err_code_t ToolHeadCNC::SetOutput(uint8_t power) {
   if (power > 100)
     power_ = 100;
   else
@@ -115,7 +115,7 @@ ErrCode ToolHeadCNC::SetOutput(uint8_t power) {
 }
 
 
-ErrCode ToolHeadCNC::TurnOn() {
+err_code_t ToolHeadCNC::TurnOn() {
   CanStdMesgCmd_t cmd;
 
   uint8_t buffer[2];
@@ -130,7 +130,7 @@ ErrCode ToolHeadCNC::TurnOn() {
 }
 
 
-ErrCode ToolHeadCNC::TurnOff() {
+err_code_t ToolHeadCNC::TurnOff() {
   CanStdMesgCmd_t cmd;
 
   uint8_t buffer[2];

@@ -44,7 +44,7 @@ class RotaryModule: public ModuleBase {
     /**
      * Initialize rotary module.
      */
-    ErrCode Init(MAC_t &mac, uint8_t mac_index);
+    err_code_t Init(MAC_t &mac, uint8_t mac_index);
 
     /**
      * Detection of module.

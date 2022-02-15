@@ -113,7 +113,7 @@ class ToolHeadLaser: public ModuleBase {
       pwm_pin_pulldown_state_ = 0xff;
     }
 
-    ErrCode Init(MAC_t &mac, uint8_t mac_index);
+    err_code_t Init(MAC_t &mac, uint8_t mac_index);
     void TurnoffLaserIfNeeded();
 
     void TurnOn();
@@ -130,26 +130,26 @@ class ToolHeadLaser: public ModuleBase {
     bool IsOnline(uint8_t sub_index = 0) { return mac_index_ != MODULE_MAC_INDEX_INVALID; }
 
     // callbacks for HMI event
-    ErrCode GetFocus(SSTP_Event_t &event);
-    ErrCode SetFocus(SSTP_Event_t &event);
-    ErrCode DoManualFocusing(SSTP_Event_t &event);
-    ErrCode DoAutoFocusing(SSTP_Event_t &event);
+    err_code_t GetFocus(SSTP_Event_t &event);
+    err_code_t SetFocus(SSTP_Event_t &event);
+    err_code_t DoManualFocusing(SSTP_Event_t &event);
+    err_code_t DoAutoFocusing(SSTP_Event_t &event);
 
-    ErrCode SetCameraBtName(SSTP_Event_t &event);
-    ErrCode GetCameraBtName(SSTP_Event_t &event);
-    ErrCode GetCameraBtMAC(SSTP_Event_t &event);
-    ErrCode ReadBluetoothVer();
+    err_code_t SetCameraBtName(SSTP_Event_t &event);
+    err_code_t GetCameraBtName(SSTP_Event_t &event);
+    err_code_t GetCameraBtMAC(SSTP_Event_t &event);
+    err_code_t ReadBluetoothVer();
     void SetCameraLight(uint8_t state);
 
-    ErrCode GetSecurityStatus(SSTP_Event_t &event);
-    ErrCode SendSecurityStatus();
-    ErrCode SendPauseStatus();
-    ErrCode SetAutoFocusLight(SSTP_Event_t &event);
-    ErrCode SetOnlineSyncId(SSTP_Event_t &event);
-    ErrCode GetOnlineSyncId(SSTP_Event_t &event);
-    ErrCode SetProtectTemp(SSTP_Event_t &event);
-    ErrCode LaserControl(uint8_t state);
-    ErrCode LaserGetHWVersion();
+    err_code_t GetSecurityStatus(SSTP_Event_t &event);
+    err_code_t SendSecurityStatus();
+    err_code_t SendPauseStatus();
+    err_code_t SetAutoFocusLight(SSTP_Event_t &event);
+    err_code_t SetOnlineSyncId(SSTP_Event_t &event);
+    err_code_t GetOnlineSyncId(SSTP_Event_t &event);
+    err_code_t SetProtectTemp(SSTP_Event_t &event);
+    err_code_t LaserControl(uint8_t state);
+    err_code_t LaserGetHWVersion();
     void TellSecurityStatus();
     uint8_t LaserGetPwmPinState();
     void LaserConfirmPinState();
@@ -176,9 +176,9 @@ class ToolHeadLaser: public ModuleBase {
 
   private:
     void    CheckFan(uint16_t pwm);
-    ErrCode LoadFocus();
-    ErrCode ReadBluetoothInfo(LaserCameraCommand cmd, uint8_t *out, uint16_t &length);
-    ErrCode SetBluetoothInfo(LaserCameraCommand cmd, uint8_t *info, uint16_t length);
+    err_code_t LoadFocus();
+    err_code_t ReadBluetoothInfo(LaserCameraCommand cmd, uint8_t *out, uint16_t &length);
+    err_code_t SetBluetoothInfo(LaserCameraCommand cmd, uint8_t *info, uint16_t length);
 
   private:
     uint8_t *power_table_;

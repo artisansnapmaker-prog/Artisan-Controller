@@ -99,9 +99,9 @@ typedef bool (*CANIrqCallback_t)(CanStdDataFrame_t &cmd);
 
 class CanChannel {
   public:
-    ErrCode Init(CANIrqCallback_t irq_cb);
+    err_code_t Init(CANIrqCallback_t irq_cb);
 
-    ErrCode Write(CanPacket_t &packet);
+    err_code_t Write(CanPacket_t &packet);
 
     int32_t Read(CanFrameType ft, uint8_t *pdu, int32_t l);
 
@@ -112,9 +112,9 @@ class CanChannel {
     RingBuffer<uint8_t> &ext_cmd() { return ext_cmd_; }
 
   private:
-    ErrCode hal_init(void);
-    ErrCode config_baudrate(CanChannelNumber bus, CANBaudrateSet_t br);
-    ErrCode config_filter(int bus, int filter_bank, int filter_len, uint32_t filt_id, uint32_t mask_id, int rxfifo_num);
+    err_code_t hal_init(void);
+    err_code_t config_baudrate(CanChannelNumber bus, CANBaudrateSet_t br);
+    err_code_t config_filter(int bus, int filter_bank, int filter_len, uint32_t filt_id, uint32_t mask_id, int rxfifo_num);
     uint32_t canbus_send_packet(uint32_t id, uint8_t port_num, CanFrameType frame_type, uint8_t data_len, uint8_t *p_data);
     uint8_t canbus_parse_data(uint32_t *id, uint8_t *id_type, uint8_t port_num, uint8_t *frame_type, uint8_t *p_data, uint8_t *len, uint8_t fifo_num);
 

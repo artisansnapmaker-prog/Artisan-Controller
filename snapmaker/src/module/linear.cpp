@@ -113,7 +113,7 @@ static void LinearCallbackEndstopZ2(CanStdDataFrame_t &cmd) {
 }
 
 
-ErrCode Linear::Init(MAC_t &mac, uint8_t mac_index) {
+err_code_t Linear::Init(MAC_t &mac, uint8_t mac_index) {
   uint8_t   type;
   uint8_t   endstop;
 
@@ -228,7 +228,7 @@ ErrCode Linear::Init(MAC_t &mac, uint8_t mac_index) {
   return canhost.BindMessageID(cmd, message_id);
 }
 
-ErrCode Linear::CheckModuleType() {
+err_code_t Linear::CheckModuleType() {
   int32_t i;
   uint32_t device_id = 0xffffffff;
   uint32_t id;
@@ -306,7 +306,7 @@ ErrCode Linear::CheckModuleType() {
 }
 
 
-ErrCode Linear::PollEndstop(LinearAxisType axis) {
+err_code_t Linear::PollEndstop(LinearAxisType axis) {
   CanStdMesgCmd_t message;
 
   // no data field in this message
@@ -450,7 +450,7 @@ MachineSize Linear::UpdateMachineSize() {
 }
 
 
-ErrCode Linear::SetLengthOrLead(SSTP_Event_t &event, uint8_t ext_cmd) {
+err_code_t Linear::SetLengthOrLead(SSTP_Event_t &event, uint8_t ext_cmd) {
   CanExtCmd_t cmd;
   uint8_t     buffer[8];
 
@@ -490,7 +490,7 @@ error:
 }
 
 
-ErrCode Linear::GetLengthOrLead(SSTP_Event_t &event, uint8_t ext_cmd) {
+err_code_t Linear::GetLengthOrLead(SSTP_Event_t &event, uint8_t ext_cmd) {
   int i, j = 0;
 
   uint32_t    mac;

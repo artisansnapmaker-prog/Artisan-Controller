@@ -86,7 +86,7 @@ class Purifier : public ModuleBase{
   Purifier(): ModuleBase(MODULE_DEVICE_ID_PURIFIER) {
     online_ = PURIFIER_OFFLINE;
   }
-  ErrCode Init(MAC_t &mac, uint8_t mac_index);
+  err_code_t Init(MAC_t &mac, uint8_t mac_index);
   PurifierInfo_t GetInfo(PURIFIER_INFO_E info, uint16_t timeout_ms=200);
   void UpdateInfo(uint8_t data[8]);
   void UpdateLifetime(uint8_t lifetime) {info_.lifetime = (PURIFIER_LIFETIME_E)lifetime;}
@@ -100,8 +100,8 @@ class Purifier : public ModuleBase{
   void UpdatePower(uint16_t addon, uint16_t extend) {info_.addon_power = addon; info_.extend_power = extend;}
   void UpdateErr(uint8_t err) {info_.err = err;}
   void SetFanStatus(uint8_t is_open, uint16_t delay_close_s=0, uint8_t is_forced=false);
-  ErrCode ReportStatus();
-  ErrCode ReportLifetimeStatus();
+  err_code_t ReportStatus();
+  err_code_t ReportLifetimeStatus();
   void SetFanGears(uint8_t gears);
   void SetFanPower(uint8_t power);
   void SetLightColor(uint8_t rgb[3]);

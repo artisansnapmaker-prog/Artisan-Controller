@@ -74,8 +74,8 @@ static void CallbackReportInfo(CanStdDataFrame_t &cmd) {
 }
 
 
-ErrCode Purifier::Init(MAC_t &mac, uint8_t mac_index) {
-  ErrCode ret;
+err_code_t Purifier::Init(MAC_t &mac, uint8_t mac_index) {
+  err_code_t ret;
 
   CanExtCmd_t cmd;
   uint8_t     func_buffer[16];
@@ -207,7 +207,7 @@ void Purifier::SetLightColor(uint8_t rgb[3]) {
   SendCmd(MODULE_FUNC_SET_PURIFIER, data, 4);
 }
 
-ErrCode Purifier::ReportStatus() {
+err_code_t Purifier::ReportStatus() {
   uint8_t buff[2];
   SSTP_Event_t event;
   if (IsOnline()) {
@@ -234,7 +234,7 @@ ErrCode Purifier::ReportStatus() {
   return 0;
 }
 
-ErrCode Purifier::ReportLifetimeStatus() {
+err_code_t Purifier::ReportLifetimeStatus() {
   uint8_t buff[1];
   SSTP_Event_t event;
   event.id = EID_ADDON_ACK;

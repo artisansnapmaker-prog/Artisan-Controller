@@ -93,7 +93,7 @@ class SnapDebug {
 
     void ShowException();
 
-    ErrCode SetLogLevel(SSTP_Event_t &event);
+    err_code_t SetLogLevel(SSTP_Event_t &event);
 
   private:
     void SendLog2Screen(SnapDebugLevel l);

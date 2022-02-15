@@ -33,8 +33,8 @@ static void CallbackAckDoorState(CanStdDataFrame_t &cmd) {
 }
 
 
-ErrCode Enclosure::Init(MAC_t &mac, uint8_t mac_index) {
-  ErrCode ret;
+err_code_t Enclosure::Init(MAC_t &mac, uint8_t mac_index) {
+  err_code_t ret;
 
   CanExtCmd_t cmd;
   uint8_t     func_buffer[16];
@@ -75,14 +75,14 @@ ErrCode Enclosure::Init(MAC_t &mac, uint8_t mac_index) {
   return ret;
 }
 
-ErrCode Enclosure::PostInit() {
+err_code_t Enclosure::PostInit() {
   if (IsOnline() && ModuleBase::toolhead() == MODULE_TOOLHEAD_3DP) {
     Disable();
   }
   return E_SUCCESS;
 }
 
-ErrCode Enclosure::SetLightBar(uint8_t brightness) {
+err_code_t Enclosure::SetLightBar(uint8_t brightness) {
   CanStdFuncCmd_t cmd;
   brightness = (brightness > 100) ? 100 : brightness;
   uint8_t out = brightness * 255 / 100;
@@ -106,7 +106,7 @@ ErrCode Enclosure::SetLightBar(uint8_t brightness) {
 }
 
 
-ErrCode Enclosure::SetFanSpeed(uint8_t speed) {
+err_code_t Enclosure::SetFanSpeed(uint8_t speed) {
   CanStdFuncCmd_t cmd;
   uint8_t         buffer[2];
   speed = (speed > 100) ? 100 : speed;
@@ -228,7 +228,7 @@ void Enclosure::Process() {
 }
 
 
-ErrCode Enclosure::ReportStatus(SSTP_Event_t &event) {
+err_code_t Enclosure::ReportStatus(SSTP_Event_t &event) {
   uint8_t buff[4];
 
   LOG_I("SC req enclosure sta\n");
@@ -251,8 +251,8 @@ ErrCode Enclosure::ReportStatus(SSTP_Event_t &event) {
   return 0;
 }
 
-ErrCode Enclosure::SetLightBar(SSTP_Event_t &event) {
-  ErrCode err = E_SUCCESS;
+err_code_t Enclosure::SetLightBar(SSTP_Event_t &event) {
+  err_code_t err = E_SUCCESS;
 
   if (event.length < 1) {
     LOG_E("must specify light power!\n");
@@ -270,8 +270,8 @@ OUT:
   return 0;
 }
 
-ErrCode Enclosure::SetFan(SSTP_Event_t &event) {
-  ErrCode err = E_SUCCESS;
+err_code_t Enclosure::SetFan(SSTP_Event_t &event) {
+  err_code_t err = E_SUCCESS;
 
   if (event.length < 1) {
     LOG_E("must specify Fan speed!\n");
@@ -289,8 +289,8 @@ OUT:
   return 0;
 }
 
-ErrCode Enclosure::SetDetection(SSTP_Event_t &event) {
-  ErrCode err = E_FAILURE;
+err_code_t Enclosure::SetDetection(SSTP_Event_t &event) {
+  err_code_t err = E_FAILURE;
 
   if (event.length < 1) {
     LOG_E("must tell me what to do for enclosure detection!\n");

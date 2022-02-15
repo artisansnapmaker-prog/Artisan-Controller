@@ -60,18 +60,18 @@ class Linear: public ModuleBase  {
       endstop_      = 0xFFFFFFFF;
     }
 
-    ErrCode Init(MAC_t &mac, uint8_t mac_index);
+    err_code_t Init(MAC_t &mac, uint8_t mac_index);
 
-    ErrCode CheckModuleType();
+    err_code_t CheckModuleType();
 
-    ErrCode PollEndstop(LinearAxisType axis);
+    err_code_t PollEndstop(LinearAxisType axis);
 
     MachineSize UpdateMachineSize();
 
-    ErrCode SetLength(SSTP_Event_t &event) { return SetLengthOrLead(event, MODULE_EXT_CMD_LINEAR_LENGTH_REQ); }
-    ErrCode GetLength(SSTP_Event_t &event) { return GetLengthOrLead(event, MODULE_EXT_CMD_LINEAR_LENGTH_REQ); }
-    ErrCode SetLead(SSTP_Event_t &event) { return SetLengthOrLead(event, MODULE_EXT_CMD_LINEAR_LEAD_REQ); }
-    ErrCode GetLead(SSTP_Event_t &event) { return GetLengthOrLead(event, MODULE_EXT_CMD_LINEAR_LEAD_REQ); }
+    err_code_t SetLength(SSTP_Event_t &event) { return SetLengthOrLead(event, MODULE_EXT_CMD_LINEAR_LENGTH_REQ); }
+    err_code_t GetLength(SSTP_Event_t &event) { return GetLengthOrLead(event, MODULE_EXT_CMD_LINEAR_LENGTH_REQ); }
+    err_code_t SetLead(SSTP_Event_t &event) { return SetLengthOrLead(event, MODULE_EXT_CMD_LINEAR_LEAD_REQ); }
+    err_code_t GetLead(SSTP_Event_t &event) { return GetLengthOrLead(event, MODULE_EXT_CMD_LINEAR_LEAD_REQ); }
 
     uint16_t length(LinearAxisType axis) {
       if (axis < LINEAR_AXIS_MAX)
@@ -103,8 +103,8 @@ class Linear: public ModuleBase  {
   private:
     LinearAxisType DetectAxis(MAC_t &mac, uint8_t &endstop);
 
-    ErrCode SetLengthOrLead(SSTP_Event_t &event, uint8_t ext_cmd);
-    ErrCode GetLengthOrLead(SSTP_Event_t &event, uint8_t ext_cmd);
+    err_code_t SetLengthOrLead(SSTP_Event_t &event, uint8_t ext_cmd);
+    err_code_t GetLengthOrLead(SSTP_Event_t &event, uint8_t ext_cmd);
 
   private:
     uint8_t       mac_index_[LINEAR_AXIS_MAX];

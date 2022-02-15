@@ -249,7 +249,7 @@ typedef struct {
 
 typedef struct DispatcherParam* DispatcherParam_t;
 void event_handler_init();
-ErrCode DispatchEvent(DispatcherParam_t param);
+err_code_t DispatchEvent(DispatcherParam_t param);
 void clear_hmi_gcode_queue();
 void ack_gcode_event(uint8_t event_id, uint32_t line);
 void gocde_pack_start_line(uint32_t line);

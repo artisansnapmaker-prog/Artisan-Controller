@@ -122,8 +122,8 @@ static void CallbackAckReportSecurity(CanStdDataFrame_t &cmd) {
   }
 }
 
-ErrCode ToolHeadLaser::Init(MAC_t &mac, uint8_t mac_index) {
-  ErrCode ret;
+err_code_t ToolHeadLaser::Init(MAC_t &mac, uint8_t mac_index) {
+  err_code_t ret;
 
   CanExtCmd_t cmd;
   uint8_t     func_buffer[2*12+2];
@@ -356,7 +356,7 @@ void ToolHeadLaser::TryCloseFan() {
 }
 
 
-ErrCode ToolHeadLaser::LoadFocus() {
+err_code_t ToolHeadLaser::LoadFocus() {
   CanStdMesgCmd_t cmd;
   uint8_t data[1];
   if (rotaryModule.status() != ROTATE_OFFLINE) {
@@ -371,7 +371,7 @@ ErrCode ToolHeadLaser::LoadFocus() {
 }
 
 
-ErrCode ToolHeadLaser::GetFocus(SSTP_Event_t &event) {
+err_code_t ToolHeadLaser::GetFocus(SSTP_Event_t &event) {
   uint8_t  buff[5];
 
   LoadFocus();
@@ -394,8 +394,8 @@ ErrCode ToolHeadLaser::GetFocus(SSTP_Event_t &event) {
 }
 
 
-ErrCode ToolHeadLaser::SetFocus(SSTP_Event_t &event) {
-  ErrCode err = E_FAILURE;
+err_code_t ToolHeadLaser::SetFocus(SSTP_Event_t &event) {
+  err_code_t err = E_FAILURE;
 
   CanStdFuncCmd_t cmd;
 
@@ -444,8 +444,8 @@ ErrCode ToolHeadLaser::SetFocus(SSTP_Event_t &event) {
 }
 
 
-ErrCode ToolHeadLaser::DoManualFocusing(SSTP_Event_t &event) {
-  ErrCode err = E_FAILURE;
+err_code_t ToolHeadLaser::DoManualFocusing(SSTP_Event_t &event) {
+  err_code_t err = E_FAILURE;
 
   //float pos[XYZ];
   float pos[3];
@@ -497,8 +497,8 @@ out:
 }
 
 
-ErrCode ToolHeadLaser::DoAutoFocusing(SSTP_Event_t &event) {
-  ErrCode err = E_FAILURE;
+err_code_t ToolHeadLaser::DoAutoFocusing(SSTP_Event_t &event) {
+  err_code_t err = E_FAILURE;
 
   uint8_t Count = 21;
   float z_interval = 0.5;
@@ -599,10 +599,10 @@ out:
  * para Name:The pointer to the Name buffer
  * return:0 for read success, 1 for unname, 2 for timeout
  */
-ErrCode ToolHeadLaser::ReadBluetoothInfo(LaserCameraCommand cmd, uint8_t *out, uint16_t &length) {
+err_code_t ToolHeadLaser::ReadBluetoothInfo(LaserCameraCommand cmd, uint8_t *out, uint16_t &length) {
   SSTP_Event_t  event = {cmd, 0, 0, NULL};
 
-  ErrCode  ret = E_SUCCESS;
+  err_code_t  ret = E_SUCCESS;
 
 
   for (int i = 1; i < 4; i++) {
@@ -648,11 +648,11 @@ out:
  * para Name:The name of the BT
  * ret  None
  */
-ErrCode ToolHeadLaser::SetBluetoothInfo(LaserCameraCommand cmd, uint8_t *info, uint16_t length) {
+err_code_t ToolHeadLaser::SetBluetoothInfo(LaserCameraCommand cmd, uint8_t *info, uint16_t length) {
   SSTP_Event_t  event = {cmd, 0};
 
   uint8_t  buffer[72];
-  ErrCode  ret;
+  err_code_t  ret;
 
   event.length = length;
   event.data   = info;
@@ -690,8 +690,8 @@ out:
 }
 
 
-ErrCode ToolHeadLaser::SetCameraBtName(SSTP_Event_t &event) {
-  ErrCode err = E_FAILURE;
+err_code_t ToolHeadLaser::SetCameraBtName(SSTP_Event_t &event) {
+  err_code_t err = E_FAILURE;
 
   LOG_I("SC set BT Name: %s\n", event.data);
 
@@ -704,9 +704,9 @@ ErrCode ToolHeadLaser::SetCameraBtName(SSTP_Event_t &event) {
 }
 
 
-ErrCode ToolHeadLaser::GetCameraBtName(SSTP_Event_t &event) {
+err_code_t ToolHeadLaser::GetCameraBtName(SSTP_Event_t &event) {
   uint8_t buffer[40] = {0};
-  ErrCode ret;
+  err_code_t ret;
 
   ret = ReadBluetoothInfo(M_REPORT_BT_NAME, buffer, event.length);
 
@@ -732,9 +732,9 @@ ErrCode ToolHeadLaser::GetCameraBtName(SSTP_Event_t &event) {
 }
 
 
-ErrCode ToolHeadLaser::GetCameraBtMAC(SSTP_Event_t &event) {
+err_code_t ToolHeadLaser::GetCameraBtMAC(SSTP_Event_t &event) {
   uint8_t buffer[16] = {0};
-  ErrCode ret;
+  err_code_t ret;
 
   LOG_I("SC get BT MAC\n");
 
@@ -764,10 +764,10 @@ ErrCode ToolHeadLaser::GetCameraBtMAC(SSTP_Event_t &event) {
  * ReadBlueToothName:Read BT versions
  * return:0 for read success, 1 for unname, 2 for timeout
  */
-ErrCode ToolHeadLaser::ReadBluetoothVer() {
+err_code_t ToolHeadLaser::ReadBluetoothVer() {
   uint8_t  buff[72];
   uint16_t size;
-  ErrCode ret = E_SUCCESS;
+  err_code_t ret = E_SUCCESS;
 
   ret = ReadBluetoothInfo(M_REPORT_VERSIONS, buff, size);
 
@@ -794,7 +794,7 @@ void ToolHeadLaser::SetCameraLight(uint8_t state) {
   LOG_I("set Laser Camera light:%d!\n", state);
 }
 
-ErrCode ToolHeadLaser::SetAutoFocusLight(SSTP_Event_t &event) {
+err_code_t ToolHeadLaser::SetAutoFocusLight(SSTP_Event_t &event) {
   CanStdFuncCmd_t cmd;
   uint8_t can_buffer[1];
 
@@ -831,7 +831,7 @@ ErrCode ToolHeadLaser::SetAutoFocusLight(SSTP_Event_t &event) {
   return 0;
 }
 
-ErrCode ToolHeadLaser::GetSecurityStatus(SSTP_Event_t &event) {
+err_code_t ToolHeadLaser::GetSecurityStatus(SSTP_Event_t &event) {
   CanStdFuncCmd_t cmd;
 
   cmd.id        = MODULE_FUNC_REPORT_SECURITY_STATUS;
@@ -840,7 +840,7 @@ ErrCode ToolHeadLaser::GetSecurityStatus(SSTP_Event_t &event) {
   return canhost.SendStdCmd(cmd);
 }
 
-ErrCode ToolHeadLaser::SendSecurityStatus() {
+err_code_t ToolHeadLaser::SendSecurityStatus() {
   SSTP_Event_t event = {EID_SYS_CTRL_ACK, SYSCTL_OPC_SECURITY_STATUS};
   uint8_t buff[6];
 
@@ -857,7 +857,7 @@ ErrCode ToolHeadLaser::SendSecurityStatus() {
   return 0;
 }
 
-ErrCode ToolHeadLaser::SendPauseStatus() {
+err_code_t ToolHeadLaser::SendPauseStatus() {
   SSTP_Event_t event = {EID_SYS_CTRL_ACK, SYSCTL_OPC_PAUSE};
 
   event.length = 0;
@@ -866,7 +866,7 @@ ErrCode ToolHeadLaser::SendPauseStatus() {
   return 0;
 }
 
-ErrCode ToolHeadLaser::SetOnlineSyncId(SSTP_Event_t &event) {
+err_code_t ToolHeadLaser::SetOnlineSyncId(SSTP_Event_t &event) {
   CanStdFuncCmd_t cmd;
   uint8_t can_buffer[5];
 
@@ -889,7 +889,7 @@ ErrCode ToolHeadLaser::SetOnlineSyncId(SSTP_Event_t &event) {
   return 0;
 }
 
-ErrCode ToolHeadLaser::GetOnlineSyncId(SSTP_Event_t &event) {
+err_code_t ToolHeadLaser::GetOnlineSyncId(SSTP_Event_t &event) {
   CanStdFuncCmd_t cmd;
   uint8_t can_buffer[1];
 
@@ -898,7 +898,7 @@ ErrCode ToolHeadLaser::GetOnlineSyncId(SSTP_Event_t &event) {
   cmd.data      = can_buffer;
   cmd.length    = 1;
 
-  ErrCode ret;
+  err_code_t ret;
   ret = canhost.SendStdCmdSync(cmd, 2000);
   if (ret != E_SUCCESS) {
     return ret;
@@ -922,7 +922,7 @@ ErrCode ToolHeadLaser::GetOnlineSyncId(SSTP_Event_t &event) {
   return E_SUCCESS;
 }
 
-ErrCode ToolHeadLaser::SetProtectTemp(SSTP_Event_t &event) {
+err_code_t ToolHeadLaser::SetProtectTemp(SSTP_Event_t &event) {
   CanStdFuncCmd_t cmd;
   int8_t can_buffer[2];
 
@@ -935,7 +935,7 @@ ErrCode ToolHeadLaser::SetProtectTemp(SSTP_Event_t &event) {
   return canhost.SendStdCmd(cmd);
 }
 
-ErrCode ToolHeadLaser::LaserControl(uint8_t state) {
+err_code_t ToolHeadLaser::LaserControl(uint8_t state) {
   CanStdFuncCmd_t cmd;
   uint8_t can_buffer[1];
 
@@ -944,7 +944,7 @@ ErrCode ToolHeadLaser::LaserControl(uint8_t state) {
   cmd.data      = can_buffer;
   cmd.length    = 1;
 
-  ErrCode ret;
+  err_code_t ret;
   ret = canhost.SendStdCmdSync(cmd, 2000);
   if (ret != E_SUCCESS) {
     return ret;
@@ -953,7 +953,7 @@ ErrCode ToolHeadLaser::LaserControl(uint8_t state) {
   return E_SUCCESS;
 }
 
-ErrCode ToolHeadLaser::LaserGetHWVersion() {
+err_code_t ToolHeadLaser::LaserGetHWVersion() {
   CanStdFuncCmd_t cmd;
   uint8_t buff[1] = {0};
 
@@ -961,7 +961,7 @@ ErrCode ToolHeadLaser::LaserGetHWVersion() {
   cmd.data      = buff;
   cmd.length    = 1;
 
-  ErrCode ret;
+  err_code_t ret;
   ret = canhost.SendStdCmdSync(cmd, 2000);
   if (ret != E_SUCCESS) {
     return ret;

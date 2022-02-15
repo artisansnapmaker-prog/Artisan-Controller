@@ -38,7 +38,7 @@ class EmergencyStop: public ModuleBase {
       mac_index_   = MODULE_MAC_INDEX_INVALID;
     }
 
-    ErrCode Init(MAC_t &mac, uint8_t mac_index);
+    err_code_t Init(MAC_t &mac, uint8_t mac_index);
 
     bool IsOnline() { return (mac_index_ != MODULE_MAC_INDEX_INVALID); }
     bool IsTriggered() {return state_ == EMERGENCY_STOP_TRIGGER;}
@@ -50,7 +50,7 @@ class EmergencyStop: public ModuleBase {
     void PollState();
 
     // callback for HMI events
-    ErrCode ReportStatus();
+    err_code_t ReportStatus();
 
     uint32_t mac(uint8_t sub_index = 0) { return canhost.mac(mac_index_); }
 

@@ -23,7 +23,7 @@
 
 #include <stdio.h>
 
-typedef uint8_t ErrCode;
+typedef uint8_t err_code_t;
 
 #define COMMON_ERR_BASE   0
 

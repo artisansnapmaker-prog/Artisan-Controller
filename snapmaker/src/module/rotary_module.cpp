@@ -6,7 +6,7 @@ RotaryModule rotaryModule;
 /**
  * Initialize rotary module.
  */
-ErrCode RotaryModule::Init(MAC_t &mac, uint8_t mac_index) {
+err_code_t RotaryModule::Init(MAC_t &mac, uint8_t mac_index) {
   CanExtCmd_t cmd;
   uint8_t     buffer[16];
   cmd.mac    = mac;

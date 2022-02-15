@@ -33,8 +33,8 @@ static void CallbackEmergencyStopState(CanStdDataFrame_t &cmd) {
 }
 
 
-ErrCode EmergencyStop::Init(MAC_t &mac, uint8_t mac_index) {
-  ErrCode ret;
+err_code_t EmergencyStop::Init(MAC_t &mac, uint8_t mac_index) {
+  err_code_t ret;
 
   CanExtCmd_t cmd;
   uint8_t     func_buffer[16];
@@ -102,7 +102,7 @@ void EmergencyStop::Process() {
   }
 }
 
-ErrCode EmergencyStop::ReportStatus() {
+err_code_t EmergencyStop::ReportStatus() {
   uint8_t state = event_state_;
   SSTP_Event_t event;
   // For active sending

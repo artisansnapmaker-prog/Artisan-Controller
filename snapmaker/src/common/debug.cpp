@@ -162,8 +162,8 @@ void SnapDebug::SetLevel(uint8_t port, SnapDebugLevel l) {
 }
 
 
-ErrCode SnapDebug::SetLogLevel(SSTP_Event_t &event) {
-  ErrCode err = E_FAILURE;
+err_code_t SnapDebug::SetLogLevel(SSTP_Event_t &event) {
+  err_code_t err = E_FAILURE;
 
   if (event.length != 1) {
     LOG_E("Need to specify log level!\n");

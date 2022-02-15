@@ -73,7 +73,7 @@ void HAL_CAN_MspInit(CAN_HandleTypeDef* hcan) {
   HAL_NVIC_EnableIRQ(CAN2_RX1_IRQn);
 }
 
-ErrCode CanChannel::config_baudrate(CanChannelNumber bus, CANBaudrateSet_t br) {
+err_code_t CanChannel::config_baudrate(CanChannelNumber bus, CANBaudrateSet_t br) {
   CAN_InitTypeDef		init_cfg;
 
   init_cfg.Prescaler            = br.prescale;
@@ -95,7 +95,7 @@ ErrCode CanChannel::config_baudrate(CanChannelNumber bus, CANBaudrateSet_t br) {
   return E_SUCCESS;
 }
 
-ErrCode CanChannel::config_filter(int bus, int filter_bank, int filter_len, uint32_t filt_id, uint32_t mask_id, int rxfifo_num) {
+err_code_t CanChannel::config_filter(int bus, int filter_bank, int filter_len, uint32_t filt_id, uint32_t mask_id, int rxfifo_num) {
   CAN_FilterTypeDef filter_cfg;
 
   filter_cfg.FilterBank = filter_bank;
@@ -119,7 +119,7 @@ ErrCode CanChannel::config_filter(int bus, int filter_bank, int filter_len, uint
   return E_SUCCESS;
 }
 
-ErrCode CanChannel::hal_init() {
+err_code_t CanChannel::hal_init() {
   uint32_t FilterValue;
   uint32_t FilterMask;
   uint32_t FilterID;
@@ -267,7 +267,7 @@ uint8_t CanChannel::canbus_parse_data(uint32_t *id, uint8_t *id_type, uint8_t po
 }
 
 
-ErrCode CanChannel::Init(CANIrqCallback_t irq_cb) {
+err_code_t CanChannel::Init(CANIrqCallback_t irq_cb) {
   void *tmp = NULL;
 
   tmp = pvPortMalloc(CAN_MAC_QUEUE_SIZE * 4);
@@ -299,7 +299,7 @@ ErrCode CanChannel::Init(CANIrqCallback_t irq_cb) {
 }
 
 
-ErrCode CanChannel::Write(CanPacket_t &packet) {
+err_code_t CanChannel::Write(CanPacket_t &packet) {
   BaseType_t ret_lock = pdFAIL;
   uint32_t   ret_send = 0;
 

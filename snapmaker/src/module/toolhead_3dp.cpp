@@ -72,8 +72,8 @@ void ToolHead3DP::IOInit(void) {
 }
 
 
-ErrCode ToolHead3DP::Init(MAC_t &mac, uint8_t mac_index) {
-  ErrCode ret;
+err_code_t ToolHead3DP::Init(MAC_t &mac, uint8_t mac_index) {
+  err_code_t ret;
 
   CanExtCmd_t cmd;
   uint8_t     func_buffer[32];
@@ -182,7 +182,7 @@ out:
 }
 
 
-ErrCode ToolHead3DP::SetFan(uint8_t fan_index, uint8_t speed, uint8_t delay_time) {
+err_code_t ToolHead3DP::SetFan(uint8_t fan_index, uint8_t speed, uint8_t delay_time) {
   CanStdFuncCmd_t cmd;
 
   uint8_t buffer[2];
@@ -204,7 +204,7 @@ ErrCode ToolHead3DP::SetFan(uint8_t fan_index, uint8_t speed, uint8_t delay_time
 }
 
 
-ErrCode ToolHead3DP::SetPID(uint8_t index, float value, uint8_t extrude_index) {
+err_code_t ToolHead3DP::SetPID(uint8_t index, float value, uint8_t extrude_index) {
   CanStdFuncCmd_t cmd;
 
   uint8_t  buffer[5];
@@ -232,7 +232,7 @@ float * ToolHead3DP::GetPID(uint8_t extrude_index) {
 }
 
 
-ErrCode ToolHead3DP::SetHeater(uint16_t target_temp, uint8_t extrude_index) {
+err_code_t ToolHead3DP::SetHeater(uint16_t target_temp, uint8_t extrude_index) {
   CanStdFuncCmd_t cmd;
 
   uint8_t buffer[2];

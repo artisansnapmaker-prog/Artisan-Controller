@@ -64,8 +64,8 @@ uint16_t ModuleBase::timer_in_static_process_ = 0;
 ModuleToolHeadType ModuleBase::toolhead_ = MODULE_TOOLHEAD_UNKNOW;
 
 
-ErrCode ModuleBase::Upgrade(MAC_t &mac, uint32_t fw_addr, uint32_t fw_length) {
-  ErrCode     ret;
+err_code_t ModuleBase::Upgrade(MAC_t &mac, uint32_t fw_addr, uint32_t fw_length) {
+  err_code_t     ret;
   CanExtCmd_t cmd;
 
   uint32_t tmp_u32;
@@ -186,7 +186,7 @@ out:
 }
 
 
-ErrCode ModuleBase::InitModule8p(MAC_t &mac, int dir_pin, uint8_t index) {
+err_code_t ModuleBase::InitModule8p(MAC_t &mac, int dir_pin, uint8_t index) {
   CanExtCmd_t cmd;
   uint8_t     buffer[16];
 
@@ -240,7 +240,7 @@ void ModuleBase::ReportMarlinUart() {
 }
 
 
-ErrCode ModuleBase::SetMAC(SSTP_Event_t &event) {
+err_code_t ModuleBase::SetMAC(SSTP_Event_t &event) {
   CanExtCmd_t cmd;
   uint8_t     buffer[8];
 
@@ -279,7 +279,7 @@ error:
 }
 
 
-ErrCode ModuleBase::GetMAC(SSTP_Event_t &event) {
+err_code_t ModuleBase::GetMAC(SSTP_Event_t &event) {
   int i, j = 0;
   uint32_t tmp;
   uint8_t buffer[4 * MODULE_SUPPORT_CONNECTED_MAX];

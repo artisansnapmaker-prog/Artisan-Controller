@@ -34,12 +34,12 @@ class ToolHeadCNC: public ModuleBase {
       msg_id_set_speed_ = MODULE_MESSAGE_ID_INVALID;
     }
 
-    ErrCode Init(MAC_t &mac, uint8_t mac_index);
+    err_code_t Init(MAC_t &mac, uint8_t mac_index);
 
-    ErrCode SetOutput(uint8_t power);
+    err_code_t SetOutput(uint8_t power);
 
-    ErrCode TurnOn();
-    ErrCode TurnOff();
+    err_code_t TurnOn();
+    err_code_t TurnOff();
 
     bool IsOnline(uint8_t sub_index = 0) { return mac_index_ != MODULE_MAC_INDEX_INVALID; };
 

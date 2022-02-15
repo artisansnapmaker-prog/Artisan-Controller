@@ -54,7 +54,7 @@ void UartHost::Init(HardwareSerial *serial, uint8_t interrupt_prio) {
  * Note that we may call this function many times
  * for one complete event
  */
-ErrCode UartHost::CheckoutCmd(uint8_t *cmd, uint16_t &length) {
+err_code_t UartHost::CheckoutCmd(uint8_t *cmd, uint16_t &length) {
   int c = -1;
 
   for (;;) {
@@ -86,7 +86,7 @@ void UartHost::FlushInput() {
  * to save memory, we don't use Packege() of SSTP,
  * because we need to provide another buffer to save output
  */
-ErrCode UartHost::Send(SSTP_Event_t &event) {
+err_code_t UartHost::Send(SSTP_Event_t &event) {
   int i = 0;
   int j;
 

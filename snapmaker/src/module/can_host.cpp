@@ -66,7 +66,7 @@ bool CanHost::IrqCallback(CanStdDataFrame_t &frame) {
 }
 
 
-ErrCode CanHost::Init() {
+err_code_t CanHost::Init() {
   int i;
 
   for (i = 0; i < MODULE_SUPPORT_MESSAGE_ID_MAX; i++) {
@@ -129,7 +129,7 @@ message_id_t CanHost::GetMessageID(func_id_t function_id, uint8_t sub_index) {
 }
 
 
-ErrCode CanHost::SendStdCmd(CanStdMesgCmd_t &message) {
+err_code_t CanHost::SendStdCmd(CanStdMesgCmd_t &message) {
   CanPacket_t  packet;
 
   if (message.id > MODULE_SUPPORT_CONNECTED_MAX)
@@ -149,10 +149,10 @@ ErrCode CanHost::SendStdCmd(CanStdMesgCmd_t &message) {
 }
 
 
-ErrCode CanHost::SendStdCmd(CanStdFuncCmd_t &function, uint8_t sub_index) {
+err_code_t CanHost::SendStdCmd(CanStdFuncCmd_t &function, uint8_t sub_index) {
   CanPacket_t  packet;
   message_id_t msg_id;
-  ErrCode      ret = E_FAILURE;
+  err_code_t      ret = E_FAILURE;
 
   if ((msg_id = GetMessageID(function.id, sub_index)) == MODULE_MESSAGE_ID_INVALID)
     return E_PARAM;
@@ -184,8 +184,8 @@ void CanHost::SendEmergencyStop() {
   can.Write(packet);
 }
 
-ErrCode CanHost::SendStdCmdSync(CanStdFuncCmd_t &cmd, uint32_t timeout_ms, uint8_t retry, uint8_t sub_index) {
-  ErrCode  ret;
+err_code_t CanHost::SendStdCmdSync(CanStdFuncCmd_t &cmd, uint32_t timeout_ms, uint8_t retry, uint8_t sub_index) {
+  err_code_t  ret;
   uint16_t tmp_u16;
   int      i;
 
@@ -229,9 +229,9 @@ out:
 }
 
 
-ErrCode CanHost::SendExtCmd(CanExtCmd_t &cmd) {
+err_code_t CanHost::SendExtCmd(CanExtCmd_t &cmd) {
   CanPacket_t packet;
-  ErrCode     ret = E_FAILURE;
+  err_code_t     ret = E_FAILURE;
   uint16_t length = cmd.length;
   packet.data = package_buffer_;
 
@@ -248,8 +248,8 @@ ErrCode CanHost::SendExtCmd(CanExtCmd_t &cmd) {
 }
 
 
-ErrCode CanHost::SendExtCmdSync(CanExtCmd_t &cmd, uint32_t timeout_ms, uint8_t retry) {
-  ErrCode   ret = E_SUCCESS;
+err_code_t CanHost::SendExtCmdSync(CanExtCmd_t &cmd, uint32_t timeout_ms, uint8_t retry) {
+  err_code_t   ret = E_SUCCESS;
   uint16_t tmp_u16;
 
   xSemaphoreTake(ext_wait_lock_, 0);
@@ -298,7 +298,7 @@ ErrCode CanHost::SendExtCmdSync(CanExtCmd_t &cmd, uint32_t timeout_ms, uint8_t r
 }
 
 
-ErrCode CanHost::WaitExtCmdAck(CanExtCmd_t &cmd, uint32_t timeout_ms, uint8_t retry) {
+err_code_t CanHost::WaitExtCmdAck(CanExtCmd_t &cmd, uint32_t timeout_ms, uint8_t retry) {
   uint16_t tmp_u16;
   uint8_t  cmd_id;
 
@@ -490,7 +490,7 @@ void CanHost::EventHandler(void *parameter) {
 }
 
 
-ErrCode CanHost::AssignMessageRegion() {
+err_code_t CanHost::AssignMessageRegion() {
   uint8_t prio_of_function;
   uint8_t total_of_same_function;
 
@@ -548,10 +548,10 @@ void CanHost::ShowModuleVersion(MAC_t mac) {
   }
 }
 
-ErrCode CanHost::InitModules(MAC_t &mac) {
+err_code_t CanHost::InitModules(MAC_t &mac) {
   int      i;
   uint16_t device_id = MODULE_GET_DEVICE_ID(mac.val);
-  ErrCode  ret;
+  err_code_t  ret;
 
   bool     existed   = false;
   uint8_t  mac_index = total_mac_;
@@ -605,7 +605,7 @@ out:
 }
 
 
-ErrCode CanHost::InitDynamicModule(MAC_t &mac, uint8_t mac_index) {
+err_code_t CanHost::InitDynamicModule(MAC_t &mac, uint8_t mac_index) {
   CanExtCmd_t cmd;
   uint8_t     func_buffer[MODULE_FUNCTION_MAX_IN_ONE*2 + 2];
 
@@ -645,7 +645,7 @@ ErrCode CanHost::InitDynamicModule(MAC_t &mac, uint8_t mac_index) {
 /* bind message id to modules's function
  *
  */
-ErrCode CanHost::BindMessageID(CanExtCmd_t &cmd, message_id_t *msg_buffer) {
+err_code_t CanHost::BindMessageID(CanExtCmd_t &cmd, message_id_t *msg_buffer) {
   uint8_t     map_buffer[MODULE_FUNCTION_MAX_IN_ONE*4 + 2];
   uint8_t     *func_buffer = cmd.data;
 
@@ -670,7 +670,7 @@ ErrCode CanHost::BindMessageID(CanExtCmd_t &cmd, message_id_t *msg_buffer) {
 }
 
 
-ErrCode CanHost::BindMessageID(MAC_t &mac, uint8_t mac_index) {
+err_code_t CanHost::BindMessageID(MAC_t &mac, uint8_t mac_index) {
   CanExtCmd_t cmd;
   uint8_t     func_buffer[MODULE_FUNCTION_MAX_IN_ONE*2 + 2];
 
@@ -765,7 +765,7 @@ assign_message_id:
 }
 
 
-ErrCode CanHost::UpgradeModules(uint32_t fw_addr, uint32_t length) {
+err_code_t CanHost::UpgradeModules(uint32_t fw_addr, uint32_t length) {
   int   i;
 
   SetReceiverSpeed(RECEIVER_SPEED_HIGH);

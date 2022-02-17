@@ -383,7 +383,7 @@ class Temperature {
     #if HAS_TEMP_REDUNDANT
       static redundant_info_t temp_redundant;
     #endif
-    #if ENABLED(CUSTOM_DOUBLE_ZONED_HEAT_BED)
+    #if ENABLED(SNAPMAKER_DOUBLE_ZONE_BED)
       static uint8_t active_bed_state;
       static uint8_t active_bed_index;
       static inline uint8_t get_double_heated_bed_info(void) {return active_bed_state;}

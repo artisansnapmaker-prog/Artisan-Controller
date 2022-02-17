@@ -445,7 +445,7 @@ PGMSTR(str_t_heating_failed, STR_T_HEATING_FAILED);
           Temperature::maxtemp_raw_BED = TEMP_SENSOR_BED_RAW_HI_TEMP;
   TERN_(WATCH_BED, bed_watch_t Temperature::watch_bed); // = { 0 }
   IF_DISABLED(PIDTEMPBED, millis_t Temperature::next_bed_check_ms);
-  #if ENABLED(CUSTOM_DOUBLE_ZONED_HEAT_BED)
+  #if ENABLED(SNAPMAKER_DOUBLE_ZONE_BED)
     uint8_t Temperature::active_bed_state = 0,
             Temperature::active_bed_index = 0;
   #endif
@@ -3087,7 +3087,7 @@ void Temperature::isr() {
         REPEAT(HOTENDS, _PWM_MOD_E);
       #endif
 
-      #if ENABLED(CUSTOM_DOUBLE_ZONED_HEAT_BED)
+      #if ENABLED(SNAPMAKER_DOUBLE_ZONE_BED)
         bool bed_on = soft_pwm_bed.add(pwm_mask, temp_bed.soft_pwm_amount);
         bool chamber_on = soft_pwm_chamber.add(pwm_mask, temp_chamber.soft_pwm_amount);
         if (bed_on && chamber_on) {
@@ -3182,17 +3182,17 @@ void Temperature::isr() {
         REPEAT(HOTENDS, _PWM_LOW_E);
       #endif
 
-      #if ENABLED(CUSTOM_DOUBLE_ZONED_HEAT_BED)
+      #if ENABLED(SNAPMAKER_DOUBLE_ZONE_BED)
         #define _PWM_LOW_PRO(N,S) do{ if (S.count <= pwm_count_tmp + (active_bed_state == 3)) WRITE_HEATER_##N(LOW); }while(0)
         active_bed_index ? WRITE_HEATER_BED(LOW) : WRITE_HEATER_CHAMBER(LOW);
       #endif
 
       #if HAS_HEATED_BED
-        TERN(CUSTOM_DOUBLE_ZONED_HEAT_BED,_PWM_LOW_PRO(BED, soft_pwm_bed),_PWM_LOW(BED, soft_pwm_bed));
+        TERN(SNAPMAKER_DOUBLE_ZONE_BED,_PWM_LOW_PRO(BED, soft_pwm_bed),_PWM_LOW(BED, soft_pwm_bed));
       #endif
 
       #if HAS_HEATED_CHAMBER
-        TERN(CUSTOM_DOUBLE_ZONED_HEAT_BED,_PWM_LOW_PRO(CHAMBER, soft_pwm_chamber),_PWM_LOW(CHAMBER, soft_pwm_chamber));
+        TERN(SNAPMAKER_DOUBLE_ZONE_BED,_PWM_LOW_PRO(CHAMBER, soft_pwm_chamber),_PWM_LOW(CHAMBER, soft_pwm_chamber));
       #endif
 
       #if HAS_COOLER

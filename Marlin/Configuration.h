@@ -199,8 +199,8 @@
 // :[0, 1, 2, 3, 4, 5, 6, 7, 8]
 #define EXTRUDERS 2
 
-// Enable CUSTOM_DOUBLE_ZONED_HEAT_BED will treat the chamber as a second hotbed
-#define CUSTOM_DOUBLE_ZONED_HEAT_BED 
+// Enable SNAPMAKER_DOUBLE_ZONE_BED will treat the chamber as a second hotbed
+#define SNAPMAKER_DOUBLE_ZONE_BED 
 
 // Generally expected filament diameter (1.75, 2.85, 3.0, ...). Used for Volumetric, Filament Width Sensor, etc.
 #define DEFAULT_NOMINAL_FILAMENT_DIA 1.75

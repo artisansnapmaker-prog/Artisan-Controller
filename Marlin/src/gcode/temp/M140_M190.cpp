@@ -81,7 +81,7 @@ void GcodeSuite::M140_M190(const bool isM190) {
 
   if (!got_temp) return;
 
-  #if ENABLED(CUSTOM_DOUBLE_ZONED_HEAT_BED) 
+  #if ENABLED(SNAPMAKER_DOUBLE_ZONE_BED) 
     int16_t target_bed = -1;
     if (parser.seen('T')) {
         target_bed = parser.has_value() ? (int16_t)parser.value_int() : -1;
@@ -104,7 +104,7 @@ void GcodeSuite::M140_M190(const bool isM190) {
   // with PRINTJOB_TIMER_AUTOSTART, M190 can start the timer, and M140 can stop it
   TERN_(PRINTJOB_TIMER_AUTOSTART, thermalManager.auto_job_check_timer(isM190, !isM190));
   
-  #if ENABLED(CUSTOM_DOUBLE_ZONED_HEAT_BED) 
+  #if ENABLED(SNAPMAKER_DOUBLE_ZONE_BED) 
     if (isM190) {
       if (target_bed == 0 || target_bed == -1)
         thermalManager.wait_for_bed(no_wait_for_cooling);

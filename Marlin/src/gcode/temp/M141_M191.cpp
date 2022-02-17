@@ -38,7 +38,7 @@
  * M141: Set chamber temperature
  */
 void GcodeSuite::M141() {
-#if DISABLED(CUSTOM_DOUBLE_ZONED_HEAT_BED)
+#if DISABLED(SNAPMAKER_DOUBLE_ZONE_BED)
   if (DEBUGGING(DRYRUN)) return;
   if (parser.seenval('S')) {
     thermalManager.setTargetChamber(parser.value_celsius());
@@ -60,7 +60,7 @@ void GcodeSuite::M141() {
  *       Rxxx Wait for chamber current temp to reach target temp. Waits when heating and cooling
  */
 void GcodeSuite::M191() {
-#if DISABLED(CUSTOM_DOUBLE_ZONED_HEAT_BED)
+#if DISABLED(SNAPMAKER_DOUBLE_ZONE_BED)
   if (DEBUGGING(DRYRUN)) return;
 
   const bool no_wait_for_cooling = parser.seenval('S');

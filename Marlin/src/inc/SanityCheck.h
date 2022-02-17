@@ -2271,7 +2271,7 @@ static_assert(Y_MAX_LENGTH >= Y_BED_SIZE, "Movement bounds (Y_MIN_POS, Y_MAX_POS
   #error "CONTROLLER_FAN_MIN_BOARD_TEMP requires TEMP_SENSOR_BOARD."
 #endif
 
-#if ENABLED(CUSTOM_DOUBLE_ZONED_HEAT_BED)
+#if ENABLED(SNAPMAKER_DOUBLE_ZONE_BED)
   #if !HAS_HEATED_BED  || !HAS_TEMP_CHAMBER
     #error "Bed and chamber must be successfully configured and enabled "
   #endif

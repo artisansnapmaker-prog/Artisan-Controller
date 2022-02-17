@@ -55,8 +55,8 @@ class SnapmakerPrinter
   public:
     SnapmakerPrinter() {}
 
-    void pre_init(void);
-    void init(void (*marlin)());
+    void pre_init();
+    void post_init();
 
     // API for marlin
     // FDM 3DP

@@ -410,7 +410,8 @@
 #define BOARD_MKS_EAGLE               4236  // MKS Eagle (STM32F407VET6)
 #define BOARD_ARTILLERY_RUBY          4237  // Artillery Ruby (STM32F401RCT6)
 #define BOARD_FYSETC_SPIDER_V2_2      4238  // FYSETC Spider V2.2 (STM32F446VET6)
-#define BOARD_SM_CONTROLLER2022_V1    4239  // Snapmaker Controller2022 V1
+#define BOARD_SM_CONTROLLER2019_V1    4300  // Snapmaker Controller2022 V1
+#define BOARD_SM_CONTROLLER2022_V1    4301  // Snapmaker Controller2022 V1
 
 //
 // ARM Cortex M7
@@ -458,4 +459,4 @@
 #define MB(V...)  DO(MB,||,V)
 
 // for now, we develop the firmware on controller2022, but we will port it to controller2019 later
-#define MB_SNAPMAKER (MB(SM_CONTROLLER2022_V1))
+#define MB_SNAPMAKER (MB(SM_CONTROLLER2022_V1) || MB(SM_CONTROLLER2019_V1))

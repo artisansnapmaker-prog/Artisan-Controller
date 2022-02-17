@@ -26,7 +26,7 @@
 class BedVirtual: public ModuleBase {
   // public methods
   public:
-    BedVirtual(uint32_t mac, uint8_t ch, uint8_t key, uint8_t zone_number): ModuleBase(mac, ch, key) {}
+    BedVirtual(uint32_t mac, uint8_t key, uint8_t zone_number): ModuleBase(mac, key) {}
 
   // private methods
   private:

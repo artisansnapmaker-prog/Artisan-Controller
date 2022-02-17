@@ -1,0 +1,29 @@
+
+#include "motion.h"
+#include "../common/debug.h"
+
+MotionService motion_svc;
+
+extern void loop();
+static void motion_background(void *p) {
+  loop();
+}
+
+
+void MotionService::init() {
+  BaseType_t ret;
+
+
+  ret = xTaskCreate((TaskFunction_t)motion_background, "marin", MARLIN_TASK_STACK_SIZE, NULL,
+        MARLIN_TASK_PRIORITY, &thandle_marlin);
+  if (ret != pdPASS) {
+    LOG_E("Failed to create marlin task!\n");
+    while(1);
+  }
+  else {
+    LOG_I("Created marlin task!\n");
+  }
+}
+
+
+

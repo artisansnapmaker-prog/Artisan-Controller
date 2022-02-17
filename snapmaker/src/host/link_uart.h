@@ -21,12 +21,10 @@
 #ifndef SNAPMAKER_HOST_LINK_UART_H_
 #define SNAPMAKER_HOST_LINK_UART_H_
 
-#include "link.h"
-
-class LinkUART: public LinkBase {
+class LinkUART {
   // public methods
   public:
-    LinkUART(): LinkBase() {}
+    LinkUART() {}
 
 
 

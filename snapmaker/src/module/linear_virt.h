@@ -26,7 +26,7 @@
 class LinearVirtual: public ModuleBase {
   // public methods
   public:
-    LinearVirtual(uint32_t mac, uint8_t ch, uint8_t key, uint8_t sub_index): ModuleBase(mac, ch, key) {}
+    LinearVirtual(uint32_t mac, uint8_t key, uint8_t sub_index): ModuleBase(mac, key) {}
 
   // private methods
   private:

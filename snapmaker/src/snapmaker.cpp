@@ -4,6 +4,7 @@
 
 #include "service/module.h"
 #include "service/system.h"
+#include "service/motion.h"
 
 #include "host/sacp.h"
 
@@ -97,68 +98,42 @@ enum PortIndex {
   PORT_INDEX_P3
 };
 
-extern "C" {
-  typedef void (*loop_func)();
 
-  loop_func marlin_loop = NULL;
+void system_thread(void *p) {
+  BaseType_t ret;
+  TaskHandle_t thandle_marlin;
 
-  // wapper to call marlin loop
-  static void marlin_thread(void *param) {
-    for (;;) {
-      marlin_loop();
-    }
+  // module init
+  module_svc.init();
+
+  // sacp host init
+  host_hmi.init();
+  host_luban.init();
+  motion_svc.init();
+
+  // loop
+  for (;;) {
+    module_svc.background_thread();
+    system_svc.background_thread();
   }
 
-
-  void system_thread(void *p) {
-    BaseType_t ret;
-    TaskHandle_t thandle_marlin;
-
-    // module init
-    module_svc.init();
-
-    // sacp host init
-    host_hmi.init();
-    host_luban.init();
-
-    // start marlin thread
-    if (marlin_loop) {
-      ret = xTaskCreate((TaskFunction_t)marlin_thread, "marin", MARLIN_TASK_STACK_SIZE, NULL,
-            MARLIN_TASK_PRIORITY, &thandle_marlin);
-      if (ret != pdPASS) {
-        LOG_E("Failed to create marlin task!\n");
-        while(1);
-      }
-      else {
-        LOG_I("Created marlin task!\n");
-      }
-    }
-
-    // loop
-    for (;;) {
-      module_svc.background_thread();
-      system_svc.background_thread();
-    }
-
-  }
-
-
-  // hook for failing to apply memory in freeRTOS
-  void vApplicationMallocFailedHook( void ) {
-    return;
-  }
-
-  // can recv handler
-  static void can_recv_handler(void *param) {
-    canhost.ReceiveHandler(param);
-  }
-
-  // can event handler
-  static void can_event_handler(void *param) {
-    canhost.EventHandler(param);
-  }
 }
 
+
+// hook for failing to apply memory in freeRTOS
+void vApplicationMallocFailedHook( void ) {
+  return;
+}
+
+// can recv handler
+static void can_recv_handler(void *param) {
+  canhost.ReceiveHandler(param);
+}
+
+// can event handler
+static void can_event_handler(void *param) {
+  canhost.EventHandler(param);
+}
 
 
 void SnapmakerPrinter::pre_init(void) {
@@ -167,7 +142,7 @@ void SnapmakerPrinter::pre_init(void) {
 }
 
 
-void SnapmakerPrinter::init(void (*marlin)()) {
+void SnapmakerPrinter::post_init() {
   BaseType_t ret;
 
   // enable power
@@ -178,11 +153,7 @@ void SnapmakerPrinter::init(void (*marlin)()) {
   // OUT_WRITE(POWER_CTRL_MOTOR, POWER_CTRL_ON);
   OUT_WRITE(POWER_CTRL_4P, POWER_CTRL_ON);
 
-  marlin_loop = marlin;
-
   canhost.Init();
-
-
 
 
   ret = xTaskCreate((TaskFunction_t)system_thread, "system", CAN_RECEIVE_HANDLER_STACK_DEPTH,

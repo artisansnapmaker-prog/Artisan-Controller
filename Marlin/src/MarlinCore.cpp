@@ -1626,7 +1626,7 @@ void setup() {
 
   SETUP_LOG("setup() completed.");
 
-  smprinter.init(loop);
+  smprinter.post_init();
 }
 
 /**

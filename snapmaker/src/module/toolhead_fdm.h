@@ -27,8 +27,8 @@ class ToolheadFDM: public ModuleBase {
   // public methods
   public:
     // construtor to do pre-init
-    ToolheadFDM(uint32_t mac, uint8_t channel, uint8_t key, uint8_t extruder):
-    ModuleBase(mac, channel, key) {}
+    ToolheadFDM(uint32_t mac, uint8_t key, uint8_t extruder):
+    ModuleBase(mac, key) {}
 
     // post init
     int init() { return 0; }

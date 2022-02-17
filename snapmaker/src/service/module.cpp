@@ -1,9 +1,11 @@
-#include <string.h>
 #include "module.h"
 #include <functional>
 #include "../config.h"
+#include "../host/sacp_module.h"
 
 ModuleService module_svc;
+
+static TaskHandle_t recv_task, event_task;
 
 static void handle_can_receive(void *p) {
 
@@ -29,6 +31,95 @@ static void handle_can_events(void *p) {
 }
 
 
+err_code_t handle_module_inserted(void *obj, uint32_t mac) {
+  ModuleService *ms = (ModuleService *)obj;
+  if (ms->status != MS_STATUS_ON_INIT || ms->status != MS_STATUS_CONFIG)
+    return -1;
+
+  if (ms->configured_module >= MODULE_ACCESSIBLE_MAX) {
+    // too many modules connected
+    return -1;
+  }
+
+  // check if we already have this module by mac
+  int i = 0;
+  uint16_t device_id = MODULE_GET_DEVICE_ID(mac);
+  ModuleBase *module = NULL;
+
+  for (; i < ms->configured_module; i++) {
+    if (ms->modules[i]->get_mac() == mac) {
+      if (ms->modules[i]->get_status() == MODULE_STATUS_INVALID) {
+          module = ms->modules[i];
+          break;
+      }
+      else {
+        // TODO: got same mac module! throw exception!
+        return 0;
+      }
+    }
+  }
+
+  // if no module with same MAC in previous resource
+  // check further if have module with same type
+  if (!module) {
+    for (i = 0; i < ms->configured_module; i++) {
+      // if one same type of module plugged, will check if we have
+      // a same type of resource available which applied previously.
+      // if yes, just re-use previous resource
+      if (ms->modules[i]->get_device_id() == device_id) {
+        if (ms->modules[i]->get_status() == MODULE_STATUS_INVALID) {
+          module = ms->modules[i];
+          break;
+        }
+      }
+    }
+  }
+
+  if (module) {
+    // update mac
+    module->set_mac(mac);
+    module->pre_init();
+    // re-bind message id
+    ms->bind_message_id(*module);
+    module->post_init();
+    return 0;
+  }
+
+  // if no module with same MAC/type in previous resource apply new resource
+  module = module_factory(mac, i);
+  ms->modules[ms->configured_module++] = module;
+
+  // do something before get function id
+  // TODO: check the result from pre_init(), some module will check if
+  // it is plugged in correct port! if not, should throw an exception!
+  module->pre_init();
+
+  // get all function id from module
+  ms->get_function_list(*module);
+
+  // new module is plugged dynamically, bind message id for it
+  if (ms->status == MS_STATUS_CONFIG) {
+    ms->bind_message_id(*module);
+    // TODO: check the result from post_init()
+    module->post_init();
+  }
+
+  return 0;
+}
+
+
+err_code_t handle_fw_request(void *obj, sacp_module_message_t &message) {
+
+
+  return E_SUCCESS;
+}
+
+
+err_code_t report_module_info(void *obj, sacp_hmi_message_t &message) {
+
+}
+
+
 int ModuleService::init() {
   status = MS_STATUS_ON_INIT;
 
@@ -38,23 +129,24 @@ int ModuleService::init() {
   // initialize virtual modules
   init_virtual_modules();
 
-  // initialize all CAN hosts
-  host_mac.init();
-  host_can_cfg.init();
-  host_can_rou.init();
-
-  // register callback to handle module inserted
-  host_mac.register_callback(std::bind(handle_module_inserted, this, std::placeholders::_1, std::placeholders::_2));
-
-  // register callback to handle SSTP events from modules
-  host_can_cfg.register_callback_legacy(MODULE_EXT_CMD_TRANS_FW_ACK, [this](sacp_message_t msg)->int{ return this->handle_fw_request(msg); });
-
   // create tasks then the callbacks can be performed
   xTaskCreate((TaskFunction_t)handle_can_receive, "can_receive", CAN_RECEIVE_HANDLER_STACK_DEPTH,
-        (void *)(this), CAN_RECEIVE_HANDLER_PRIORITY, NULL);
+        (void *)(this), CAN_RECEIVE_HANDLER_PRIORITY, &recv_task);
 
   xTaskCreate((TaskFunction_t)handle_can_events, "can_event", CAN_EVENT_HANDLER_STACK_DEPTH,
-        (void *)(this), CAN_EVENT_HANDLER_PRIORITY, NULL);
+        (void *)(this), CAN_EVENT_HANDLER_PRIORITY, &event_task);
+
+
+  // initialize all CAN hosts
+  host_mac.init(event_task, recv_task);
+  host_can_cfg.init(event_task, recv_task);
+  host_can_rou.init(event_task, recv_task);
+
+  // register callback to handle module inserted
+  host_mac.register_callback((void *)this, (mac_callback)handle_module_inserted);
+
+  // register callback to handle SSTP events from modules
+  host_can_cfg.register_callback(MODULE_EXT_CMD_TRANS_FW_ACK, (void *)this, (sacp_module_callback)handle_fw_request);
 
   // scan the modules
   host_mac.send(0x00001);
@@ -71,12 +163,8 @@ int ModuleService::init() {
     modules[i]->post_init();
   }
 
-  // after all message id is assign, init the SM can host for routine
-  host_can_rou.init();
-
   // register callback to handle events from external host
-  host_hmi.register_callback(0x01, 0x20, [this](sacp_message_t msg)->int{ return this->report_module_info(msg); });
-
+  host_hmi.register_callback(0x01, 0x20, (void *)this, (sacp_hmi_callback)report_module_info);
 
   status = MS_STATUS_CONFIG;
 }
@@ -92,109 +180,31 @@ int ModuleService::init_virtual_modules() {
   // for virtul modules, initialization should be done in constructor, no need to call init() again
 
   mac = MODULE_MAKE_MAC(MODULE_DEVICE_ID_A400_LINEAR, MODULE_SN_INVALID);
-  modules[configured_module] = module_factory(mac, MODULE_CHANNEL_INVALID, configured_module++, MODULE_LINEAR_X1);
-  modules[configured_module] = module_factory(mac, MODULE_CHANNEL_INVALID, configured_module++, MODULE_LINEAR_Y1);
-  modules[configured_module] = module_factory(mac, MODULE_CHANNEL_INVALID, configured_module++, MODULE_LINEAR_Z1);
-  modules[configured_module] = module_factory(mac, MODULE_CHANNEL_INVALID, configured_module++, MODULE_LINEAR_Y2);
-  modules[configured_module] = module_factory(mac, MODULE_CHANNEL_INVALID, configured_module++, MODULE_LINEAR_Z2);
+  modules[configured_module] = module_factory(mac, configured_module++, MODULE_LINEAR_X1);
+  modules[configured_module] = module_factory(mac, configured_module++, MODULE_LINEAR_Y1);
+  modules[configured_module] = module_factory(mac, configured_module++, MODULE_LINEAR_Z1);
+  modules[configured_module] = module_factory(mac, configured_module++, MODULE_LINEAR_Y2);
+  modules[configured_module] = module_factory(mac, configured_module++, MODULE_LINEAR_Z2);
 
   mac = MODULE_MAKE_MAC(MODULE_DEVICE_ID_A400_BED, MODULE_SN_INVALID);
-  modules[configured_module] = module_factory(mac, MODULE_CHANNEL_INVALID, configured_module++);
+  modules[configured_module] = module_factory(mac, configured_module++);
 }
 
 
-int ModuleService::handle_module_inserted(uint32_t mac, uint8_t channel) {
-  if (status != MS_STATUS_ON_INIT || status != MS_STATUS_CONFIG)
-    return -1;
-
-  if (configured_module >= MODULE_ACCESSIBLE_MAX) {
-    // too many modules connected
-    return -1;
-  }
-
-  // check if we already have this module by mac
-  int i = 0;
-  uint16_t device_id = MODULE_GET_DEVICE_ID(mac);
-  ModuleBase *module = NULL;
-
-  for (; i < configured_module; i++) {
-    if (modules[i]->get_mac() == mac) {
-      if (modules[i]->get_status() == MODULE_STATUS_INVALID) {
-          module = modules[i];
-          break;
-      }
-      else {
-        // TODO: got same mac module! throw exception!
-        return 0;
-      }
-    }
-  }
-
-  // if no module with same MAC in previous resource
-  // check further if have module with same type
-  if (!module) {
-    for (i = 0; i < configured_module; i++) {
-      // if one same type of module plugged, will check if we have
-      // a same type of resource available which applied previously.
-      // if yes, just re-use previous resource
-      if (modules[i]->get_device_id() == device_id) {
-        if (modules[i]->get_status() == MODULE_STATUS_INVALID) {
-          module = modules[i];
-          break;
-        }
-      }
-    }
-  }
-
-  if (module) {
-    // update mac & channel
-    module->set_channel(channel);
-    module->set_mac(mac);
-    module->pre_init();
-    // re-bind message id
-    bind_message_id(*module);
-    module->post_init();
-    return 0;
-  }
-
-  // if no module with same MAC/type in previous resource apply new resource
-  module = module_factory(mac, channel, i);
-  modules[configured_module++] = module;
-
-  // do something before get function id
-  // TODO: check the result from pre_init(), some module will check if
-  // it is plugged in correct port! if not, should throw an exception!
-  module->pre_init();
-
-  // get all function id from module
-  get_function_list(*module, channel);
-
-  // new module is plugged dynamically, bind message id for it
-  if (status == MS_STATUS_CONFIG) {
-    bind_message_id(*module);
-    // TODO: check the result from post_init()
-    module->post_init();
-  }
-
-  return 0;
-}
-
-
-int ModuleService::get_function_list(ModuleBase &module, uint8_t channel) {
-  sacp_message_t cmd;
-  sacp_message_t recv;
+int ModuleService::get_function_list(ModuleBase &module) {
+  sacp_module_message_t cmd;
+  sacp_module_message_t recv;
 
   uint8_t cmd_buffer[32];
   uint8_t recv_buffer[32];
 
-  // TODO: for CAN link, need mac and channel number
+  // TODO: for CAN link, need mac
   cmd.peer = module.get_mac();
-  cmd.attr = channel;
 
   recv.data = recv_buffer;
 
   // 1. query function id from module
-  host_can_cfg.send_sync_legacy(&cmd, &recv, 500, 3);
+  host_can_cfg.send_sync(&cmd, &recv, 500, 3);
 
   // TODO: check if the function length is reasonable
   //module.check_functionid(recv_buffer);
@@ -297,7 +307,7 @@ int ModuleService::bind_message_id(ModuleBase &module) {
   function_node_t *fnodes;
   uint8_t func_len;
 
-  sacp_message_t cmd;
+  sacp_module_message_t cmd;
 
   int index = 1;  // start saving data in index 1 of buffer
   uint8_t *buffer = (uint8_t *)pvPortMalloc(module.get_function_nodes(NULL) * 4 + 1);
@@ -307,7 +317,6 @@ int ModuleService::bind_message_id(ModuleBase &module) {
   // TODO: set command parameters
   cmd.data = buffer;
   cmd.peer = module.get_mac();
-  cmd.attr = module.get_channel();
 
   func_len = module.get_function_nodes(&fnodes);
 
@@ -322,7 +331,7 @@ int ModuleService::bind_message_id(ModuleBase &module) {
 
   if (index > 1) {
     cmd.length = index;
-    host_can_cfg.send_sync_legacy(&cmd, NULL, 200, 2);
+    host_can_cfg.send_sync(&cmd, NULL, 200, 2);
   }
 
   vPortFree(buffer);
@@ -333,8 +342,8 @@ int ModuleService::background_thread() {
     // perform routine of modules
     for (auto &&routine : routines)
     {
-      if (routine)
-        routine();
+      if (routine.cb)
+        routine.cb(routine.obj);
       else
         break;
     }

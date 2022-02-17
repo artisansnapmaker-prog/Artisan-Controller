@@ -24,6 +24,8 @@
 #include <stdint.h>
 
 #include "../common/list.h"
+#include "../common/error.h"
+#include "../host/link_can.h"
 
 #define MODULE_MAC_ID_MASK        (0x1FFFFFFF)
 #define MODULE_MAC_ID_INVALID     (0xFFFFFFFF)
@@ -37,19 +39,17 @@
 #define MODULE_MESSAGE_ID_MASK      (0x1FF)
 #define MODULE_MESSAGE_ID_MAX       (0x1FF + 1)
 
-#define MODULE_DEVICE_ID_MASK       (0x1ff00000)
-#define MODULE_DEVICE_ID_SHIFT      (20)
-
-#define MODULE_MAKE_DEVICE_ID(id)   (id<<MODULE_DEVICE_ID_SHIFT)
+#define MODULE_DEVICE_ID_MASK       (0x0ff800000)
+#define MODULE_DEVICE_ID_SHIFT      (19)
 #define MODULE_GET_DEVICE_ID(mac)   ((mac&MODULE_DEVICE_ID_MASK)>>MODULE_DEVICE_ID_SHIFT)
 
-#define MODULE_SN_MASK              (0x000FFFFF)
+#define MODULE_SN_MASK              (0x0007FFFF)
 #define MODULE_SN_INVALID           (MODULE_SN_MASK)
 #define MODULE_GET_SN(mac)          (mac&MODULE_SN_MASK)
 
-#define MODULE_CHANNEL_INVALID      (0xFF)
+#define MODULE_MAKE_MAC(id, sn)     ((id)<<MODULE_DEVICE_ID_SHIFT | (sn)&MODULE_SN_MASK)
 
-#define MODULE_MAKE_MAC(device_id, sn) ((device_id)<<MODULE_DEVICE_ID_SHIFT | (sn))
+#define MODULE_CHANNEL_INVALID      (0xFF)
 
 // to save memory, just support assign message id up to 64
 #define MODULE_SUPPORT_MESSAGE_ID_MAX (128)
@@ -79,7 +79,6 @@ enum ModuleStatus: uint8_t {
 
   MODULE_STATUS_INVALID
 };
-
 
 enum ModuleLinearIndex {
   MODULE_LINEAR_X1 = 1,
@@ -281,11 +280,8 @@ class ModuleBase {
   public:
     ModuleBase() {}
 
-    ModuleBase(uint32_t mac, uint8_t ch, uint8_t key):
-    channel(ch), key(key) {
-      device_id = MODULE_GET_DEVICE_ID(mac);
-      sn = MODULE_GET_SN(mac);
-    }
+    ModuleBase(uint32_t mac, uint8_t key):
+      mac(mac), key(key) {}
 
     virtual int pre_init() { return 0; }
     virtual int post_init() { return 0; }
@@ -295,16 +291,12 @@ class ModuleBase {
 
     virtual int get_function_priority(uint16_t function_id) { return MODULE_FUNC_PRIORITY_LOW; }
 
-    uint16_t get_device_id() { return device_id; }
+    uint16_t get_device_id() { return MODULE_GET_DEVICE_ID(mac); }
 
-    uint32_t get_mac() { return MODULE_MAKE_MAC(device_id, sn); }
-    void set_mac(uint32_t mac) {
-      device_id = MODULE_GET_DEVICE_ID(mac);
-      sn = MODULE_GET_SN(mac);
-    }
+    uint32_t get_mac() { return mac; }
+    void set_mac(uint32_t m) { mac = m; }
 
-    uint8_t get_channel() { return channel; }
-    void set_channel(uint8_t ch) { channel = ch; }
+    uint8_t get_channel() { return LINK_CAN_GET_CH_FROM_MAC(mac); }
 
     ModuleStatus get_status() { return status; }
 
@@ -313,6 +305,14 @@ class ModuleBase {
 
   // private methods
   private:
+    uint16_t get_message_id(uint16_t function_id) {
+      for (int i = 0; i < func_length; i++) {
+        if (function_nodes[i].function_id == function_id)
+          return function_nodes[i].message_id;
+      }
+
+      return MODULE_MESSAGE_ID_INVALID;
+    }
 
 
   // public properties
@@ -321,13 +321,11 @@ class ModuleBase {
 
   // private properties
   private:
-    uint16_t device_id;
-    uint8_t  channel; // can channel
+    uint32_t mac;
     uint8_t  key;
     uint8_t  index;
 
     ModuleStatus status = MODULE_STATUS_UNCONFIGURE;
-    uint32_t sn;
     uint8_t  hw_ver;
     char     fw_ver[33];
 
@@ -335,7 +333,6 @@ class ModuleBase {
     uint8_t          func_length = 0;
 };
 
-
-ModuleBase *module_factory(uint32_t mac, uint8_t channel, uint8_t key, uint8_t sub_index=0);
+ModuleBase *module_factory(uint32_t mac, uint8_t key, uint8_t sub_index=0);
 
 #endif

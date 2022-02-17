@@ -24,12 +24,28 @@
 #include "base.h"
 #include "link_can.h"
 
+#include "../module/base.h"
+
+typedef void (*msg_handle)(void *obj, uint8_t *, uint8_t);
+
+typedef struct {
+  void *obj;
+  msg_handle callback;
+} msg_callback_t;
+
 class HostSMCAN: public HostBase {
   // public methods
   public:
-    HostSMCAN(LinkBase &l): HostBase(), link(l) {}
+    HostSMCAN(LinkCANStdData &l): HostBase(), link(l) {}
 
-    int init();
+    err_code_t init(TaskHandle_t event_task, TaskHandle_t recv_task);
+
+    err_code_t send(LinkCANChannel ch, uint16_t msg_id, uint8_t *data, uint8_t length);
+
+    err_code_t register_callback(uint16_t msg_id, void *obj, msg_handle cb);
+
+    int handle_receive();
+    int handle_events();
 
   // private methods
   private:
@@ -41,7 +57,10 @@ class HostSMCAN: public HostBase {
 
   // private properties
   private:
-    LinkBase &link;
+    LinkCANStdData &link;
+    MessageBufferHandle_t recv_queue;
+
+    msg_callback_t callbacks[MODULE_SUPPORT_MESSAGE_ID_MAX];
 };
 
 extern HostSMCAN host_can_rou(link_can_rou);

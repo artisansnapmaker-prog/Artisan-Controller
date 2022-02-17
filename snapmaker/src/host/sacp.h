@@ -21,9 +21,10 @@
 #ifndef SNAPMAKER_HOST_SACP_H_
 #define SNAPMAKER_HOST_SACP_H_
 
+#include "../config.h"
+#include "../common/error.h"
+
 #include "base.h"
-#include "link_uart.h"
-#include "link_can.h"
 
 /*
   This host handle also SSTP protocol
@@ -49,20 +50,8 @@ typedef struct {
 class HostSACP: public HostBase {
   // public methods
   public:
-    HostSACP(LinkBase &l): HostBase(), link(l) {}
+    HostSACP(): HostBase() {}
 
-    int init();
-
-    int register_callback(uint8_t cmd_set, uint8_t cmd_id, std::function <int(sacp_message_t)> cb);
-    int send_sync(sacp_message_t *in, sacp_message_t *out, uint32_t timeout=100, uint8_t retry=1);
-    int send(sacp_message_t *in);
-
-    // to be compatible with the condition only has one byte for command id
-    int register_callback_legacy(uint8_t cmd_id, std::function <int(sacp_message_t)> cb);
-
-    // these two API, only accept cmd_id in message
-    int send_sync_legacy(sacp_message_t *in, sacp_message_t *out, uint32_t timeout=100, uint8_t retry=1);
-    int send_legacy(sacp_message_t *in);
 
   // private methods
   private:
@@ -74,17 +63,7 @@ class HostSACP: public HostBase {
 
   // private properties
   private:
-    LinkBase &link;
+
 };
-
-// initalized in system thread
-extern HostSACP host_hmi(link_hmi);
-extern HostSACP host_luban(link_luban);
-
-// initalized in laser init();
-extern HostSACP host_camera(link_camera);
-
-// initalized in module service init();
-extern HostSACP host_can_cfg(link_can_cfg);
 
 #endif  // #ifndef SNAPMAKER_HOST_SACP_H_

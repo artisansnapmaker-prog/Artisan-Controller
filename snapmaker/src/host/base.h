@@ -37,7 +37,7 @@ class HostBase {
   public:
     HostBase() {}
 
-    virtual int init() = 0;
+    virtual err_code_t init(TaskHandle_t event_task, TaskHandle_t recv_task) = 0;
     virtual int handle_receive() { return 0; }
     virtual int handle_events() { return 0; }
 
@@ -50,10 +50,10 @@ class HostBase {
 
 
   // private properties
-  private:
+  protected:
     HostStatus status = HOST_STATUS_INVALID;
-    char name[HOST_NAME_SIZE];
-
+    TaskHandle_t event_task;
+    TaskHandle_t receiver_task;
 };
 
 

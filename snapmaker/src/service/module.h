@@ -22,8 +22,10 @@
 #define SNAPMAKER_MODULE_SERVICE_H_
 
 #include "../common/list.h"
+#include "../common/error.h"
 
-#include "../host/sacp.h"
+#include "../host/sacp_module.h"
+#include "../host/sacp_hmi.h"
 #include "../host/sm_mac.h"
 #include "../host/sm_can.h"
 
@@ -45,27 +47,40 @@ typedef struct {
   uint16_t bound;
 } message_id_record_t;
 
+typedef err_code_t (*routine_function)(void *obj);
+
+typedef struct {
+  void *obj;
+  routine_function cb;
+} module_routine_t;
+
 class ModuleService {
   // public methods
   public:
-    ModuleService() {}
+    ModuleService() {
+      for (int i = 0; i < MODULE_ACCESSIBLE_MAX; i++) {
+        routines[i].obj = NULL;
+        routines[i].cb = NULL;
+      }
+    }
 
     int init();
-    int register_routine(std::function <int(int)> routine);
+    int register_routine(void *obj, routine_function cb);
 
     // background thread
     int background_thread();
 
+    friend err_code_t handle_module_inserted(void *obj, uint32_t mac);
+    friend err_code_t handle_fw_request(void *obj, sacp_module_message_t &message);
+    friend err_code_t report_module_info(void *obj, sacp_hmi_message_t &message);
+
   // private methods
   private:
     // callbacks
-    int handle_module_inserted(uint32_t mac, uint8_t channel);
-    int report_module_info(sacp_message_t &message);
-    int handle_fw_request(sacp_message_t &message);
 
     // internal helper
     int init_virtual_modules();
-    int get_function_list(ModuleBase &module, uint8_t channel);
+    int get_function_list(ModuleBase &module);
     int record_function_list(ModuleBase &module, function_node_t *fnodes, uint8_t len);
 
     int assign_message_id();
@@ -82,7 +97,7 @@ class ModuleService {
   private:
     ModuleServiceStatus status = MS_STATUS_UNCONFIG;
 
-    std::function <void(void)> routines[MODULE_ACCESSIBLE_MAX];
+    module_routine_t routines[MODULE_ACCESSIBLE_MAX];
 
     ModuleBase *modules[MODULE_ACCESSIBLE_MAX];
     uint8_t    configured_module = 0;

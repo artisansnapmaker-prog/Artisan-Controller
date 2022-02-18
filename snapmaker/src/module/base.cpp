@@ -1,6 +1,7 @@
 #include "base.h"
 #include "toolhead_fdm.h"
 #include "bed_virt.h"
+#include "linear_virt.h"
 
 ModuleBase *module_factory(uint32_t mac, uint8_t key, uint8_t sub_index) {
   switch (MODULE_GET_DEVICE_ID(mac)) {

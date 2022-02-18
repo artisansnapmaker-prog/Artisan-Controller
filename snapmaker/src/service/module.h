@@ -36,7 +36,8 @@
 
 enum ModuleServiceStatus {
   MS_STATUS_UNCONFIG,   // unconfigured
-  MS_STATUS_ON_INIT,    // is initializing
+  MS_STATUS_SCANNING,   // is scanning modules
+  MS_STATUS_BINDING,    // is binding message id
   MS_STATUS_CONFIG,     // configured
   MS_STATUS_UPGRADING,  // is upgrading modules
   MS_STATUS_INVALID
@@ -64,7 +65,7 @@ class ModuleService {
       }
     }
 
-    int init();
+    void init();
     int register_routine(void *obj, routine_function cb);
 
     // background thread
@@ -83,9 +84,9 @@ class ModuleService {
     int get_function_list(ModuleBase &module);
     int record_function_list(ModuleBase &module, function_node_t *fnodes, uint8_t len);
 
-    int assign_message_id();
-    int bind_message_id();
-    int bind_message_id(ModuleBase &module);
+    err_code_t assign_message_id();
+    err_code_t bind_message_id();
+    err_code_t bind_message_id(ModuleBase &module);
 
     // when controller receiver a whole module FW,
     // will tell us to upgrade modules

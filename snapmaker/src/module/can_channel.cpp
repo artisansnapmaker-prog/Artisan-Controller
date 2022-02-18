@@ -54,7 +54,7 @@ static const CANBaudrateSet_t baudrates[] = {
 //   gpio_init_cfg.Alternate = GPIO_AF9_CAN1;
 //   HAL_GPIO_Init(GPIOD, &gpio_init_cfg);
 
-// // This is for controller 2019 
+// // This is for controller 2019
 // #if 0
 //   gpio_init_cfg.Pin   = GPIO_PIN_12 | GPIO_PIN_13;
 //   gpio_init_cfg.Alternate = GPIO_AF9_CAN2;

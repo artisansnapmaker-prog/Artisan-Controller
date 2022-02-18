@@ -1,39 +1,56 @@
 #include "module.h"
-#include <functional>
 #include "../config.h"
+#include "../common/debug.h"
 #include "../host/sacp_module.h"
 
 ModuleService module_svc;
 
-static TaskHandle_t recv_task, event_task;
-
 static void handle_can_receive(void *p) {
+  (void *)p;
+
+  BaseType_t ret;
+  uint32_t notification;
 
   for (;;) {
-    host_mac.handle_receive();
-    host_can_cfg.handle_receive();
-    host_can_rou.handle_receive();
+    ret = xTaskNotifyWait(0, 0xFFFFFFFF, &notification, portMAX_DELAY);
+    if (ret != pdPASS)
+      continue;
 
-    // TODO: check condition if we need to sleep()
+    if (notification & NOTIFY_RECV_CAN_EXT_REMOTE)
+      host_mac.handle_receive();
+
+    if (notification & NOTIFY_RECV_CAN_EXT_DATA)
+      host_can_cfg.handle_receive();
+
+    if (notification & NOTIFY_RECV_CAN_STD_DATA)
+      host_can_rou.handle_receive();
   }
 }
 
 
 static void handle_can_events(void *p) {
+  (void *)p;
+
+  BaseType_t ret;
+  uint32_t notification;
 
   for (;;) {
-    host_mac.handle_events();
-    host_can_cfg.handle_events();
-    host_can_rou.handle_events();
-
-    // TODO: check condition if we need to sleep()
+    ret = xTaskNotifyWait(0, 0xFFFFFFFF, &notification, portMAX_DELAY);
+    if (ret != pdPASS)
+      continue;    
+    
+    if (notification & NOTIFY_EVENT_CAN_CFG)
+      host_can_cfg.handle_events();
+    
+    if (notification & NOTIFY_EVENT_CAN_ROUTINE)
+      host_can_rou.handle_events();
   }
 }
 
 
 err_code_t handle_module_inserted(void *obj, uint32_t mac) {
   ModuleService *ms = (ModuleService *)obj;
-  if (ms->status != MS_STATUS_ON_INIT || ms->status != MS_STATUS_CONFIG)
+  if (ms->status != MS_STATUS_SCANNING || ms->status != MS_STATUS_CONFIG)
     return -1;
 
   if (ms->configured_module >= MODULE_ACCESSIBLE_MAX) {
@@ -120,8 +137,9 @@ err_code_t report_module_info(void *obj, sacp_hmi_message_t &message) {
 }
 
 
-int ModuleService::init() {
-  status = MS_STATUS_ON_INIT;
+void ModuleService::init() {
+  TaskHandle_t recv_task, event_task;
+
 
   for (int i = 0; i < MODULE_FUNC_PRIORITY_MAX; i++)
     list_init(&function_list[i]);
@@ -143,18 +161,20 @@ int ModuleService::init() {
   host_can_rou.init(event_task, recv_task);
 
   // register callback to handle module inserted
-  host_mac.register_callback((void *)this, (mac_callback)handle_module_inserted);
+  host_mac.register_callback((void *)this, (smmac_callback)handle_module_inserted);
 
   // register callback to handle SSTP events from modules
   host_can_cfg.register_callback(MODULE_EXT_CMD_TRANS_FW_ACK, (void *)this, (sacp_module_callback)handle_fw_request);
 
+  status = MS_STATUS_SCANNING;
   // scan the modules
-  host_mac.send(0x00001);
+  host_mac.send(MODULE_MAC_CMD_SCAN);
 
   // waiting module discovery
   vTaskDelay(pdMS_TO_TICKS(1000));
 
   // assign and bind message id for all discovered modules
+  status = MS_STATUS_BINDING;
   assign_message_id();
   bind_message_id();
 
@@ -193,18 +213,17 @@ int ModuleService::init_virtual_modules() {
 
 int ModuleService::get_function_list(ModuleBase &module) {
   sacp_module_message_t cmd;
-  sacp_module_message_t recv;
 
   uint8_t cmd_buffer[32];
   uint8_t recv_buffer[32];
+  uint16_t recv_length;
 
   // TODO: for CAN link, need mac
   cmd.peer = module.get_mac();
-
-  recv.data = recv_buffer;
+  cmd.length = 0;
 
   // 1. query function id from module
-  host_can_cfg.send_sync(&cmd, &recv, 500, 3);
+  host_can_cfg.send_sync(&cmd, recv_buffer, &recv_length, 500, 3);
 
   // TODO: check if the function length is reasonable
   //module.check_functionid(recv_buffer);
@@ -262,7 +281,7 @@ int ModuleService::record_function_list(ModuleBase &module, function_node_t *fno
 }
 
 
-int ModuleService::assign_message_id() {
+err_code_t ModuleService::assign_message_id() {
   function_node_t *fnode;
   uint16_t message_id = 0;
 
@@ -290,29 +309,41 @@ int ModuleService::assign_message_id() {
       msg_id_records[i].bound = MODULE_MESSAGE_ID_MAX;
     }
   }
+
+  // tell host the bound of high priority message
+  host_can_rou.set_high_prio_bound(msg_id_records[MODULE_FUNC_PRIORITY_HIGH].bound);
 }
 
 
-int ModuleService::bind_message_id() {
+err_code_t ModuleService::bind_message_id() {
+  err_code_t ret;
+
   for (int i = 0; i < configured_module; i++) {
     if (MODULE_TYPE(modules[i]->get_device_id()) == MODULE_TYPE_VIRTUAL)
       continue;
-
-    bind_message_id(*modules[i]);
+    ret = bind_message_id(*modules[i]);
+    if (ret != E_SUCCESS) {
+      LOG_E("failed to bind message for module: 0x%8x\n", modules[i]->get_mac());
+      return ret;
+    }
   }
 }
 
 
-int ModuleService::bind_message_id(ModuleBase &module) {
+err_code_t ModuleService::bind_message_id(ModuleBase &module) {
   function_node_t *fnodes;
   uint8_t func_len;
 
   sacp_module_message_t cmd;
+  uint8_t recv_buffer[4];
+  uint16_t recv_length;
 
   int index = 1;  // start saving data in index 1 of buffer
   uint8_t *buffer = (uint8_t *)pvPortMalloc(module.get_function_nodes(NULL) * 4 + 1);
   // TODO: check result of applying memory
-
+  if (!buffer) {
+    return E_NO_MEM;
+  }
 
   // TODO: set command parameters
   cmd.data = buffer;
@@ -331,28 +362,35 @@ int ModuleService::bind_message_id(ModuleBase &module) {
 
   if (index > 1) {
     cmd.length = index;
-    host_can_cfg.send_sync(&cmd, NULL, 200, 2);
+    host_can_cfg.send_sync(&cmd, recv_buffer, &recv_length, 200, 2);
   }
 
   vPortFree(buffer);
+
+  return E_SUCCESS;
 }
 
 
 int ModuleService::background_thread() {
     // perform routine of modules
-    for (auto &&routine : routines)
-    {
+    for (auto &&routine : routines) {
       if (routine.cb)
         routine.cb(routine.obj);
       else
         break;
     }
 
-    // TODO: check online of modules
+    for (auto &&module : modules) {
+      if (!module->check_online()) {
+        // TODO: check offline module
+
+      }
+    }
 
     // TODO: check if need to upgrade module
 
     // TODO: scan modules
+    host_mac.send(MODULE_MAC_CMD_SCAN);
 
   return 0;
 }

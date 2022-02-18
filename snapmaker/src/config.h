@@ -78,6 +78,11 @@
 #define NOTIFY_RECV_UART4           (0x00000080)
 #define NOTIFY_RECV_UART5           (0x00000100)
 
+#define NOTIFY_EVENT_CAN_CFG      (0x00000001)
+#define NOTIFY_EVENT_CAN_ROUTINE  (0x00000002)
+#define NOTIFY_EVENT_HMI          (0x00000004)
+
+
 //FLASH layout
 #define FLASH_SIZE      (1024*1024)
 #define BOOT_CODE_SIZE	(32*1024)

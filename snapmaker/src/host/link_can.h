@@ -70,11 +70,8 @@ class LinkCAN {
   public:
     LinkCAN() {}
 
-    virtual void init(TaskHandle_t recv_task);
-    err_code_t write(LinkCANChannel ch, LinkCANType type, uint32_t id, uint8_t *data, uint16_t length);
-
     // parameters: id, channel number, data buffer,  length
-    virtual void receive_data(LinkCANChannel ch, uint32_t id, uint8_t *data, uint8_t length) {}
+    virtual void receive_data(LinkCANChannel ch, uint32_t id, uint8_t *data, uint8_t length) = 0;
 
   // private methods
   protected:
@@ -83,8 +80,8 @@ class LinkCAN {
     void hal_init();
 
     // RTOS lock for can bus
-    bool lock();
-    void unlock();
+    bool lock(LinkCANChannel ch);
+    void unlock(LinkCANChannel ch);
 
     err_code_t send_packet(LinkCANChannel ch, void *header, uint8_t *packet);
     err_code_t config_baudrate(LinkCANChannel bus, linkcan_baudrate_t br);

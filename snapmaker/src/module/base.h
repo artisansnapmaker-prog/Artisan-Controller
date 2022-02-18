@@ -223,6 +223,7 @@ const uint8_t module_prio_table[][2] = {
   {/* MODULE_SET_EXTRUDER_CHECK          */  MODULE_FUNC_PRIORITY_MEDIUM, 1},
 };
 
+#define MODULE_MAC_CMD_SCAN       (0x00000001)
 
 #define MODULE_EXT_CMD_INDEX_ID   (0)
 #define MODULE_EXT_CMD_INDEX_DATA (1)
@@ -283,11 +284,11 @@ class ModuleBase {
     ModuleBase(uint32_t mac, uint8_t key):
       mac(mac), key(key) {}
 
-    virtual int pre_init() { return 0; }
-    virtual int post_init() { return 0; }
-    virtual void deinit() { return; };
+    virtual void pre_init() = 0;
+    virtual void post_init() = 0;
+    virtual void deinit() = 0;
 
-    virtual bool check_online() { return true; };
+    virtual bool check_online() = 0;
 
     virtual int get_function_priority(uint16_t function_id) { return MODULE_FUNC_PRIORITY_LOW; }
 

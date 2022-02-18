@@ -4,7 +4,6 @@
 
 #include <stdio.h>
 #include "config.h"
-#include "module/can_host.h"
 #include "common/debug.h"
 
 

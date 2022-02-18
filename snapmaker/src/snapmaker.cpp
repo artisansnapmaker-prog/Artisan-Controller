@@ -1,6 +1,6 @@
 #include "snapmaker.h"
 #include "src/HAL/HAL.h"
-#include "src/pins/pins.h"
+#include "src/pins/pins.h" 
 
 #include "service/module.h"
 #include "service/system.h"
@@ -98,18 +98,54 @@ enum PortIndex {
   PORT_INDEX_P3
 };
 
+static TaskHandle_t hmi_recv_task;
+static TaskHandle_t hmi_event_task;
 
-void system_thread(void *p) {
+
+// can recv handler
+static void hmi_recv_handler(void *param) {
+  
+  for (;;) {
+    host_hmi.handle_receive();
+  }
+}
+
+// can event handler
+static void hmi_event_handler(void *param) {
+  for (;;) {
+    host_hmi.handle_events();
+  }
+}
+
+static void system_thread(void *p) {
   BaseType_t ret;
   TaskHandle_t thandle_marlin;
 
   // module init
   module_svc.init();
 
+  ret = xTaskCreate((TaskFunction_t)hmi_recv_handler, "hmi_recv", CAN_RECEIVE_HANDLER_STACK_DEPTH,
+        NULL, CAN_RECEIVE_HANDLER_PRIORITY, &hmi_recv_task);
+  if (ret != pdPASS) {
+    LOG_E("Failed to create HMI receive task!\n");
+    while(1);
+  }
+  else {
+    LOG_I("Created HMI receive task!\n");
+  }
+
+  ret = xTaskCreate((TaskFunction_t)hmi_event_handler, "hmi_event", CAN_EVENT_HANDLER_STACK_DEPTH,
+        NULL, CAN_EVENT_HANDLER_PRIORITY, &hmi_event_task);
+  if (ret != pdPASS) {
+    LOG_E("Failed to create HMI event task!\n");
+    while(1);
+  }
+  else {
+    LOG_I("Created HMI event task!\n");
+  }
+
   // sacp host init
-  host_hmi.init();
-  host_luban.init();
-  motion_svc.init();
+  host_hmi.init(hmi_event_task, hmi_recv_task);
 
   // loop
   for (;;) {
@@ -117,22 +153,6 @@ void system_thread(void *p) {
     system_svc.background_thread();
   }
 
-}
-
-
-// hook for failing to apply memory in freeRTOS
-void vApplicationMallocFailedHook( void ) {
-  return;
-}
-
-// can recv handler
-static void can_recv_handler(void *param) {
-  canhost.ReceiveHandler(param);
-}
-
-// can event handler
-static void can_event_handler(void *param) {
-  canhost.EventHandler(param);
 }
 
 
@@ -153,8 +173,6 @@ void SnapmakerPrinter::post_init() {
   // OUT_WRITE(POWER_CTRL_MOTOR, POWER_CTRL_ON);
   OUT_WRITE(POWER_CTRL_4P, POWER_CTRL_ON);
 
-  canhost.Init();
-
 
   ret = xTaskCreate((TaskFunction_t)system_thread, "system", CAN_RECEIVE_HANDLER_STACK_DEPTH,
         (void *)(this), CAN_RECEIVE_HANDLER_PRIORITY,  &thandle_can_recv);
@@ -166,26 +184,13 @@ void SnapmakerPrinter::post_init() {
     LOG_I("Created can receive task!\n");
   }
 
-  ret = xTaskCreate((TaskFunction_t)can_recv_handler, "Can Receive Task", CAN_RECEIVE_HANDLER_STACK_DEPTH,
-        (void *)(this), CAN_RECEIVE_HANDLER_PRIORITY,  &thandle_can_recv);
-  if (ret != pdPASS) {
-    LOG_E("Failed to create can receive task!\n");
-    while(1);
-  }
-  else {
-    LOG_I("Created can receive task!\n");
-  }
-
-  ret = xTaskCreate((TaskFunction_t)can_event_handler, "Can Event Task", CAN_EVENT_HANDLER_STACK_DEPTH,
-        (void *)(this), CAN_EVENT_HANDLER_PRIORITY, &thandle_can_event);
-  if (ret != pdPASS) {
-    LOG_E("Failed to create can event task!\n");
-    while(1);
-  }
-  else {
-    LOG_I("Created can event task!\n");
-  }
-
   vTaskStartScheduler();
 }
 
+
+extern "C" {
+  // hook for failing to apply memory in freeRTOS
+  void vApplicationMallocFailedHook( void ) {
+    return;
+  }
+};

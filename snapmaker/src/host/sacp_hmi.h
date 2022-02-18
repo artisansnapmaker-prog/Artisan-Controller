@@ -55,16 +55,18 @@ typedef struct {
 class HostSACPHMI: public HostSACP {
   // public methods
   public:
-    HostSACPHMI(): HostSACP() {}
+    HostSACPHMI(SACPVerion ver): HostSACP() {
+      version = ver;
+    }
 
     err_code_t init(TaskHandle_t event_task, TaskHandle_t recv_task);
 
-    err_code_t register_callback(uint8_t cmd_set, uint8_t cmd_id, void *obj, sacp_hmi_callback cb, uint32_t attr);
-    err_code_t send_sync(sacp_hmi_message_t *in, sacp_hmi_message_t *out, uint32_t timeout=100, uint8_t retry=1);
+    err_code_t register_callback(uint8_t cmd_set, uint8_t cmd_id, void *obj, sacp_hmi_callback cb, uint32_t attr=0);
+    err_code_t send_sync(sacp_hmi_message_t *message, uint8_t *out, uint16_t *out_len, uint32_t timeout=100, uint8_t retry=1);
     err_code_t send(sacp_hmi_message_t *in);
 
-    int handle_receive();
-    int handle_events();
+    void handle_receive();
+    void handle_events();
 
   // private methods
   private:

@@ -27,10 +27,8 @@
 #include "base.h"
 
 /*
-  This host handle also SSTP protocol
+  This host handle also SSTP protocol, but its verion = 0
 */
-
-
 typedef struct {
   uint32_t peer;
 
@@ -45,8 +43,54 @@ typedef struct {
   uint8_t  *data;
 } sacp_message_t;
 
+enum SACPVerion {
+  SACP_VER_0,
+  SACP_VER_1,
 
-// TODO: how to construct the event callbacks struct? there is only one byte for command id in some condition
+  SACP_VER_INVALID
+};
+
+#define SACP_FRAME_SOF_1  (0xaa)
+#define SACP_FRAME_SOF_2  (0x55)
+
+// use big ending when V0
+enum SACPV0FrameIndex {
+  SACP_V0_FRAME_INDEX_SOF_1,
+  SACP_V0_FRAME_INDEX_SOF_2,
+  SACP_V0_FRAME_INDEX_LEN_H,
+  SACP_V0_FRAME_INDEX_LEN_L,
+  SACP_V0_FRAME_INDEX_VER,
+  SACP_V0_FRAME_INDEX_LEN_CHK,
+  SACP_V0_FRAME_INDEX_EVENT_ID,
+  SACP_V0_FRAME_INDEX_OPCODE,
+  SACP_V0_FRAME_INDEX_DATA,
+};
+
+
+// use little ending when V1
+enum SACPV1FrameIndex {
+  SACP_V1_FRAME_INDEX_SOF_1,
+  SACP_V1_FRAME_INDEX_SOF_2,
+  SACP_V1_FRAME_INDEX_LEN_L,
+  SACP_V1_FRAME_INDEX_LEN_H,
+  SACP_V1_FRAME_INDEX_VER,
+  SACP_V1_FRAME_INDEX_RECV_ID,
+  SACP_V1_FRAME_INDEX_CRC8,
+  SACP_V1_FRAME_INDEX_SENDER_ID,
+  SACP_V1_FRAME_INDEX_ATTR,
+  SACP_V1_FRAME_INDEX_SEQ_L,
+  SACP_V1_FRAME_INDEX_SEQ_H,
+  SACP_V1_FRAME_INDEX_CMD_SET,
+  SACP_V1_FRAME_INDEX_CMD_ID,
+};
+
+enum SACPWaitingNodeStatus {
+  SACP_WAITING_NODE_STA_IDLE,
+  SACP_WAITING_NODE_STA_INUSE,
+
+  SACP_WAITING_NODE_STA_INVALID
+};
+
 class HostSACP: public HostBase {
   // public methods
   public:
@@ -61,9 +105,9 @@ class HostSACP: public HostBase {
   public:
 
 
-  // private properties
-  private:
-
+  // protected properties
+  protected:
+    SACPVerion version;
 };
 
 #endif  // #ifndef SNAPMAKER_HOST_SACP_H_

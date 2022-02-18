@@ -21,7 +21,9 @@
 #ifndef SNAPMAKER_HOST_BASE_H_
 #define SNAPMAKER_HOST_BASE_H_
 
-#include <functional>
+#include "../config.h"
+#include "../common/error.h"
+#include "../common/debug.h"
 
 #define HOST_NAME_SIZE  (32)
 
@@ -38,8 +40,8 @@ class HostBase {
     HostBase() {}
 
     virtual err_code_t init(TaskHandle_t event_task, TaskHandle_t recv_task) = 0;
-    virtual int handle_receive() { return 0; }
-    virtual int handle_events() { return 0; }
+    virtual void handle_receive() { return; }
+    virtual void handle_events() { return; }
 
   // private methods
   private:

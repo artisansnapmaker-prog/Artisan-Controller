@@ -1,4 +1,5 @@
 #include "sacp_module.h"
+#include "../common/debug.h"
 
 HostSACPModuleCAN host_can_cfg(link_can_cfg, SACP_VER_0);
 
@@ -46,13 +47,19 @@ err_code_t HostSACPModule::send_sync(sacp_module_message_t *message, uint8_t *ou
   }
 
   for (; node_index < SACP_MODULE_WAITING_NODE_MAX; node_index++) {
-    if (waiting_nodes[node_index].peer != SACP_MODULE_PEER_INVALID) {
-      waiting_nodes[node_index].peer = out->peer;
-      waiting_nodes[node_index].cmd_id = out->cmd_id;
+    if (waiting_nodes[node_index].status == SACP_WAITING_NODE_STA_IDLE) {
+      waiting_nodes[node_index].status = SACP_WAITING_NODE_STA_INUSE;
+      waiting_nodes[node_index].cmd_id = message->cmd_id;
       break;
     }
   }
   xSemaphoreGive(waiting_lock);
+
+  if (node_index >= SACP_MODULE_WAITING_NODE_MAX) {
+    // node waiting for us
+    LOG_E("no waiting node for cmd: 0x%x!\n", message->cmd_id);
+    return E_NO_RESRC;
+  }
 
 
   for (; retry > 0; retry++) {
@@ -61,8 +68,8 @@ err_code_t HostSACPModule::send_sync(sacp_module_message_t *message, uint8_t *ou
       continue;
     }
 
-    recv_len = xMessageBufferReceive(waiting_lock, in->data, in->length, pdMS_TO_TICKS(timeout));
-    if (recv_len != in->length) {
+    recv_len = xMessageBufferReceive(waiting_nodes[node_index].queue, out, *out_len, pdMS_TO_TICKS(timeout));
+    if (recv_len != *out_len) {
       ret = E_TIMEOUT;
       continue;
     }
@@ -71,14 +78,14 @@ err_code_t HostSACPModule::send_sync(sacp_module_message_t *message, uint8_t *ou
 
   // release node of wait queue
   xSemaphoreTake(waiting_lock, timeout);
-  waiting_nodes[node_index].peer = SACP_MODULE_PEER_INVALID;
+  waiting_nodes[node_index].status = SACP_WAITING_NODE_STA_IDLE;
   xSemaphoreGive(waiting_lock);
 
   return ret;
 }
 
 
-uint16_t HostSACPModule::calc_checksum(uint8_t *buffer, uint16_t length) {
+uint16_t HostSACPModule::calculate_checksum(uint8_t *buffer, uint16_t length) {
   uint32_t volatile checksum = 0;
 
   if (!length || !buffer)
@@ -98,18 +105,20 @@ uint16_t HostSACPModule::calc_checksum(uint8_t *buffer, uint16_t length) {
   return (uint16_t)checksum;
 }
 
-int HostSACPModule::handle_receive() {
-  size_t len = xStreamBufferReceive(recv_queue, parser_buffer + parser_buffer_write,
-                SACP_MODULE_PASER_BUFFER_MAX - parser_buffer_write, 0);
-
+void HostSACPModule::handle_receive() {
   static uint16_t pdu_length = 0;
   uint8_t  pdu_length_checksum;
   uint8_t  pdu_ver;
   uint16_t pdu_checksum;
   uint16_t calc_checksum;
 
+  uint8_t command_id;
+
+  size_t len = xStreamBufferReceive(recv_queue, parser_buffer + parser_buffer_write,
+                SACP_MODULE_PASER_BUFFER_SIZE - parser_buffer_write, 0);
+
   // check if the length we got is expected
-  if (len < paser_waiting_bytes) {
+  if (len < parser_waiting_bytes) {
     parser_waiting_bytes -= len;
     parser_buffer_write  += len;
     return;
@@ -118,11 +127,11 @@ int HostSACPModule::handle_receive() {
   switch (parser_status) {
   case SACP_PARSER_STA_IDLE:
     while (parser_read < parser_buffer_write) {
-      if (parser_buffer[parser_read++] != SACP_SOF_H)
+      if (parser_buffer[parser_read++] != SACP_FRAME_SOF_1)
         continue;
 
-      if (parser_buffer[parser_read++] != SACP_SOF_L)
-        continue
+      if (parser_buffer[parser_read++] != SACP_FRAME_SOF_2)
+        continue;
       else {
         parser_status = SACP_PARSER_STA_GOT_SOF;
         break;
@@ -133,7 +142,7 @@ int HostSACPModule::handle_receive() {
     if (parser_status == SACP_PARSER_STA_IDLE) {
       parser_read          = 0;
       parser_buffer_write  = 0;
-      parser_waiting_bytes = SACP_MODULE_MIN_PDU;
+      parser_waiting_bytes = SACP_MODULE_PDU_MIN_SIZE;
       break;
     }
     // go to next status directly
@@ -141,8 +150,8 @@ int HostSACPModule::handle_receive() {
   case SACP_PARSER_STA_GOT_SOF:
     // confirm firstly if available bytes is enough for this status
     // if not, jump out from this status, and wait for enough bytes
-    if ((parser_buffer_write - parser_read) < SACP_MODULE_HEADER_SIZE) {
-      parser_waiting_bytes = SACP_MODULE_HEADER_SIZE - (parser_buffer_write - parser_read);
+    if ((parser_buffer_write - parser_read) < SACP_MODULE_PDU_REAR_HEADER_SIZE) {
+      parser_waiting_bytes = SACP_MODULE_PDU_REAR_HEADER_SIZE - (parser_buffer_write - parser_read);
       break;
     }
 
@@ -150,9 +159,10 @@ int HostSACPModule::handle_receive() {
     pdu_length_checksum = parser_buffer[parser_read]^parser_buffer[parser_read+1];
     pdu_length = parser_buffer[parser_read++]<<8 | parser_buffer[parser_read++];
     pdu_ver    = parser_buffer[parser_read++];
-    if (parser_buffer[parser_read] != pdu_length_checksum) {
+    if (parser_buffer[parser_read++] != pdu_length_checksum) {
       // must update parser_buffer_write firstly !!!
       parser_buffer_write -= parser_read;
+      // delete invalid data in front of buffer
       for (int i = 0; i < parser_buffer_write; i++) {
         parser_buffer[i] = parser_buffer[i+parser_read];
       }
@@ -160,7 +170,7 @@ int HostSACPModule::handle_receive() {
       // reset var and jump out
       pdu_length  = 0;
       parser_read = 0;
-      parser_waiting_bytes = SACP_MODULE_MIN_PDU;
+      parser_waiting_bytes = SACP_MODULE_PDU_MIN_SIZE;
       parser_status        = SACP_PARSER_STA_IDLE;
       break;
     }
@@ -174,76 +184,116 @@ int HostSACPModule::handle_receive() {
     }
 
     pdu_checksum = parser_buffer[parser_read + pdu_length]<<8 | parser_buffer[parser_read + pdu_length];
-    calc_checksum = calc_checksum(parser_buffer+parser_read, pdu_length);
+    calc_checksum = calculate_checksum(parser_buffer+parser_read, pdu_length);
+
+    if (pdu_checksum != calc_checksum) {
+      LOG_E("error checksum from module, got [0x%x], calc [0x%x]\n", pdu_checksum, calc_checksum);
+    }
+    else {
+      MessageBufferHandle_t tmp_queue = NULL;
+      command_id = parser_buffer[SACP_V0_FRAME_INDEX_EVENT_ID];
+      if (parser_status == SACP_PARSER_STA_GOT_MESSAGE) {
+        xSemaphoreTake(waiting_lock, 0);
+        for (int i = 0; i < SACP_MODULE_WAITING_NODE_MAX; i++) {
+          if (waiting_nodes[i].cmd_id == command_id) {
+            tmp_queue = waiting_nodes[i].queue;
+            break;
+          }
+        }
+        xSemaphoreGive(waiting_lock);
+
+        // TODO: need to check if the command is too long
+
+        if (tmp_queue)
+          xMessageBufferSend(tmp_queue, parser_buffer + parser_read, pdu_length, 0);
+        else
+          xMessageBufferSend(event_queue, parser_buffer, parser_read + pdu_length, 0);
+      }
+    }
 
     parser_read += (pdu_length + 2);
     parser_buffer_write -= parser_read;
     for (int i = 0; i < parser_buffer_write; i++) {
       parser_buffer[i] = parser_buffer[i+parser_read];
     }
-
     parser_read = 0;
-    parser_waiting_bytes = SACP_MODULE_MIN_PDU;
-    parser_status        = SACP_PARSER_STA_IDLE;
-
-    if (pdu_checksum != calc_checksum) {
-      LOG_E("error checksum from module, got [0x%x], calc [0x%x]\n", pdu_checksum, calc_checksum);
-      break
-    }
-
-    break;
-
-  case SACP_PARSER_STA_GOT_MESSAGE:
-
+    parser_waiting_bytes = SACP_MODULE_PDU_MIN_SIZE;
+    parser_status = SACP_PARSER_STA_IDLE;
     break;
 
   default:
     break;
   }
-  return 0;
+
 }
 
-int HostSACPModule::handle_events() {
-  return 0;
+void HostSACPModule::handle_events() {
+  size_t len;
+  uint8_t buffer[SACP_MODULE_EVENT_QUEUE_SIZE];
+  sacp_module_message_t message;
+
+  for (;;) {
+    len = xMessageBufferReceive(event_queue, buffer, SACP_MODULE_EVENT_QUEUE_SIZE, 0);
+
+    if (len < SACP_MODULE_PDU_MIN_SIZE) {
+      LOG_W("got module event which size is abnormal: %u\n", len);
+      continue;
+    }
+
+    message.cmd_id = buffer[SACP_V0_FRAME_INDEX_EVENT_ID];
+    message.data   = buffer + SACP_V0_FRAME_INDEX_OPCODE;
+    message.length = len - SACP_V0_FRAME_INDEX_OPCODE;
+
+    for (int i = 0; i < SACP_MODULE_HANDLE_MAX; i++) {
+      if (handles[i].cmd_id == buffer[SACP_V0_FRAME_INDEX_EVENT_ID]) {
+        handles[i].cb(handles[i].obj, &message);
+      }
+    }
+
+  }
+
 }
 
 
 err_code_t HostSACPModuleCAN::init(TaskHandle_t event_task, TaskHandle_t recv_task) {
   // we can change the trigger level laster by xStreamBufferSetTriggerLevel()
-  recv_queue = xStreamBufferCreate(SACP_MODULE_CAN_QUEUE_SIZE, 12);
+  recv_queue = xStreamBufferCreate(SACP_MODULE_RECV_QUEUE_SIZE, 12);
   configASSERT(recv_queue);
 
+  event_queue = xMessageBufferCreate(SACP_MODULE_EVENT_QUEUE_SIZE);
+  configASSERT(event_queue);
+
   for (int i = 0 ; i < SACP_MODULE_WAITING_NODE_MAX; i++) {
-    waiting_nodes[i].peer = SACP_MODULE_PEER_INVALID;
-    waiting_nodes[i].queue = xMessageBufferCreate(SACP_MODULE_CAN_QUEUE_SIZE);
+    waiting_nodes[i].status = SACP_WAITING_NODE_STA_IDLE;
+    waiting_nodes[i].queue = xMessageBufferCreate(SACP_MODULE_EVENT_QUEUE_SIZE);
     configASSERT(waiting_nodes[i].queue);
   }
 
   waiting_lock = xSemaphoreCreateMutex();
   configASSERT(waiting_lock);
 
-  link.init(recv_task, queue);
+  link.init(recv_task, recv_queue);
 
   return E_SUCCESS;
 }
 
 
-err_code_t HostSACPModuleCAN::send(sacp_module_message_t *in) {
-  uint8_t buffer[32];
+err_code_t HostSACPModuleCAN::send(sacp_module_message_t *message) {
+  uint8_t buffer[SACP_MODULE_EVENT_QUEUE_SIZE];
   uint16_t length;
 
   // TODO: package the data into a PDU
 
 
   // write to link
-  return link.write(in->peer, buffer, length);
+  return link.write(message->peer, buffer, length);
 }
 
 
 err_code_t HostSACPModuleUART::init(TaskHandle_t event_task, TaskHandle_t recv_task) {
   // we can change the trigger level laster by xStreamBufferSetTriggerLevel()
-  queue = xStreamBufferCreate(512, 12);
-  configASSERT(queue);
+  recv_queue = xStreamBufferCreate(SACP_MODULE_RECV_QUEUE_SIZE, 12);
+  configASSERT(recv_queue);
 
   // TODO: init link
 

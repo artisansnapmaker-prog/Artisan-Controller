@@ -29,19 +29,19 @@
 #define HOST_SM_CAN_QUEUE_SIZE        (256)
 #define HOST_SM_CAN_WAITING_NODE_MAX  (4)
 
-typedef void (*can_msg_callback_t)(void *obj, uint8_t *, uint8_t);
+typedef void (*smcan_callback_t)(void *obj, uint8_t *, uint8_t);
 
 typedef struct {
   void *obj;
-  can_msg_callback_t callback;
-} can_msg_handle_t;
+  smcan_callback_t callback;
+} smcan_message_handle_t;
 
 typedef struct {
   LinkCANChannel ch;
   uint16_t       id;
   uint8_t        length;
   uint8_t        *data;
-} can_msg_t;
+} smcan_message_t;
 
 class HostSMCAN: public HostBase {
   // public methods
@@ -59,11 +59,11 @@ class HostSMCAN: public HostBase {
 
     err_code_t init(TaskHandle_t event_task, TaskHandle_t recv_task);
 
-    err_code_t send(can_msg_t *msg);
+    err_code_t send(smcan_message_t *msg);
 
-    err_code_t send_sync(can_msg_t *msg, uint8_t *out, uint8_t *out_len, uint32_t timeout=200, uint8_t retry=2);
+    err_code_t send_sync(smcan_message_t *msg, uint8_t *out, uint8_t *out_len, uint32_t timeout=200, uint8_t retry=2);
 
-    err_code_t register_callback(uint16_t msg_id, void *obj, can_msg_callback_t cb);
+    err_code_t register_callback(uint16_t msg_id, void *obj, smcan_callback_t cb);
 
     void handle_receive();
 
@@ -81,13 +81,13 @@ class HostSMCAN: public HostBase {
     MessageBufferHandle_t recv_queue;
     MessageBufferHandle_t event_queue;
 
-    can_msg_handle_t handles[MODULE_SUPPORT_MESSAGE_ID_MAX];
+    smcan_message_handle_t handles[MODULE_SUPPORT_MESSAGE_ID_MAX];
 
     xSemaphoreHandle      waiting_lock;
     MessageBufferHandle_t waiting_queue;
     uint16_t waiting_nodes[HOST_SM_CAN_WAITING_NODE_MAX];
 };
 
-extern HostSMCAN host_can_rou(link_can_rou);
+extern HostSMCAN host_can_rou;
 
 #endif  // #ifndef SNAPMAKER_HOST_SM_CAN_H_

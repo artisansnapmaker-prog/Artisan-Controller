@@ -24,7 +24,7 @@
 #include "base.h"
 #include "link_can.h"
 
-typedef err_code_t (*mac_callback)(void *obj, uint32_t);
+typedef err_code_t (*smmac_callback)(void *obj, uint32_t);
 
 class HostSMMAC: public HostBase {
   // public methods
@@ -33,7 +33,7 @@ class HostSMMAC: public HostBase {
 
     err_code_t init(TaskHandle_t event_task, TaskHandle_t recv_task);
 
-    err_code_t register_callback(void *obj, mac_callback cb) { callback = cb; callback_obj = obj; }
+    err_code_t register_callback(void *obj, smmac_callback cb) { callback = cb; callback_obj = obj; }
 
     err_code_t send(uint32_t message);
 
@@ -44,11 +44,11 @@ class HostSMMAC: public HostBase {
   // private properties
   private:
     LinkCANExtRemote  &link;
-    mac_callback      callback = NULL;
+    smmac_callback    callback = NULL;
     void              *callback_obj;
     QueueHandle_t     recv_queue;
 };
 
-extern HostSMMAC host_mac(link_can_scan);
+extern HostSMMAC host_mac;
 
 #endif  // #ifndef SNAPMAKER_HOST_SM_MAC_H_

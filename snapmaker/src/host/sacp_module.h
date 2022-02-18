@@ -42,12 +42,12 @@ typedef struct {
   sacp_module_callback cb;
 } sacp_module_handle_t;
 
-
 typedef struct {
-  uint32_t peer;
+  uint8_t  status;
   uint8_t  cmd_id;
   MessageBufferHandle_t queue;
 } sacp_module_waiting_node_t;
+
 
 enum SACPParserStatus {
   SACP_PARSER_STA_IDLE,
@@ -63,15 +63,18 @@ enum SACPParserStatus {
 // TODO: how to construct the event callbacks struct? there is only one byte for command id in some condition
 #define SACP_MODULE_HANDLE_MAX       (4)
 #define SACP_MODULE_WAITING_NODE_MAX (4)
-#define SACP_MODULE_PEER_INVALID     (0xFFFFFFFF)
 
-#define SACP_MODULE_PASER_BUFFER_MAX (512)
-#define SACP_MODULE_MIN_PDU          (9)
-#define SACP_MODULE_HEADER_SIZE      (4)
+#define SACP_MODULE_RECV_QUEUE_SIZE       (256)
+#define SACP_MODULE_EVENT_QUEUE_SIZE      (192)
+#define SACP_MODULE_PASER_BUFFER_SIZE     (256)
+#define SACP_MODULE_PDU_MIN_SIZE          (9)
+#define SACP_MODULE_PDU_HEADER_SIZE       (6)
+#define SACP_MODULE_PDU_REAR_HEADER_SIZE  (4)
 class HostSACPModule: public HostSACP {
   // public methods
   public:
-    HostSACPModule(SACPVerion ver): HostSACP(ver) {
+    HostSACPModule(SACPVerion ver): HostSACP() {
+      version = ver;
       handles_max = 0;
 
       for (int i = 0; i < SACP_MODULE_HANDLE_MAX; i++) {
@@ -80,7 +83,7 @@ class HostSACPModule: public HostSACP {
       }
 
       parser_buffer_write = 0;
-      parser_waiting_bytes = SACP_MODULE_MIN_PDU;
+      parser_waiting_bytes = SACP_MODULE_PDU_MIN_SIZE;
     }
 
     err_code_t register_callback(uint8_t cmd_id, void *obj, sacp_module_callback cb);
@@ -93,13 +96,15 @@ class HostSACPModule: public HostSACP {
 
     void handle_events();
 
-    uint16_t calc_checksum(uint8_t *buffer, uint16_t length);
+  protected:
+    uint16_t calculate_checksum(uint8_t *buffer, uint16_t length);
 
   protected:
 
     sacp_module_handle_t handles[SACP_MODULE_HANDLE_MAX];
     uint8_t handles_max;
     StreamBufferHandle_t recv_queue;
+    MessageBufferHandle_t event_queue;
 
     // waiting queue
     xSemaphoreHandle      waiting_lock;
@@ -109,18 +114,17 @@ class HostSACPModule: public HostSACP {
     uint16_t         parser_waiting_bytes;
     uint16_t         parser_read;
     uint16_t         parser_buffer_write;
-    uint8_t          parser_buffer[SACP_MODULE_PASER_BUFFER_MAX];
+    uint8_t          parser_buffer[SACP_MODULE_PASER_BUFFER_SIZE];
 };
 
 
-#define SACP_MODULE_CAN_QUEUE_SIZE  (128)
 class HostSACPModuleCAN: public HostSACPModule {
   // public methods
   public:
     HostSACPModuleCAN(LinkCANExtData &l, SACPVerion ver): link(l), HostSACPModule(ver) {}
 
     err_code_t init(TaskHandle_t event_task, TaskHandle_t recv_task);
-    err_code_t send(sacp_module_message_t *in);
+    err_code_t send(sacp_module_message_t *message);
 
   // private methods
   private:

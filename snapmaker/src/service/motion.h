@@ -29,7 +29,7 @@
 
 class MotionService {
   public:
-    MotionService();
+    MotionService() {}
 
     void init();
 
@@ -87,7 +87,6 @@ class MotionService {
     void run_gcode(char *gcode) {}
 
   private:
-    TaskFunction_t thandle_marlin;
 
 };
 

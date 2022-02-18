@@ -1,7 +1,7 @@
 #include "sm_can.h"
 #include "../common/debug.h"
 
-HostSMCAN sm_can(link_can_rou);
+HostSMCAN host_can_rou(link_can_rou);
 
 
 err_code_t HostSMCAN::init(TaskHandle_t event_task, TaskHandle_t recv_task) {
@@ -26,12 +26,12 @@ err_code_t HostSMCAN::init(TaskHandle_t event_task, TaskHandle_t recv_task) {
 }
 
 
-err_code_t HostSMCAN::send(can_msg_t *msg) {
+err_code_t HostSMCAN::send(smcan_message_t *msg) {
   return link.write(msg->ch, msg->id, msg->data, msg->length);
 }
 
 
-err_code_t HostSMCAN::send_sync(can_msg_t *msg, uint8_t *out, uint8_t *out_len, uint32_t timeout=200, uint8_t retry=2) {
+err_code_t HostSMCAN::send_sync(smcan_message_t *msg, uint8_t *out, uint8_t *out_len, uint32_t timeout, uint8_t retry) {
   int node_index = 0;
   size_t recv_len;
   err_code_t ret = E_SUCCESS;
@@ -75,7 +75,7 @@ err_code_t HostSMCAN::send_sync(can_msg_t *msg, uint8_t *out, uint8_t *out_len, 
 }
 
 
-err_code_t HostSMCAN::register_callback(uint16_t msg_id, void *obj, can_msg_callback_t cb) {
+err_code_t HostSMCAN::register_callback(uint16_t msg_id, void *obj, smcan_callback_t cb) {
   if (msg_id >= MODULE_SUPPORT_MESSAGE_ID_MAX) {
     // TODO: show log
     return E_PARAM;

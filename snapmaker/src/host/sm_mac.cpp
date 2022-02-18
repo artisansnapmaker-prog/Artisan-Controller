@@ -4,7 +4,7 @@ HostSMMAC host_mac(link_can_scan);
 
 
 err_code_t HostSMMAC::init(TaskHandle_t e_task, TaskHandle_t r_task) {
-  recv_queue = xQueueCreate(16, 4);
+  recv_queue = xQueueCreate(32, 4);
   configASSERT(recv_queue);
 
   link.init(r_task, recv_queue);
@@ -21,7 +21,7 @@ err_code_t HostSMMAC::send(uint32_t message) {
 }
 
 
-int HostSMMAC::handle_receive() {
+void HostSMMAC::handle_receive() {
   uint32_t mac;
   BaseType_t ret;
 

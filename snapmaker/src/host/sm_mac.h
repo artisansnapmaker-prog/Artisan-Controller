@@ -37,16 +37,9 @@ class HostSMMAC: public HostBase {
 
     err_code_t send(uint32_t message);
 
-    int handle_receive();
-    int handle_events();
+    void handle_receive();
 
-  // private methods
-  private:
-
-
-  // public properties
-  public:
-
+    void handle_events() {}
 
   // private properties
   private:

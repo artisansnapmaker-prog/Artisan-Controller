@@ -39,39 +39,39 @@ static const CANBaudrateSet_t baudrates[] = {
 };
 
 
-void HAL_CAN_MspInit(CAN_HandleTypeDef* hcan) {
-  GPIO_InitTypeDef gpio_init_cfg;
+// void HAL_CAN_MspInit(CAN_HandleTypeDef* hcan) {
+//   GPIO_InitTypeDef gpio_init_cfg;
 
-  __HAL_RCC_CAN1_CLK_ENABLE();
-  __HAL_RCC_CAN2_CLK_ENABLE();
-  __HAL_RCC_GPIOB_CLK_ENABLE();
-  __HAL_RCC_GPIOD_CLK_ENABLE();
+//   __HAL_RCC_CAN1_CLK_ENABLE();
+//   __HAL_RCC_CAN2_CLK_ENABLE();
+//   __HAL_RCC_GPIOB_CLK_ENABLE();
+//   __HAL_RCC_GPIOD_CLK_ENABLE();
 
-  gpio_init_cfg.Pin   = GPIO_PIN_0 | GPIO_PIN_1;
-  gpio_init_cfg.Mode  = GPIO_MODE_AF_PP;
-  gpio_init_cfg.Pull  = GPIO_PULLUP;
-  gpio_init_cfg.Speed = GPIO_SPEED_FAST;
-  gpio_init_cfg.Alternate = GPIO_AF9_CAN1;
-  HAL_GPIO_Init(GPIOD, &gpio_init_cfg);
+//   gpio_init_cfg.Pin   = GPIO_PIN_0 | GPIO_PIN_1;
+//   gpio_init_cfg.Mode  = GPIO_MODE_AF_PP;
+//   gpio_init_cfg.Pull  = GPIO_PULLUP;
+//   gpio_init_cfg.Speed = GPIO_SPEED_FAST;
+//   gpio_init_cfg.Alternate = GPIO_AF9_CAN1;
+//   HAL_GPIO_Init(GPIOD, &gpio_init_cfg);
 
-// This is for controller 2019 
-#if 0
-  gpio_init_cfg.Pin   = GPIO_PIN_12 | GPIO_PIN_13;
-  gpio_init_cfg.Alternate = GPIO_AF9_CAN2;
-  HAL_GPIO_Init(GPIOB, &gpio_init_cfg);
-#endif
+// // This is for controller 2019 
+// #if 0
+//   gpio_init_cfg.Pin   = GPIO_PIN_12 | GPIO_PIN_13;
+//   gpio_init_cfg.Alternate = GPIO_AF9_CAN2;
+//   HAL_GPIO_Init(GPIOB, &gpio_init_cfg);
+// #endif
 
-  HAL_NVIC_SetPriorityGrouping(NVIC_PRIORITYGROUP_2);
-  HAL_NVIC_SetPriority(CAN1_RX0_IRQn, 2, 0);
-  HAL_NVIC_EnableIRQ(CAN1_RX0_IRQn);
-  HAL_NVIC_SetPriority(CAN1_RX1_IRQn, 3, 0);
-  HAL_NVIC_EnableIRQ(CAN1_RX1_IRQn);
+//   HAL_NVIC_SetPriorityGrouping(NVIC_PRIORITYGROUP_2);
+//   HAL_NVIC_SetPriority(CAN1_RX0_IRQn, 2, 0);
+//   HAL_NVIC_EnableIRQ(CAN1_RX0_IRQn);
+//   HAL_NVIC_SetPriority(CAN1_RX1_IRQn, 3, 0);
+//   HAL_NVIC_EnableIRQ(CAN1_RX1_IRQn);
 
-  HAL_NVIC_SetPriority(CAN2_RX0_IRQn, 2, 0);
-  HAL_NVIC_EnableIRQ(CAN2_RX0_IRQn);
-  HAL_NVIC_SetPriority(CAN2_RX1_IRQn, 3, 0);
-  HAL_NVIC_EnableIRQ(CAN2_RX1_IRQn);
-}
+//   HAL_NVIC_SetPriority(CAN2_RX0_IRQn, 2, 0);
+//   HAL_NVIC_EnableIRQ(CAN2_RX0_IRQn);
+//   HAL_NVIC_SetPriority(CAN2_RX1_IRQn, 3, 0);
+//   HAL_NVIC_EnableIRQ(CAN2_RX1_IRQn);
+// }
 
 err_code_t CanChannel::config_baudrate(CanChannelNumber bus, CANBaudrateSet_t br) {
   CAN_InitTypeDef		init_cfg;
@@ -488,23 +488,3 @@ void CanChannel::Irq(CanChannelNumber ch,  uint8_t fifo_index) {
   }
 }
 
-
-extern "C"
-{
-  void CAN1_RX0_IRQHandler(void) {
-    can.Irq(CAN_CH_1, 0);
-  }
-
-  void CAN1_RX1_IRQHandler(void) {
-    can.Irq(CAN_CH_1, 1);
-  }
-
-  void CAN2_RX0_IRQHandler(void) {
-    can.Irq(CAN_CH_2, 0);
-  }
-
-  void CAN2_RX1_IRQHandler(void) {
-    can.Irq(CAN_CH_2, 1);
-  }
-
-}

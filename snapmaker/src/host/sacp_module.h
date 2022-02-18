@@ -46,50 +46,78 @@ typedef struct {
 typedef struct {
   uint32_t peer;
   uint8_t  cmd_id;
+  MessageBufferHandle_t queue;
 } sacp_module_waiting_node_t;
 
+enum SACPParserStatus {
+  SACP_PARSER_STA_IDLE,
+  SACP_PARSER_STA_GOT_SOF,
+  SACP_PARSER_STA_GOT_HEAD,
+  SACP_PARSER_STA_GOT_LENGTH,
+  SACP_PARSER_STA_GOT_MESSAGE,
+
+  SACP_PARSER_STA_INVALID
+};
+
+
 // TODO: how to construct the event callbacks struct? there is only one byte for command id in some condition
-#define HOST_SACP_MODULE_HANDLE_MAX       (4)
-#define HOST_SACP_MODULE_WAITING_NODE_MAX (4)
-#define HOST_SACP_MODULE_PEER_INVALID     (0xFFFFFFFF)
+#define SACP_MODULE_HANDLE_MAX       (4)
+#define SACP_MODULE_WAITING_NODE_MAX (4)
+#define SACP_MODULE_PEER_INVALID     (0xFFFFFFFF)
+
+#define SACP_MODULE_PASER_BUFFER_MAX (512)
+#define SACP_MODULE_MIN_PDU          (9)
+#define SACP_MODULE_HEADER_SIZE      (4)
 class HostSACPModule: public HostSACP {
   // public methods
   public:
-    HostSACPModule(): HostSACP() {
+    HostSACPModule(SACPVerion ver): HostSACP(ver) {
       handles_max = 0;
 
-      for (int i = 0; i < HOST_SACP_MODULE_HANDLE_MAX; i++) {
+      for (int i = 0; i < SACP_MODULE_HANDLE_MAX; i++) {
         handles[i].obj = NULL;
         handles[i].cb = NULL;
       }
 
-      for (int i = 0 ; i < HOST_SACP_MODULE_WAITING_NODE_MAX; i++) {
-        waiting_nodes[i].peer = HOST_SACP_MODULE_PEER_INVALID;
-      }
+      parser_buffer_write = 0;
+      parser_waiting_bytes = SACP_MODULE_MIN_PDU;
     }
 
     err_code_t register_callback(uint8_t cmd_id, void *obj, sacp_module_callback cb);
-    err_code_t send_sync(sacp_module_message_t *in, sacp_module_message_t *out, uint32_t timeout=100, uint8_t retry=1);
+
+    err_code_t send_sync(sacp_module_message_t *message, uint8_t *out, uint16_t *out_len, uint32_t timeout=100, uint8_t retry=2);
+
     virtual err_code_t send(sacp_module_message_t *in) = 0;
-    int handle_receive();
-    int handle_events();
+
+    void handle_receive();
+
+    void handle_events();
+
+    uint16_t calc_checksum(uint8_t *buffer, uint16_t length);
 
   protected:
-    sacp_module_handle_t handles[HOST_SACP_MODULE_HANDLE_MAX];
-    uint8_t handles_max;
-    StreamBufferHandle_t queue;
 
-    // waiting node
+    sacp_module_handle_t handles[SACP_MODULE_HANDLE_MAX];
+    uint8_t handles_max;
+    StreamBufferHandle_t recv_queue;
+
+    // waiting queue
     xSemaphoreHandle      waiting_lock;
-    MessageBufferHandle_t waiting_queue;
-    sacp_module_waiting_node_t waiting_nodes[HOST_SACP_MODULE_WAITING_NODE_MAX];
+    sacp_module_waiting_node_t waiting_nodes[SACP_MODULE_WAITING_NODE_MAX];
+
+    SACPParserStatus parser_status;
+    uint16_t         parser_waiting_bytes;
+    uint16_t         parser_read;
+    uint16_t         parser_buffer_write;
+    uint8_t          parser_buffer[SACP_MODULE_PASER_BUFFER_MAX];
 };
 
 
+#define SACP_MODULE_CAN_QUEUE_SIZE  (128)
 class HostSACPModuleCAN: public HostSACPModule {
   // public methods
   public:
-    HostSACPModuleCAN(LinkCANExtData &l): link(l), HostSACPModule() {}
+    HostSACPModuleCAN(LinkCANExtData &l, SACPVerion ver): link(l), HostSACPModule(ver) {}
 
     err_code_t init(TaskHandle_t event_task, TaskHandle_t recv_task);
     err_code_t send(sacp_module_message_t *in);
@@ -111,7 +139,7 @@ extern HostSACPModuleCAN host_can_cfg;
 class HostSACPModuleUART: public HostSACPModule {
   // public methods
   public:
-    HostSACPModuleUART(LinkUART &l): link(l), HostSACPModule() {}
+    HostSACPModuleUART(LinkUART &l, SACPVerion ver): link(l), HostSACPModule(ver) {}
     err_code_t init(TaskHandle_t event_task, TaskHandle_t recv_task);
     err_code_t send(sacp_module_message_t *in);
 

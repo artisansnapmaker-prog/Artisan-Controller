@@ -4,57 +4,28 @@
 
 #include "MapleFreeRTOS1030.h"
 
-// FreeRTOS tasks configuration
-#define SNAPMAKER_APP_PRIORITY        (3)
+// parameters for system task
+#define SYSTEM_TASK_PRIORITY          (2)
+#define SYSTEM_TASK_STACK_SIZE        (2048)  // 8kBytes
 
-#define MARLIN_TASK_PRIORITY          SNAPMAKER_APP_PRIORITY
-#define MARLIN_TASK_STACK_SIZE        (2048)  // 8kBytes
+// parameters for motion service
+#define MOTION_TASK_PRIORITY          (3)
+#define MOTION_TASK_STACK_SIZE        (2048)  // 8kBytes
 
-#define SACP_RECV_TASK_PRIORITY       SNAPMAKER_APP_PRIORITY
-#define SACP_RECV_TASK_STACK_SIZE     (256)
-#define SACP_EVENT_TASK_PRIORITY      SNAPMAKER_APP_PRIORITY
-#define SACP_EVENT_TASK_STACK_SIZE    (512)
+// parameters for HMI(screen & luban) event handler task
+#define HMI_RECV_TASK_PRIORITY       (3)
+#define HMI_RECV_TASK_STACK_SIZE     (512)  // 2kBytes
+// parameters for HMI(screen & luban) receive handler task
+#define HMI_EVENT_TASK_PRIORITY      (2)
+#define HMI_EVENT_TASK_STACK_SIZE    (2048) // 8kBytes
 
-#define SSTP_CAMERA_RECV_TASK_PRIORITY     SNAPMAKER_APP_PRIORITY
-#define SSTP_CAMERA_RECV_TASK_STACK_SIZE   (256)
-#define SSTP_CAMERA_EVENT_TASK_PRIORITY    SNAPMAKER_APP_PRIORITY
-#define SSTP_CAMERA_EVENT_TASK_STACK_SIZE  (256)
+// parameters for module event handler task
+#define MODULE_EVENT_TASK_PRIORITY      (2)
+#define MODULE_EVENT_TASK_STACK_DEPTH   (512)  // 2kBytes
+// parameters for module receive handler task
+#define MODULE_RECEIVE_TASK_PRIORITY    (3)
+#define MODULE_RECEIVE_TASK_STACK_DEPTH (512) // 2kBytes
 
-#define SSTP_MODULE_RECV_TASK_PRIORITY     SNAPMAKER_APP_PRIORITY
-#define SSTP_MODULE_RECV_TASK_STACK_SIZE   (256)
-#define SSTP_MODULE_EVENT_TASK_PRIORITY    SNAPMAKER_APP_PRIORITY
-#define SSTP_MODULE_EVENT_TASK_STACK_SIZE  (256)
-
-#define SM_CAN_RECV_TASK_PRIORITY          SNAPMAKER_APP_PRIORITY
-#define SM_CAN_RECV_TASK_STACK_SIZE        (256)
-#define SM_CAN_RECV_EVENT_PRIORITY         SNAPMAKER_APP_PRIORITY
-#define SM_CAN_RECV_EVENT_STACK_SIZE       (256)
-
-#define SM_MAC_RECV_TASK_PRIORITY          SNAPMAKER_APP_PRIORITY
-#define SM_MAC_RECV_TASK_STACK_SIZE        (256)
-#define SM_MAC_RECV_EVENT_PRIORITY         SNAPMAKER_APP_PRIORITY
-#define SM_MAC_RECV_EVENT_STACK_SIZE       (256)
-
-
-// task parameters for can event handler task
-#define CAN_EVENT_HANDLER_PRIORITY    (3)
-#define CAN_EVENT_HANDLER_STACK_DEPTH (512)
-
-// task parameters for can receive handler task
-#define CAN_RECEIVE_HANDLER_PRIORITY    (3)
-#define CAN_RECEIVE_HANDLER_STACK_DEPTH (512)
-
-// task parameters for marlin loop task
-#define MARLIN_LOOP_TASK_PRIO (3)
-#define MARLIN_LOOP_STACK_DEPTH 1024
-
-// task parameters for hmi task
-#define HMI_TASK_PRIO (3)
-#define HMI_TASK_STACK_DEPTH 512
-
-// task parameters for heartbeat task
-#define HB_TASK_PRIO (3)
-#define HB_TASK_STACK_DEPTH 512
 
 // priority for UARTs
 #define EXECUTOR_SERIAL_IRQ_PRIORITY 7

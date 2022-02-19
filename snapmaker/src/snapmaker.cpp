@@ -1,6 +1,6 @@
 #include "snapmaker.h"
 #include "src/HAL/HAL.h"
-#include "src/pins/pins.h" 
+#include "src/pins/pins.h"
 
 #include "service/module.h"
 #include "service/system.h"
@@ -104,7 +104,7 @@ static TaskHandle_t hmi_event_task;
 
 // can recv handler
 static void hmi_recv_handler(void *param) {
-  
+
   for (;;) {
     host_hmi.handle_receive();
   }
@@ -124,8 +124,8 @@ static void system_thread(void *p) {
   // module init
   module_svc.init();
 
-  ret = xTaskCreate((TaskFunction_t)hmi_recv_handler, "hmi_recv", CAN_RECEIVE_HANDLER_STACK_DEPTH,
-        NULL, CAN_RECEIVE_HANDLER_PRIORITY, &hmi_recv_task);
+  ret = xTaskCreate((TaskFunction_t)hmi_recv_handler, "hmi_recv", HMI_RECV_TASK_STACK_SIZE,
+        NULL, HMI_EVENT_TASK_STACK_SIZE, &hmi_recv_task);
   if (ret != pdPASS) {
     LOG_E("Failed to create HMI receive task!\n");
     while(1);
@@ -134,8 +134,8 @@ static void system_thread(void *p) {
     LOG_I("Created HMI receive task!\n");
   }
 
-  ret = xTaskCreate((TaskFunction_t)hmi_event_handler, "hmi_event", CAN_EVENT_HANDLER_STACK_DEPTH,
-        NULL, CAN_EVENT_HANDLER_PRIORITY, &hmi_event_task);
+  ret = xTaskCreate((TaskFunction_t)hmi_event_handler, "hmi_event", HMI_EVENT_TASK_STACK_SIZE,
+        NULL, HMI_EVENT_TASK_PRIORITY, &hmi_event_task);
   if (ret != pdPASS) {
     LOG_E("Failed to create HMI event task!\n");
     while(1);
@@ -174,8 +174,8 @@ void SnapmakerPrinter::post_init() {
   OUT_WRITE(POWER_CTRL_4P, POWER_CTRL_ON);
 
 
-  ret = xTaskCreate((TaskFunction_t)system_thread, "system", CAN_RECEIVE_HANDLER_STACK_DEPTH,
-        (void *)(this), CAN_RECEIVE_HANDLER_PRIORITY,  &thandle_can_recv);
+  ret = xTaskCreate((TaskFunction_t)system_thread, "system", SYSTEM_TASK_STACK_SIZE,
+        (void *)(this), SYSTEM_TASK_PRIORITY,  &thandle_can_recv);
   if (ret != pdPASS) {
     LOG_E("Failed to create can receive task!\n");
     while(1);

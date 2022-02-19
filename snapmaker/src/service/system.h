@@ -60,7 +60,8 @@ class SystemService {
   public:
     SystemService() {}
 
-    int background_thread() { return 0; }
+    void init() {}
+    void background_thread() { return ; }
 
   // private methods
   private:

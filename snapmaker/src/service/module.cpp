@@ -37,11 +37,11 @@ static void handle_can_events(void *p) {
   for (;;) {
     ret = xTaskNotifyWait(0, 0xFFFFFFFF, &notification, portMAX_DELAY);
     if (ret != pdPASS)
-      continue;    
-    
+      continue;
+
     if (notification & NOTIFY_EVENT_CAN_CFG)
       host_can_cfg.handle_events();
-    
+
     if (notification & NOTIFY_EVENT_CAN_ROUTINE)
       host_can_rou.handle_events();
   }
@@ -148,11 +148,11 @@ void ModuleService::init() {
   init_virtual_modules();
 
   // create tasks then the callbacks can be performed
-  xTaskCreate((TaskFunction_t)handle_can_receive, "can_receive", CAN_RECEIVE_HANDLER_STACK_DEPTH,
-        (void *)(this), CAN_RECEIVE_HANDLER_PRIORITY, &recv_task);
+  xTaskCreate((TaskFunction_t)handle_can_receive, "can_receive", MODULE_RECEIVE_TASK_STACK_DEPTH,
+        (void *)(this), MODULE_RECEIVE_TASK_PRIORITY, &recv_task);
 
-  xTaskCreate((TaskFunction_t)handle_can_events, "can_event", CAN_EVENT_HANDLER_STACK_DEPTH,
-        (void *)(this), CAN_EVENT_HANDLER_PRIORITY, &event_task);
+  xTaskCreate((TaskFunction_t)handle_can_events, "can_event", MODULE_EVENT_TASK_STACK_DEPTH,
+        (void *)(this), MODULE_EVENT_TASK_PRIORITY, &event_task);
 
 
   // initialize all CAN hosts

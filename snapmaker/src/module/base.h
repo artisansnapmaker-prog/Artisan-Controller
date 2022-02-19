@@ -321,7 +321,7 @@ class ModuleBase {
 
 
   // private properties
-  private:
+  protected:
     uint32_t mac;
     uint8_t  key;
     uint8_t  index;

@@ -71,7 +71,7 @@ class LinkCAN {
     LinkCAN() {}
 
     // parameters: id, channel number, data buffer,  length
-    virtual void receive_data(LinkCANChannel ch, uint32_t id, uint8_t *data, uint8_t length) = 0;
+    virtual void receive_data(LinkCANChannel ch, uint8_t *data, uint8_t length) = 0;
 
   // private methods
   protected:
@@ -106,7 +106,7 @@ class LinkCANExtRemote: public LinkCAN {
     void init(TaskHandle_t recv_task, QueueHandle_t recv_queue);
 
     err_code_t write(uint32_t cmd);
-    void receive_data(LinkCANChannel ch, uint32_t id, uint8_t *data, uint8_t length);
+    void receive_data(LinkCANChannel ch, uint8_t *data, uint8_t length);
   // private methods
   private:
 
@@ -126,7 +126,7 @@ class LinkCANExtData: public LinkCAN {
     void init(TaskHandle_t recv_task, StreamBufferHandle_t recv_queue);
 
     err_code_t write(uint32_t mac, uint8_t *data, uint16_t length);
-    void receive_data(LinkCANChannel ch, uint32_t id, uint8_t *data, uint8_t length);
+    void receive_data(LinkCANChannel ch, uint8_t *data, uint8_t length);
 
   // private methods
   private:
@@ -149,7 +149,7 @@ class LinkCANStdData: public LinkCAN {
     void init(TaskHandle_t recv_task, MessageBufferHandle_t recv_queue);
 
     err_code_t write(LinkCANChannel ch, uint16_t id, uint8_t *data, uint16_t length);
-    void receive_data(LinkCANChannel ch, uint32_t id, uint8_t *data, uint8_t length);
+    void receive_data(LinkCANChannel ch, uint8_t *data, uint8_t length);
 
   // private methods
   private:

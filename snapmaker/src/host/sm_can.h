@@ -29,6 +29,8 @@
 #define SM_CAN_QUEUE_SIZE        (256)
 #define SM_CAN_WAITING_NODE_MAX  (4)
 
+#define SM_CAN_MESSAGE_SIZE       (12)
+
 typedef void (*smcan_callback_t)(void *obj, uint8_t *, uint8_t);
 
 typedef struct {
@@ -43,14 +45,16 @@ typedef struct {
   uint8_t        *data;
 } smcan_message_t;
 
+
+typedef struct {
+  uint16_t msg_id;
+  MessageBufferHandle_t queue;
+} smcan_waiting_node_t;
+
 class HostSMCAN: public HostBase {
   // public methods
   public:
     HostSMCAN(LinkCANStdData &l): HostBase(), link(l) {
-      for (int i = 0; i < SM_CAN_WAITING_NODE_MAX; i++) {
-        waiting_nodes[i] = MODULE_MESSAGE_ID_INVALID;
-      }
-
       for (int i = 0; i < MODULE_SUPPORT_MESSAGE_ID_MAX; i++) {
         handles[i].callback = NULL;
         handles[i].obj = NULL;
@@ -83,9 +87,8 @@ class HostSMCAN: public HostBase {
 
     smcan_message_handle_t handles[MODULE_SUPPORT_MESSAGE_ID_MAX];
 
-    xSemaphoreHandle      waiting_lock;
-    MessageBufferHandle_t waiting_queue;
-    uint16_t waiting_nodes[SM_CAN_WAITING_NODE_MAX];
+    xSemaphoreHandle     waiting_lock;
+    smcan_waiting_node_t waiting_nodes[SM_CAN_WAITING_NODE_MAX];
 };
 
 extern HostSMCAN host_can_rou;

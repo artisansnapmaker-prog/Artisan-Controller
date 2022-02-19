@@ -232,15 +232,14 @@ void LinkCANExtRemote::init(TaskHandle_t recv_task, QueueHandle_t recv_queue) {
   receiver_task = recv_task;
 }
 
-void LinkCANExtRemote::receive_data(LinkCANChannel ch, uint32_t id, uint8_t *data, uint8_t length) {
+void LinkCANExtRemote::receive_data(LinkCANChannel ch, uint8_t *data, uint8_t length) {
   uint32_t mac;
 
-
-  mac = LINK_CAN_MAKE_MAC(ch, id);
+  mac = *(uint32_t *)data;
+  mac = LINK_CAN_MAKE_MAC(ch, mac);
 
   xQueueSendFromISR(queue, (void*)&mac, NULL);
-
-  xTaskNotifyFromISR(receiver_task, NOTIFY_RECV_CAN_EXT_REMOTE, eSetBits, _NULL);
+  xTaskNotifyFromISR(receiver_task, NOTIFY_RECV_CAN_EXT_REMOTE, eSetBits, NULL);
 }
 
 err_code_t LinkCANExtRemote::write(uint32_t cmd) {
@@ -268,9 +267,9 @@ void LinkCANExtData::init(TaskHandle_t recv_task, StreamBufferHandle_t recv_queu
   receiver_task = recv_task;
 }
 
-void LinkCANExtData::receive_data(LinkCANChannel ch, uint32_t id, uint8_t *data, uint8_t length) {
+void LinkCANExtData::receive_data(LinkCANChannel ch, uint8_t *data, uint8_t length) {
   xStreamBufferSendFromISR(queue, data, length, NULL);
-  xTaskNotifyFromISR(receiver_task, NOTIFY_RECV_CAN_EXT_DATA, eSetBits, _NULL);
+  xTaskNotifyFromISR(receiver_task, NOTIFY_RECV_CAN_EXT_DATA, eSetBits, NULL);
 }
 
 err_code_t LinkCANExtData::write(uint32_t mac, uint8_t *data, uint16_t length) {
@@ -308,16 +307,9 @@ void LinkCANStdData::init(TaskHandle_t recv_task, MessageBufferHandle_t recv_que
   receiver_task = recv_task;
 }
 
-void LinkCANStdData::receive_data(LinkCANChannel ch, uint32_t id, uint8_t *data, uint8_t length) {
-  uint8_t buffer[10];
-
-  *(uint16_t *)buffer = (uint16_t)id;
-  for (int i = 0; i < length; i++) {
-    buffer[2+i] = data[i];
-  }
-
-  xMessageBufferSendFromISR(queue, buffer, length+2, NULL);
-  xTaskNotifyFromISR(recv_task, NOTIFY_RECV_CAN_STD_DATA, eSetBits, _NULL);
+void LinkCANStdData::receive_data(LinkCANChannel ch, uint8_t *data, uint8_t length) {
+  xMessageBufferSendFromISR(queue, data, length, NULL);
+  xTaskNotifyFromISR(recv_task, NOTIFY_RECV_CAN_STD_DATA, eSetBits, NULL);
 }
 
 err_code_t LinkCANStdData::write(LinkCANChannel ch, uint16_t id, uint8_t *data, uint16_t length) {
@@ -342,10 +334,10 @@ err_code_t LinkCANStdData::write(LinkCANChannel ch, uint16_t id, uint8_t *data, 
 static void irq_callback(LinkCANChannel ch,  uint8_t fifo_index) {
   CAN_TypeDef *can_instance = bus_handler[ch].Instance;
   CAN_RxHeaderTypeDef	rx_header;
-  uint8_t   buffer[8];
+  uint8_t   buffer[12];
 
 
-  if (HAL_CAN_GetRxMessage(&bus_handler[ch], fifo_index, &rx_header, buffer) != HAL_OK)
+  if (HAL_CAN_GetRxMessage(&bus_handler[ch], fifo_index, &rx_header, buffer+2) != HAL_OK)
     return;
 
   if(fifo_index == 0)
@@ -355,7 +347,8 @@ static void irq_callback(LinkCANChannel ch,  uint8_t fifo_index) {
 
   // standard data frame
   if (rx_header.IDE == CAN_ID_STD && fifo_index == STD_FRAME_FIFO) {
-      link_can_rou.receive_data(ch, rx_header.StdId, buffer, rx_header.DLC);
+      *(uint16_t *)buffer = (uint16_t)rx_header.StdId;
+      link_can_rou.receive_data(ch, buffer, rx_header.DLC + 2);
     return;
   }
 
@@ -367,13 +360,14 @@ static void irq_callback(LinkCANChannel ch,  uint8_t fifo_index) {
 
   // extended data frame
   if (rx_header.IDE == CAN_ID_EXT && rx_header.RTR == CAN_RTR_DATA) {
-    link_can_cfg.receive_data(ch, rx_header.ExtId, buffer, rx_header.DLC);
+    link_can_cfg.receive_data(ch, buffer + 2, rx_header.DLC);
     return;
   }
 
   // extended remote frame
   if (rx_header.IDE == CAN_ID_EXT && rx_header.RTR == CAN_RTR_REMOTE) {
-      link_can_scan.receive_data(ch, rx_header.ExtId, NULL, 0);
+      *(uint32_t *)buffer = (uint32_t)rx_header.ExtId;
+      link_can_scan.receive_data(ch, buffer, 4);
     return;
   }
 }

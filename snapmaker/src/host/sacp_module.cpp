@@ -73,18 +73,19 @@ err_code_t HostSACPModule::send_sync(sacp_module_message_t *message, uint8_t *ou
     }
 
     recv_len = xMessageBufferReceive(waiting_nodes[node_index].queue, out, *out_len, pdMS_TO_TICKS(timeout));
-    if (!recv_len) {
+    if (recv_len < 1) {
       ret = E_TIMEOUT;
+      continue;
+    }
+
+    if (out[0] != message->cmd_id+1) {
+      LOG_E("ACK[%u] is not of CMD[%u]\n", out[0], message->cmd_id+1);
       continue;
     }
     else {
       *out_len = recv_len;
+      break;
     }
-  }
-
-  if (out[0] != message->cmd_id+1) {
-    LOG_E("ACK[%u] is not of CMD[%u]\n", out[0], message->cmd_id+1);
-    return E_FAILURE;
   }
 
   // release node of wait queue
@@ -153,7 +154,7 @@ void HostSACPModule::handle_receive() {
     if (parser_status == SACP_PARSER_STA_IDLE) {
       parser_read          = 0;
       parser_buffer_write  = 0;
-      parser_waiting_bytes = SACP_MODULE_PDU_MIN_SIZE;
+      parser_waiting_bytes = SACP_V0_MODULE_MIN_SIZE;
       break;
     }
     // go to next status directly
@@ -161,27 +162,27 @@ void HostSACPModule::handle_receive() {
   case SACP_PARSER_STA_GOT_SOF:
     // confirm firstly if available bytes is enough for this status
     // if not, jump out from this status, and wait for enough bytes
-    if ((parser_buffer_write - parser_read) < SACP_MODULE_PDU_REAR_HEADER_SIZE) {
-      parser_waiting_bytes = SACP_MODULE_PDU_REAR_HEADER_SIZE - (parser_buffer_write - parser_read);
+    if ((parser_buffer_write - parser_read) < SACP_V0_REAR_HEADER_SIZE) {
+      parser_waiting_bytes = SACP_V0_REAR_HEADER_SIZE - (parser_buffer_write - parser_read);
       break;
     }
 
     // check if length is correct
-    pdu_length_checksum = parser_buffer[parser_read]^parser_buffer[parser_read+1];
-    pdu_length = parser_buffer[parser_read++]<<8 | parser_buffer[parser_read++];
-    pdu_ver    = parser_buffer[parser_read++];
-    if (parser_buffer[parser_read++] != pdu_length_checksum) {
+    pdu_length_checksum = parser_buffer[SACP_V0_FRAME_INDEX_LEN_H]^parser_buffer[SACP_V0_FRAME_INDEX_LEN_L];
+    pdu_length = parser_buffer[SACP_V0_FRAME_INDEX_LEN_H]<<8 | parser_buffer[SACP_V0_FRAME_INDEX_LEN_L];
+    pdu_ver    = parser_buffer[SACP_V0_FRAME_INDEX_VER];
+    if (parser_buffer[SACP_V0_FRAME_INDEX_LEN_CHK] != pdu_length_checksum) {
       // must update parser_buffer_write firstly !!!
-      parser_buffer_write -= parser_read;
-      // delete invalid data in front of buffer
+      parser_buffer_write -= 2;
+      // delete 2 bytes SOF
       for (int i = 0; i < parser_buffer_write; i++) {
-        parser_buffer[i] = parser_buffer[i+parser_read];
+        parser_buffer[i] = parser_buffer[i+2];
       }
 
       // reset var and jump out
       pdu_length  = 0;
       parser_read = 0;
-      parser_waiting_bytes = SACP_MODULE_PDU_MIN_SIZE;
+      parser_waiting_bytes = SACP_V0_MODULE_MIN_SIZE;
       parser_status        = SACP_PARSER_STA_IDLE;
       break;
     }
@@ -189,13 +190,14 @@ void HostSACPModule::handle_receive() {
     // if length is correct, go to next status directly
 
   case SACP_PARSER_STA_GOT_LENGTH:
-    if ((parser_buffer_write - parser_read) < (pdu_length + 2)) {
-      parser_waiting_bytes = (pdu_length + 2) - (parser_buffer_write - parser_read);
+    if (parser_buffer_write < (pdu_length + SACP_V0_NON_PAYPLOAD_SIZE)) {
+      parser_waiting_bytes = (pdu_length + SACP_V0_NON_PAYPLOAD_SIZE) - parser_buffer_write;
       break;
     }
 
-    pdu_checksum = parser_buffer[parser_read + pdu_length]<<8 | parser_buffer[parser_read + pdu_length];
-    calc_checksum = calculate_checksum(parser_buffer+parser_read, pdu_length);
+    pdu_checksum = parser_buffer[SACP_V0_HEADER_SIZE + pdu_length]<<8 |
+                    parser_buffer[SACP_V0_HEADER_SIZE + pdu_length + 1];
+    calc_checksum = calculate_checksum(parser_buffer + SACP_V0_HEADER_SIZE, pdu_length);
 
     if (pdu_checksum != calc_checksum) {
       LOG_E("error checksum from module, got [0x%x], calc [0x%x]\n", pdu_checksum, calc_checksum);
@@ -203,32 +205,38 @@ void HostSACPModule::handle_receive() {
     else {
       MessageBufferHandle_t tmp_queue = NULL;
       command_id = parser_buffer[SACP_V0_FRAME_INDEX_EVENT_ID];
+
       if (parser_status == SACP_PARSER_STA_GOT_MESSAGE) {
-        xSemaphoreTake(waiting_lock, 0);
-        for (int i = 0; i < SACP_MODULE_WAITING_NODE_MAX; i++) {
-          if (waiting_nodes[i].cmd_id == command_id) {
-            tmp_queue = waiting_nodes[i].queue;
-            break;
+        if (xSemaphoreTake(waiting_lock, 0) == pdPASS) {
+          for (int i = 0; i < SACP_MODULE_WAITING_NODE_MAX; i++) {
+            if (waiting_nodes[i].cmd_id == command_id) {
+              tmp_queue = waiting_nodes[i].queue;
+              break;
+            }
           }
+          xSemaphoreGive(waiting_lock);
         }
-        xSemaphoreGive(waiting_lock);
 
         // TODO: need to check if the command is too long
 
-        if (tmp_queue)
-          xMessageBufferSend(tmp_queue, parser_buffer + parser_read, pdu_length, 0);
-        else
-          xMessageBufferSend(event_queue, parser_buffer, parser_read + pdu_length, 0);
+        if (tmp_queue) {
+          // if someone is waiting for this message, send PAYLOAD part to it
+          xMessageBufferSend(tmp_queue, parser_buffer + SACP_V0_HEADER_SIZE, pdu_length, 0);
+        }
+        else {
+          xMessageBufferSend(event_queue, parser_buffer, SACP_V0_HEADER_SIZE + pdu_length, 0);
+        }
       }
     }
 
-    parser_read += (pdu_length + 2);
+    parser_read = (SACP_V0_NON_PAYPLOAD_SIZE + pdu_length);
     parser_buffer_write -= parser_read;
     for (int i = 0; i < parser_buffer_write; i++) {
       parser_buffer[i] = parser_buffer[i+parser_read];
     }
+
     parser_read = 0;
-    parser_waiting_bytes = SACP_MODULE_PDU_MIN_SIZE;
+    parser_waiting_bytes = SACP_V0_MODULE_MIN_SIZE;
     parser_status = SACP_PARSER_STA_IDLE;
     break;
 
@@ -246,7 +254,7 @@ void HostSACPModule::handle_events() {
   for (;;) {
     len = xMessageBufferReceive(event_queue, buffer, SACP_MODULE_EVENT_QUEUE_SIZE, 0);
 
-    if (len < SACP_MODULE_PDU_MIN_SIZE) {
+    if (len < SACP_V0_MODULE_MIN_SIZE) {
       LOG_W("got module event which size is abnormal: %u\n", len);
       continue;
     }
@@ -260,9 +268,7 @@ void HostSACPModule::handle_events() {
         handles[i].cb(handles[i].obj, &message);
       }
     }
-
   }
-
 }
 
 

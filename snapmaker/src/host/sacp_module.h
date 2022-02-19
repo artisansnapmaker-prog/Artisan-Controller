@@ -66,9 +66,7 @@ enum SACPParserStatus {
 #define SACP_MODULE_RECV_QUEUE_SIZE       (256)
 #define SACP_MODULE_EVENT_QUEUE_SIZE      (192)
 #define SACP_MODULE_PASER_BUFFER_SIZE     (256)
-#define SACP_MODULE_PDU_MIN_SIZE          (9)
-#define SACP_MODULE_PDU_HEADER_SIZE       (6)
-#define SACP_MODULE_PDU_REAR_HEADER_SIZE  (4)
+
 class HostSACPModule: public HostSACP {
   // public methods
   public:
@@ -82,7 +80,7 @@ class HostSACPModule: public HostSACP {
       }
 
       parser_buffer_write = 0;
-      parser_waiting_bytes = SACP_MODULE_PDU_MIN_SIZE;
+      parser_waiting_bytes = SACP_V0_MODULE_MIN_SIZE;
     }
 
     err_code_t register_callback(uint8_t cmd_id, void *obj, sacp_module_callback cb);

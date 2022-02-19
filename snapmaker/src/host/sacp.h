@@ -53,6 +53,12 @@ enum SACPVerion {
 #define SACP_FRAME_SOF_1  (0xaa)
 #define SACP_FRAME_SOF_2  (0x55)
 
+#define SACP_V0_MODULE_MIN_SIZE   (9)
+#define SACP_V0_HMI_MIN_SIZE      (10)
+#define SACP_V0_HEADER_SIZE       (6)
+#define SACP_V0_REAR_HEADER_SIZE  (4)
+#define SACP_V0_NON_PAYPLOAD_SIZE (8)
+
 // use big ending when V0
 enum SACPV0FrameIndex {
   SACP_V0_FRAME_INDEX_SOF_1,

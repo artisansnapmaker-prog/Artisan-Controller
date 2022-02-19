@@ -70,8 +70,9 @@ err_code_t handle_module_inserted(void *obj, uint32_t mac) {
           break;
       }
       else {
-        // TODO: got same mac module! throw exception!
-        return 0;
+        // got same mac module! throw exception!
+        LOG_E("got same MAC with another online module: 0x%8x\n", mac);
+        return E_PARAM;
       }
     }
   }
@@ -84,7 +85,8 @@ err_code_t handle_module_inserted(void *obj, uint32_t mac) {
       // a same type of resource available which applied previously.
       // if yes, just re-use previous resource
       if (ms->modules[i]->get_device_id() == device_id) {
-        if (ms->modules[i]->get_status() == MODULE_STATUS_INVALID) {
+        if (ms->modules[i]->get_status() == MODULE_STATUS_INVALID ||
+            ms->modules[i]->get_status() == MODULE_STATUS_UNCONFIGURE) {
           module = ms->modules[i];
           break;
         }
@@ -92,7 +94,7 @@ err_code_t handle_module_inserted(void *obj, uint32_t mac) {
     }
   }
 
-  if (module) {
+  if (module && module->get_status() == MODULE_STATUS_INVALID) {
     // update mac
     module->set_mac(mac);
     module->pre_init();
@@ -102,26 +104,40 @@ err_code_t handle_module_inserted(void *obj, uint32_t mac) {
     return 0;
   }
 
-  // if no module with same MAC/type in previous resource apply new resource
-  module = module_factory(mac, i);
-  ms->modules[ms->configured_module++] = module;
+  // NOTE! to here if module is not none, its status should be MODULE_STATUS_UNCONFIGURE !!!
+  // it indicates this module got failure from pre_init() in previous excution
+
+  if (!module) {
+    // if no module with same MAC/type in previous resource apply new resource
+    module = module_factory(mac, i);
+    ms->modules[ms->configured_module++] = module;
+  }
 
   // do something before get function id
-  // TODO: check the result from pre_init(), some module will check if
+  // check the result from pre_init(), some module will check if
   // it is plugged in correct port! if not, should throw an exception!
-  module->pre_init();
+  if (module->pre_init() != E_SUCCESS) {
+    LOG_E("failed to do pre_init for mac: 0x%x\n", mac);
+    return E_FAILURE;
+  }
 
   // get all function id from module
-  ms->get_function_list(*module);
+  // if failed to get function list, its status should be MODULE_STATUS_UNCONFIGURE !!!
+  if (ms->get_function_list(*module) != E_SUCCESS) {
+    return E_FAILURE;
+  }
 
   // new module is plugged dynamically, bind message id for it
   if (ms->status == MS_STATUS_CONFIG) {
     ms->bind_message_id(*module);
-    // TODO: check the result from post_init()
-    module->post_init();
+    // if got failure in post_init(), its status should be MODULE_STATUS_INVALID
+    if (module->post_init() != E_SUCCESS) {
+      LOG_E("failed to do post_init for mac: 0x%x\n", mac);
+      return E_FAILURE;
+    }
   }
 
-  return 0;
+  return E_SUCCESS;
 }
 
 
@@ -211,22 +227,24 @@ int ModuleService::init_virtual_modules() {
 }
 
 
-int ModuleService::get_function_list(ModuleBase &module) {
+err_code_t ModuleService::get_function_list(ModuleBase &module) {
   sacp_module_message_t cmd;
+  err_code_t ret;
 
-  uint8_t cmd_buffer[32];
-  uint8_t recv_buffer[32];
-  uint16_t recv_length;
+  uint8_t  recv_buffer[32];
+  uint16_t recv_length = 32;
 
-  // TODO: for CAN link, need mac
-  cmd.peer = module.get_mac();
+  // for CAN link, peer need to be MAC
+  cmd.peer   = module.get_mac();
   cmd.length = 0;
+  cmd.cmd_id = MODULE_EXT_CMD_GET_FUNCID_REQ;
 
   // 1. query function id from module
-  host_can_cfg.send_sync(&cmd, recv_buffer, &recv_length, 500, 3);
-
-  // TODO: check if the function length is reasonable
-  //module.check_functionid(recv_buffer);
+  ret = host_can_cfg.send_sync(&cmd, recv_buffer, &recv_length, 500, 3);
+  if (ret != E_SUCCESS) {
+    LOG_E("failed to get function list for mac: 0x%x\n", cmd.peer);
+    return ret;
+  }
 
   // 2. apply memory for message id map
   function_node_t *fnodes = (function_node_t *)pvPortMalloc((recv_buffer[0]) * sizeof(function_node_t));
@@ -237,25 +255,26 @@ int ModuleService::get_function_list(ModuleBase &module) {
   }
 
   // 3. record function ids per the priority
-  record_function_list(module, fnodes, recv_buffer[0]);
+  return record_function_list(module, fnodes, recv_buffer[0]);
 }
 
 
 // return number of message id
-int ModuleService::record_function_list(ModuleBase &module, function_node_t *fnodes, uint8_t len) {
-
+err_code_t ModuleService::record_function_list(ModuleBase &module, function_node_t *fnodes, uint8_t len) {
   uint8_t func_prio;
 
   for (int i = 0; i < len; i++) {
     func_prio = module.get_function_priority(fnodes[i].function_id);
 
     // if got invalid priority, mask its function id
+    // NOTE: we won't add it to priority list !!!!!!!!!!!
     if (func_prio >= MODULE_FUNC_PRIORITY_MAX) {
       fnodes[i].function_id = MODULE_FUNCTION_ID_INVALID;
       continue;
     }
 
-    // if got module in configured stage, indicates module is plugged dynamically
+    // if got a module in configured stage, indicates it is plugged dynamically
+    // need to assin message id for it here
     if (status == MS_STATUS_CONFIG) {
       while (func_prio < MODULE_FUNC_PRIORITY_MAX) {
         // check if there is free message id in the range of current priority
@@ -267,17 +286,23 @@ int ModuleService::record_function_list(ModuleBase &module, function_node_t *fno
         func_prio++;
       }
 
+      // make sure function priority is available
       if (func_prio < MODULE_FUNC_PRIORITY_MAX) {
         // assign message id immediately
         fnodes[i].message_id = msg_id_records[func_prio].tail++;
       }
       else {
-        // TODO: to here, indicates we have no available message id, should throw exception!
+        // to here, indicates we have no available message id, should throw exception!!!
+        LOG_E("no availble message id for module: 0x%8x\n", module.get_mac());
+        return E_NO_RESRC;
       }
     }
 
+    // add node to priority list
     list_add_tail(&fnodes[i].node, &function_list[func_prio]);
   }
+
+  return E_SUCCESS;
 }
 
 
@@ -338,16 +363,19 @@ err_code_t ModuleService::bind_message_id(ModuleBase &module) {
   uint8_t recv_buffer[4];
   uint16_t recv_length;
 
-  int index = 1;  // start saving data in index 1 of buffer
+  // start saving data in index 1 of buffer
+  int index = 1;
   uint8_t *buffer = (uint8_t *)pvPortMalloc(module.get_function_nodes(NULL) * 4 + 1);
-  // TODO: check result of applying memory
+  // check result of applying memory
   if (!buffer) {
+    LOG_E("failed to apply memory in binding message!");
     return E_NO_MEM;
   }
 
-  // TODO: set command parameters
-  cmd.data = buffer;
-  cmd.peer = module.get_mac();
+  // set command parameters
+  cmd.peer   = module.get_mac();
+  cmd.cmd_id = MODULE_EXT_CMD_SET_MESG_ID_REQ;
+  cmd.data   = buffer;
 
   func_len = module.get_function_nodes(&fnodes);
 
@@ -371,7 +399,7 @@ err_code_t ModuleService::bind_message_id(ModuleBase &module) {
 }
 
 
-int ModuleService::background_thread() {
+void ModuleService::background_thread() {
     // perform routine of modules
     for (auto &&routine : routines) {
       if (routine.cb)
@@ -382,7 +410,7 @@ int ModuleService::background_thread() {
 
     for (auto &&module : modules) {
       if (!module->check_online()) {
-        // TODO: check offline module
+        // TODO: notify HMI there is a module offline!
 
       }
     }
@@ -391,8 +419,6 @@ int ModuleService::background_thread() {
 
     // TODO: scan modules
     host_mac.send(MODULE_MAC_CMD_SCAN);
-
-  return 0;
 }
 
 

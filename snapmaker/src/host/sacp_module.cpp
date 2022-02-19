@@ -11,7 +11,7 @@ err_code_t HostSACPModule::register_callback(uint8_t cmd_id, void *obj, sacp_mod
   int i = 0;
   for (; i < handles_max; i++) {
     if (handles[i].cmd_id == cmd_id) {
-      // TODO: show log: change handle for existing command
+      LOG_W("register cb for existed cmd: 0x%x\n", cmd_id);
       handles[i].obj = obj;
       handles[i].cb = cb;
       return E_SUCCESS;
@@ -36,14 +36,18 @@ err_code_t HostSACPModule::register_callback(uint8_t cmd_id, void *obj, sacp_mod
 
 
 err_code_t HostSACPModule::send_sync(sacp_module_message_t *message, uint8_t *out, uint16_t *out_len, uint32_t timeout, uint8_t retry) {
-  int node_index = 0;
-  size_t recv_len;
-  err_code_t ret = E_SUCCESS;
+  int node_index  = 0;
+  size_t recv_len = 0;
+  err_code_t ret  = E_SUCCESS;
 
-  // TODO: parameter checking
+  if (!message || !out || !out_len) {
+    LOG_I("invalid param!\n");
+    return E_PARAM;
+  }
 
   if (xSemaphoreTake(waiting_lock, timeout) != pdPASS) {
-    // TODO: handle failure
+    LOG_E("no avail waiting node for cmd: 0x%x!\n", message->cmd_id);
+    return E_NO_RESRC;
   }
 
   for (; node_index < SACP_MODULE_WAITING_NODE_MAX; node_index++) {
@@ -57,23 +61,30 @@ err_code_t HostSACPModule::send_sync(sacp_module_message_t *message, uint8_t *ou
 
   if (node_index >= SACP_MODULE_WAITING_NODE_MAX) {
     // node waiting for us
-    LOG_E("no waiting node for cmd: 0x%x!\n", message->cmd_id);
+    LOG_E("no avail waiting node for cmd: 0x%x!\n", message->cmd_id);
     return E_NO_RESRC;
   }
 
 
   for (; retry > 0; retry++) {
     if ((ret = send(message)) != E_SUCCESS) {
-      // TODO: handle failure
+      vTaskDelay(pdMS_TO_TICKS(timeout>>1));
       continue;
     }
 
     recv_len = xMessageBufferReceive(waiting_nodes[node_index].queue, out, *out_len, pdMS_TO_TICKS(timeout));
-    if (recv_len != *out_len) {
+    if (!recv_len) {
       ret = E_TIMEOUT;
       continue;
     }
+    else {
+      *out_len = recv_len;
+    }
+  }
 
+  if (out[0] != message->cmd_id+1) {
+    LOG_E("ACK[%u] is not of CMD[%u]\n", out[0], message->cmd_id+1);
+    return E_FAILURE;
   }
 
   // release node of wait queue
@@ -279,14 +290,19 @@ err_code_t HostSACPModuleCAN::init(TaskHandle_t event_task, TaskHandle_t recv_ta
 
 
 err_code_t HostSACPModuleCAN::send(sacp_module_message_t *message) {
-  uint8_t buffer[SACP_MODULE_EVENT_QUEUE_SIZE];
-  uint16_t length;
+  uint8_t    buffer[SACP_MODULE_EVENT_QUEUE_SIZE];
+  uint16_t   length;
+  err_code_t ret;
 
   // TODO: package the data into a PDU
 
+  ret = link.write(message->peer, buffer, length);
+  if (ret != E_SUCCESS) {
+    LOG_E("failed to send sacp module cmd: %x!\n", message->cmd_id);
+  }
 
   // write to link
-  return link.write(message->peer, buffer, length);
+  return ret;
 }
 
 

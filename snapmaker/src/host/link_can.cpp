@@ -238,7 +238,6 @@ void LinkCANExtRemote::receive_data(LinkCANChannel ch, uint32_t id, uint8_t *dat
 
   mac = LINK_CAN_MAKE_MAC(ch, id);
 
-  // TODO: send mac to message box
   xQueueSendFromISR(queue, (void*)&mac, NULL);
 
   xTaskNotifyFromISR(receiver_task, NOTIFY_RECV_CAN_EXT_REMOTE, eSetBits, _NULL);
@@ -289,8 +288,13 @@ err_code_t LinkCANExtData::write(uint32_t mac, uint8_t *data, uint16_t length) {
         header.DLC = 8;
       else
         header.DLC = length - i;
-      // TODO: check result
+
       ret = send_packet(ch, &header, data + 8*i);
+
+      if (ret != E_SUCCESS) {
+        LOG_E("failed to send packet for mac: 0x%x\n", mac);
+        break;
+      }
   }
 
   return ret;
@@ -325,8 +329,11 @@ err_code_t LinkCANStdData::write(LinkCANChannel ch, uint16_t id, uint8_t *data, 
   header.DLC = length;
   header.StdId = id;
 
-  // TODO: check result
   ret = send_packet(ch, &header, data);
+
+  if (ret != E_SUCCESS) {
+    LOG_E("failed to send packet for message: 0x%x\n", id);
+  }
 
   return ret;
 }

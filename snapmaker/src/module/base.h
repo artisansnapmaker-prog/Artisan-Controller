@@ -284,9 +284,9 @@ class ModuleBase {
     ModuleBase(uint32_t mac, uint8_t key):
       mac(mac), key(key) {}
 
-    virtual void pre_init() = 0;
-    virtual void post_init() = 0;
-    virtual void deinit() = 0;
+    virtual err_code_t pre_init() = 0;
+    virtual err_code_t post_init() = 0;
+    virtual err_code_t deinit() = 0;
 
     virtual bool check_online() = 0;
 

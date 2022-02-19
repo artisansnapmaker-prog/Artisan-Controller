@@ -26,8 +26,8 @@
 
 #include "../module/base.h"
 
-#define HOST_SM_CAN_QUEUE_SIZE        (256)
-#define HOST_SM_CAN_WAITING_NODE_MAX  (4)
+#define SM_CAN_QUEUE_SIZE        (256)
+#define SM_CAN_WAITING_NODE_MAX  (4)
 
 typedef void (*smcan_callback_t)(void *obj, uint8_t *, uint8_t);
 
@@ -47,7 +47,7 @@ class HostSMCAN: public HostBase {
   // public methods
   public:
     HostSMCAN(LinkCANStdData &l): HostBase(), link(l) {
-      for (int i = 0; i < HOST_SM_CAN_WAITING_NODE_MAX; i++) {
+      for (int i = 0; i < SM_CAN_WAITING_NODE_MAX; i++) {
         waiting_nodes[i] = MODULE_MESSAGE_ID_INVALID;
       }
 
@@ -85,7 +85,7 @@ class HostSMCAN: public HostBase {
 
     xSemaphoreHandle      waiting_lock;
     MessageBufferHandle_t waiting_queue;
-    uint16_t waiting_nodes[HOST_SM_CAN_WAITING_NODE_MAX];
+    uint16_t waiting_nodes[SM_CAN_WAITING_NODE_MAX];
 };
 
 extern HostSMCAN host_can_rou;

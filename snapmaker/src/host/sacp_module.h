@@ -28,7 +28,7 @@
 
 typedef struct {
   uint32_t peer;
-  uint8_t cmd_id;
+  uint8_t  cmd_id;
   uint16_t length;
   uint8_t  *data;
 } sacp_module_message_t;
@@ -60,7 +60,6 @@ enum SACPParserStatus {
 };
 
 
-// TODO: how to construct the event callbacks struct? there is only one byte for command id in some condition
 #define SACP_MODULE_HANDLE_MAX       (4)
 #define SACP_MODULE_WAITING_NODE_MAX (4)
 

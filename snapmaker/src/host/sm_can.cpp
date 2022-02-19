@@ -5,16 +5,16 @@ HostSMCAN host_can_rou(link_can_rou);
 
 
 err_code_t HostSMCAN::init(TaskHandle_t event_task, TaskHandle_t recv_task) {
-  recv_queue = xMessageBufferCreate(HOST_SM_CAN_QUEUE_SIZE);
+  recv_queue = xMessageBufferCreate(SM_CAN_QUEUE_SIZE);
   configASSERT(recv_queue);
 
-  event_queue = xMessageBufferCreate(HOST_SM_CAN_QUEUE_SIZE);
+  event_queue = xMessageBufferCreate(SM_CAN_QUEUE_SIZE);
   configASSERT(event_queue);
 
   waiting_lock = xSemaphoreCreateMutex();
   configASSERT(waiting_lock);
 
-  waiting_queue = xMessageBufferCreate(HOST_SM_CAN_QUEUE_SIZE);
+  waiting_queue = xMessageBufferCreate(SM_CAN_QUEUE_SIZE);
   configASSERT(waiting_queue);
 
   link.init(recv_task, recv_queue);
@@ -26,34 +26,43 @@ err_code_t HostSMCAN::init(TaskHandle_t event_task, TaskHandle_t recv_task) {
 }
 
 
-err_code_t HostSMCAN::send(smcan_message_t *msg) {
-  return link.write(msg->ch, msg->id, msg->data, msg->length);
+err_code_t HostSMCAN::send(smcan_message_t *message) {
+  return link.write(message->ch, message->id, message->data, message->length);
 }
 
 
-err_code_t HostSMCAN::send_sync(smcan_message_t *msg, uint8_t *out, uint8_t *out_len, uint32_t timeout, uint8_t retry) {
+err_code_t HostSMCAN::send_sync(smcan_message_t *message, uint8_t *out, uint8_t *out_len, uint32_t timeout, uint8_t retry) {
   int node_index = 0;
   size_t recv_len;
   err_code_t ret = E_SUCCESS;
 
-  // TODO: parameter checking
-
-  if (xSemaphoreTake(waiting_lock, timeout) != pdPASS) {
-    // TODO: handle failure
+  if (!message || !out || !out_len) {
+    LOG_E("invalid parameter!\n");
+    return E_PARAM;
   }
 
-  for (; node_index < HOST_SM_CAN_WAITING_NODE_MAX; node_index++) {
+  if (xSemaphoreTake(waiting_lock, timeout) != pdPASS) {
+    LOG_E("no avail waiting node for cmd: 0x%x!\n", message->id);
+    return E_NO_RESRC;
+  }
+
+  for (; node_index < SM_CAN_WAITING_NODE_MAX; node_index++) {
     if (waiting_nodes[node_index] != MODULE_MESSAGE_ID_INVALID) {
-      waiting_nodes[node_index] = msg->id;
+      waiting_nodes[node_index] = message->id;
       break;
     }
   }
   xSemaphoreGive(waiting_lock);
 
+  if (node_index >= SM_CAN_WAITING_NODE_MAX) {
+    // node waiting for us
+    LOG_E("no avail waiting node for cmd: 0x%x!\n", message->id);
+    return E_NO_RESRC;
+  }
 
   for (; retry > 0; retry++) {
-    if ((ret = send(msg)) != E_SUCCESS) {
-      // TODO: handle failure
+    if ((ret = send(message)) != E_SUCCESS) {
+      vTaskDelay(pdMS_TO_TICKS(timeout>>1));
       continue;
     }
 
@@ -77,7 +86,7 @@ err_code_t HostSMCAN::send_sync(smcan_message_t *msg, uint8_t *out, uint8_t *out
 
 err_code_t HostSMCAN::register_callback(uint16_t msg_id, void *obj, smcan_callback_t cb) {
   if (msg_id >= MODULE_SUPPORT_MESSAGE_ID_MAX) {
-    // TODO: show log
+    LOG_E("message id is out of available range!\n");
     return E_PARAM;
   }
 
@@ -107,7 +116,7 @@ void HostSMCAN::handle_receive() {
       continue;
     }
 
-    // TODO: if level of message id is equal or higher than HIGH, will call the handles directly
+    // if level of message id is equal or higher than HIGH, will call the handles directly
     if (msg_id < high_prio_bound) {
       if (handles[msg_id].callback) {
         handles[msg_id].callback(handles[msg_id].obj, buffer, length);

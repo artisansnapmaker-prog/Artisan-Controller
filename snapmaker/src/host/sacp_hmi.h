@@ -51,7 +51,6 @@ typedef struct {
 } sacp_hmi_handle_t;
 
 
-// TODO: how to construct the event callbacks struct? there is only one byte for command id in some condition
 class HostSACPHMI: public HostSACP {
   // public methods
   public:

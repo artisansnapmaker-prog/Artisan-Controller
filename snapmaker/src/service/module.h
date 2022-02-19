@@ -69,7 +69,7 @@ class ModuleService {
     int register_routine(void *obj, routine_function cb);
 
     // background thread
-    int background_thread();
+    void background_thread();
 
     friend err_code_t handle_module_inserted(void *obj, uint32_t mac);
     friend err_code_t handle_fw_request(void *obj, sacp_module_message_t &message);
@@ -81,8 +81,8 @@ class ModuleService {
 
     // internal helper
     int init_virtual_modules();
-    int get_function_list(ModuleBase &module);
-    int record_function_list(ModuleBase &module, function_node_t *fnodes, uint8_t len);
+    err_code_t get_function_list(ModuleBase &module);
+    err_code_t record_function_list(ModuleBase &module, function_node_t *fnodes, uint8_t len);
 
     err_code_t assign_message_id();
     err_code_t bind_message_id();

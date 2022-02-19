@@ -27,21 +27,6 @@
 
 #define SACP_HMI_LINK_MAX (2)
 
-typedef struct {
-  uint32_t peer;
-
-  uint8_t  ver;
-  uint8_t  attr;
-  uint32_t seq;
-
-  uint8_t cmd_set;
-  uint8_t cmd_id;
-
-  uint16_t length;
-  uint8_t  *data;
-} sacp_hmi_message_t;
-
-
 typedef err_code_t (*sacp_hmi_callback)(void *obj, sacp_hmi_message_t *);
 
 typedef struct {

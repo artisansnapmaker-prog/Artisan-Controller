@@ -26,14 +26,6 @@
 #include "link_uart.h"
 #include "link_can.h"
 
-typedef struct {
-  uint32_t peer;
-  uint8_t  cmd_id;
-  uint16_t length;
-  uint8_t  *data;
-} sacp_module_message_t;
-
-
 typedef err_code_t (*sacp_module_callback)(void *obj, sacp_module_message_t *);
 
 typedef struct {
@@ -93,8 +85,6 @@ class HostSACPModule: public HostSACP {
 
     void handle_events();
 
-  protected:
-    uint16_t calculate_checksum(uint8_t *buffer, uint16_t length);
 
   protected:
 

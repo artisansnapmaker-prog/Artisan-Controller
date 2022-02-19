@@ -97,26 +97,6 @@ err_code_t HostSACPModule::send_sync(sacp_module_message_t *message, uint8_t *ou
 }
 
 
-uint16_t HostSACPModule::calculate_checksum(uint8_t *buffer, uint16_t length) {
-  uint32_t volatile checksum = 0;
-
-  if (!length || !buffer)
-    return 0;
-
-  for (int j = 0; j < (length - 1); j = j + 2)
-    checksum += (uint32_t)(buffer[j] << 8 | buffer[j + 1]);
-
-  if (length % 2)
-    checksum += buffer[length - 1];
-
-  while (checksum > 0xffff)
-    checksum = ((checksum >> 16) & 0xffff) + (checksum & 0xffff);
-
-  checksum = ~checksum;
-
-  return (uint16_t)checksum;
-}
-
 void HostSACPModule::handle_receive() {
   static uint16_t pdu_length = 0;
   uint8_t  pdu_length_checksum;
@@ -297,10 +277,14 @@ err_code_t HostSACPModuleCAN::init(TaskHandle_t event_task, TaskHandle_t recv_ta
 
 err_code_t HostSACPModuleCAN::send(sacp_module_message_t *message) {
   uint8_t    buffer[SACP_MODULE_EVENT_QUEUE_SIZE];
-  uint16_t   length;
+  uint16_t   length = SACP_MODULE_EVENT_QUEUE_SIZE;
   err_code_t ret;
 
-  // TODO: package the data into a PDU
+  // package the data into a PDU
+  if ((ret = package(message, buffer, &length)) != E_SUCCESS) {
+    LOG_E("failed to package sacp module cmd: %x!\n", message->cmd_id);
+    return ret;
+  }
 
   ret = link.write(message->peer, buffer, length);
   if (ret != E_SUCCESS) {

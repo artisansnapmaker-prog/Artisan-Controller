@@ -67,11 +67,34 @@ enum SACPV0FrameIndex {
   SACP_V0_FRAME_INDEX_LEN_L,
   SACP_V0_FRAME_INDEX_VER,
   SACP_V0_FRAME_INDEX_LEN_CHK,
+  SACP_V0_FRAME_INDEX_CHK_H,
+  SACP_V0_FRAME_INDEX_CHK_L,
   SACP_V0_FRAME_INDEX_EVENT_ID,
   SACP_V0_FRAME_INDEX_OPCODE,
   SACP_V0_FRAME_INDEX_DATA,
 };
 
+typedef struct {
+  uint32_t peer;
+  uint8_t  ver;
+  uint8_t  cmd_id;
+  uint16_t length;
+  uint8_t  *data;
+} sacp_module_message_t;
+
+typedef struct {
+  uint32_t peer;
+
+  uint8_t  ver;
+  uint8_t  attr;
+  uint32_t seq;
+
+  uint8_t cmd_set;
+  uint8_t cmd_id;
+
+  uint16_t length;
+  uint8_t  *data;
+} sacp_hmi_message_t;
 
 // use little ending when V1
 enum SACPV1FrameIndex {
@@ -104,8 +127,15 @@ class HostSACP: public HostBase {
 
 
   // private methods
-  private:
+  protected:
+    err_code_t package(sacp_module_message_t *message, uint8_t *pdu, uint16_t *pdu_len);
+    err_code_t package(sacp_hmi_message_t *message, uint8_t *pdu, uint16_t *pdu_len);
 
+    uint16_t calculate_checksum(uint8_t *buffer, uint16_t length);
+
+  private:
+    uint16_t package_v0(uint8_t *in, uint16_t in_len, uint8_t *out, uint16_t event_id=0xFFFF, uint16_t opcode=0xFFFF);
+    err_code_t package_v1();
 
   // public properties
   public:

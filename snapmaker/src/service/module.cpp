@@ -155,7 +155,7 @@ err_code_t report_module_info(void *obj, sacp_hmi_message_t &message) {
 
 void ModuleService::init() {
   TaskHandle_t recv_task, event_task;
-
+  BaseType_t   ret;
 
   for (int i = 0; i < MODULE_FUNC_PRIORITY_MAX; i++)
     list_init(&function_list[i]);
@@ -164,12 +164,27 @@ void ModuleService::init() {
   init_virtual_modules();
 
   // create tasks then the callbacks can be performed
-  xTaskCreate((TaskFunction_t)handle_can_receive, "can_receive", MODULE_RECEIVE_TASK_STACK_DEPTH,
+  LOG_I("Creating CAN receiver task...");
+  ret = xTaskCreate((TaskFunction_t)handle_can_receive, "can_receive", MODULE_RECEIVE_TASK_STACK_DEPTH,
         (void *)(this), MODULE_RECEIVE_TASK_PRIORITY, &recv_task);
+  if (ret != pdPASS) {
+    LOG_E(LOG_RESULT_FAIL);
+    while(1);
+  }
+  else {
+    LOG_I(LOG_RESULT_OK);
+  }
 
-  xTaskCreate((TaskFunction_t)handle_can_events, "can_event", MODULE_EVENT_TASK_STACK_DEPTH,
+  LOG_I("Creating CAN event task...");
+  ret = xTaskCreate((TaskFunction_t)handle_can_events, "can_event", MODULE_EVENT_TASK_STACK_DEPTH,
         (void *)(this), MODULE_EVENT_TASK_PRIORITY, &event_task);
-
+  if (ret != pdPASS) {
+    LOG_E(LOG_RESULT_FAIL);
+    while(1);
+  }
+  else {
+    LOG_I(LOG_RESULT_OK);
+  }
 
   // initialize all CAN hosts
   host_mac.init(event_task, recv_task);

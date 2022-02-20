@@ -124,24 +124,26 @@ static void system_thread(void *p) {
   // module init
   module_svc.init();
 
+  LOG_I("Creating HMI receive task...");
   ret = xTaskCreate((TaskFunction_t)hmi_recv_handler, "hmi_recv", HMI_RECV_TASK_STACK_SIZE,
         NULL, HMI_EVENT_TASK_STACK_SIZE, &hmi_recv_task);
   if (ret != pdPASS) {
-    LOG_E("Failed to create HMI receive task!\n");
+    LOG_E(LOG_RESULT_FAIL);
     while(1);
   }
   else {
-    LOG_I("Created HMI receive task!\n");
+    LOG_I(LOG_RESULT_OK);
   }
 
+  LOG_I("Creating HMI event task...");
   ret = xTaskCreate((TaskFunction_t)hmi_event_handler, "hmi_event", HMI_EVENT_TASK_STACK_SIZE,
         NULL, HMI_EVENT_TASK_PRIORITY, &hmi_event_task);
   if (ret != pdPASS) {
-    LOG_E("Failed to create HMI event task!\n");
+    LOG_E(LOG_RESULT_FAIL);
     while(1);
   }
   else {
-    LOG_I("Created HMI event task!\n");
+    LOG_I(LOG_RESULT_OK);
   }
 
   // sacp host init
@@ -174,14 +176,15 @@ void SnapmakerPrinter::post_init() {
   OUT_WRITE(POWER_CTRL_4P, POWER_CTRL_ON);
 
 
+  LOG_I("Creating system task...");
   ret = xTaskCreate((TaskFunction_t)system_thread, "system", SYSTEM_TASK_STACK_SIZE,
         (void *)(this), SYSTEM_TASK_PRIORITY,  &thandle_can_recv);
   if (ret != pdPASS) {
-    LOG_E("Failed to create can receive task!\n");
+    LOG_E(LOG_RESULT_FAIL);
     while(1);
   }
   else {
-    LOG_I("Created can receive task!\n");
+    LOG_I(LOG_RESULT_OK);
   }
 
   vTaskStartScheduler();

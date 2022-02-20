@@ -68,6 +68,9 @@ extern void serial_print_P(const char* str);
 #define SNAP_ERROR_STR    "SNAP_ERR: "
 #define SNAP_FATAL_STR    "SANP_FATAL: "
 
+#define LOG_RESULT_FAIL   "Failed!\n"
+#define LOG_RESULT_OK     "OK!\n"
+
 // information structure, anyone can add parameter
 // 'M2000 S0' will show this info
 struct SnapDebugInfo {

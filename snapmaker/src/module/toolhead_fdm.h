@@ -31,9 +31,9 @@ class ToolheadFDM: public ModuleBase {
     ModuleBase(mac, key) {}
 
     bool check_online() { return false; }
-    err_code_t pre_init() {}
-    err_code_t post_init() {}
-    err_code_t deinit() {}
+    err_code_t pre_init() { return E_SUCCESS; }
+    err_code_t post_init() { return E_SUCCESS; }
+    err_code_t deinit() { return E_SUCCESS; }
 
   // private methods
   private:

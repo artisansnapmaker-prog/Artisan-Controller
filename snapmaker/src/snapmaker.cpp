@@ -119,7 +119,6 @@ static void hmi_event_handler(void *param) {
 
 static void system_thread(void *p) {
   BaseType_t ret;
-  TaskHandle_t thandle_marlin;
 
   // module init
   module_svc.init();
@@ -148,6 +147,9 @@ static void system_thread(void *p) {
 
   // sacp host init
   host_hmi.init(hmi_event_task, hmi_recv_task);
+
+  // after done init, recovery priority
+  vTaskPrioritySet(NULL, SYSTEM_TASK_PRIORITY);
 
   // loop
   for (;;) {
@@ -178,7 +180,7 @@ void SnapmakerPrinter::post_init() {
 
   LOG_I("Creating system task...");
   ret = xTaskCreate((TaskFunction_t)system_thread, "system", SYSTEM_TASK_STACK_SIZE,
-        (void *)(this), SYSTEM_TASK_PRIORITY,  &thandle_can_recv);
+        (void *)(this), HIGHEST_TASK_PRIORITY,  &thandle_can_recv);
   if (ret != pdPASS) {
     LOG_E(LOG_RESULT_FAIL);
     while(1);

@@ -23,7 +23,7 @@
 #define SNAPMAKER_HOST_SACP_HMI_H_
 
 #include "sacp.h"
-#include "link_uart.h"
+#include "../link/link_uart.h"
 
 #define SACP_HMI_LINK_MAX (2)
 

@@ -1,5 +1,6 @@
 #include "sm_can.h"
 #include "../common/debug.h"
+#include "../module/base.h"
 
 HostSMCAN host_can_rou(link_can_rou);
 
@@ -20,6 +21,13 @@ err_code_t HostSMCAN::init(TaskHandle_t event_task, TaskHandle_t recv_task) {
     configASSERT(waiting_nodes[i].queue);
   }
 
+  handles = (smcan_message_handle_t *)pvPortMalloc(sizeof(smcan_message_handle_t) * MODULE_SUPPORT_MESSAGE_ID_MAX);
+  configASSERT(handles);
+  for (int i = 0; i < MODULE_SUPPORT_MESSAGE_ID_MAX; i++) {
+    handles[i].callback = NULL;
+    handles[i].obj = NULL;
+  }
+
   link.init(recv_task, recv_queue);
 
   event_task = event_task;
@@ -28,6 +36,14 @@ err_code_t HostSMCAN::init(TaskHandle_t event_task, TaskHandle_t recv_task) {
   return E_SUCCESS;
 }
 
+
+void HostSMCAN::set_high_prio_bound(uint16_t bound) {
+  if (bound < MODULE_SUPPORT_MESSAGE_ID_MAX)
+    high_prio_bound = bound;
+    else {
+      // TODO: show log
+    }
+}
 
 err_code_t HostSMCAN::send(smcan_message_t *message) {
   return link.write(message->ch, message->id, message->data, message->length);
@@ -64,7 +80,7 @@ err_code_t HostSMCAN::send_sync(smcan_message_t *message, uint8_t *out, uint8_t 
     return E_NO_RESRC;
   }
 
-  for (; retry > 0; retry++) {
+  for (; retry > 0; retry--) {
     if ((ret = send(message)) != E_SUCCESS) {
       vTaskDelay(pdMS_TO_TICKS(timeout>>1));
       continue;
@@ -132,7 +148,7 @@ void HostSMCAN::handle_receive() {
     // check if some is waiting for this message
     tmp_queue = NULL;
     if (xSemaphoreTake(waiting_lock, 10) == pdPASS) {
-      for (int i; i < SM_CAN_WAITING_NODE_MAX; i++) {
+      for (int i = 0; i < SM_CAN_WAITING_NODE_MAX; i++) {
         if (waiting_nodes[i].msg_id == msg_id) {
           tmp_queue = waiting_nodes[i].queue;
           break;

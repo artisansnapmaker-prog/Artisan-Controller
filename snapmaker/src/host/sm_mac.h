@@ -22,9 +22,9 @@
 #define SNAPMAKER_HOST_SM_MAC_H_
 
 #include "base.h"
-#include "link_can.h"
+#include "../link/link_can.h"
 
-typedef err_code_t (*smmac_callback)(void *obj, uint32_t);
+typedef err_code_t (*smmac_callback)(void *obj, uint32_t mac, LinkCANChannel ch);
 
 class HostSMMAC: public HostBase {
   // public methods
@@ -33,7 +33,11 @@ class HostSMMAC: public HostBase {
 
     err_code_t init(TaskHandle_t event_task, TaskHandle_t recv_task);
 
-    err_code_t register_callback(void *obj, smmac_callback cb) { callback = cb; callback_obj = obj; }
+    err_code_t register_callback(void *obj, smmac_callback cb) {
+      callback = cb;
+      callback_obj = obj;
+      return E_SUCCESS;
+    }
 
     err_code_t send(uint32_t message);
 

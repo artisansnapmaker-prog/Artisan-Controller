@@ -24,11 +24,17 @@ err_code_t HostSMMAC::send(uint32_t message) {
 void HostSMMAC::handle_receive() {
   uint32_t mac;
   BaseType_t ret;
+  LinkCANChannel ch;
 
   do {
     ret = xQueueReceive(recv_queue, &mac, 0);
-    if (ret == pdPASS && callback)
-      callback(callback_obj, mac);
+
+    if (ret == pdPASS && callback) {
+      // get channel from MAC, and remove it from MAC
+      ch = (LinkCANChannel)LINK_CAN_GET_CH_FROM_MAC(mac);
+      mac &= (~LINK_CAN_CH_MASK);
+      callback(callback_obj, mac, ch);
+    }
 
   } while (ret != pdFAIL);
 }

@@ -66,7 +66,7 @@ err_code_t HostSACPModule::send_sync(sacp_module_message_t *message, uint8_t *ou
   }
 
 
-  for (; retry > 0; retry++) {
+  for (; retry > 0; retry--) {
     if ((ret = send(message)) != E_SUCCESS) {
       vTaskDelay(pdMS_TO_TICKS(timeout>>1));
       continue;
@@ -100,7 +100,6 @@ err_code_t HostSACPModule::send_sync(sacp_module_message_t *message, uint8_t *ou
 void HostSACPModule::handle_receive() {
   static uint16_t pdu_length = 0;
   uint8_t  pdu_length_checksum;
-  uint8_t  pdu_ver;
   uint16_t pdu_checksum;
   uint16_t calc_checksum;
 
@@ -150,7 +149,6 @@ void HostSACPModule::handle_receive() {
     // check if length is correct
     pdu_length_checksum = parser_buffer[SACP_V0_FRAME_INDEX_LEN_H]^parser_buffer[SACP_V0_FRAME_INDEX_LEN_L];
     pdu_length = parser_buffer[SACP_V0_FRAME_INDEX_LEN_H]<<8 | parser_buffer[SACP_V0_FRAME_INDEX_LEN_L];
-    pdu_ver    = parser_buffer[SACP_V0_FRAME_INDEX_VER];
     if (parser_buffer[SACP_V0_FRAME_INDEX_LEN_CHK] != pdu_length_checksum) {
       // must update parser_buffer_write firstly !!!
       parser_buffer_write -= 2;

@@ -23,8 +23,8 @@
 #define SNAPMAKER_HOST_SACP_MODULE_H_
 
 #include "sacp.h"
-#include "link_uart.h"
-#include "link_can.h"
+#include "../link/link_uart.h"
+#include "../link/link_can.h"
 
 typedef err_code_t (*sacp_module_callback)(void *obj, sacp_module_message_t *);
 
@@ -108,7 +108,7 @@ class HostSACPModule: public HostSACP {
 class HostSACPModuleCAN: public HostSACPModule {
   // public methods
   public:
-    HostSACPModuleCAN(LinkCANExtData &l, SACPVerion ver): link(l), HostSACPModule(ver) {}
+    HostSACPModuleCAN(LinkCANExtData &l, SACPVerion ver): HostSACPModule(ver), link(l) {}
 
     err_code_t init(TaskHandle_t event_task, TaskHandle_t recv_task);
     err_code_t send(sacp_module_message_t *message);
@@ -130,7 +130,7 @@ extern HostSACPModuleCAN host_can_cfg;
 class HostSACPModuleUART: public HostSACPModule {
   // public methods
   public:
-    HostSACPModuleUART(LinkUART &l, SACPVerion ver): link(l), HostSACPModule(ver) {}
+    HostSACPModuleUART(LinkUART &l, SACPVerion ver): HostSACPModule(ver), link(l) {}
     err_code_t init(TaskHandle_t event_task, TaskHandle_t recv_task);
     err_code_t send(sacp_module_message_t *in);
 

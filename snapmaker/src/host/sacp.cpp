@@ -36,10 +36,10 @@ uint16_t HostSACP::package_v0(uint8_t *in, uint16_t in_len, uint8_t *out, uint16
   // check if we invalid command id
   if (opcode != 0xFFFF) {
     out[i++] = opcode;
-    payload_len = in_len + 1;
+    payload_len = in_len + 2;
   }
   else {
-    payload_len = in_len + 2;
+    payload_len = in_len + 1;
   }
 
   for (int l = 0; l < in_len; l++) {
@@ -47,14 +47,14 @@ uint16_t HostSACP::package_v0(uint8_t *in, uint16_t in_len, uint8_t *out, uint16
   }
 
   out[SACP_V0_FRAME_INDEX_LEN_H] = (uint8_t)payload_len>>8;
-  out[SACP_V0_FRAME_INDEX_LEN_H] = (uint8_t)payload_len&0x00FF;
+  out[SACP_V0_FRAME_INDEX_LEN_L] = (uint8_t)payload_len&0x00FF;
 
   out[SACP_V0_FRAME_INDEX_LEN_CHK] = out[SACP_V0_FRAME_INDEX_LEN_H]^out[SACP_V0_FRAME_INDEX_LEN_L];
 
   checksum = calculate_checksum(out + SACP_V0_FRAME_INDEX_EVENT_ID, payload_len);
 
-  out[SACP_V0_FRAME_INDEX_CHK_H] = (uint8_t)checksum>>8;
-  out[SACP_V0_FRAME_INDEX_CHK_H] = (uint8_t)checksum&0x00FF;
+  out[SACP_V0_FRAME_INDEX_CHK_H] = (uint8_t)(checksum>>8);
+  out[SACP_V0_FRAME_INDEX_CHK_L] = (uint8_t)(checksum&0x00FF);
 
   return (uint16_t)i;
 }
@@ -65,15 +65,18 @@ err_code_t HostSACP::package(sacp_module_message_t *message, uint8_t *pdu, uint1
     return E_PARAM;
   }
 
-  if (message->ver == SACP_VER_0) {
+  if (version == SACP_VER_0) {
     if (*pdu_len < (message->length + SACP_V0_MODULE_MIN_SIZE)) {
       return E_NO_MEM;
     }
 
     *pdu_len = package_v0(message->data, message->length, pdu, message->cmd_id);
 
-    return E_SUCCESS;
   }
+
+  // TODO: if version is larger than SACP_VER_0, show warning
+    
+  return E_SUCCESS;
 }
 
 

@@ -22,9 +22,7 @@
 #define SNAPMAKER_HOST_SM_CAN_H_
 
 #include "base.h"
-#include "link_can.h"
-
-#include "../module/base.h"
+#include "../link/link_can.h"
 
 #define SM_CAN_QUEUE_SIZE        (256)
 #define SM_CAN_WAITING_NODE_MAX  (4)
@@ -55,10 +53,7 @@ class HostSMCAN: public HostBase {
   // public methods
   public:
     HostSMCAN(LinkCANStdData &l): HostBase(), link(l) {
-      for (int i = 0; i < MODULE_SUPPORT_MESSAGE_ID_MAX; i++) {
-        handles[i].callback = NULL;
-        handles[i].obj = NULL;
-      }
+
     }
 
     err_code_t init(TaskHandle_t event_task, TaskHandle_t recv_task);
@@ -73,10 +68,7 @@ class HostSMCAN: public HostBase {
 
     void handle_events();
 
-    void set_high_prio_bound(uint16_t bound) {
-      if (bound < MODULE_SUPPORT_MESSAGE_ID_MAX)
-        high_prio_bound = bound;
-    }
+    void set_high_prio_bound(uint16_t bound);
 
   // private properties
   private:
@@ -85,7 +77,7 @@ class HostSMCAN: public HostBase {
     MessageBufferHandle_t recv_queue;
     MessageBufferHandle_t event_queue;
 
-    smcan_message_handle_t handles[MODULE_SUPPORT_MESSAGE_ID_MAX];
+    smcan_message_handle_t *handles;
 
     xSemaphoreHandle     waiting_lock;
     smcan_waiting_node_t waiting_nodes[SM_CAN_WAITING_NODE_MAX];

@@ -5,11 +5,11 @@
 
 ModuleService module_svc;
 
-static void handle_can_receive(void *p) {
-  (void *)p;
-
+static __unused void handle_can_receive(__unused void *p) {
   BaseType_t ret;
   uint32_t notification;
+
+  LOG_I("CAN receiver started\n");
 
   for (;;) {
     ret = xTaskNotifyWait(0, 0xFFFFFFFF, &notification, portMAX_DELAY);
@@ -28,11 +28,11 @@ static void handle_can_receive(void *p) {
 }
 
 
-static void handle_can_events(void *p) {
-  (void *)p;
-
+static __unused void handle_can_events(__unused void *p) {
   BaseType_t ret;
   uint32_t notification;
+
+  LOG_I("CAN event started\n");
 
   for (;;) {
     ret = xTaskNotifyWait(0, 0xFFFFFFFF, &notification, portMAX_DELAY);
@@ -48,9 +48,9 @@ static void handle_can_events(void *p) {
 }
 
 
-err_code_t handle_module_inserted(void *obj, uint32_t mac) {
+err_code_t handle_module_inserted(void *obj, uint32_t mac, LinkCANChannel ch) {
   ModuleService *ms = (ModuleService *)obj;
-  if (ms->status != MS_STATUS_SCANNING || ms->status != MS_STATUS_CONFIG)
+  if (ms->status != MS_STATUS_SCANNING && ms->status != MS_STATUS_CONFIG)
     return -1;
 
   if (ms->configured_module >= MODULE_ACCESSIBLE_MAX) {
@@ -62,6 +62,8 @@ err_code_t handle_module_inserted(void *obj, uint32_t mac) {
   int i = 0;
   uint16_t device_id = MODULE_GET_DEVICE_ID(mac);
   ModuleBase *module = NULL;
+
+  LOG_I("Got module: 0x%08x\n", mac);
 
   for (; i < ms->configured_module; i++) {
     if (ms->modules[i]->get_mac() == mac) {
@@ -97,6 +99,7 @@ err_code_t handle_module_inserted(void *obj, uint32_t mac) {
   if (module && module->get_status() == MODULE_STATUS_INVALID) {
     // update mac
     module->set_mac(mac);
+    module->set_channel(ch);
     module->pre_init();
     // re-bind message id
     ms->bind_message_id(*module);
@@ -110,8 +113,14 @@ err_code_t handle_module_inserted(void *obj, uint32_t mac) {
   if (!module) {
     // if no module with same MAC/type in previous resource apply new resource
     module = module_factory(mac, i);
+    if (!module) {
+      LOG_E("unknow module: 0x%8x\n", mac);
+      return E_HARDWARE;
+    }
     ms->modules[ms->configured_module++] = module;
   }
+
+  module->set_channel(ch);
 
   // do something before get function id
   // check the result from pre_init(), some module will check if
@@ -142,20 +151,22 @@ err_code_t handle_module_inserted(void *obj, uint32_t mac) {
 
 
 err_code_t handle_fw_request(void *obj, sacp_module_message_t &message) {
-
+  // TODO: to be implemented
 
   return E_SUCCESS;
 }
 
 
 err_code_t report_module_info(void *obj, sacp_hmi_message_t &message) {
+  // TODO: to be implemented
 
+  return E_SUCCESS;
 }
 
 
 void ModuleService::init() {
-  TaskHandle_t recv_task, event_task;
-  BaseType_t   ret;
+  TaskHandle_t recv_task = NULL, event_task = NULL;
+  BaseType_t  __unused ret;
 
   for (int i = 0; i < MODULE_FUNC_PRIORITY_MAX; i++)
     list_init(&function_list[i]);
@@ -175,7 +186,7 @@ void ModuleService::init() {
     LOG_I(LOG_RESULT_OK);
   }
 
-  LOG_I("Creating CAN event task...");
+  //LOG_I("Creating CAN event task...");
   ret = xTaskCreate((TaskFunction_t)handle_can_events, "can_event", MODULE_EVENT_TASK_STACK_DEPTH,
         (void *)(this), MODULE_EVENT_TASK_PRIORITY, &event_task);
   if (ret != pdPASS) {
@@ -199,6 +210,7 @@ void ModuleService::init() {
 
   status = MS_STATUS_SCANNING;
   // scan the modules
+  LOG_I("starting scan modules...\n");
   host_mac.send(MODULE_MAC_CMD_SCAN);
 
   // waiting module discovery
@@ -207,7 +219,10 @@ void ModuleService::init() {
   // assign and bind message id for all discovered modules
   status = MS_STATUS_BINDING;
   assign_message_id();
+
   bind_message_id();
+
+  LOG_I("finish message bingding!\n");
 
   // do post init for all modules
   for (int i = 0; i < configured_module; i++) {
@@ -227,18 +242,61 @@ int ModuleService::init_virtual_modules() {
   // for controller-2022, virtual modules are heated bed and linear modules
 
   uint32_t mac;
+  ModuleBase *module;
 
   // for virtul modules, initialization should be done in constructor, no need to call init() again
 
   mac = MODULE_MAKE_MAC(MODULE_DEVICE_ID_A400_LINEAR, MODULE_SN_INVALID);
-  modules[configured_module] = module_factory(mac, configured_module++, MODULE_LINEAR_X1);
-  modules[configured_module] = module_factory(mac, configured_module++, MODULE_LINEAR_Y1);
-  modules[configured_module] = module_factory(mac, configured_module++, MODULE_LINEAR_Z1);
-  modules[configured_module] = module_factory(mac, configured_module++, MODULE_LINEAR_Y2);
-  modules[configured_module] = module_factory(mac, configured_module++, MODULE_LINEAR_Z2);
+  module = module_factory(mac, configured_module, MODULE_LINEAR_X1);
+  if (!module) {
+    LOG_E("failed to create module [0x%x, %u]\n", mac, MODULE_LINEAR_X1);
+  }
+  else {
+    modules[configured_module++] = module;
+  }
+
+  module = module_factory(mac, configured_module, MODULE_LINEAR_Y1);
+  if (!module) {
+    LOG_E("failed to create module [0x%x, %u]\n", mac, MODULE_LINEAR_Y1);
+  }
+  else {
+    modules[configured_module++] = module;
+  }
+
+  module = module_factory(mac, configured_module, MODULE_LINEAR_Z1);
+  if (!module) {
+    LOG_E("failed to create module [0x%x, %u]\n", mac, MODULE_LINEAR_Z1);
+  }
+  else {
+    modules[configured_module++] = module;
+  }
+
+  module = module_factory(mac, configured_module, MODULE_LINEAR_Y2);
+  if (!module) {
+    LOG_E("failed to create module [0x%x, %u]\n", mac, MODULE_LINEAR_Y2);
+  }
+  else {
+    modules[configured_module++] = module;
+  }
+
+  module = module_factory(mac, configured_module, MODULE_LINEAR_Z2);
+  if (!module) {
+    LOG_E("failed to create module [0x%x, %u]\n", mac, MODULE_LINEAR_Z2);
+  }
+  else {
+    modules[configured_module++] = module;
+  }
 
   mac = MODULE_MAKE_MAC(MODULE_DEVICE_ID_A400_BED, MODULE_SN_INVALID);
-  modules[configured_module] = module_factory(mac, configured_module++);
+  module = module_factory(mac, configured_module);
+  if (!module) {
+    LOG_E("failed to create module [0x%x, %u]\n", mac, 0);
+  }
+  else {
+    modules[configured_module++] = module;
+  }
+
+  return 0;
 }
 
 
@@ -251,6 +309,7 @@ err_code_t ModuleService::get_function_list(ModuleBase &module) {
 
   // for CAN link, peer need to be MAC
   cmd.peer   = module.get_mac();
+  cmd.ch     = module.get_channel();
   cmd.length = 0;
   cmd.cmd_id = MODULE_EXT_CMD_GET_FUNCID_REQ;
 
@@ -334,6 +393,7 @@ err_code_t ModuleService::assign_message_id() {
 
   for (int i = 0; i < MODULE_FUNC_PRIORITY_MAX; i++) {
     list_for_each_entry(fnode, &function_list[i], node) {
+      LOG_I("function[%03u]<->message[%03u]\n", fnode->function_id, message_id);
       fnode->message_id = message_id++;
     }
 
@@ -352,11 +412,13 @@ err_code_t ModuleService::assign_message_id() {
 
   // tell host the bound of high priority message
   host_can_rou.set_high_prio_bound(msg_id_records[MODULE_FUNC_PRIORITY_HIGH].bound);
+
+  return E_SUCCESS;
 }
 
 
 err_code_t ModuleService::bind_message_id() {
-  err_code_t ret;
+  err_code_t ret = E_SUCCESS;
 
   for (int i = 0; i < configured_module; i++) {
     if (MODULE_TYPE(modules[i]->get_device_id()) == MODULE_TYPE_VIRTUAL)
@@ -364,14 +426,16 @@ err_code_t ModuleService::bind_message_id() {
     ret = bind_message_id(*modules[i]);
     if (ret != E_SUCCESS) {
       LOG_E("failed to bind message for module: 0x%8x\n", modules[i]->get_mac());
-      return ret;
+      continue;
     }
   }
+
+  return ret;
 }
 
 
 err_code_t ModuleService::bind_message_id(ModuleBase &module) {
-  function_node_t *fnodes;
+  function_node_t *fnodes = NULL;
   uint8_t func_len;
 
   sacp_module_message_t cmd;
@@ -389,10 +453,15 @@ err_code_t ModuleService::bind_message_id(ModuleBase &module) {
 
   // set command parameters
   cmd.peer   = module.get_mac();
+  cmd.ch     = module.get_channel();
   cmd.cmd_id = MODULE_EXT_CMD_SET_MESG_ID_REQ;
   cmd.data   = buffer;
 
   func_len = module.get_function_nodes(&fnodes);
+  if (!fnodes) {
+    LOG_E("cannot get fnode from module: 0x%8x\n", cmd.peer);
+    return E_NO_RESRC;
+  }
 
   for (int i = 0; i < func_len; i++) {
     buffer[index++] = fnodes[i].message_id>>8;

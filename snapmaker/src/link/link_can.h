@@ -25,20 +25,17 @@
 #include "../common/error.h"
 #include "../common/ring_buffer.h"
 
-#define LINK_CAN_CH_SHIFT         (30)
-#define LINK_CAN_CH_MASK          (0xC0000000)
-#define LINK_CAN_MAKE_CH(val)     ((((uint32_t)(val))<<LINK_CAN_CH_SHIFT)&LINK_CAN_CH_MASK)
+// #define LINK_CAN_CH_SHIFT         (30)
+// #define LINK_CAN_CH_MASK          (0xC0000000)
+// #define LINK_CAN_MAKE_CH(val)     ((((uint32_t)(val))<<LINK_CAN_CH_SHIFT)&LINK_CAN_CH_MASK)
 
-#define LINK_CAN_ID_SHIFT         (1)
-#define LINK_CAN_ID_MASK          (0x0FFFFFFF)
-#define LINK_CAN_MAKE_ID(val)     ((((uint32_t)(val))>>LINK_CAN_ID_SHIFT)&LINK_CAN_ID_MASK)
+// #define LINK_CAN_ID_SHIFT         (1)
+// #define LINK_CAN_ID_MASK          (0x0FFFFFFF)
+// #define LINK_CAN_MAKE_ID(val)     ((((uint32_t)(val))>>LINK_CAN_ID_SHIFT)&LINK_CAN_ID_MASK)
 
-#define LINK_CAN_MAKE_MAC(ch, id) (LINK_CAN_MAKE_CH(ch) | LINK_CAN_MAKE_ID(id))
+// #define LINK_CAN_MAKE_MAC(ch, id) (LINK_CAN_MAKE_CH(ch) | LINK_CAN_MAKE_ID(id))
 
-#define LINK_CAN_GET_CH_FROM_MAC(mac)      ((mac)&LINK_CAN_CH_MASK>>LINK_CAN_CH_SHIFT)
-#define LINK_CAN_GET_ID_FROM_MAC(mac)      ((mac)&LINK_CAN_ID_MASK<<LINK_CAN_ID_SHIFT)
-
-
+//#define LINK_CAN_GET_ID_FROM_MAC(mac)      ((mac)&LINK_CAN_ID_MASK<<LINK_CAN_ID_SHIFT)
 
 enum LinkCANType {
   LINK_CAN_TYPE_EXT_DATA,    // extened data channel
@@ -56,7 +53,10 @@ enum LinkCANChannel {
   LINK_CAN_CH_INVALID
 };
 
-
+#define LINK_CAN_CH_MASK              (0xC0000000)
+#define LINK_CAN_COMBINE_CH(ch, mac)  ((uint32_t)(ch)<<30 | (mac)>>1)
+#define LINK_CAN_GET_CH_FROM_MAC(mac) (LinkCANChannel)((mac)>>30)
+#define LINK_CAN_GET_ID_FROM_MAC(mac) ((mac)<<1)
 typedef struct {
   uint32_t sjw;
   uint32_t bs1;
@@ -69,9 +69,6 @@ class LinkCAN {
   // public methods
   public:
     LinkCAN() {}
-
-    // parameters: id, channel number, data buffer,  length
-    virtual void receive_data(LinkCANChannel ch, uint8_t *data, uint8_t length) = 0;
 
   // private methods
   protected:
@@ -106,7 +103,7 @@ class LinkCANExtRemote: public LinkCAN {
     void init(TaskHandle_t recv_task, QueueHandle_t recv_queue);
 
     err_code_t write(uint32_t cmd);
-    void receive_data(LinkCANChannel ch, uint8_t *data, uint8_t length);
+    void receive_data(LinkCANChannel ch, uint32_t mac);
   // private methods
   private:
 

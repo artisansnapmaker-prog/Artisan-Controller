@@ -25,7 +25,9 @@
 
 #include "../common/list.h"
 #include "../common/error.h"
-#include "../host/link_can.h"
+#include "../host/sm_can.h"
+#include "../host/sm_mac.h"
+#include "../host/sacp_module.h"
 
 #define MODULE_MAC_ID_MASK        (0x1FFFFFFF)
 #define MODULE_MAC_ID_INVALID     (0xFFFFFFFF)
@@ -39,15 +41,15 @@
 #define MODULE_MESSAGE_ID_MASK      (0x1FF)
 #define MODULE_MESSAGE_ID_MAX       (0x1FF + 1)
 
-#define MODULE_DEVICE_ID_MASK       (0x0ff800000)
-#define MODULE_DEVICE_ID_SHIFT      (19)
-#define MODULE_GET_DEVICE_ID(mac)   ((mac&MODULE_DEVICE_ID_MASK)>>MODULE_DEVICE_ID_SHIFT)
+#define MODULE_DEVICE_ID_SHIFT        (19)
+#define MODULE_DEVICE_ID_MASK         (0x0FFF)
+#define MODULE_GET_DEVICE_ID(mac)     ((mac>>MODULE_DEVICE_ID_SHIFT)&MODULE_DEVICE_ID_MASK)
 
 #define MODULE_SN_MASK              (0x0007FFFF)
 #define MODULE_SN_INVALID           (MODULE_SN_MASK)
 #define MODULE_GET_SN(mac)          (mac&MODULE_SN_MASK)
 
-#define MODULE_MAKE_MAC(id, sn)     ((id)<<MODULE_DEVICE_ID_SHIFT | (sn)&MODULE_SN_MASK)
+#define MODULE_MAKE_MAC(id, sn)     ((((id)&MODULE_DEVICE_ID_MASK)<<MODULE_DEVICE_ID_SHIFT) | ((sn)&MODULE_SN_MASK))
 
 #define MODULE_CHANNEL_INVALID      (0xFF)
 
@@ -108,9 +110,11 @@ enum ModuleDeviceID {
 
 
   // below is virtual module
-  MODULE_DEVICE_ID_A400_LINEAR  = 0x8001,
+  MODULE_DEVICE_ID_SM2_BED = 512,
+  MODULE_DEVICE_ID_J1_BED,
+  MODULE_DEVICE_ID_J1_LINEAR,
   MODULE_DEVICE_ID_A400_BED,
-  MODULE_DEVICE_ID_SM2_BED,
+  MODULE_DEVICE_ID_A400_LINEAR,
   MODULE_DEVICE_ID_INVALID
 };
 
@@ -297,7 +301,8 @@ class ModuleBase {
     uint32_t get_mac() { return mac; }
     void set_mac(uint32_t m) { mac = m; }
 
-    uint8_t get_channel() { return LINK_CAN_GET_CH_FROM_MAC(mac); }
+    LinkCANChannel get_channel() { return channel; }
+    void set_channel(LinkCANChannel ch) { if (ch < LINK_CAN_CH_INVALID) channel = ch; }
 
     ModuleStatus get_status() { return status; }
 
@@ -329,6 +334,8 @@ class ModuleBase {
     ModuleStatus status = MODULE_STATUS_UNCONFIGURE;
     uint8_t  hw_ver;
     char     fw_ver[33];
+
+    LinkCANChannel channel;
 
     function_node_t *function_nodes;
     uint8_t          func_length = 0;

@@ -4,6 +4,8 @@
 
 #include "MapleFreeRTOS1030.h"
 
+#define HIGHEST_TASK_PRIORITY         (5)
+
 // parameters for system task
 #define SYSTEM_TASK_PRIORITY          (2)
 #define SYSTEM_TASK_STACK_SIZE        (2048)  // 8kBytes

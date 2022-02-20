@@ -25,6 +25,7 @@
 #include "../common/error.h"
 
 #include "base.h"
+#include "../link/link_can.h"
 
 /*
   This host handle also SSTP protocol, but its verion = 0
@@ -76,7 +77,7 @@ enum SACPV0FrameIndex {
 
 typedef struct {
   uint32_t peer;
-  uint8_t  ver;
+  LinkCANChannel ch;
   uint8_t  cmd_id;
   uint16_t length;
   uint8_t  *data;

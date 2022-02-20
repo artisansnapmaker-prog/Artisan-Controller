@@ -55,15 +55,15 @@ void HAL_CAN_MspInit(CAN_HandleTypeDef* hcan) {
   HAL_GPIO_Init(GPIOB, &gpio_init_cfg);
 #endif
 
-  HAL_NVIC_SetPriorityGrouping(NVIC_PRIORITYGROUP_2);
-  HAL_NVIC_SetPriority(CAN1_RX0_IRQn, 2, 0);
+  //HAL_NVIC_SetPriorityGrouping(NVIC_PRIORITYGROUP_2);
+  HAL_NVIC_SetPriority(CAN1_RX0_IRQn, 8, 0);
   HAL_NVIC_EnableIRQ(CAN1_RX0_IRQn);
-  HAL_NVIC_SetPriority(CAN1_RX1_IRQn, 3, 0);
+  HAL_NVIC_SetPriority(CAN1_RX1_IRQn, 9, 0);
   HAL_NVIC_EnableIRQ(CAN1_RX1_IRQn);
 
-  HAL_NVIC_SetPriority(CAN2_RX0_IRQn, 2, 0);
+  HAL_NVIC_SetPriority(CAN2_RX0_IRQn, 8, 0);
   HAL_NVIC_EnableIRQ(CAN2_RX0_IRQn);
-  HAL_NVIC_SetPriority(CAN2_RX1_IRQn, 3, 0);
+  HAL_NVIC_SetPriority(CAN2_RX1_IRQn, 9, 0);
   HAL_NVIC_EnableIRQ(CAN2_RX1_IRQn);
 }
 
@@ -124,6 +124,8 @@ void LinkCAN::hal_init() {
   if (hal_inited)
     return;
 
+  LOG_I("doing CAN HAL init...\n");
+
   hal_inited = true;
 
   LinkCAN::locks[LINK_CAN_CH_1] = xSemaphoreCreateMutex();
@@ -167,17 +169,19 @@ void LinkCAN::hal_init() {
 
 
 bool LinkCAN::lock(LinkCANChannel ch) {
+  // TODO:
 
+  return true;
 }
 
 
 void LinkCAN::unlock(LinkCANChannel ch) {
-
+  // TODO:
 }
 
 err_code_t LinkCAN::send_packet(LinkCANChannel ch, void *header, uint8_t *packet) {
   uint8_t retry;
-  uint32_t count, reg_tsr, reg_esr = 0, tx_mail_box;
+  uint32_t count = 0, reg_tsr, reg_esr, tx_mail_box;
 
   CAN_TxHeaderTypeDef *pkt_header = (CAN_TxHeaderTypeDef *)header;
   HAL_StatusTypeDef ret;
@@ -196,6 +200,7 @@ err_code_t LinkCAN::send_packet(LinkCANChannel ch, void *header, uint8_t *packet
       ret = HAL_CAN_AddTxMessage(&bus_handler[ch], pkt_header, buffer, &tx_mail_box);
 
     if(ret != HAL_OK) {
+      LOG_E("failed to send CAN packet: %d\n", ret);
       unlock(ch);
       return false;
     }
@@ -203,8 +208,6 @@ err_code_t LinkCAN::send_packet(LinkCANChannel ch, void *header, uint8_t *packet
     //while pending
     do {
       delay(1);
-      if (++count > 10)
-        break;
 
       reg_tsr = bus_handler[ch].Instance->TSR & (CAN_TSR_TXOK0 | CAN_TSR_RQCP0 | CAN_TSR_TME0);
       reg_esr = bus_handler[ch].Instance->ESR;
@@ -212,16 +215,17 @@ err_code_t LinkCAN::send_packet(LinkCANChannel ch, void *header, uint8_t *packet
       if (reg_tsr == (CAN_TSR_TXOK0 | CAN_TSR_RQCP0 | CAN_TSR_TME0)) {
         unlock(ch);
         return E_SUCCESS;
-      } else if (reg_tsr == (CAN_TSR_RQCP0 | CAN_TSR_TME0))
+      }
+      else if (reg_tsr == (CAN_TSR_RQCP0 | CAN_TSR_TME0)) {
         break;
-
-    } while (true);
+      }
+    } while (++count < 10);
   }
 
   unlock(ch);
 
   LOG_E("LinkCAN esr: 0x%X\n", reg_esr);
-  return E_FAILURE;
+  return !reg_esr;
 }
 
 
@@ -232,11 +236,8 @@ void LinkCANExtRemote::init(TaskHandle_t recv_task, QueueHandle_t recv_queue) {
   receiver_task = recv_task;
 }
 
-void LinkCANExtRemote::receive_data(LinkCANChannel ch, uint8_t *data, uint8_t length) {
-  uint32_t mac;
-
-  mac = *(uint32_t *)data;
-  mac = LINK_CAN_MAKE_MAC(ch, mac);
+void LinkCANExtRemote::receive_data(LinkCANChannel ch, uint32_t mac) {
+  mac = LINK_CAN_COMBINE_CH(ch, mac);
 
   xQueueSendFromISR(queue, (void*)&mac, NULL);
   xTaskNotifyFromISR(receiver_task, NOTIFY_RECV_CAN_EXT_REMOTE, eSetBits, NULL);
@@ -254,7 +255,6 @@ err_code_t LinkCANExtRemote::write(uint32_t cmd) {
   for (int i = 0; i < LINK_CAN_CH_INVALID; i++) {
     ret = send_packet((LinkCANChannel)i, &header, NULL);
   }
-
 
   return ret;
 }
@@ -366,8 +366,7 @@ static void irq_callback(LinkCANChannel ch,  uint8_t fifo_index) {
 
   // extended remote frame
   if (rx_header.IDE == CAN_ID_EXT && rx_header.RTR == CAN_RTR_REMOTE) {
-      *(uint32_t *)buffer = (uint32_t)rx_header.ExtId;
-      link_can_scan.receive_data(ch, buffer, 4);
+      link_can_scan.receive_data(ch, rx_header.ExtId);
     return;
   }
 }

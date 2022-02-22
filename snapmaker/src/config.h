@@ -15,7 +15,7 @@
 #define MOTION_TASK_STACK_SIZE        (2048)  // 8kBytes
 
 // parameters for HMI(screen & luban) event handler task
-#define HMI_RECV_TASK_PRIORITY       (3)
+#define HMI_RECV_TASK_PRIORITY       (4)
 #define HMI_RECV_TASK_STACK_SIZE     (512)  // 2kBytes
 // parameters for HMI(screen & luban) receive handler task
 #define HMI_EVENT_TASK_PRIORITY      (2)
@@ -25,7 +25,7 @@
 #define MODULE_EVENT_TASK_PRIORITY      (2)
 #define MODULE_EVENT_TASK_STACK_DEPTH   (512)  // 2kBytes
 // parameters for module receive handler task
-#define MODULE_RECEIVE_TASK_PRIORITY    (3)
+#define MODULE_RECEIVE_TASK_PRIORITY    (4)
 #define MODULE_RECEIVE_TASK_STACK_DEPTH (512) // 2kBytes
 
 
@@ -52,8 +52,9 @@
 #define NOTIFY_RECV_UART5           (0x00000100)
 
 #define NOTIFY_EVENT_CAN_CFG      (0x00000001)
-#define NOTIFY_EVENT_CAN_ROUTINE  (0x00000002)
-#define NOTIFY_EVENT_HMI          (0x00000004)
+#define NOTIFY_EVENT_CAN_MAC      (0x00000002)
+#define NOTIFY_EVENT_CAN_ROUTINE  (0x00000004)
+#define NOTIFY_EVENT_HMI          (0x00000008)
 
 
 //FLASH layout

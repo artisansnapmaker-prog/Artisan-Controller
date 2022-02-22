@@ -93,6 +93,10 @@ const char *snap_debug_str[SNAP_DEBUG_LEVEL_MAX] = {
 };
 
 
+void SnapDebug::init() {
+  lock = xSemaphoreCreateMutex();
+}
+
 void SnapDebug::SendLog2Screen(SnapDebugLevel l) {
   // SSTP_Event_t event = {EID_SYS_CTRL_ACK, SYSCTL_OPC_TRANS_LOG};
 
@@ -127,8 +131,14 @@ void SnapDebug::SendLog2Screen(SnapDebugLevel l) {
 void SnapDebug::Log(SnapDebugLevel level, const char *fmt, ...) {
   va_list args;
 
-  if (level < pc_msg_level && level < sc_msg_level)
+  if (xSemaphoreTake(lock, pdMS_TO_TICKS(10)) != pdPASS) {
     return;
+  }
+
+  if (level < pc_msg_level && level < sc_msg_level) {
+    xSemaphoreGive(lock);
+    return;
+  }
 
   va_start(args, fmt);
 
@@ -139,8 +149,11 @@ void SnapDebug::Log(SnapDebugLevel level, const char *fmt, ...) {
   if (level >= pc_msg_level)
     CONSOLE_OUTPUT(log_buf + 2);
 
-  if (level >= sc_msg_level)
-    SendLog2Screen(level);
+  xSemaphoreGive(lock);
+
+  // TODO:
+  // if (level >= sc_msg_level)
+  //   SendLog2Screen(level);
 }
 
 
@@ -162,23 +175,23 @@ void SnapDebug::SetLevel(uint8_t port, SnapDebugLevel l) {
 }
 
 
-err_code_t SnapDebug::SetLogLevel(SSTP_Event_t &event) {
-  err_code_t err = E_FAILURE;
+// err_code_t SnapDebug::SetLogLevel(SSTP_Event_t &event) {
+//   err_code_t err = E_FAILURE;
 
-  if (event.length != 1) {
-    LOG_E("Need to specify log level!\n");
-    event.data = &err;
-    event.length = 1;
-  }
-  else {
-    // LOG_V("SC req change log level");
-    sc_msg_level = (SnapDebugLevel)event.data[0];
-    event.data[0] = E_SUCCESS;
-  }
+//   if (event.length != 1) {
+//     LOG_E("Need to specify log level!\n");
+//     event.data = &err;
+//     event.length = 1;
+//   }
+//   else {
+//     // LOG_V("SC req change log level");
+//     sc_msg_level = (SnapDebugLevel)event.data[0];
+//     event.data[0] = E_SUCCESS;
+//   }
 
-  //return hmi.Send(event);
-  return 0;
-}
+//   //return hmi.Send(event);
+//   return 0;
+// }
 
 
 SnapDebugLevel SnapDebug::GetLevel() {

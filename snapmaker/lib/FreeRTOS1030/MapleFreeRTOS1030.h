@@ -34,6 +34,7 @@ extern "C" {
 #define GCC_ARMCM4F
 #include "utility/include/FreeRTOS.h"
 #include "utility/include/task.h"
+#include "utility/include/event_groups.h"
 #include "utility/include/queue.h"
 #include "utility/include/semphr.h"
 #include "utility/include/message_buffer.h"

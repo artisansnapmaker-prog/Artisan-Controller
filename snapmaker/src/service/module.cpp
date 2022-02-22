@@ -5,25 +5,23 @@
 
 ModuleService module_svc;
 
-static __unused void handle_can_receive(__unused void *p) {
+static __unused void handle_can_receive(void *p) {
   BaseType_t ret;
-  uint32_t notification;
+  SemaphoreHandle_t recv_signal = (SemaphoreHandle_t)p;
 
   LOG_I("CAN receiver started\n");
 
   for (;;) {
-    ret = xTaskNotifyWait(0, 0xFFFFFFFF, &notification, portMAX_DELAY);
+    ret = xSemaphoreTake(recv_signal, portMAX_DELAY);
+
     if (ret != pdPASS)
       continue;
 
-    if (notification & NOTIFY_RECV_CAN_EXT_REMOTE)
-      host_mac.handle_receive();
+    host_can_cfg.handle_receive();
 
-    if (notification & NOTIFY_RECV_CAN_EXT_DATA)
-      host_can_cfg.handle_receive();
+    host_mac.handle_receive();
 
-    if (notification & NOTIFY_RECV_CAN_STD_DATA)
-      host_can_rou.handle_receive();
+    host_can_rou.handle_receive();
   }
 }
 
@@ -38,6 +36,9 @@ static __unused void handle_can_events(__unused void *p) {
     ret = xTaskNotifyWait(0, 0xFFFFFFFF, &notification, portMAX_DELAY);
     if (ret != pdPASS)
       continue;
+
+    if (notification & NOTIFY_EVENT_CAN_MAC)
+      host_mac.handle_events();
 
     if (notification & NOTIFY_EVENT_CAN_CFG)
       host_can_cfg.handle_events();
@@ -166,6 +167,7 @@ err_code_t report_module_info(void *obj, sacp_hmi_message_t &message) {
 
 void ModuleService::init() {
   TaskHandle_t recv_task = NULL, event_task = NULL;
+  SemaphoreHandle_t recv_signal;
   BaseType_t  __unused ret;
 
   for (int i = 0; i < MODULE_FUNC_PRIORITY_MAX; i++)
@@ -174,10 +176,15 @@ void ModuleService::init() {
   // initialize virtual modules
   init_virtual_modules();
 
+  // stop scheduler, waiting for CAN Host initalization done
+  vPortEnterCritical();
+  recv_signal = xSemaphoreCreateCounting(65535, 0);
+  configASSERT(recv_signal);
+
   // create tasks then the callbacks can be performed
   LOG_I("Creating CAN receiver task...");
   ret = xTaskCreate((TaskFunction_t)handle_can_receive, "can_receive", MODULE_RECEIVE_TASK_STACK_DEPTH,
-        (void *)(this), MODULE_RECEIVE_TASK_PRIORITY, &recv_task);
+        (void *)(recv_signal), MODULE_RECEIVE_TASK_PRIORITY, &recv_task);
   if (ret != pdPASS) {
     LOG_E(LOG_RESULT_FAIL);
     while(1);
@@ -198,9 +205,10 @@ void ModuleService::init() {
   }
 
   // initialize all CAN hosts
-  host_mac.init(event_task, recv_task);
-  host_can_cfg.init(event_task, recv_task);
-  host_can_rou.init(event_task, recv_task);
+  host_mac.init(event_task, recv_signal);
+  host_can_cfg.init(event_task, recv_signal);
+  host_can_rou.init(event_task, recv_signal);
+  vPortExitCritical();
 
   // register callback to handle module inserted
   host_mac.register_callback((void *)this, (smmac_callback)handle_module_inserted);
@@ -304,7 +312,7 @@ err_code_t ModuleService::get_function_list(ModuleBase &module) {
   sacp_module_message_t cmd;
   err_code_t ret;
 
-  uint8_t  recv_buffer[32];
+  uint8_t  recv_buffer[32] {0};
   uint16_t recv_length = 32;
 
   // for CAN link, peer need to be MAC
@@ -320,16 +328,25 @@ err_code_t ModuleService::get_function_list(ModuleBase &module) {
     return ret;
   }
 
-  // 2. apply memory for message id map
-  function_node_t *fnodes = (function_node_t *)pvPortMalloc((recv_buffer[0]) * sizeof(function_node_t));
-  module.set_function_nodes(fnodes, recv_buffer[0]);
+  LOG_I("got [%u] function for module: 0x%08x\n", recv_buffer[SACP_MODULE_RECV_INDEX_DATA], cmd.peer);
 
-  for (int i = 0; i < recv_buffer[0]; i++) {
-    fnodes[i].function_id = recv_buffer[i*2 + 1]<<8 | recv_buffer[i*2 + 2];
+  // first byte is command id
+  if (recv_buffer[SACP_MODULE_RECV_INDEX_DATA] == 0) {
+    LOG_W("no function of module: 0x%08x\n", cmd.peer);
+    return E_FAILURE;
+  }
+
+  // 2. apply memory for message id map
+  function_node_t *fnodes = (function_node_t *)pvPortMalloc((recv_buffer[SACP_MODULE_RECV_INDEX_DATA]) * \
+                            sizeof(function_node_t));
+  module.set_function_nodes(fnodes, recv_buffer[SACP_MODULE_RECV_INDEX_DATA]);
+
+  for (int i = 0; i < recv_buffer[SACP_MODULE_RECV_INDEX_DATA]; i++) {
+    fnodes[i].function_id = recv_buffer[i*2 + 2]<<8 | recv_buffer[i*2 + 3];
   }
 
   // 3. record function ids per the priority
-  return record_function_list(module, fnodes, recv_buffer[0]);
+  return record_function_list(module, fnodes, recv_buffer[SACP_MODULE_RECV_INDEX_DATA]);
 }
 
 
@@ -391,9 +408,10 @@ err_code_t ModuleService::assign_message_id() {
     0
   };
 
+  LOG_I("assigning message id...");
+
   for (int i = 0; i < MODULE_FUNC_PRIORITY_MAX; i++) {
     list_for_each_entry(fnode, &function_list[i], node) {
-      LOG_I("function[%03u]<->message[%03u]\n", fnode->function_id, message_id);
       fnode->message_id = message_id++;
     }
 
@@ -412,7 +430,7 @@ err_code_t ModuleService::assign_message_id() {
 
   // tell host the bound of high priority message
   host_can_rou.set_high_prio_bound(msg_id_records[MODULE_FUNC_PRIORITY_HIGH].bound);
-
+  LOG_I("done\n");
   return E_SUCCESS;
 }
 
@@ -425,7 +443,7 @@ err_code_t ModuleService::bind_message_id() {
       continue;
     ret = bind_message_id(*modules[i]);
     if (ret != E_SUCCESS) {
-      LOG_E("failed to bind message for module: 0x%8x\n", modules[i]->get_mac());
+      LOG_E("failed to bind message for module: 0x%08x\n", modules[i]->get_mac());
       continue;
     }
   }
@@ -452,18 +470,18 @@ err_code_t ModuleService::bind_message_id(ModuleBase &module) {
   }
 
   // set command parameters
-  cmd.peer   = module.get_mac();
-  cmd.ch     = module.get_channel();
+  cmd.peer   = LINK_CAN_COMBINE_CH_ID(module.get_channel(), module.get_mac());
   cmd.cmd_id = MODULE_EXT_CMD_SET_MESG_ID_REQ;
   cmd.data   = buffer;
 
   func_len = module.get_function_nodes(&fnodes);
   if (!fnodes) {
-    LOG_E("cannot get fnode from module: 0x%8x\n", cmd.peer);
+    LOG_E("cannot get fnode from module: 0x%08x\n", cmd.peer);
     return E_NO_RESRC;
   }
 
   for (int i = 0; i < func_len; i++) {
+    LOG_I("function[%03u]<->message[%03u]\n", fnodes[i].function_id, fnodes[i].message_id);
     buffer[index++] = fnodes[i].message_id>>8;
     buffer[index++] = fnodes[i].message_id&0x00FF;
     buffer[index++] = fnodes[i].function_id>>8;

@@ -2,11 +2,16 @@
 #include "motion.h"
 #include "../common/debug.h"
 
+#include "Arduino.h"
+
 MotionService motion_svc;
 
-extern void loop();
 static void motion_background(void *p) {
-  loop();
+  for (;;) {
+    loop();
+
+    vTaskDelay(pdMS_TO_TICKS(1));
+  }
 }
 
 

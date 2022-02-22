@@ -306,7 +306,7 @@ class ModuleBase {
 
     ModuleStatus get_status() { return status; }
 
-    uint8_t get_function_nodes(function_node_t **nodes) { if (nodes) nodes = &function_nodes; return func_length; }
+    uint8_t get_function_nodes(function_node_t **nodes) { if (nodes) *nodes = function_nodes; return func_length; }
     void set_function_nodes(function_node_t *nodes, uint8_t len) { function_nodes = nodes; func_length = len; }
 
   // private methods

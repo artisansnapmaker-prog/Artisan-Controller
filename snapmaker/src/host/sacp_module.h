@@ -26,6 +26,16 @@
 #include "../link/link_uart.h"
 #include "../link/link_can.h"
 
+#define SACP_MODULE_HANDLE_MAX       (4)
+#define SACP_MODULE_WAITING_NODE_MAX (4)
+
+#define SACP_MODULE_RECV_QUEUE_SIZE       (256)
+#define SACP_MODULE_EVENT_QUEUE_SIZE      (192)
+#define SACP_MODULE_PASER_BUFFER_SIZE     (256)
+
+#define SACP_MODULE_RECV_INDEX_CMD    (0)
+#define SACP_MODULE_RECV_INDEX_DATA   (1)
+
 typedef err_code_t (*sacp_module_callback)(void *obj, sacp_module_message_t *);
 
 typedef struct {
@@ -51,14 +61,6 @@ enum SACPParserStatus {
   SACP_PARSER_STA_INVALID
 };
 
-
-#define SACP_MODULE_HANDLE_MAX       (4)
-#define SACP_MODULE_WAITING_NODE_MAX (4)
-
-#define SACP_MODULE_RECV_QUEUE_SIZE       (256)
-#define SACP_MODULE_EVENT_QUEUE_SIZE      (192)
-#define SACP_MODULE_PASER_BUFFER_SIZE     (256)
-
 class HostSACPModule: public HostSACP {
   // public methods
   public:
@@ -71,6 +73,8 @@ class HostSACPModule: public HostSACP {
         handles[i].cb = NULL;
       }
 
+      parser_status = SACP_PARSER_STA_IDLE;
+      parser_head = 0;
       parser_buffer_write = 0;
       parser_waiting_bytes = SACP_V0_MODULE_MIN_SIZE;
     }
@@ -90,7 +94,8 @@ class HostSACPModule: public HostSACP {
 
     sacp_module_handle_t handles[SACP_MODULE_HANDLE_MAX];
     uint8_t handles_max;
-    StreamBufferHandle_t recv_queue;
+    //StreamBufferHandle_t recv_queue;
+    RingBuffer<uint8_t>   recv_buffer;
     MessageBufferHandle_t event_queue;
 
     // waiting queue
@@ -99,7 +104,7 @@ class HostSACPModule: public HostSACP {
 
     SACPParserStatus parser_status;
     uint16_t         parser_waiting_bytes;
-    uint16_t         parser_read;
+    uint16_t         parser_head;
     uint16_t         parser_buffer_write;
     uint8_t          parser_buffer[SACP_MODULE_PASER_BUFFER_SIZE];
 };
@@ -110,7 +115,7 @@ class HostSACPModuleCAN: public HostSACPModule {
   public:
     HostSACPModuleCAN(LinkCANExtData &l, SACPVerion ver): HostSACPModule(ver), link(l) {}
 
-    err_code_t init(TaskHandle_t event_task, TaskHandle_t recv_task);
+    err_code_t init(TaskHandle_t ev_task, SemaphoreHandle_t recv_signal);
     err_code_t send(sacp_module_message_t *message);
 
   // private methods
@@ -131,7 +136,7 @@ class HostSACPModuleUART: public HostSACPModule {
   // public methods
   public:
     HostSACPModuleUART(LinkUART &l, SACPVerion ver): HostSACPModule(ver), link(l) {}
-    err_code_t init(TaskHandle_t event_task, TaskHandle_t recv_task);
+    err_code_t init(TaskHandle_t event_task, EventGroupHandle_t recv_event);
     err_code_t send(sacp_module_message_t *in);
 
   // private methods

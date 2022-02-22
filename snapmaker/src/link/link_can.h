@@ -25,17 +25,12 @@
 #include "../common/error.h"
 #include "../common/ring_buffer.h"
 
-// #define LINK_CAN_CH_SHIFT         (30)
-// #define LINK_CAN_CH_MASK          (0xC0000000)
-// #define LINK_CAN_MAKE_CH(val)     ((((uint32_t)(val))<<LINK_CAN_CH_SHIFT)&LINK_CAN_CH_MASK)
+#define LINK_CAN_STD_ID_MASK            (0x01FF)
 
-// #define LINK_CAN_ID_SHIFT         (1)
-// #define LINK_CAN_ID_MASK          (0x0FFFFFFF)
-// #define LINK_CAN_MAKE_ID(val)     ((((uint32_t)(val))>>LINK_CAN_ID_SHIFT)&LINK_CAN_ID_MASK)
-
-// #define LINK_CAN_MAKE_MAC(ch, id) (LINK_CAN_MAKE_CH(ch) | LINK_CAN_MAKE_ID(id))
-
-//#define LINK_CAN_GET_ID_FROM_MAC(mac)      ((mac)&LINK_CAN_ID_MASK<<LINK_CAN_ID_SHIFT)
+#define LINK_CAN_CH_MASK                (0xC0000000)
+#define LINK_CAN_COMBINE_CH_ID(ch, mac) (((uint32_t)(ch))<<30 | (mac))
+#define LINK_CAN_GET_CH_FROM_MAC(mac)   (LinkCANChannel)((mac)>>30)
+#define LINK_CAN_GET_ID_FROM_MAC(mac)   (((mac)&0x3FFFFFFF)<<1)
 
 enum LinkCANType {
   LINK_CAN_TYPE_EXT_DATA,    // extened data channel
@@ -45,7 +40,6 @@ enum LinkCANType {
   LINK_CAN_TYPE_INVALID
 };
 
-
 enum LinkCANChannel {
   LINK_CAN_CH_1,
   LINK_CAN_CH_2,
@@ -53,17 +47,12 @@ enum LinkCANChannel {
   LINK_CAN_CH_INVALID
 };
 
-#define LINK_CAN_CH_MASK              (0xC0000000)
-#define LINK_CAN_COMBINE_CH(ch, mac)  ((uint32_t)(ch)<<30 | (mac)>>1)
-#define LINK_CAN_GET_CH_FROM_MAC(mac) (LinkCANChannel)((mac)>>30)
-#define LINK_CAN_GET_ID_FROM_MAC(mac) ((mac)<<1)
 typedef struct {
   uint32_t sjw;
   uint32_t bs1;
   uint32_t bs2;
   uint32_t prescale;
 } linkcan_baudrate_t;
-
 
 class LinkCAN {
   // public methods
@@ -82,12 +71,11 @@ class LinkCAN {
 
     err_code_t send_packet(LinkCANChannel ch, void *header, uint8_t *packet);
     err_code_t config_baudrate(LinkCANChannel bus, linkcan_baudrate_t br);
-    err_code_t config_filter(int bus, int filter_bank, int filter_len, uint32_t filt_id, uint32_t mask_id, int rxfifo_num);
+    err_code_t config_filter(LinkCANChannel ch, int filter_bank, int filter_len, uint32_t filt_id, uint32_t mask_id, int rxfifo_num);
 
   // protected properties
   protected:
     TaskHandle_t recv_task;
-
 
   // private properties
   private:
@@ -100,68 +88,49 @@ class LinkCAN {
 class LinkCANExtRemote: public LinkCAN {
   // public methods
   public:
-    void init(TaskHandle_t recv_task, QueueHandle_t recv_queue);
+    void init(SemaphoreHandle_t recv_signal, RingBuffer<uint32_t> *ring_buffer);
 
     err_code_t write(uint32_t cmd);
-    void receive_data(LinkCANChannel ch, uint32_t mac);
-  // private methods
-  private:
-
-  // public properties
-  public:
-
+    BaseType_t receive_data(LinkCANChannel ch, uint32_t id);
 
   // private properties
   private:
-    TaskHandle_t receiver_task;
-    QueueHandle_t queue;
+    SemaphoreHandle_t    receiver_signal;
+    RingBuffer<uint32_t> *receiver_buffer;
 };
+
 
 class LinkCANExtData: public LinkCAN {
   // public methods
   public:
-    void init(TaskHandle_t recv_task, StreamBufferHandle_t recv_queue);
+    void init(SemaphoreHandle_t recv_signal, RingBuffer<uint8_t> *ring_buffer);
 
-    err_code_t write(uint32_t mac, uint8_t *data, uint16_t length);
-    void receive_data(LinkCANChannel ch, uint8_t *data, uint8_t length);
-
-  // private methods
-  private:
-
-
-
-  // public properties
-  public:
-
+    err_code_t write(LinkCANChannel ch, uint32_t mac, uint8_t *data, uint16_t length);
+    BaseType_t receive_data(uint8_t *data, uint8_t length);
 
   // private properties
   private:
-    TaskHandle_t receiver_task;
-    StreamBufferHandle_t queue;
+    SemaphoreHandle_t    receiver_signal;
+    RingBuffer<uint8_t> *receiver_buffer;
 };
 
+
+typedef struct {
+  uint16_t id;
+  uint8_t  data[8];
+} linkcan_std_data_t;
 class LinkCANStdData: public LinkCAN {
   // public methods
   public:
-    void init(TaskHandle_t recv_task, MessageBufferHandle_t recv_queue);
+    void init(SemaphoreHandle_t recv_signal, RingBuffer<linkcan_std_data_t> *ring_buffer);
 
     err_code_t write(LinkCANChannel ch, uint16_t id, uint8_t *data, uint16_t length);
-    void receive_data(LinkCANChannel ch, uint8_t *data, uint8_t length);
-
-  // private methods
-  private:
-
-
-
-  // public properties
-  public:
-
+    BaseType_t receive_data(linkcan_std_data_t &data, uint8_t length);
 
   // private properties
   private:
-    TaskHandle_t receiver_task;
-    MessageBufferHandle_t queue;
-
+    SemaphoreHandle_t    receiver_signal;
+    RingBuffer<linkcan_std_data_t> *receiver_buffer;
 };
 
 extern LinkCANExtRemote link_can_scan;

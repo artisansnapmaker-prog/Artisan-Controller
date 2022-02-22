@@ -106,7 +106,9 @@ static TaskHandle_t hmi_event_task;
 static void hmi_recv_handler(void *param) {
 
   for (;;) {
-    host_hmi.handle_receive();
+    // host_hmi.handle_receive();
+
+    vTaskDelay(pdMS_TO_TICKS(10));
   }
 }
 
@@ -114,6 +116,8 @@ static void hmi_recv_handler(void *param) {
 static void hmi_event_handler(void *param) {
   for (;;) {
     host_hmi.handle_events();
+
+    vTaskDelay(pdMS_TO_TICKS(10));
   }
 }
 
@@ -125,7 +129,7 @@ static void system_thread(void *p) {
 
   LOG_I("Creating HMI receive task...");
   ret = xTaskCreate((TaskFunction_t)hmi_recv_handler, "hmi_recv", HMI_RECV_TASK_STACK_SIZE,
-        NULL, HMI_EVENT_TASK_STACK_SIZE, &hmi_recv_task);
+        NULL, HMI_RECV_TASK_PRIORITY, &hmi_recv_task);
   if (ret != pdPASS) {
     LOG_E(LOG_RESULT_FAIL);
     while(1);
@@ -146,15 +150,16 @@ static void system_thread(void *p) {
   }
 
   // sacp host init
-  host_hmi.init(hmi_event_task, hmi_recv_task);
+  //host_hmi.init(hmi_event_task, hmi_recv_task);
 
-  // after done init, recovery priority
-  vTaskPrioritySet(NULL, SYSTEM_TASK_PRIORITY);
+  motion_svc.init();
 
   // loop
   for (;;) {
-    module_svc.background_thread();
+    //module_svc.background_thread();
     system_svc.background_thread();
+
+    vTaskDelay(pdMS_TO_TICKS(100));
   }
 
 }
@@ -177,16 +182,16 @@ void SnapmakerPrinter::post_init() {
   // OUT_WRITE(POWER_CTRL_MOTOR, POWER_CTRL_ON);
   OUT_WRITE(POWER_CTRL_4P, POWER_CTRL_ON);
 
+  debug.init();
 
-  LOG_I("Creating system task...");
   ret = xTaskCreate((TaskFunction_t)system_thread, "system", SYSTEM_TASK_STACK_SIZE,
-        (void *)(this), HIGHEST_TASK_PRIORITY,  &thandle_can_recv);
+        (void *)(this), SYSTEM_TASK_PRIORITY,  &thandle_can_recv);
   if (ret != pdPASS) {
-    LOG_E(LOG_RESULT_FAIL);
+    // LOG_E(LOG_RESULT_FAIL);
     while(1);
   }
   else {
-    LOG_I(LOG_RESULT_OK);
+    // LOG_I(LOG_RESULT_OK);
   }
 
   vTaskStartScheduler();

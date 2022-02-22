@@ -24,6 +24,7 @@
 #include "base.h"
 #include "../link/link_can.h"
 
+#define SM_CAN_RECV_QUEUE_SIZE   (10)
 #define SM_CAN_QUEUE_SIZE        (256)
 #define SM_CAN_WAITING_NODE_MAX  (4)
 
@@ -56,7 +57,7 @@ class HostSMCAN: public HostBase {
 
     }
 
-    err_code_t init(TaskHandle_t event_task, TaskHandle_t recv_task);
+    err_code_t init(TaskHandle_t ev_task, SemaphoreHandle_t recv_signal);
 
     err_code_t send(smcan_message_t *msg);
 
@@ -74,13 +75,14 @@ class HostSMCAN: public HostBase {
   private:
     uint16_t high_prio_bound;
     LinkCANStdData &link;
-    MessageBufferHandle_t recv_queue;
     MessageBufferHandle_t event_queue;
 
     smcan_message_handle_t *handles;
 
     xSemaphoreHandle     waiting_lock;
     smcan_waiting_node_t waiting_nodes[SM_CAN_WAITING_NODE_MAX];
+
+    RingBuffer<linkcan_std_data_t> recv_buffer;
 };
 
 extern HostSMCAN host_can_rou;

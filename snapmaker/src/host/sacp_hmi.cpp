@@ -3,7 +3,7 @@
 
 HostSACPHMI host_hmi(SACP_VER_1);
 
-err_code_t HostSACPHMI::init(TaskHandle_t event_task, TaskHandle_t recv_task) {
+err_code_t HostSACPHMI::init(TaskHandle_t event_task, SemaphoreHandle_t recv_signal) {
   return E_SUCCESS;
 }
 

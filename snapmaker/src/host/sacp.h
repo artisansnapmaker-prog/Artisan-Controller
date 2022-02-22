@@ -77,7 +77,7 @@ enum SACPV0FrameIndex {
 
 typedef struct {
   uint32_t peer;
-  LinkCANChannel ch;
+  uint8_t  ch;
   uint8_t  cmd_id;
   uint16_t length;
   uint8_t  *data;

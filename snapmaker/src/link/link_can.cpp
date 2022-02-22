@@ -55,20 +55,21 @@ void HAL_CAN_MspInit(CAN_HandleTypeDef* hcan) {
   HAL_GPIO_Init(GPIOB, &gpio_init_cfg);
 #endif
 
-  //HAL_NVIC_SetPriorityGrouping(NVIC_PRIORITYGROUP_2);
+  // HAL_NVIC_SetPriorityGrouping(NVIC_PRIORITYGROUP_2);
+  // must set the same interrupt
   HAL_NVIC_SetPriority(CAN1_RX0_IRQn, 8, 0);
   HAL_NVIC_EnableIRQ(CAN1_RX0_IRQn);
-  HAL_NVIC_SetPriority(CAN1_RX1_IRQn, 9, 0);
+  HAL_NVIC_SetPriority(CAN1_RX1_IRQn, 8, 0);
   HAL_NVIC_EnableIRQ(CAN1_RX1_IRQn);
 
   HAL_NVIC_SetPriority(CAN2_RX0_IRQn, 8, 0);
   HAL_NVIC_EnableIRQ(CAN2_RX0_IRQn);
-  HAL_NVIC_SetPriority(CAN2_RX1_IRQn, 9, 0);
+  HAL_NVIC_SetPriority(CAN2_RX1_IRQn, 8, 0);
   HAL_NVIC_EnableIRQ(CAN2_RX1_IRQn);
 }
 
 
-err_code_t LinkCAN::config_baudrate(LinkCANChannel bus, linkcan_baudrate_t br) {
+err_code_t LinkCAN::config_baudrate(LinkCANChannel ch, linkcan_baudrate_t br) {
   CAN_InitTypeDef		init_cfg;
 
   init_cfg.Prescaler            = br.prescale;
@@ -83,15 +84,15 @@ err_code_t LinkCAN::config_baudrate(LinkCANChannel bus, linkcan_baudrate_t br) {
   init_cfg.AutoRetransmission   = ENABLE;
   init_cfg.ReceiveFifoLocked    = DISABLE;
 
-  bus_handler[bus].Init = init_cfg;
+  bus_handler[ch].Init = init_cfg;
 
-  if (HAL_CAN_Init(&bus_handler[bus]) != HAL_OK)
+  if (HAL_CAN_Init(&bus_handler[ch]) != HAL_OK)
     return E_FAILURE;
   return E_SUCCESS;
 }
 
 
-err_code_t LinkCAN::config_filter(int bus, int filter_bank, int filter_len, uint32_t filt_id, uint32_t mask_id, int rxfifo_num) {
+err_code_t LinkCAN::config_filter(LinkCANChannel ch, int filter_bank, int filter_len, uint32_t filt_id, uint32_t mask_id, int rxfifo_num) {
   CAN_FilterTypeDef filter_cfg;
 
   filter_cfg.FilterBank = filter_bank;
@@ -110,7 +111,7 @@ err_code_t LinkCAN::config_filter(int bus, int filter_bank, int filter_len, uint
   filter_cfg.SlaveStartFilterBank = 24;
   filter_cfg.FilterActivation = ENABLE;
 
-  if (HAL_CAN_ConfigFilter(&bus_handler[bus], &filter_cfg) != HAL_OK)
+  if (HAL_CAN_ConfigFilter(&bus_handler[ch], &filter_cfg) != HAL_OK)
       return E_FAILURE;
   return E_SUCCESS;
 }
@@ -169,78 +170,71 @@ void LinkCAN::hal_init() {
 
 
 bool LinkCAN::lock(LinkCANChannel ch) {
-  // TODO:
-
-  return true;
+  if (xSemaphoreTake(LinkCAN::locks[ch], 100) != pdPASS)
+    return false;
+  else
+    return true;
 }
 
 
 void LinkCAN::unlock(LinkCANChannel ch) {
-  // TODO:
+  xSemaphoreGive(LinkCAN::locks[ch]);
 }
 
 err_code_t LinkCAN::send_packet(LinkCANChannel ch, void *header, uint8_t *packet) {
-  uint8_t retry;
-  uint32_t count = 0, reg_tsr, reg_esr, tx_mail_box;
-
   CAN_TxHeaderTypeDef *pkt_header = (CAN_TxHeaderTypeDef *)header;
-  HAL_StatusTypeDef ret;
-  uint8_t buffer[8];
+  HAL_StatusTypeDef   ret;
 
-  if (!lock(ch))
-    return E_NO_RESRC;
+  uint32_t tx_mail_box;
+  uint8_t  buffer[8];
+  bool     lock_res;
 
-  retry = 1;
-  while(retry--) {
 
-    // because vendor code doesn't check if data buffer is accessable, so we need to check it
-    if (packet)
-      ret = HAL_CAN_AddTxMessage(&bus_handler[ch], pkt_header, packet, &tx_mail_box);
-    else
-      ret = HAL_CAN_AddTxMessage(&bus_handler[ch], pkt_header, buffer, &tx_mail_box);
-
-    if(ret != HAL_OK) {
-      LOG_E("failed to send CAN packet: %d\n", ret);
-      unlock(ch);
-      return false;
-    }
-
-    //while pending
-    do {
-      delay(1);
-
-      reg_tsr = bus_handler[ch].Instance->TSR & (CAN_TSR_TXOK0 | CAN_TSR_RQCP0 | CAN_TSR_TME0);
-      reg_esr = bus_handler[ch].Instance->ESR;
-
-      if (reg_tsr == (CAN_TSR_TXOK0 | CAN_TSR_RQCP0 | CAN_TSR_TME0)) {
-        unlock(ch);
-        return E_SUCCESS;
-      }
-      else if (reg_tsr == (CAN_TSR_RQCP0 | CAN_TSR_TME0)) {
-        break;
-      }
-    } while (++count < 10);
+  // check if we have free TX box
+  if (HAL_CAN_GetTxMailboxesFreeLevel(&bus_handler[ch]) == 0) {
+    LOG_E("CAN[%u] bus busy!", ch);
+    return E_BUSY;
   }
 
-  unlock(ch);
 
-  LOG_E("LinkCAN esr: 0x%X\n", reg_esr);
-  return !reg_esr;
+  lock_res = lock(ch);
+  if (packet)
+    ret = HAL_CAN_AddTxMessage(&bus_handler[ch], pkt_header, packet, &tx_mail_box);
+  else
+    ret = HAL_CAN_AddTxMessage(&bus_handler[ch], pkt_header, buffer, &tx_mail_box);
+
+  HAL_CAN_IsTxMessagePending(&bus_handler[ch], tx_mail_box);
+
+  if (lock_res)
+    unlock(ch);
+
+  if(ret != HAL_OK) {
+    LOG_E("CAN[%u] err: HAL ret=0x%u,sta=%u,code=%u,tbox=%u\n", ch, ret, bus_handler[ch].State, bus_handler[ch].ErrorCode, tx_mail_box);
+    return E_HARDWARE;
+  }
+
+  vTaskDelay(pdMS_TO_TICKS(1));
+
+  return E_SUCCESS;
 }
 
 
-void LinkCANExtRemote::init(TaskHandle_t recv_task, QueueHandle_t recv_queue) {
+void LinkCANExtRemote::init(SemaphoreHandle_t recv_signal, RingBuffer<uint32_t> *ring_buffer) {
   hal_init();
 
-  queue = recv_queue;
-  receiver_task = recv_task;
+  receiver_signal = recv_signal;
+  receiver_buffer = ring_buffer;
 }
 
-void LinkCANExtRemote::receive_data(LinkCANChannel ch, uint32_t mac) {
-  mac = LINK_CAN_COMBINE_CH(ch, mac);
+BaseType_t LinkCANExtRemote::receive_data(LinkCANChannel ch, uint32_t id) {
+  BaseType_t if_wakeup_task = pdFALSE;
+  uint32_t   mac = ((uint32_t)ch)<<30 | (id>>1);
 
-  xQueueSendFromISR(queue, (void*)&mac, NULL);
-  xTaskNotifyFromISR(receiver_task, NOTIFY_RECV_CAN_EXT_REMOTE, eSetBits, NULL);
+  receiver_buffer->insert_one(mac);
+
+  xSemaphoreGiveFromISR(receiver_signal, &if_wakeup_task);
+
+  return if_wakeup_task;
 }
 
 err_code_t LinkCANExtRemote::write(uint32_t cmd) {
@@ -260,23 +254,30 @@ err_code_t LinkCANExtRemote::write(uint32_t cmd) {
 }
 
 
-void LinkCANExtData::init(TaskHandle_t recv_task, StreamBufferHandle_t recv_queue) {
+void LinkCANExtData::init(SemaphoreHandle_t recv_signal, RingBuffer<uint8_t> *ring_buffer) {
   hal_init();
 
-  queue = recv_queue;
-  receiver_task = recv_task;
+  receiver_buffer = ring_buffer;
+  receiver_signal = recv_signal;
 }
 
-void LinkCANExtData::receive_data(LinkCANChannel ch, uint8_t *data, uint8_t length) {
-  xStreamBufferSendFromISR(queue, data, length, NULL);
-  xTaskNotifyFromISR(receiver_task, NOTIFY_RECV_CAN_EXT_DATA, eSetBits, NULL);
+BaseType_t LinkCANExtData::receive_data(uint8_t *data, uint8_t length) {
+  BaseType_t if_wakeup_task = pdFALSE;
+  int32_t len;
+
+  len = receiver_buffer->insert_multi(data, length);
+  if (length != len) {
+    length = len;
+  }
+
+  xSemaphoreGiveFromISR(receiver_signal, &if_wakeup_task);
+
+  return if_wakeup_task;
 }
 
-err_code_t LinkCANExtData::write(uint32_t mac, uint8_t *data, uint16_t length) {
+err_code_t LinkCANExtData::write(LinkCANChannel ch, uint32_t mac, uint8_t *data, uint16_t length) {
   err_code_t   ret = 0;
   CAN_TxHeaderTypeDef header;
-
-  LinkCANChannel ch = (LinkCANChannel)LINK_CAN_GET_CH_FROM_MAC(mac);
 
   header.IDE = CAN_ID_EXT;
   header.RTR = CAN_RTR_DATA;
@@ -288,7 +289,7 @@ err_code_t LinkCANExtData::write(uint32_t mac, uint8_t *data, uint16_t length) {
       else
         header.DLC = length - i;
 
-      ret = send_packet(ch, &header, data + 8*i);
+      ret = send_packet(ch, &header, data + i);
 
       if (ret != E_SUCCESS) {
         LOG_E("failed to send packet for mac: 0x%x\n", mac);
@@ -300,16 +301,21 @@ err_code_t LinkCANExtData::write(uint32_t mac, uint8_t *data, uint16_t length) {
 }
 
 
-void LinkCANStdData::init(TaskHandle_t recv_task, MessageBufferHandle_t recv_queue) {
+void LinkCANStdData::init(SemaphoreHandle_t recv_signal, RingBuffer<linkcan_std_data_t> *ring_buffer) {
   hal_init();
 
-  queue = recv_queue;
-  receiver_task = recv_task;
+  receiver_signal = recv_signal;
+  receiver_buffer = ring_buffer;
 }
 
-void LinkCANStdData::receive_data(LinkCANChannel ch, uint8_t *data, uint8_t length) {
-  xMessageBufferSendFromISR(queue, data, length, NULL);
-  xTaskNotifyFromISR(recv_task, NOTIFY_RECV_CAN_STD_DATA, eSetBits, NULL);
+BaseType_t LinkCANStdData::receive_data(linkcan_std_data_t &data, uint8_t length) {
+  BaseType_t if_wakeup_task = pdFALSE;;
+
+  receiver_buffer->insert_one(data);
+
+  xSemaphoreGiveFromISR(receiver_signal, &if_wakeup_task);
+
+  return if_wakeup_task;
 }
 
 err_code_t LinkCANStdData::write(LinkCANChannel ch, uint16_t id, uint8_t *data, uint16_t length) {
@@ -334,10 +340,11 @@ err_code_t LinkCANStdData::write(LinkCANChannel ch, uint16_t id, uint8_t *data, 
 static void irq_callback(LinkCANChannel ch,  uint8_t fifo_index) {
   CAN_TypeDef *can_instance = bus_handler[ch].Instance;
   CAN_RxHeaderTypeDef	rx_header;
-  uint8_t   buffer[12];
 
+  linkcan_std_data_t msg;
+  BaseType_t ret = pdFALSE;
 
-  if (HAL_CAN_GetRxMessage(&bus_handler[ch], fifo_index, &rx_header, buffer+2) != HAL_OK)
+  if (HAL_CAN_GetRxMessage(&bus_handler[ch], fifo_index, &rx_header, msg.data) != HAL_OK)
     return;
 
   if(fifo_index == 0)
@@ -345,28 +352,32 @@ static void irq_callback(LinkCANChannel ch,  uint8_t fifo_index) {
   else
     can_instance->RF1R |= CAN_RF1R_RFOM1;
 
+
   // standard data frame
   if (rx_header.IDE == CAN_ID_STD && fifo_index == STD_FRAME_FIFO) {
-      *(uint16_t *)buffer = (uint16_t)rx_header.StdId;
-      link_can_rou.receive_data(ch, buffer, rx_header.DLC + 2);
+    msg.id = rx_header.StdId&LINK_CAN_STD_ID_MASK;
+    ret = link_can_rou.receive_data(msg, rx_header.DLC);
+    portYIELD_FROM_ISR(ret);
     return;
   }
 
   // remote frame should be put in RX FIFO1
   if (fifo_index != EXT_FRAME_FIFO) {
-    //TODO: raise error
+    //TODO: an error
     return;
   }
 
   // extended data frame
   if (rx_header.IDE == CAN_ID_EXT && rx_header.RTR == CAN_RTR_DATA) {
-    link_can_cfg.receive_data(ch, buffer + 2, rx_header.DLC);
+    ret = link_can_cfg.receive_data(msg.data, rx_header.DLC);
+    portYIELD_FROM_ISR(ret);
     return;
   }
 
   // extended remote frame
   if (rx_header.IDE == CAN_ID_EXT && rx_header.RTR == CAN_RTR_REMOTE) {
-      link_can_scan.receive_data(ch, rx_header.ExtId);
+      ret = link_can_scan.receive_data(ch, rx_header.ExtId);
+    portYIELD_FROM_ISR(ret);
     return;
   }
 }

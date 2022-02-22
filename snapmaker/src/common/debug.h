@@ -23,8 +23,6 @@
 
 #include <stdio.h>
 #include "config.h"
-#include "protocol_sstp.h"
-//#include "src/core/macros.h"
 
 #include "error.h"
 
@@ -87,6 +85,8 @@ class SnapDebug {
   public:
     void Log(SnapDebugLevel level, const char *fmt, ...);
 
+    void init();
+
     void ShowInfo();
     void SetLevel(uint8_t port, SnapDebugLevel l);
     SnapDebugLevel GetLevel();
@@ -96,12 +96,14 @@ class SnapDebug {
 
     void ShowException();
 
-    err_code_t SetLogLevel(SSTP_Event_t &event);
+    // err_code_t SetLogLevel(SSTP_Event_t &event);
 
   private:
     void SendLog2Screen(SnapDebugLevel l);
 
     struct SnapDebugInfo info;
+
+    SemaphoreHandle_t lock;
 };
 
 // interface for external use

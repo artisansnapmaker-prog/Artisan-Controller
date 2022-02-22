@@ -26,12 +26,14 @@
 
 typedef err_code_t (*smmac_callback)(void *obj, uint32_t mac, LinkCANChannel ch);
 
+#define SM_MAC_RECV_BUFFER_SIZE (32)
+
 class HostSMMAC: public HostBase {
   // public methods
   public:
     HostSMMAC(LinkCANExtRemote &l): HostBase(), link(l) {}
 
-    err_code_t init(TaskHandle_t event_task, TaskHandle_t recv_task);
+    err_code_t init(TaskHandle_t ev_task, SemaphoreHandle_t recv_event);
 
     err_code_t register_callback(void *obj, smmac_callback cb) {
       callback = cb;
@@ -43,14 +45,16 @@ class HostSMMAC: public HostBase {
 
     void handle_receive();
 
-    void handle_events() {}
+    void handle_events();
 
   // private properties
   private:
-    LinkCANExtRemote  &link;
-    smmac_callback    callback = NULL;
-    void              *callback_obj;
-    QueueHandle_t     recv_queue;
+    RingBuffer<uint32_t>  recv_buffer;
+    LinkCANExtRemote      &link;
+
+    QueueHandle_t         event_queue;
+    smmac_callback        callback = NULL;
+    void                  *callback_obj;
 };
 
 extern HostSMMAC host_mac;

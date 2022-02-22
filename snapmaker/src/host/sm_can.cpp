@@ -5,9 +5,10 @@
 HostSMCAN host_can_rou(link_can_rou);
 
 
-err_code_t HostSMCAN::init(TaskHandle_t event_task, TaskHandle_t recv_task) {
-  recv_queue = xMessageBufferCreate(SM_CAN_QUEUE_SIZE);
-  configASSERT(recv_queue);
+err_code_t HostSMCAN::init(TaskHandle_t ev_task, SemaphoreHandle_t recv_signal) {
+
+  linkcan_std_data_t *buffer = (linkcan_std_data_t *)pvPortMalloc(sizeof(linkcan_std_data_t) * SM_CAN_RECV_QUEUE_SIZE);
+  recv_buffer.init(buffer, SM_CAN_RECV_QUEUE_SIZE);
 
   event_queue = xMessageBufferCreate(SM_CAN_QUEUE_SIZE);
   configASSERT(event_queue);
@@ -28,10 +29,8 @@ err_code_t HostSMCAN::init(TaskHandle_t event_task, TaskHandle_t recv_task) {
     handles[i].obj = NULL;
   }
 
-  link.init(recv_task, recv_queue);
-
-  event_task = event_task;
-  receiver_task = recv_task;
+  event_task = ev_task;
+  link.init(recv_signal, &recv_buffer);
 
   return E_SUCCESS;
 }
@@ -126,24 +125,30 @@ err_code_t HostSMCAN::register_callback(uint16_t msg_id, void *obj, smcan_callba
 
 void HostSMCAN::handle_receive() {
   uint8_t buffer[SM_CAN_MESSAGE_SIZE];
-  size_t length;
+  int32_t length;
   uint16_t msg_id;
   MessageBufferHandle_t tmp_queue;
+  linkcan_std_data_t msg;
 
   for (;;) {
-    length = xMessageBufferReceive(recv_queue, buffer, SM_CAN_MESSAGE_SIZE, 0);
+    // length = xMessageBufferReceive(recv_queue, buffer, SM_CAN_MESSAGE_SIZE, 0);
+    vPortEnterCritical();
+    length = recv_buffer.remove_one(msg);
+    vPortExitCritical();
 
     // normally, the length of message should be longer than 2
-    if (length <= 2)
+    if (length == 0)
       break;
 
     // first 2 bytes is message id
-    msg_id = *(uint16_t *)buffer;
+    msg_id = msg.id;
 
     if (msg_id >= MODULE_SUPPORT_MESSAGE_ID_MAX) {
       LOG_E("message id [%u] from module is out of range [%d]\n", msg_id, MODULE_SUPPORT_MESSAGE_ID_MAX);
-      continue;
+      break;
     }
+
+    LOG_I("sm can msg: %u\n", msg_id);
 
     // check if some is waiting for this message
     tmp_queue = NULL;
@@ -160,7 +165,7 @@ void HostSMCAN::handle_receive() {
 
     // if yes, send message to who is waiting for
     if (tmp_queue) {
-      xMessageBufferSend(tmp_queue, buffer, length, 0);
+      xMessageBufferSend(tmp_queue, msg.data, 8, 0);
       continue;
     }
 
@@ -173,7 +178,7 @@ void HostSMCAN::handle_receive() {
     }
 
     // otherwise, send the message to event handler
-    xMessageBufferSend(event_queue, buffer, length, 0);
+    xMessageBufferSend(event_queue,  msg.data, 8, 0);
   }
 }
 

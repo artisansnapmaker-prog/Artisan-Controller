@@ -32,174 +32,158 @@
 
 template <typename T>
 class RingBuffer {
- public:
-  void Init(int32_t size, T *buffer) {
-    size_ = size;
-    head_ = 0;
-    tail_ = 0;
-    is_full_ = false;
-    data = buffer;
-  }
-
-  int32_t InsertOne(const T& element) {
-    if (IsFull()) {
-      return 0;
+  public:
+    void init(T *buffer, int32_t buf_size) {
+      size = buf_size;
+      head = 0;
+      tail = 0;
+      full = false;
+      data = buffer;
     }
 
-    data[tail_] = element;
-    if (++tail_ >= size_)
-      tail_ = 0;
-
-    if (tail_ == head_) {
-      is_full_ = true;
-    }
-
-    return 1;
-  }
-
-  int32_t InsertOne() {
-    if (IsFull()) {
-      return 0;
-    }
-
-    if (++tail_ >= size_)
-      tail_ = 0;
-
-    if (tail_ == head_) {
-      is_full_ = true;
-    }
-
-    return 1;
-  }
-
-  int32_t ReadOne(T &val) {
-    if (IsEmpty()) {
-      return 0;
-    }
-
-    val = data[head_];
-    return 1;
-  }
-
-  T * HeadAddress() {
-    if (IsEmpty()) {
-      return NULL;
-    }
-
-    return &data[head_];
-  }
-
-  T * TailAddress() {
-    if (IsFull()) {
-      return NULL;
-    }
-
-    return &data[tail_];
-  }
-
-  int32_t RemoveOne(T &val) {
-    if (IsEmpty()) {
-      return 0;
-    }
-
-    val = data[head_];
-    if (++head_ >= size_)
-      head_ = 0;
-    is_full_ = false;
-    return 1;
-  }
-
-  int32_t RemoveOne() {
-    if (IsEmpty()) {
-      return 0;
-    }
-
-    if (++head_ >= size_)
-      head_ = 0;
-    is_full_ = false;
-    return 1;
-  }
-
-  int32_t InsertMulti(T *buffer, int32_t to_insert) {
-    if (IsFull()) {
-      return 0;
-    }
-
-    if (Free() < to_insert)
-      return 0;
-
-    for (int32_t i = 0; i < to_insert; i++) {
-      data[tail_] = buffer[i];
-      if (++tail_ >= size_)
-        tail_ = 0;
-    }
-
-    if (tail_ == size_) {
-      is_full_ = true;
-    }
-    return to_insert;
-  }
-
-  int32_t RemoveMulti(T *buffer, int32_t to_remove) {
-    if (IsEmpty()) {
-      return 0;
-    }
-
-    // if didn't specify number to remove, try to remove all
-    if (0 == to_remove) {
-      to_remove = Available();
-    }
-    else if (Available() < to_remove) {
-      to_remove = Available();
-    }
-
-    for (int32_t i = 0; i < to_remove; i++) {
-      buffer[i] = data[head_];
-      if (++head_ >= size_) {
-        head_ = 0;
+    int32_t insert_one(const T& element) {
+      if (full) {
+        return 0;
       }
+
+      data[tail] = element;
+      if (++tail >= size)
+        tail = 0;
+
+      if (tail == head) {
+        full = true;
+      }
+
+      return 1;
     }
-    is_full_ = false;
-    return to_remove;
-  }
 
-  // compiler will treat the functions who have body defined
-  // in Class as inline function by default
-  bool IsFull() {
-    return is_full_;
-  }
+    int32_t insert_one() {
+      if (full) {
+        return 0;
+      }
 
-  bool IsEmpty() {
-    return (head_ == tail_) && (!is_full_);
-  }
+      if (++tail >= size)
+        tail = 0;
 
-  int32_t Available() {
-    int32_t delta = (int32_t)(tail_ - head_);
-    if (delta == 0 && is_full_) {
-      return size_;
+      if (tail == head) {
+        full = true;
+      }
+
+      return 1;
     }
-    return (delta < 0)? (delta + size_) : delta;
-  }
 
-  int32_t Free() {
-    int32_t delta = (int32_t)(tail_ - head_);
-    if (is_full_) {
-      return 0;
+    int32_t peek_one(T &val) {
+      if (is_empty()) {
+        return 0;
+      }
+
+      val = data[head];
+      return 1;
     }
-    return (delta >= 0)? (size_ - delta) : -delta;
-  }
 
-  void Reset() {
-    head_ = tail_ = 0;
-    is_full_ = false;
-  }
+    int32_t remove_one(T &val) {
+      if (is_empty()) {
+        return 0;
+      }
 
- private:
-  int32_t size_;
-  int32_t head_;
-  int32_t tail_;
-  bool is_full_;
-  T *data;
+      val = data[head];
+      if (++head >= size)
+        head = 0;
+      full = false;
+      return 1;
+    }
+
+    int32_t remove_one() {
+      if (is_empty()) {
+        return 0;
+      }
+
+      if (++head >= size)
+        head = 0;
+      full = false;
+      return 1;
+    }
+
+    int32_t insert_multi(T *buffer, int32_t to_insert) {
+      if (is_full()) {
+        return 0;
+      }
+
+      if (free() < to_insert)
+        return 0;
+
+      for (int32_t i = 0; i < to_insert; i++) {
+        data[tail] = buffer[i];
+        if (++tail >= size)
+          tail = 0;
+      }
+
+      if (tail == head) {
+        full = true;
+      }
+      return to_insert;
+    }
+
+    int32_t remove_multi(T *buffer, int32_t to_remove) {
+      if (is_empty()) {
+        return 0;
+      }
+
+      // if didn't specify number to remove, try to remove all
+      if (0 == to_remove) {
+        to_remove = available();
+      }
+      else if (available() <= to_remove) {
+        to_remove = available();
+      }
+
+      for (int32_t i = 0; i < to_remove; i++) {
+        buffer[i] = data[head];
+        if (++head >= size) {
+          head = 0;
+        }
+      }
+      full = false;
+      return to_remove;
+    }
+
+    // compiler will treat the functions who have body defined
+    // in Class as inline function by default
+    bool is_full() {
+      return full;
+    }
+
+    bool is_empty() {
+      return (head == tail) && (!full);
+    }
+
+    int32_t available() {
+      int32_t delta = (int32_t)(tail - head);
+      if (delta == 0 && full) {
+        return size;
+      }
+      return (delta < 0)? (delta + size) : delta;
+    }
+
+    int32_t free() {
+      int32_t delta = (int32_t)(tail - head);
+      if (full) {
+        return 0;
+      }
+      return (delta >= 0)? (size - delta) : -delta;
+    }
+
+    void reset() {
+      head = tail = 0;
+      full = false;
+    }
+
+  private:
+    int32_t size = 0;
+    int32_t head = 0;
+    int32_t tail = 0;
+    bool full = false;
+    T *data;
 };
 
 

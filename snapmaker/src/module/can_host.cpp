@@ -387,7 +387,7 @@ void CanHost::ReceiveHandler(void *parameter) {
     if (proto_sstp_.Parse(can.ext_cmd(), parser_buffer_, tmp_u16) == E_SUCCESS) {
       // if we got a complete command in the ring buffer, one MAC id will be in the following 4 bytes
       // need to check it out, then we know who send us the command
-      // can.ext_cmd().RemoveMulti((uint8_t *)&mac, 4);
+      // can.ext_cmd().remove_multi((uint8_t *)&mac, 4);
 
       xSemaphoreTake(ext_wait_lock_, 0);
       // check if there is some one is wait for this ack

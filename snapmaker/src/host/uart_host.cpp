@@ -35,7 +35,7 @@ void UartHost::Init(HardwareSerial *serial, uint8_t interrupt_prio) {
   buffer = (uint8_t *)pvPortMalloc(1024);
   configASSERT(buffer);
 
-  cmd_buffer_.Init(1024, buffer);
+  cmd_buffer_.init(buffer, 1024);
 
   serial->begin(115200);
 
@@ -62,7 +62,7 @@ err_code_t UartHost::CheckoutCmd(uint8_t *cmd, uint16_t &length) {
     if (c == -1)
       break;
 
-    cmd_buffer_.InsertOne((uint8_t)c);
+    cmd_buffer_.insert_one((uint8_t)c);
   }
 
   return sstp_.Parse(cmd_buffer_, cmd, length);
@@ -78,7 +78,7 @@ void UartHost::FlushOutput() {
 
 void UartHost::FlushInput() {
   while (serial_->read() != -1);
-  cmd_buffer_.Reset();
+  cmd_buffer_.reset();
 }
 
 

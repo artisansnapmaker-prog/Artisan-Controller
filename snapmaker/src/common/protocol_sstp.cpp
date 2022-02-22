@@ -179,7 +179,7 @@ err_code_t ProtocolSSTP::Parse(RingBuffer<uint8_t> &ring, uint8_t *out, uint16_t
   switch (state_) {
   case PROTOCOL_SSTP_STATE_IDLE:
     // SOF has 2 bytes, so try to read 2 bytes
-    if (ring.RemoveMulti(header_, (int32_t)SSTP_PDU_SOF_SIZE) != SSTP_PDU_SOF_SIZE)
+    if (ring.remove_multi(header_, (int32_t)SSTP_PDU_SOF_SIZE) != SSTP_PDU_SOF_SIZE)
       return E_NO_RESRC;
 
     // check if we got SOF
@@ -191,7 +191,7 @@ err_code_t ProtocolSSTP::Parse(RingBuffer<uint8_t> &ring, uint8_t *out, uint16_t
 
   case PROTOCOL_SSTP_STATE_FOUND_SOF:
     // check if ring buffer has the remain of protocol header_
-    if (ring.Available() < (SSTP_HEADER_SIZE - SSTP_PDU_SOF_SIZE)) {
+    if (ring.available() < (SSTP_HEADER_SIZE - SSTP_PDU_SOF_SIZE)) {
       if (++timeout_ > SSTP_HEADER_TIMEOUT) {
         state_ = PROTOCOL_SSTP_STATE_IDLE;
         return E_TIMEOUT;
@@ -199,7 +199,7 @@ err_code_t ProtocolSSTP::Parse(RingBuffer<uint8_t> &ring, uint8_t *out, uint16_t
       return E_NO_HEADER;
     }
 
-    ring.RemoveMulti(header_ + SSTP_PDU_SOF_SIZE, (int32_t)(SSTP_HEADER_SIZE - SSTP_PDU_SOF_SIZE));
+    ring.remove_multi(header_ + SSTP_PDU_SOF_SIZE, (int32_t)(SSTP_HEADER_SIZE - SSTP_PDU_SOF_SIZE));
 
     // confirm the checksum of length_
     if (header_[SSTP_PDU_IDX_LEN_CHK] != (uint8_t)(header_[SSTP_PDU_IDX_DATA_LEN_H]^header_[SSTP_PDU_IDX_DATA_LEN_L])) {
@@ -218,7 +218,7 @@ err_code_t ProtocolSSTP::Parse(RingBuffer<uint8_t> &ring, uint8_t *out, uint16_t
     timeout_ = 0;
 
   case PROTOCOL_SSTP_STATE_GOT_LENGTH:
-    if (ring.Available() < length_) {
+    if (ring.available() < length_) {
       if (++timeout_ > SSTP_DATA_TIMEOUT) {
         state_ = PROTOCOL_SSTP_STATE_IDLE;
         return E_TIMEOUT;
@@ -226,7 +226,7 @@ err_code_t ProtocolSSTP::Parse(RingBuffer<uint8_t> &ring, uint8_t *out, uint16_t
       return E_NO_DATA;
     }
 
-    ring.RemoveMulti(out, (int32_t)length_);
+    ring.remove_multi(out, (int32_t)length_);
 
     calc_chk = CalcChecksum(out, length_);
     state_ = PROTOCOL_SSTP_STATE_IDLE;

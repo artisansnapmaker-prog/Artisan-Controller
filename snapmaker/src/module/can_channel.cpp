@@ -274,13 +274,13 @@ err_code_t CanChannel::Init(CANIrqCallback_t irq_cb) {
   if (!tmp) {
     return E_NO_MEM;
   }
-  mac_id_.Init((int32_t)CAN_MAC_QUEUE_SIZE, (uint32_t *)tmp);
+  mac_id_.init((uint32_t *)tmp, (int32_t)CAN_MAC_QUEUE_SIZE);
 
   tmp = pvPortMalloc(CAN_EXT_CMD_QUEUE_SIZE);
   if (!tmp) {
     return E_NO_MEM;
   }
-  ext_cmd_.Init((int32_t)CAN_EXT_CMD_QUEUE_SIZE, (uint8_t *)tmp);
+  ext_cmd_.init((uint8_t *)tmp, (int32_t)CAN_EXT_CMD_QUEUE_SIZE);
 
   std_cmd_w_ = 0;
   std_cmd_r_ = 0;
@@ -359,10 +359,10 @@ int32_t CanChannel::Available(CanFrameType ft) {
     return CAN_STD_CMD_QUEUE_SIZE - std_cmd_in_q_;
 
   case CAN_FRAME_EXT_DATA:
-    return ext_cmd_.Available();
+    return ext_cmd_.available();
 
   case CAN_FRAME_EXT_REMOTE:
-    return mac_id_.Available();
+    return mac_id_.available();
 
   default:
     break;
@@ -400,10 +400,10 @@ int32_t CanChannel::Read(CanFrameType ft, uint8_t *buffer, int32_t l) {
     return CAN_STD_CMD_ELEMENT_SIZE;
 
   case CAN_FRAME_EXT_DATA:
-    return ext_cmd_.RemoveMulti(buffer, l);
+    return ext_cmd_.remove_multi(buffer, l);
 
   case CAN_FRAME_EXT_REMOTE:
-    return mac_id_.RemoveMulti((uint32_t *)buffer, l);
+    return mac_id_.remove_multi((uint32_t *)buffer, l);
 
   default:
     break;
@@ -466,7 +466,7 @@ void CanChannel::Irq(CanChannelNumber ch,  uint8_t fifo_index) {
     //   ext_cmd_.InsertMulti((uint8_t *)&can_id, 4);
     // }
 
-    ext_cmd_.InsertMulti(std_data_frame.data, length);
+    ext_cmd_.insert_multi(std_data_frame.data, length);
 
     return;
   }
@@ -483,7 +483,7 @@ void CanChannel::Irq(CanChannelNumber ch,  uint8_t fifo_index) {
     else
       can_id |= (1<<29);
 
-    mac_id_.InsertOne(can_id);
+    mac_id_.insert_one(can_id);
     return;
   }
 }

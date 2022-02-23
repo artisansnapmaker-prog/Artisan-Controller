@@ -66,7 +66,7 @@ class ModuleService {
     }
 
     void init();
-    int register_routine(void *obj, routine_function cb);
+    err_code_t register_routine(void *obj, routine_function cb);
 
     // background thread
     void background_thread();

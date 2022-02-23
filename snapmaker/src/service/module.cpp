@@ -115,7 +115,7 @@ err_code_t handle_module_inserted(void *obj, uint32_t mac, LinkCANChannel ch) {
     // if no module with same MAC/type in previous resource apply new resource
     module = module_factory(mac, i);
     if (!module) {
-      LOG_E("unknow module: 0x%8x\n", mac);
+      LOG_E("Unknow module: 0x%08x\n", mac);
       return E_HARDWARE;
     }
     ms->modules[ms->configured_module++] = module;
@@ -328,7 +328,7 @@ err_code_t ModuleService::get_function_list(ModuleBase &module) {
 
   LOG_I("Module: 0x%08x has %u functions\n", cmd.peer, recv_buffer[SACP_MODULE_RECV_INDEX_DATA]);
 
-  // first byte is command id
+  // check if function list from module is empty
   if (recv_buffer[SACP_MODULE_RECV_INDEX_DATA] == 0) {
     LOG_W("no function of module: 0x%08x\n", cmd.peer);
     return E_FAILURE;
@@ -504,6 +504,26 @@ err_code_t ModuleService::bind_message_id(ModuleBase &module) {
   vPortFree(buffer);
 
   LOG_I("Done\n\n");
+  return E_SUCCESS;
+}
+
+
+err_code_t ModuleService::register_routine(void *obj, routine_function cb) {
+  int i = 0;
+
+  for (; i < MODULE_ACCESSIBLE_MAX; i++) {
+    if (routines[i].obj == NULL) {
+      routines[i].obj = obj;
+      routines[i].cb = cb;
+      break;
+    }
+  }
+
+  if (i >= MODULE_ACCESSIBLE_MAX) {
+    LOG_I("no available resource for module routine!");
+    return E_NO_RESRC;
+  }
+
   return E_SUCCESS;
 }
 

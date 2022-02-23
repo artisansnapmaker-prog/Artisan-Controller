@@ -117,6 +117,7 @@ class LinkCANExtData: public LinkCAN {
 
 typedef struct {
   uint16_t id;
+  uint16_t length;
   uint8_t  data[8];
 } linkcan_std_data_t;
 class LinkCANStdData: public LinkCAN {

@@ -311,6 +311,7 @@ void LinkCANStdData::init(SemaphoreHandle_t recv_signal, RingBuffer<linkcan_std_
 BaseType_t LinkCANStdData::receive_data(linkcan_std_data_t &data, uint8_t length) {
   BaseType_t if_wakeup_task = pdFALSE;;
 
+  data.length = length;
   receiver_buffer->insert_one(data);
 
   xSemaphoreGiveFromISR(receiver_signal, &if_wakeup_task);

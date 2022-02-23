@@ -126,7 +126,6 @@ err_code_t HostSMCAN::register_callback(uint16_t msg_id, void *obj, smcan_callba
 void HostSMCAN::handle_receive() {
   uint8_t buffer[SM_CAN_MESSAGE_SIZE];
   int32_t length;
-  uint16_t msg_id;
   MessageBufferHandle_t tmp_queue;
   linkcan_std_data_t msg;
 
@@ -140,19 +139,18 @@ void HostSMCAN::handle_receive() {
     if (length == 0)
       break;
 
-    // first 2 bytes is message id
-    msg_id = msg.id;
-
-    if (msg_id >= MODULE_SUPPORT_MESSAGE_ID_MAX) {
-      LOG_E("message id [%u] from module is out of range [%d]\n", msg_id, MODULE_SUPPORT_MESSAGE_ID_MAX);
+    if (msg.id >= MODULE_SUPPORT_MESSAGE_ID_MAX) {
+      LOG_E("message id [%u] from module is out of range [%d]\n", msg.id, MODULE_SUPPORT_MESSAGE_ID_MAX);
       break;
     }
+
+    LOG_V("Got SM CAN msg: %u, len: %u\n", msg.id, msg.length);
 
     // check if some is waiting for this message
     tmp_queue = NULL;
     if (xSemaphoreTake(waiting_lock, 10) == pdPASS) {
       for (int i = 0; i < SM_CAN_WAITING_NODE_MAX; i++) {
-        if (waiting_nodes[i].msg_id == msg_id) {
+        if (waiting_nodes[i].msg_id == msg.id) {
           tmp_queue = waiting_nodes[i].queue;
           break;
         }
@@ -163,20 +161,21 @@ void HostSMCAN::handle_receive() {
 
     // if yes, send message to who is waiting for
     if (tmp_queue) {
-      xMessageBufferSend(tmp_queue, msg.data, 8, 0);
+      xMessageBufferSend(tmp_queue, msg.data, msg.length, 0);
       continue;
     }
 
     // if level of message id is equal or higher than HIGH, will call the handles directly
-    if (msg_id < high_prio_bound) {
-      if (handles[msg_id].callback) {
-        handles[msg_id].callback(handles[msg_id].obj, buffer, length);
+    if (msg.id < high_prio_bound) {
+      if (handles[msg.id].callback) {
+        handles[msg.id].callback(handles[msg.id].obj, buffer, length);
         continue;
       }
     }
 
     // otherwise, send the message to event handler
-    xMessageBufferSend(event_queue,  msg.data, 8, 0);
+    xMessageBufferSend(event_queue,  &msg, sizeof(linkcan_std_data_t), 0);
+    xTaskNotify(event_task, NOTIFY_EVENT_CAN_ROUTINE, eSetBits);
   }
 }
 
@@ -184,23 +183,25 @@ void HostSMCAN::handle_receive() {
 void HostSMCAN::handle_events() {
   uint8_t buffer[SM_CAN_MESSAGE_SIZE];
   size_t length;
-  uint16_t msg_id;
+
+  linkcan_std_data_t msg;
 
   for (;;) {
-    length = xMessageBufferReceive(event_queue, buffer, SM_CAN_MESSAGE_SIZE, 0);
+    length = xMessageBufferReceive(event_queue, &msg, sizeof(linkcan_std_data_t), 0);
 
     // normally, the length of message should be longer than 2
     if (length <= 2)
       break;
 
-    msg_id = *(uint16_t *)buffer;
-    if (msg_id >= MODULE_SUPPORT_MESSAGE_ID_MAX) {
-      LOG_E("message id [%u] from receiver is out of range [%d]\n", msg_id, MODULE_SUPPORT_MESSAGE_ID_MAX);
+    LOG_V("Got SM CAN event, id: %u, len: %u\n", msg.id, msg.length);
+
+    if (msg.id >= MODULE_SUPPORT_MESSAGE_ID_MAX) {
+      LOG_E("message id [%u] from receiver is out of range [%d]\n", msg.id, MODULE_SUPPORT_MESSAGE_ID_MAX);
       continue;
     }
 
-    if (handles[msg_id].callback) {
-      handles[msg_id].callback(handles[msg_id].obj, buffer, length);
+    if (handles[msg.id].callback) {
+      handles[msg.id].callback(handles[msg.id].obj, msg.data, msg.length);
       continue;
     }
   }

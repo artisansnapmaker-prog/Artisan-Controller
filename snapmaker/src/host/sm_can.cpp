@@ -148,8 +148,6 @@ void HostSMCAN::handle_receive() {
       break;
     }
 
-    LOG_I("sm can msg: %u\n", msg_id);
-
     // check if some is waiting for this message
     tmp_queue = NULL;
     if (xSemaphoreTake(waiting_lock, 10) == pdPASS) {

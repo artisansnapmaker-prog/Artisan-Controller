@@ -222,15 +222,13 @@ void ModuleService::init() {
   host_mac.send(MODULE_MAC_CMD_SCAN);
 
   // waiting module discovery
-  vTaskDelay(pdMS_TO_TICKS(1000));
+  vTaskDelay(pdMS_TO_TICKS(2000));
 
   // assign and bind message id for all discovered modules
   status = MS_STATUS_BINDING;
   assign_message_id();
 
   bind_message_id();
-
-  LOG_I("finish message bingding!\n");
 
   // do post init for all modules
   for (int i = 0; i < configured_module; i++) {
@@ -328,7 +326,7 @@ err_code_t ModuleService::get_function_list(ModuleBase &module) {
     return ret;
   }
 
-  LOG_I("got [%u] function for module: 0x%08x\n", recv_buffer[SACP_MODULE_RECV_INDEX_DATA], cmd.peer);
+  LOG_I("Module: 0x%08x has %u functions\n", cmd.peer, recv_buffer[SACP_MODULE_RECV_INDEX_DATA]);
 
   // first byte is command id
   if (recv_buffer[SACP_MODULE_RECV_INDEX_DATA] == 0) {
@@ -354,12 +352,15 @@ err_code_t ModuleService::get_function_list(ModuleBase &module) {
 err_code_t ModuleService::record_function_list(ModuleBase &module, function_node_t *fnodes, uint8_t len) {
   uint8_t func_prio;
 
+  LOG_V("Recording function for module: 0x%08x, ms sta: %d\n", module.get_mac(), status);
+
   for (int i = 0; i < len; i++) {
     func_prio = module.get_function_priority(fnodes[i].function_id);
 
     // if got invalid priority, mask its function id
     // NOTE: we won't add it to priority list !!!!!!!!!!!
     if (func_prio >= MODULE_FUNC_PRIORITY_MAX) {
+      LOG_E("invalid prio for function: %u", fnodes[i].function_id);
       fnodes[i].function_id = MODULE_FUNCTION_ID_INVALID;
       continue;
     }
@@ -389,6 +390,7 @@ err_code_t ModuleService::record_function_list(ModuleBase &module, function_node
       }
     }
 
+    LOG_I("Add func[%03u] into prio[%u]\n", fnodes[i].function_id, func_prio);
     // add node to priority list
     list_add_tail(&fnodes[i].node, &function_list[func_prio]);
   }
@@ -408,7 +410,7 @@ err_code_t ModuleService::assign_message_id() {
     0
   };
 
-  LOG_I("assigning message id...");
+  LOG_I("Assigning message id...");
 
   for (int i = 0; i < MODULE_FUNC_PRIORITY_MAX; i++) {
     list_for_each_entry(fnode, &function_list[i], node) {
@@ -430,7 +432,7 @@ err_code_t ModuleService::assign_message_id() {
 
   // tell host the bound of high priority message
   host_can_rou.set_high_prio_bound(msg_id_records[MODULE_FUNC_PRIORITY_HIGH].bound);
-  LOG_I("done\n");
+  LOG_I("Done\n");
   return E_SUCCESS;
 }
 
@@ -439,7 +441,8 @@ err_code_t ModuleService::bind_message_id() {
   err_code_t ret = E_SUCCESS;
 
   for (int i = 0; i < configured_module; i++) {
-    if (MODULE_TYPE(modules[i]->get_device_id()) == MODULE_TYPE_VIRTUAL)
+    // only bind message for real module, nor virtual module
+    if (modules[i]->get_device_id() > MODULE_TYPE_REAL)
       continue;
     ret = bind_message_id(*modules[i]);
     if (ret != E_SUCCESS) {
@@ -469,8 +472,11 @@ err_code_t ModuleService::bind_message_id(ModuleBase &module) {
     return E_NO_MEM;
   }
 
+  LOG_I("Binding message, mac: 0x%08x ...\n", module.get_mac());
+
   // set command parameters
-  cmd.peer   = LINK_CAN_COMBINE_CH_ID(module.get_channel(), module.get_mac());
+  cmd.peer   = module.get_mac();
+  cmd.ch     = module.get_channel();
   cmd.cmd_id = MODULE_EXT_CMD_SET_MESG_ID_REQ;
   cmd.data   = buffer;
 
@@ -497,6 +503,7 @@ err_code_t ModuleService::bind_message_id(ModuleBase &module) {
 
   vPortFree(buffer);
 
+  LOG_I("Done\n\n");
   return E_SUCCESS;
 }
 

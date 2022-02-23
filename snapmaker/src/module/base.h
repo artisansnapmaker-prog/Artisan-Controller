@@ -65,8 +65,8 @@
 #define MODULE_TYPE_DYNAMIC (0)
 
 
-#define MODULE_TYPE_REAL        (0x8000)
-#define MODULE_TYPE_VIRTUAL     (0)
+#define MODULE_TYPE_REAL        (511)
+#define MODULE_TYPE_VIRTUAL     (512)
 #define MODULE_TYPE(device_id)  ((device_id) & 0x8000)
 
 

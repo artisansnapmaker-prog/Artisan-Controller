@@ -207,11 +207,11 @@ void HostSACPModule::handle_receive() {
 
       if (!tmp_queue) {
         // if nobody is waiting for this message, send PAYLOAD part to it
-        LOG_I("module sacp [%x] to event\n", command_id);
+        LOG_V("module sacp [%x] to event\n", command_id);
         tmp_queue = event_queue;
       }
       else {
-        LOG_I("module sacp [%x] to waiting\n", command_id);
+        LOG_V("module sacp [%x] to waiting\n", command_id);
       }
       xMessageBufferSend(tmp_queue, parser_buffer + parser_head + SACP_V0_FRAME_INDEX_EVENT_ID, pdu_length, 0);
     }

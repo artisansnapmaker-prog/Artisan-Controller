@@ -6,6 +6,7 @@
 #include "config.h"
 #include "common/debug.h"
 
+#include "module/toolhead_cnc.h"
 
 struct SnapmakerHandle {
   TaskHandle_t marlin;
@@ -47,7 +48,6 @@ void disable_action_ban(uint8_t ab);
 #define POWER_DOMAIN_HOTEND   POWER_DOMAIN_1
 
 
-
 // wrapper of snapmaker for marlin
 class SnapmakerPrinter
 {
@@ -63,12 +63,38 @@ class SnapmakerPrinter
     float get_hotend_temp(uint8_t heater_id) { return 0.0; }
     void set_fan_speed(uint8_t fan, uint16_t speed) { return; }
 
+    // CNC
+    void set_spindle_output(uint8_t new_power) {
+      if (cnc)
+        cnc->set_output(new_power);
+    }
+
+    void set_spindle_power(uint8_t new_power) {
+      if (cnc)
+        cnc->set_power(new_power);
+    }
+
+    uint16_t get_spindle_rpm() {
+      if (cnc)
+        return cnc->get_rpm();
+      else
+        return 0;
+    }
+
     uint8_t runout_state(uint8_t pin_index) { return 0x0; }
 
+
+    void register_module(uint16_t type, ModuleBase *new_module);
   private:
     TaskHandle_t thandle_marlin;
     TaskHandle_t thandle_can_recv;
     TaskHandle_t thandle_can_event;
+
+    ToolHeadCNC *cnc = NULL;
+    // toolhead fdm 1e
+    // toolhead fdm 2e
+    // toolhead laser 1.6w
+    // toolhead laser 10w
 };
 
 extern SnapmakerPrinter smprinter;

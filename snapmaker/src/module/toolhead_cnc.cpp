@@ -19,128 +19,134 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "toolhead_cnc.h"
-
 #include "../config.h"
+#include "../snapmaker.h"
 #include "../common/debug.h"
+#include "../service/module.h"
 
-// marlin headers
-// #include "src/core/macros.h"
-// #include "src/core/boards.h"
-// #include "Configuration.h"
-// #include "src/pins/pins.h"
-// #include "src/module/stepper.h"
+// every module must define itself function and priority map !!!!
+// then set it to ModuleBase with set_func_prio_map() in pre_init()
+static module_func_prio_t prio_map[] = {
+  {MODULE_FUNC_SET_SPINDLE_SPEED, MODULE_FUNC_PRIORITY_MEDIUM},
+  {MODULE_FUNC_GET_SPINDLE_SPEED, MODULE_FUNC_PRIORITY_LOW},
 
-// #include "src/inc/MarlinConfig.h"
-// #include HAL_PATH(src/HAL, HAL.h)
-
-ToolHeadCNC cnc;
+  // must set the last element as below !!!!
+  {MODULE_FUNCTION_ID_INVALID, MODULE_FUNCTION_PRIORITY_INVALID}
+};
 
 
-static void CallbackAckSpindleSpeed(CanStdDataFrame_t &cmd) {
-  cnc.rpm(cmd.data[0]<<8 | cmd.data[1]);
+// message id callback to handle RPM update from module
+void cnc_callback_update_rpm(void *obj, uint8_t *data, uint8_t length) {
+  ToolHeadCNC &cnc = *(ToolHeadCNC *)obj;
+
+  cnc.rpm = (data[0]<<8 | data[1]);
+  // LOG_I("rpm: %u", data[0]<<8 | data[1]);
+
+  cnc.lost_counter = 0;
+  cnc.online = true;
 }
 
 
-err_code_t ToolHeadCNC::Init(MAC_t &mac, uint8_t mac_index) {
-  err_code_t ret;
+err_code_t cnc_callback_routine(void *obj) {
+  ToolHeadCNC &cnc = *(ToolHeadCNC *)obj;
 
-  CanExtCmd_t cmd;
-  uint8_t     func_buffer[16];
-
-  Function_t    function;
-  message_id_t  message_id[4];
-
-  // if (axis_to_port[E_AXIS] != PORT_8PIN_1) {
-  //   LOG_E("toolhead CNC failed: Please use the <M1029 E1> set E port\n");
-  //   return E_HARDWARE;
-  // }
-
-  // extern pin_t E0_DIR_PIN_var;
-  // ret = ModuleBase::InitModule8p(mac, E0_DIR_PIN_var, 0);
-  if (ret != E_SUCCESS)
-    return ret;
-
-  LOG_I("\tGet toolhead CNC!\n");
-
-  // we have configured CNC in same port
-  if (mac_index_ != MODULE_MAC_INDEX_INVALID)
-    return E_SAME_STATE;
-
-  cmd.mac    = mac;
-  cmd.data   = func_buffer;
-  cmd.length = 1;
-
-  cmd.data[MODULE_EXT_CMD_INDEX_ID] = MODULE_EXT_CMD_GET_FUNCID_REQ;
-
-  // try to get function ids from module
-  if (canhost.SendExtCmdSync(cmd, 500, 2) != E_SUCCESS)
-    return E_FAILURE;
-
-  function.channel   = mac.bits.channel;
-  function.mac_index = mac_index;
-  function.sub_index = 0;
-  function.priority  = MODULE_FUNC_PRIORITY_DEFAULT;
-
-  // register function ids to can host, it will assign message id
-  for (int i = 0; i < cmd.data[MODULE_EXT_CMD_INDEX_DATA]; i++) {
-    function.id = (cmd.data[i*2 + 2]<<8 | cmd.data[i*2 + 3]);
-
-    if (function.id == MODULE_FUNC_GET_SPINDLE_SPEED)
-      message_id[i] = canhost.RegisterFunction(function, CallbackAckSpindleSpeed);
-    else
-      message_id[i] = canhost.RegisterFunction(function, NULL);
-
-    // buffer the message id to set spindle speed
-    if (function.id == MODULE_FUNC_SET_SPINDLE_SPEED)
-      msg_id_set_speed_ = message_id[i];
+  if (++cnc.lost_counter > CNC_LOST_MAX) {
+    cnc.online = false;
   }
+}
 
-  ret = canhost.BindMessageID(cmd, message_id);
 
-  mac_index_ = mac_index;
+err_code_t ToolHeadCNC::pre_init() {
+  // must set the function priority map in pre_init() !!!!!
+  set_func_prio_map(prio_map);
 
-  SetToolhead(MODULE_TOOLHEAD_CNC);
+  power = 0;
+  rpm   = 0;
+  output_sta = CNC_OUTPUT_OFF;
 
   return E_SUCCESS;
 }
 
 
-err_code_t ToolHeadCNC::SetOutput(uint8_t power) {
-  if (power > 100)
-    power_ = 100;
+err_code_t ToolHeadCNC::post_init() {
+  uint16_t msg_id = get_message_id(MODULE_FUNC_GET_SPINDLE_SPEED);
+  if (msg_id == MODULE_MESSAGE_ID_INVALID)
+    return E_FAILURE;
+
+  // register callback to handle RPM from module
+  if (host_can_rou.register_callback(msg_id, (void *)this, cnc_callback_update_rpm) != E_SUCCESS)
+    return E_FAILURE;
+
+  smprinter.register_module(MODULE_DEVICE_ID_CNC_50W_2019, this);
+
+  online = true;
+  lost_counter = 0;
+
+  module_svc.register_routine((void *)this, cnc_callback_routine);
+
+  LOG_I("CNC ready!\n");
+  return E_SUCCESS;
+}
+
+
+err_code_t ToolHeadCNC::deinit() {
+  power = 0;
+  rpm   = 0;
+  output_sta = CNC_OUTPUT_OFF;
+  online = false;
+
+  return E_SUCCESS;
+}
+
+
+void ToolHeadCNC::set_output(uint8_t new_power) {
+  if (new_power > CNC_POWER_MAX)
+    new_power = CNC_POWER_MAX;
+
+  power = new_power;
+
+  sync_power(power);
+}
+
+
+void ToolHeadCNC::turn_on() {
+  sync_power(power);
+};
+
+
+void ToolHeadCNC::turn_off() {
+  sync_power(0);
+}
+
+
+err_code_t ToolHeadCNC::sync_power(uint8_t power) {
+  err_code_t ret;
+  smcan_message_t msg;;
+  uint8_t buffer[2];
+
+  msg.id = get_message_id(MODULE_FUNC_SET_SPINDLE_SPEED);
+
+  if (msg.id == MODULE_MESSAGE_ID_INVALID) {
+    LOG_E("invalid message to set CNC speed\n");
+    return E_FAILURE;
+  }
+
+  buffer[0] = power;
+
+  msg.ch     = get_channel();
+  msg.data   = buffer;
+  msg.length = 1;
+  ret = host_can_rou.send(&msg);
+
+  if (ret != E_SUCCESS) {
+    LOG_E("failed to set CNC out, ret: %u\n", ret);
+    return ret;
+  }
+
+  if (power > 0)
+    output_sta = CNC_OUTPUT_ON;
   else
-    power_ = power;
+    output_sta = CNC_OUTPUT_OFF;
 
-  return TurnOn();
+  return E_SUCCESS;
 }
-
-
-err_code_t ToolHeadCNC::TurnOn() {
-  CanStdMesgCmd_t cmd;
-
-  uint8_t buffer[2];
-
-  buffer[0] = power_;
-
-  cmd.data   = buffer;
-  cmd.length = 1;
-  cmd.id     = msg_id_set_speed_;
-
-  return canhost.SendStdCmd(cmd);
-}
-
-
-err_code_t ToolHeadCNC::TurnOff() {
-  CanStdMesgCmd_t cmd;
-
-  uint8_t buffer[2];
-
-  buffer[0] = 0;
-
-  cmd.data   = buffer;
-  cmd.length = 1;
-  cmd.id     = msg_id_set_speed_;
-
-  return canhost.SendStdCmd(cmd);
-}
-

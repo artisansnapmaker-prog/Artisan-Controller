@@ -21,50 +21,62 @@
 #ifndef SNAPMAKER_TOOLHEAD_CNC_H_
 #define SNAPMAKER_TOOLHEAD_CNC_H_
 
-#include "module_base.h"
-#include "can_host.h"
+#include "base.h"
+
+#define CNC_POWER_MAX (100)
+#define CNC_LOST_MAX  (6)
+
+enum CNCOutputStatus {
+  CNC_OUTPUT_OFF = 0,
+  CNC_OUTPUT_ON = 1,
+
+  CNC_OUTPUT_INVALID
+};
 
 class ToolHeadCNC: public ModuleBase {
   public:
-		ToolHeadCNC(): ModuleBase(MODULE_DEVICE_ID_CNC) {
-      mac_index_ = MODULE_MAC_INDEX_INVALID;
-      power_     = 0;
-      rpm_       = 0;
-
-      msg_id_set_speed_ = MODULE_MESSAGE_ID_INVALID;
+		ToolHeadCNC(uint32_t mac, uint8_t key): ModuleBase(mac, key) {
+      power     = 0;
+      rpm       = 0;
     }
 
-    err_code_t Init(MAC_t &mac, uint8_t mac_index);
+    err_code_t pre_init();
+    err_code_t post_init();
+    err_code_t deinit();
 
-    err_code_t SetOutput(uint8_t power);
+    bool check_online() { return online; }
 
-    err_code_t TurnOn();
-    err_code_t TurnOff();
+        uint16_t get_rpm() { return rpm; }
+    void set_rpm(uint16_t new_rpm) { rpm = new_rpm; }
 
-    bool IsOnline(uint8_t sub_index = 0) { return mac_index_ != MODULE_MAC_INDEX_INVALID; };
+    uint8_t get_power() { return power; }
 
-    uint32_t mac(uint8_t sub_index = 0) {
-      if (sub_index > 0)
-        return MODULE_MAC_ID_INVALID;
-
-      return canhost.mac(mac_index_);
+    void set_power(uint8_t new_power) {
+      if (new_power > CNC_POWER_MAX)
+        new_power = CNC_POWER_MAX;
+      power = new_power;
     }
 
-    uint16_t rpm() { return rpm_; }
-    void rpm(uint16_t rpm) { rpm_ = rpm; }
+    void set_output(uint8_t new_power);
 
-    uint8_t power() { return power_; }
-    void power(uint8_t power) { power_ = power; }
+    void turn_on();
+    void turn_off();
+
+    void keep_alive() { lost_counter = 0; }
+
+    friend err_code_t cnc_callback_routine(void *obj);
+    friend void cnc_callback_update_rpm(void *obj, uint8_t *data, uint8_t length);
 
   private:
-    uint8_t  mac_index_;
-    uint8_t  power_;
-    uint16_t rpm_;
+    err_code_t sync_power(uint8_t power);
 
-    message_id_t msg_id_set_speed_;
+  private:
+    CNCOutputStatus output_sta;
+    uint8_t  power;
+    uint16_t rpm;
+    uint8_t lost_counter = 0;
+    bool  online = false;
 };
 
-
-extern ToolHeadCNC cnc;
 
 #endif  // #ifndef TOOLHEAD_LASER_H_

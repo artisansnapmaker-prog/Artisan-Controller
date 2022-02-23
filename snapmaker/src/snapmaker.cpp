@@ -198,6 +198,74 @@ void SnapmakerPrinter::post_init() {
 }
 
 
+void SnapmakerPrinter::register_module(uint16_t type, ModuleBase *module) {
+  switch (type) {
+  case MODULE_DEVICE_ID_FDM_1EXTRUDER_2019:
+    break;
+
+  case MODULE_DEVICE_ID_CNC_50W_2019:
+    cnc = (ToolHeadCNC *)module;
+    break;
+
+  case MODULE_DEVICE_ID_LASER_1P6W_2019:
+    break;
+
+  case MODULE_DEVICE_ID_LINEAR_TBS_2019:
+    break;
+
+  case MODULE_DEVICE_ID_LIGHT_BAR:
+    break;
+
+  case MODULE_DEVICE_ID_ENCLOSURE_2020:
+    break;
+
+  case MODULE_DEVICE_ID_ROTARY_2020:
+    break;
+
+  case MODULE_DEVICE_ID_PURIFIER_2021:
+    break;
+
+  case MODULE_DEVICE_ID_EMERGENCY_STOP_2021:
+    break;
+
+  case MODULE_DEVICE_ID_CNC_TOOL_SETTING:
+    break;
+
+  case MODULE_DEVICE_ID_PRINT_V_SM1:
+    break;
+
+  case MODULE_DEVICE_ID_FAN:
+    break;
+
+  case MODULE_DEVICE_ID_LINEAR_TMC_2021:
+    break;
+
+  case MODULE_DEVICE_ID_FDM_2EXTRUDER_2021:
+    break;
+
+  case MODULE_DEVICE_ID_LASER_10W_2021:
+    break;
+
+  case MODULE_DEVICE_ID_CNC_200W_2021:
+    break;
+
+  case MODULE_DEVICE_ID_ENCLOSURE_A400_2022:
+    break;
+
+  case MODULE_DEVICE_ID_A400_LINEAR:
+    break;
+
+  case MODULE_DEVICE_ID_A400_BED:
+    break;
+
+  case MODULE_DEVICE_ID_SM2_BED:
+    break;
+
+  default:
+    break;
+  }
+}
+
 extern "C" {
   // hook for failing to apply memory in freeRTOS
   void vApplicationMallocFailedHook( void ) {

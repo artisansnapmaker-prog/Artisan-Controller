@@ -336,6 +336,13 @@
 #define STR_PROBE_EN                        "probe_en"
 #define STR_FILAMENT                        "filament"
 
+#define STR_EXTRUDER0_FILAMENT              "extruder0_filament"
+#define STR_EXTRUDER1_FILAMENT              "extruder1_filament"
+
+#define STR_Z_PROBE_PROXIMITY_SWITCH        "z_probe_proximity_switch"
+#define STR_Z_PROBE_LEFT_OPTOCOUPLER        "z_probe_left_optocoupler"
+#define STR_Z_PROBE_RIGHT_OPTOCOUPLER       "z_probe_right_optocoupler"
+
 // General axis names
 #define STR_X "X"
 #define STR_Y "Y"

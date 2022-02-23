@@ -266,6 +266,7 @@ void ModuleService::init() {
   bind_message_id();
 
   // do post init for all modules
+  LOG_I("configured_module: %d\n", configured_module);
   for (int i = 0; i < configured_module; i++) {
     modules[i]->post_init();
   }
@@ -532,12 +533,8 @@ err_code_t ModuleService::bind_message_id(ModuleBase &module) {
   if (index > 1) {
     cmd.length = index;
     ret = host_can_cfg.send(&cmd);
-    if (ret != E_SUCCESS)
-      LOG_E("failed to bind message id to module: 0x%08x\n", cmd.peer);
   }
-
   vPortFree(buffer);
-
   return ret;
 }
 

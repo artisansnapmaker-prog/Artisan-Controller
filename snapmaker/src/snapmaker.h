@@ -9,6 +9,7 @@
 #include "module/toolhead_cnc.h"
 #include "module/toolhead_laser.h"
 #include "module/toolhead_cnc_200w.h"
+#include "module/toolhead_fdm.h"
 
 struct SnapmakerHandle {
   TaskHandle_t marlin;
@@ -60,17 +61,12 @@ class SnapmakerPrinter
     void post_init();
 
     // API for marlin
-    // FDM 3DP
-    void set_hotend_temp(int16_t temp, uint8_t heater_id) { return; }
-    float get_hotend_temp(uint8_t heater_id) { return 0.0; }
-    void set_fan_speed(uint8_t fan, uint16_t speed) { return; }
-
     // CNC
     bool cnc_online_check(void) { return (cnc && cnc->check_online()); }
-    void set_spindle_power(uint8_t new_power); 
+    void set_spindle_power(uint8_t new_power);
     void set_spindle_rpm(uint16_t rpm);
     uint16_t get_spindle_rpm(void);
-    void get_spindle_status(void); 
+    void get_spindle_status(void);
     void set_spindle_run_mode(CNCSpeedControlMode mode);
     void spindle_debug_config(uint8_t cmd, uint32_t param);   // CNC debug
 
@@ -91,8 +87,78 @@ class SnapmakerPrinter
         laser->turn_off();
     }
 
+    // FDM
+    void set_probe_sensor(probe_sensor_t sensor) {
+      if (fdm) {
+        fdm->set_probe_sensor(sensor);
+      }
+    }
 
-    uint8_t runout_state(uint8_t pin_index) { return 0x0; }
+    bool get_probe_state() {
+      if (fdm) {
+        return fdm->get_probe_state();
+      }
+    }
+
+    bool get_probe_state(probe_sensor_t sensor) {
+      if (fdm) {
+        return fdm->get_probe_state(sensor);
+      }
+    }
+
+    uint8_t get_hotend_type(uint8_t e) {
+      if (fdm) {
+        return fdm->get_hotend_type(e);
+      }
+    }
+
+    float get_hotend_temp(uint8_t e) {
+      if (fdm) {
+        return fdm->get_hotend_temp(e);
+      }
+    }
+
+    void set_hotend_temp(int16_t temp, uint8_t heater_id) {
+      if (fdm) {
+        fdm->set_hotend_temp(temp, heater_id);
+      }
+    }
+
+    void set_fdm_fan_speed(uint8_t fan, uint16_t speed) {
+      if (fdm) {
+        fdm->set_fan_speed(fan, speed);
+      }
+    }
+
+    uint8_t runout_state(uint8_t e) {
+      if (fdm) {
+        return fdm->get_filament_state(e);
+      }
+    }
+
+    uint8_t runout_state() {
+      if (fdm) {
+        return fdm->get_filament_state();
+      }
+    }
+
+    void switch_extruder(uint8_t e) {
+      if (fdm) {
+        fdm->switch_extruder(e);
+      }
+    }
+
+    void tool_change(uint8_t new_tool) {
+      if (fdm) {
+        fdm->tool_change(new_tool);
+      }
+    }
+
+    // LASER
+    void set_laser_fan_speed(uint16_t speed) {}
+
+    // ENCLOSURE
+    void set_enclosure_fan_speed(uint16_t speed) {}
 
     void register_module(uint16_t type, ModuleBase *new_module);
   private:
@@ -102,6 +168,10 @@ class SnapmakerPrinter
 
     ToolHeadCNC *cnc = NULL;
     ToolHeadLaser *laser = NULL;
+    ToolHeadFDM *fdm = NULL;
+    // toolhead fdm 1e
+    // toolhead laser 1.6w
+    // toolhead laser 10w
 };
 
 extern SnapmakerPrinter smprinter;

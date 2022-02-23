@@ -1,8 +1,8 @@
 
 #include "motion.h"
 #include "../common/debug.h"
-
 #include "Arduino.h"
+#include "../snapmaker.h"
 
 MotionService motion_svc;
 
@@ -29,6 +29,4 @@ void MotionService::init() {
     LOG_I(LOG_RESULT_OK);
   }
 }
-
-
 

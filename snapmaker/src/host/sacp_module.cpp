@@ -68,6 +68,7 @@ err_code_t HostSACPModule::send_sync(sacp_module_message_t *message, uint8_t *ou
 
   for (; retry > 0; retry--) {
     if ((ret = send(message)) != E_SUCCESS) {
+      LOG_I("send sync failed\n");
       vTaskDelay(pdMS_TO_TICKS(timeout>>1));
       continue;
     }

@@ -16,7 +16,7 @@ SnapmakerPrinter smprinter;
 pin_t X_STEP_PIN_var = PB4;
 pin_t X_DIR_PIN_var = PB3;
 pin_t X_ENABLE_PIN_var = PB2;
-pin_t X_MAX_PIN_var = PE7;
+pin_t X_MIN_PIN_var = PE7;
 pin_t X_UART_PIN_var = PD12;
 pin_t X_STANDBY_PIN_var = PB5;
 
@@ -38,6 +38,7 @@ pin_t Y2_STANDBY_PIN_var = PE4;
 pin_t Z_STEP_PIN_var = PC6;
 pin_t Z_DIR_PIN_var = PD15;
 pin_t Z_ENABLE_PIN_var = PB2;
+pin_t Z_MIN_PIN_var = PC0;     // fake pin
 pin_t Z_MAX_PIN_var = PE10;
 pin_t Z_UART_PIN_var = PC8;
 pin_t Z_STANDBY_PIN_var = PC7;
@@ -254,6 +255,7 @@ void SnapmakerPrinter::register_module(uint16_t type, ModuleBase *module) {
     break;
 
   case MODULE_DEVICE_ID_FDM_2EXTRUDER_2021:
+    fdm = (ToolHeadFDM *)module;
     break;
 
   case MODULE_DEVICE_ID_LASER_10W_2021:
@@ -281,7 +283,7 @@ void SnapmakerPrinter::register_module(uint16_t type, ModuleBase *module) {
   }
 }
 
-// CNC related function interface 
+// CNC related function interface
 void SnapmakerPrinter::set_spindle_power(uint8_t new_power) {
   if (cnc_online_check()) {
     cnc->set_output_power(new_power);

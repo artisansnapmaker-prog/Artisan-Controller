@@ -44,7 +44,7 @@ uint16_t ModuleBase::get_message_id(uint16_t function_id) {
 ModuleBase *module_factory(uint32_t mac, uint8_t key, uint8_t sub_index) {
   switch (MODULE_GET_DEVICE_ID(mac)) {
   case MODULE_DEVICE_ID_FDM_1EXTRUDER_2019:
-    return new ToolheadFDM(mac, key, 1);
+    return new ToolHeadFDM(mac, key, 1);
     break;
 
   case MODULE_DEVICE_ID_CNC_50W_2019:
@@ -85,7 +85,7 @@ ModuleBase *module_factory(uint32_t mac, uint8_t key, uint8_t sub_index) {
     break;
 
   case MODULE_DEVICE_ID_FDM_2EXTRUDER_2021:
-    return new ToolheadFDM(mac, key, 2);
+    return new ToolHeadFDM(mac, key, 2);
     break;
 
   case MODULE_DEVICE_ID_LASER_10W_2021:

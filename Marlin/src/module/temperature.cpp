@@ -394,7 +394,7 @@ PGMSTR(str_t_heating_failed, STR_T_HEATING_FAILED);
     fan_speed[fan] = speed;
 
     #if MB_SNAPMAKER
-      smprinter.set_fan_speed(fan, speed);
+      smprinter.set_fdm_fan_speed(fan, speed);
     #endif
 
     #if REDUNDANT_PART_COOLING_FAN

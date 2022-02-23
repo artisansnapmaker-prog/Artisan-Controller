@@ -585,7 +585,18 @@ void _O2 Endstops::report_states() {
     }
     #undef _CASE_RUNOUT
   #elif HAS_FILAMENT_SENSOR
-    print_es_state(READ(FIL_RUNOUT1_PIN) != FIL_RUNOUT1_STATE, F(STR_FILAMENT));
+    #if MB_SNAPMAKER
+      print_es_state(smprinter.runout_state(0), F(STR_EXTRUDER0_FILAMENT));
+      print_es_state(smprinter.runout_state(1), F(STR_EXTRUDER1_FILAMENT));
+    #else
+      print_es_state(READ(FIL_RUNOUT1_PIN) != FIL_RUNOUT1_STATE, F(STR_FILAMENT));
+    #endif
+  #endif
+
+  #if MB_SNAPMAKER
+    print_es_state(smprinter.get_probe_state(PROBE_SENSOR_PROXIMITY_SWITCH), F(STR_Z_PROBE_PROXIMITY_SWITCH));
+    print_es_state(smprinter.get_probe_state(PROBE_SENSOR_LEFT_OPTOCOUPLER), F(STR_Z_PROBE_LEFT_OPTOCOUPLER));
+    print_es_state(smprinter.get_probe_state(PROBE_SENSOR_RIGHT_OPTOCOUPLER), F(STR_Z_PROBE_RIGHT_OPTOCOUPLER));
   #endif
 
   TERN_(BLTOUCH, bltouch._reset_SW_mode());

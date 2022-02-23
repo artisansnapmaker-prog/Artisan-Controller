@@ -72,9 +72,9 @@ void GcodeSuite::M2000() {
     LOG_I("change cnc dir: %d \n", !!p);
     smprinter.spindle_debug_config(CMD_SET_MOTOR_RUN_DIR, (!!p));
     break;
-  
+
   case 2:
-    // cnc pid parameter setting 
+    // cnc pid parameter setting
     float tmp;
     if (parser.seenval('P')) {
       tmp = parser.value_float();
@@ -101,7 +101,7 @@ void GcodeSuite::M2000() {
     p = smprinter.get_spindle_rpm();
     LOG_I("get cnc rpm: %d\n", p);
     break;
-  
+
   case 4:
     // get cnc status
     smprinter.get_spindle_status();

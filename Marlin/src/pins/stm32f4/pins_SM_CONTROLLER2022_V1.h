@@ -50,14 +50,16 @@
 // Limit Switches
 //
 // dynamic pins
-extern pin_t X_MAX_PIN_var;
+extern pin_t X_MIN_PIN_var;
 extern pin_t Y_MAX_PIN_var;
 extern pin_t Y2_MAX_PIN_var;
+extern pin_t Z_MIN_PIN_var;
 extern pin_t Z_MAX_PIN_var;
 extern pin_t Z2_MAX_PIN_var;
-#define X_MAX_PIN                           X_MAX_PIN_var
+#define X_MIN_PIN                           X_MIN_PIN_var
 #define Y_MAX_PIN                           Y_MAX_PIN_var
 #define Y2_MAX_PIN                          Y2_MAX_PIN_var
+#define Z_MIN_PIN                           Z_MIN_PIN_var
 #define Z_MAX_PIN                           Z_MAX_PIN_var
 #define Z2_MAX_PIN                          Z2_MAX_PIN_var
 #define I_MAX_PIN                           -1

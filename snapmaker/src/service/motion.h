@@ -22,9 +22,15 @@
 #define SNAPMAKER_MOTION_SERVICE_H_
 
 #include "../config.h"
+#include "module.h"
+#include "../../../Marlin/src/module/temperature.h"
+#include "../../../Marlin/src/module/planner.h"
+#include "../../../Marlin/src/feature/bedlevel/bedlevel.h"
+#include "../../Marlin/src/module/motion.h"
 
-// X Y Z I J E0 E1
-#define AXIS_NUM  7
+// X Y Z I J K
+#define AXIS_NUM  6
+#define XYZ 3
 
 
 class MotionService {
@@ -35,23 +41,52 @@ class MotionService {
 
     // moving API
     void moveto_xy(float x, float y, float feedrate, bool blocked=true) {}
-    void moveto_xyz(float x, float y, float z, float feedrate, bool blocked=true) {}
+    void moveto_xyz(float x, float y, float z, float feedrate, bool blocked=true) {
+      xy_pos_t xy;
+      xy.x = x;
+      xy.y = y;
+      do_blocking_move_to_xy_z(xy, z, feedrate);
+      synchronize_planner();
+      update_position_from_platform();
+    }
     void moveto_xyze(float x, float y, float z, float e, float feedrate, bool blocked=true) {}
-    void moveto_x(float x, float feedrate, bool blocked=true) {}
-    void moveto_y(float y, float feedrate, bool blocked=true) {}
-    void moveto_z(float z, float feedrate, bool blocked=true) {}
+    void moveto_x(float x, float feedrate, bool blocked=true) {
+      do_blocking_move_to_x(x, feedrate);
+      synchronize_planner();
+      update_position_from_platform();
+    }
+    void moveto_y(float y, float feedrate, bool blocked=true) {
+      do_blocking_move_to_y(y, feedrate);
+      synchronize_planner();
+      update_position_from_platform();
+    }
+    void moveto_z(float z, float feedrate, bool blocked=true) {
+      do_blocking_move_to_z(z, feedrate);
+      synchronize_planner();
+      update_position_from_platform();
+    }
     void moveto_a(float a, float feedrate, bool blocked=true) {}
     void moveto_b(float b, float feedrate, bool blocked=true) {}
     void moveto_e(float e, float feedrate, bool blocked=true) {}
     void moveto_e(float e, uint8_t extruder, float feedrate, bool blocked=true) {}
     void moveto(float target[AXIS_NUM], float feedrate, bool blocked=true);
+    void synchronize_planner() { planner.synchronize(); }
+    bool is_all_axes_homed() {return all_axes_homed();}
+
 
     // position info API
-    float current_position[AXIS_NUM];
-    void  update_position() {}
+    float current_position_[AXIS_NUM];
+    float destination_position_[AXIS_NUM];
+    void  update_position_from_platform() {
+      memcpy(current_position_, current_position, sizeof(current_position_));
+    }
     float get_current_position(uint8_t axis) {
-      update_position();
-      return current_position[axis];
+      update_position_from_platform();
+      return current_position_[axis];
+    }
+    void sync_plan_position_to_platform() {
+      memcpy(current_position, current_position_, sizeof(current_position_));
+      sync_plan_position();
     }
 
     // moving mode API
@@ -63,9 +98,9 @@ class MotionService {
     void set_feedrate_percentage(int16_t percentage) {}
 
     // bed leveling API for internal app
-    bool leveling_active() { return true; }
-    void disable_leveling() {}
-    void enable_leveling() {}
+    bool leveling_active() { return planner.leveling_active; }
+    void disable_leveling() {set_bed_leveling_enabled(false);}
+    void enable_leveling() {set_bed_leveling_enabled(true);}
 
     // extruder control API
     uint8_t active_extruder() { return 0; }
@@ -73,10 +108,10 @@ class MotionService {
     // temperature API
     float current_hotend_temp(uint8_t heater_id = 0) { return 0.0; }
     int16_t target_hotend_temp(uint8_t heater_id = 0) { return 0.0; }
-
     float current_bed_temp(uint8_t area_id = 0) { return 0.0; }
     int16_t target_bed_temp(uint8_t area_id = 0) { return 0.0; }
 
+    // fdm API
     bool runout_state(uint8_t extruder = 0) { return false; }
 
     // settings control

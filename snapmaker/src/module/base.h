@@ -92,29 +92,30 @@ enum ModuleLinearIndex {
 };
 
 enum ModuleDeviceID {
-  MODULE_DEVICE_ID_FDM_1EXTRUDER      ,    // 0
-  MODULE_DEVICE_ID_CNC                ,    // 1
-  MODULE_DEVICE_ID_1_6_W_LASER        ,    // 2
-  MODULE_DEVICE_ID_LINEAR             ,    // 3
-  MODULE_DEVICE_ID_LIGHT              ,    // 4
-  MODULE_DEVICE_ID_ENCLOSURE          ,    // 5
-  MODULE_DEVICE_ID_ROTARY             ,    // 6
-  MODULE_DEVICE_ID_PURIFIER           ,    // 7
-  MODULE_DEVICE_ID_EMERGENCY_STOP     ,    // 8
-  MODULE_DEVICE_ID_CNC_TOOL_SETTING   ,    // 9
-  MODULE_DEVICE_ID_PRINT_V_SM1        ,    // 10
-  MODULE_DEVICE_ID_FAN                ,    // 11
-  MODULE_DEVICE_ID_LINEAR_TMC         ,    // 12
-  MODULE_DEVICE_ID_FDM_2EXTRUDER      ,    // 13
-  MODULE_DEVICE_ID_10W_LASER          ,    // 14
-
+  MODULE_DEVICE_ID_FDM_1EXTRUDER_2019   ,   // 0
+  MODULE_DEVICE_ID_CNC_50W_2019         ,   // 1
+  MODULE_DEVICE_ID_LASER_1P6W_2019      ,   // 2
+  MODULE_DEVICE_ID_LINEAR_TBS_2019      ,   // 3
+  MODULE_DEVICE_ID_LIGHT_BAR            ,   // 4
+  MODULE_DEVICE_ID_ENCLOSURE_2020       ,   // 5
+  MODULE_DEVICE_ID_ROTARY_2020          ,   // 6
+  MODULE_DEVICE_ID_PURIFIER_2021        ,   // 7
+  MODULE_DEVICE_ID_EMERGENCY_STOP_2021  ,   // 8
+  MODULE_DEVICE_ID_CNC_TOOL_SETTING     ,   // 9
+  MODULE_DEVICE_ID_PRINT_V_SM1          ,   // 10
+  MODULE_DEVICE_ID_FAN                  ,   // 11
+  MODULE_DEVICE_ID_LINEAR_TMC_2021      ,   // 12
+  MODULE_DEVICE_ID_FDM_2EXTRUDER_2021   ,   // 13
+  MODULE_DEVICE_ID_LASER_10W_2021       ,   // 14
+  MODULE_DEVICE_ID_CNC_200W_2021        ,   // 15
+  MODULE_DEVICE_ID_ENCLOSURE_A400_2022  ,   // 16
 
   // below is virtual module
-  MODULE_DEVICE_ID_SM2_BED = 512,
-  MODULE_DEVICE_ID_J1_BED,
-  MODULE_DEVICE_ID_J1_LINEAR,
-  MODULE_DEVICE_ID_A400_BED,
-  MODULE_DEVICE_ID_A400_LINEAR,
+  MODULE_DEVICE_ID_SM2_BED         = 512,   // 512
+  MODULE_DEVICE_ID_J1_BED               ,   // 513
+  MODULE_DEVICE_ID_J1_LINEAR            ,   // 514
+  MODULE_DEVICE_ID_A400_BED             ,   // 515
+  MODULE_DEVICE_ID_A400_LINEAR          ,   // 516
   MODULE_DEVICE_ID_INVALID
 };
 
@@ -184,48 +185,48 @@ enum ModuleFunctionID {
 };
 
 
-// index is function id
-const uint8_t module_prio_table[][2] = {
-  // FUNCID                               Priority(0-3)              possible total of function in network
-  {/* MODULE_FUNC_ENDSTOP_STATE       */  MODULE_FUNC_PRIORITY_HIGH,      5}, // for now we have 5 axes in A250/A350
-  {/* MODULE_FUNC_PROBE_STATE         */  MODULE_FUNC_PRIORITY_HIGH,      2}, // we may have 2 probes in system
-  {/* MODULE_FUNC_RUNOUT_SENSOR_STATE */  MODULE_FUNC_PRIORITY_HIGH,      2},
-  {/* MODULE_FUNC_STEPPER_CTRL        */  MODULE_FUNC_PRIORITY_LOW,       0},
-  {/* MODULE_FUNC_SET_SPINDLE_SPEED   */  MODULE_FUNC_PRIORITY_MEDIUM,    1},
-  {/* MODULE_FUNC_GET_SPINDLE_SPEED   */  MODULE_FUNC_PRIORITY_MEDIUM,    1},
-  {/* MODULE_FUNC_GET_NOZZLE_TEMP     */  MODULE_FUNC_PRIORITY_MEDIUM,    2},
-  {/* MODULE_FUNC_SET_NOZZLE_TEMP     */  MODULE_FUNC_PRIORITY_MEDIUM,    2},
-  {/* MODULE_FUNC_SET_FAN1            */  MODULE_FUNC_PRIORITY_MEDIUM,    2},
-  {/* MODULE_FUNC_SET_FAN2            */  MODULE_FUNC_PRIORITY_MEDIUM,    2},
-  {/* MODULE_FUNC_SET_3DP_PID         */  MODULE_FUNC_PRIORITY_MEDIUM,    2},
-  {/* MODULE_FUNC_SET_CAMERA_POWER    */  MODULE_FUNC_PRIORITY_MEDIUM,    1},
-  {/* MODULE_FUNC_SET_LASER_FOCUS     */  MODULE_FUNC_PRIORITY_MEDIUM,    1},
-  {/* MODULE_FUNC_GET_LASER_FOCUS     */  MODULE_FUNC_PRIORITY_MEDIUM,    1},
-  {/* MODULE_FUNC_SET_LIGHTBAR_COLOR  */  MODULE_FUNC_PRIORITY_LOW,       0},
-  {/* MODULE_FUNC_ENCLOSURE_STATE     */  MODULE_FUNC_PRIORITY_HIGH,      1},
-  {/* MODULE_FUNC_REPORT_3DP_PID      */  MODULE_FUNC_PRIORITY_MEDIUM,    1},
-  {/* MODULE_FUNC_PROOFREAD_KNIFE     */  MODULE_FUNC_PRIORITY_MEDIUM,    1},
-  {/* MODULE_FUNC_SET_ENCLOSURE_LIGHT */  MODULE_FUNC_PRIORITY_MEDIUM,    1},
-  {/* MODULE_FUNC_SET_ENCLOSURE_FAN   */  MODULE_FUNC_PRIORITY_MEDIUM,    1},
-  {/* FUNC_REPORT_EMERGENCY_STOP      */  MODULE_FUNC_PRIORITY_EMERGENT,  1},
-  {/* MODULE_FUNC_TMC_IOCTRL          */  MODULE_FUNC_PRIORITY_MEDIUM,    1},
-  {/* MODULE_FUNC_TMC_PUBLISH         */  MODULE_FUNC_PRIORITY_MEDIUM,    1},
-  {/* MODULE_FUNC_SET_PURIFIER        */  MODULE_FUNC_PRIORITY_MEDIUM,    1},
-  {/* MODULE_FUNC_REPORT_PURIFIER     */  MODULE_FUNC_PRIORITY_MEDIUM,    1},
-  {/* MODULE_FUNC_SET_AUTOFOCUS_LIGHT    */  MODULE_FUNC_PRIORITY_MEDIUM, 1},
-  {/* MODULE_FUNC_REPORT_SECURITY_STATUS */  MODULE_FUNC_PRIORITY_MEDIUM, 1},
-  {/* MODULE_FUNC_ONLINE_SYNC            */  MODULE_FUNC_PRIORITY_MEDIUM, 1},
-  {/* MODULE_FUNC_SET_PROTECT_TEMP       */  MODULE_FUNC_PRIORITY_MEDIUM, 1},
-  {/* MODULE_FUNC_LASER_CTRL        */  MODULE_FUNC_PRIORITY_MEDIUM,      1},
-  {/* MODULE_FUNC_GET_LASER_HW_VERSION  */  MODULE_FUNC_PRIORITY_MEDIUM,  1},
-  {/* MODULE_FUNC_REPORT_PIN_STATE   */  MODULE_FUNC_PRIORITY_MEDIUM,     1},
-  {/* MODULE_FUNC_CONFIRM_PIN_STATE  */  MODULE_FUNC_PRIORITY_MEDIUM,     1},
-  {/* MODULE_FUNC_SWITCH_EXTRUDER        */  MODULE_FUNC_PRIORITY_MEDIUM, 1},
-  {/* MODULE_FUNC_REPORT_NOZZLE_TYPE     */  MODULE_FUNC_PRIORITY_MEDIUM, 1},
-  {/* MODULE_SET_FAN_NOZZLE              */  MODULE_FUNC_PRIORITY_MEDIUM, 1},
-  {/* MODULE_REPORT_EXTRUDER_INFO        */  MODULE_FUNC_PRIORITY_MEDIUM, 1},
-  {/* MODULE_SET_EXTRUDER_CHECK          */  MODULE_FUNC_PRIORITY_MEDIUM, 1},
-};
+// // index is function id
+// const uint8_t module_prio_table[][2] = {
+//   // FUNCID                               Priority(0-3)              possible total of function in network
+//   {/* MODULE_FUNC_ENDSTOP_STATE       */  MODULE_FUNC_PRIORITY_HIGH,      5}, // for now we have 5 axes in A250/A350
+//   {/* MODULE_FUNC_PROBE_STATE         */  MODULE_FUNC_PRIORITY_HIGH,      2}, // we may have 2 probes in system
+//   {/* MODULE_FUNC_RUNOUT_SENSOR_STATE */  MODULE_FUNC_PRIORITY_HIGH,      2},
+//   {/* MODULE_FUNC_STEPPER_CTRL        */  MODULE_FUNC_PRIORITY_LOW,       0},
+//   {/* MODULE_FUNC_SET_SPINDLE_SPEED   */  MODULE_FUNC_PRIORITY_MEDIUM,    1},
+//   {/* MODULE_FUNC_GET_SPINDLE_SPEED   */  MODULE_FUNC_PRIORITY_MEDIUM,    1},
+//   {/* MODULE_FUNC_GET_NOZZLE_TEMP     */  MODULE_FUNC_PRIORITY_MEDIUM,    2},
+//   {/* MODULE_FUNC_SET_NOZZLE_TEMP     */  MODULE_FUNC_PRIORITY_MEDIUM,    2},
+//   {/* MODULE_FUNC_SET_FAN1            */  MODULE_FUNC_PRIORITY_MEDIUM,    2},
+//   {/* MODULE_FUNC_SET_FAN2            */  MODULE_FUNC_PRIORITY_MEDIUM,    2},
+//   {/* MODULE_FUNC_SET_3DP_PID         */  MODULE_FUNC_PRIORITY_MEDIUM,    2},
+//   {/* MODULE_FUNC_SET_CAMERA_POWER    */  MODULE_FUNC_PRIORITY_MEDIUM,    1},
+//   {/* MODULE_FUNC_SET_LASER_FOCUS     */  MODULE_FUNC_PRIORITY_MEDIUM,    1},
+//   {/* MODULE_FUNC_GET_LASER_FOCUS     */  MODULE_FUNC_PRIORITY_MEDIUM,    1},
+//   {/* MODULE_FUNC_SET_LIGHTBAR_COLOR  */  MODULE_FUNC_PRIORITY_LOW,       0},
+//   {/* MODULE_FUNC_ENCLOSURE_STATE     */  MODULE_FUNC_PRIORITY_HIGH,      1},
+//   {/* MODULE_FUNC_REPORT_3DP_PID      */  MODULE_FUNC_PRIORITY_MEDIUM,    1},
+//   {/* MODULE_FUNC_PROOFREAD_KNIFE     */  MODULE_FUNC_PRIORITY_MEDIUM,    1},
+//   {/* MODULE_FUNC_SET_ENCLOSURE_LIGHT */  MODULE_FUNC_PRIORITY_MEDIUM,    1},
+//   {/* MODULE_FUNC_SET_ENCLOSURE_FAN   */  MODULE_FUNC_PRIORITY_MEDIUM,    1},
+//   {/* FUNC_REPORT_EMERGENCY_STOP      */  MODULE_FUNC_PRIORITY_EMERGENT,  1},
+//   {/* MODULE_FUNC_TMC_IOCTRL          */  MODULE_FUNC_PRIORITY_MEDIUM,    1},
+//   {/* MODULE_FUNC_TMC_PUBLISH         */  MODULE_FUNC_PRIORITY_MEDIUM,    1},
+//   {/* MODULE_FUNC_SET_PURIFIER        */  MODULE_FUNC_PRIORITY_MEDIUM,    1},
+//   {/* MODULE_FUNC_REPORT_PURIFIER     */  MODULE_FUNC_PRIORITY_MEDIUM,    1},
+//   {/* MODULE_FUNC_SET_AUTOFOCUS_LIGHT    */  MODULE_FUNC_PRIORITY_MEDIUM, 1},
+//   {/* MODULE_FUNC_REPORT_SECURITY_STATUS */  MODULE_FUNC_PRIORITY_MEDIUM, 1},
+//   {/* MODULE_FUNC_ONLINE_SYNC            */  MODULE_FUNC_PRIORITY_MEDIUM, 1},
+//   {/* MODULE_FUNC_SET_PROTECT_TEMP       */  MODULE_FUNC_PRIORITY_MEDIUM, 1},
+//   {/* MODULE_FUNC_LASER_CTRL        */  MODULE_FUNC_PRIORITY_MEDIUM,      1},
+//   {/* MODULE_FUNC_GET_LASER_HW_VERSION  */  MODULE_FUNC_PRIORITY_MEDIUM,  1},
+//   {/* MODULE_FUNC_REPORT_PIN_STATE   */  MODULE_FUNC_PRIORITY_MEDIUM,     1},
+//   {/* MODULE_FUNC_CONFIRM_PIN_STATE  */  MODULE_FUNC_PRIORITY_MEDIUM,     1},
+//   {/* MODULE_FUNC_SWITCH_EXTRUDER        */  MODULE_FUNC_PRIORITY_MEDIUM, 1},
+//   {/* MODULE_FUNC_REPORT_NOZZLE_TYPE     */  MODULE_FUNC_PRIORITY_MEDIUM, 1},
+//   {/* MODULE_SET_FAN_NOZZLE              */  MODULE_FUNC_PRIORITY_MEDIUM, 1},
+//   {/* MODULE_REPORT_EXTRUDER_INFO        */  MODULE_FUNC_PRIORITY_MEDIUM, 1},
+//   {/* MODULE_SET_EXTRUDER_CHECK          */  MODULE_FUNC_PRIORITY_MEDIUM, 1},
+// };
 
 #define MODULE_MAC_CMD_SCAN       (0x00000001)
 
@@ -280,6 +281,12 @@ typedef struct {
 } function_node_t;
 
 
+typedef struct {
+  uint16_t function;
+  uint8_t  prio;
+} module_func_prio_t;
+
+
 class ModuleBase {
   // public methods
   public:
@@ -294,7 +301,12 @@ class ModuleBase {
 
     virtual bool check_online() = 0;
 
-    virtual int get_function_priority(uint16_t function_id) { return MODULE_FUNC_PRIORITY_LOW; }
+    int get_function_priority(uint16_t function_id);
+    void set_func_prio_map(module_func_prio_t *map) {
+      if (!NULL)
+        return;
+      function_prio_map = map;
+    }
 
     uint16_t get_device_id() { return MODULE_GET_DEVICE_ID(mac); }
 
@@ -310,23 +322,16 @@ class ModuleBase {
     void set_function_nodes(function_node_t *nodes, uint8_t len) { function_nodes = nodes; func_length = len; }
 
   // private methods
-  private:
-    uint16_t get_message_id(uint16_t function_id) {
-      for (int i = 0; i < func_length; i++) {
-        if (function_nodes[i].function_id == function_id)
-          return function_nodes[i].message_id;
-      }
-
-      return MODULE_MESSAGE_ID_INVALID;
-    }
-
+  protected:
+    // search message id by function id
+    uint16_t get_message_id(uint16_t function_id);
 
   // public properties
   public:
 
 
   // private properties
-  protected:
+  private:
     uint32_t mac;
     uint8_t  key;
     uint8_t  index;
@@ -337,8 +342,10 @@ class ModuleBase {
 
     LinkCANChannel channel;
 
-    function_node_t *function_nodes;
+    function_node_t *function_nodes = NULL;
     uint8_t          func_length = 0;
+
+    module_func_prio_t *function_prio_map = NULL;
 };
 
 ModuleBase *module_factory(uint32_t mac, uint8_t key, uint8_t sub_index=0);

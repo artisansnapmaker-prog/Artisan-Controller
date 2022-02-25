@@ -482,6 +482,7 @@ err_code_t ModuleService::bind_message_id(ModuleBase &module) {
   func_len = module.get_function_nodes(&fnodes);
   if (!fnodes) {
     LOG_E("cannot get fnode from module: 0x%08x\n", cmd.peer);
+    vPortFree(buffer);
     return E_NO_RESRC;
   }
 

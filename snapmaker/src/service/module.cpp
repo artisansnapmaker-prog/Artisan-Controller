@@ -73,7 +73,7 @@ err_code_t handle_module_inserted(void *obj, uint32_t mac, LinkCANChannel ch) {
 
   for (; i < ms->configured_module; i++) {
     if (ms->modules[i]->get_mac() == mac) {
-      if (ms->modules[i]->get_status() == MODULE_STATUS_INVALID || 
+      if (ms->modules[i]->get_status() == MODULE_STATUS_INVALID ||
           ms->modules[i]->get_status() == MODULE_STATUS_UNCONFIGURE) {
           module = ms->modules[i];
           break;
@@ -104,7 +104,7 @@ err_code_t handle_module_inserted(void *obj, uint32_t mac, LinkCANChannel ch) {
     }
   }
 
-  // if status is unconfigured, need to assign message id again 
+  // if status is unconfigured, need to assign message id again
   if (module && module->get_status() == MODULE_STATUS_INVALID) {
     // update mac
     module->set_mac(mac);

@@ -53,6 +53,8 @@ err_code_t cnc_callback_routine(void *obj) {
   if (++cnc.lost_counter > CNC_LOST_MAX) {
     cnc.online = false;
   }
+
+  return E_SUCCESS;
 }
 
 

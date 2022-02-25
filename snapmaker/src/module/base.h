@@ -302,11 +302,6 @@ class ModuleBase {
     virtual bool check_online() = 0;
 
     int get_function_priority(uint16_t function_id);
-    void set_func_prio_map(module_func_prio_t *map) {
-      if (!NULL)
-        return;
-      function_prio_map = map;
-    }
 
     uint16_t get_device_id() { return MODULE_GET_DEVICE_ID(mac); }
 
@@ -325,7 +320,11 @@ class ModuleBase {
   protected:
     // search message id by function id
     uint16_t get_message_id(uint16_t function_id);
-
+    void set_func_prio_map(module_func_prio_t *map) {
+      if (!map)
+        return;
+      function_prio_map = map;
+    }
   // public properties
   public:
 

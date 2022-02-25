@@ -45,7 +45,7 @@ err_code_t HostSACPModule::send_sync(sacp_module_message_t *message, uint8_t *ou
     return E_PARAM;
   }
 
-  if (xSemaphoreTake(waiting_lock, timeout) != pdPASS) {
+  if (xSemaphoreTake(waiting_lock, pdMS_TO_TICKS(timeout)) != pdPASS) {
     LOG_E("no avail waiting node for cmd: 0x%x!\n", message->cmd_id);
     return E_NO_RESRC;
   }
@@ -89,9 +89,15 @@ err_code_t HostSACPModule::send_sync(sacp_module_message_t *message, uint8_t *ou
   }
 
   // release node of wait queue
-  xSemaphoreTake(waiting_lock, timeout);
-  waiting_nodes[node_index].status = SACP_WAITING_NODE_STA_IDLE;
-  xSemaphoreGive(waiting_lock);
+  if (xSemaphoreTake(waiting_lock, pdMS_TO_TICKS(timeout)) == pdPASS) {
+    waiting_nodes[node_index].status = SACP_WAITING_NODE_STA_IDLE;
+    xSemaphoreGive(waiting_lock);
+  }
+  else {
+    LOG_E("cannot get lock for sacp module sync, cmd: 0x%x!\n", message->cmd_id);
+    waiting_nodes[node_index].status = SACP_WAITING_NODE_STA_IDLE;
+    return E_NO_RESRC;
+  }
 
   return ret;
 }

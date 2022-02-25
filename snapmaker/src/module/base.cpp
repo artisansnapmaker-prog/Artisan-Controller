@@ -6,8 +6,16 @@
 
 
 int ModuleBase::get_function_priority(uint16_t function_id) {
-  if (!function_prio_map || function_id == MODULE_FUNCTION_ID_INVALID)
+  if (!function_prio_map) {
+    LOG_E("Invalid function prio map");
     return MODULE_FUNC_PRIORITY_LOW;
+  }
+
+  if (function_id == MODULE_FUNCTION_ID_INVALID) {
+    LOG_E("Invalid function id to get prio");
+    return MODULE_FUNC_PRIORITY_LOW;
+  }
+
 
   module_func_prio_t *map = function_prio_map;
 

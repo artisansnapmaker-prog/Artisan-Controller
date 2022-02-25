@@ -60,7 +60,7 @@ err_code_t HostSMCAN::send_sync(smcan_message_t *message, uint8_t *out, uint8_t 
     return E_PARAM;
   }
 
-  if (xSemaphoreTake(waiting_lock, timeout) != pdPASS) {
+  if (xSemaphoreTake(waiting_lock, pdMS_TO_TICKS(timeout)) != pdPASS) {
     LOG_E("no avail waiting node for cmd: 0x%x!\n", message->id);
     return E_NO_RESRC;
   }
@@ -102,9 +102,15 @@ err_code_t HostSMCAN::send_sync(smcan_message_t *message, uint8_t *out, uint8_t 
   }
 
   // release node of wait queue
-  xSemaphoreTake(waiting_lock, timeout);
-  waiting_nodes[i].msg_id = MODULE_MESSAGE_ID_INVALID;
-  xSemaphoreGive(waiting_lock);
+  if (xSemaphoreTake(waiting_lock, pdMS_TO_TICKS(timeout)) == pdPASS) {
+    waiting_nodes[i].msg_id = MODULE_MESSAGE_ID_INVALID;
+    xSemaphoreGive(waiting_lock);
+  }
+  else {
+    LOG_E("cannot get lock for sm can sync, cmd: 0x%x!\n", message->id);
+    waiting_nodes[i].msg_id = MODULE_MESSAGE_ID_INVALID;
+    return E_NO_RESRC;
+  }
 
   return ret;
 }
@@ -148,7 +154,7 @@ void HostSMCAN::handle_receive() {
 
     // check if some is waiting for this message
     tmp_queue = NULL;
-    if (xSemaphoreTake(waiting_lock, 10) == pdPASS) {
+    if (xSemaphoreTake(waiting_lock, pdMS_TO_TICKS(100)) == pdPASS) {
       for (int i = 0; i < SM_CAN_WAITING_NODE_MAX; i++) {
         if (waiting_nodes[i].msg_id == msg.id) {
           tmp_queue = waiting_nodes[i].queue;

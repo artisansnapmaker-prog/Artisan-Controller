@@ -446,7 +446,7 @@ err_code_t ModuleService::bind_message_id() {
       continue;
     ret = bind_message_id(*modules[i]);
     if (ret != E_SUCCESS) {
-      LOG_E("failed to bind message for module: 0x%08x\n", modules[i]->get_mac());
+      // TODO: set module status to invalid
       continue;
     }
   }
@@ -456,6 +456,7 @@ err_code_t ModuleService::bind_message_id() {
 
 
 err_code_t ModuleService::bind_message_id(ModuleBase &module) {
+  err_code_t ret = E_SUCCESS;
   function_node_t *fnodes = NULL;
   uint8_t func_len;
 
@@ -471,8 +472,6 @@ err_code_t ModuleService::bind_message_id(ModuleBase &module) {
     LOG_E("failed to apply memory in binding message!");
     return E_NO_MEM;
   }
-
-  LOG_I("Binding message, mac: 0x%08x ...\n", module.get_mac());
 
   // set command parameters
   cmd.peer   = module.get_mac();
@@ -498,13 +497,14 @@ err_code_t ModuleService::bind_message_id(ModuleBase &module) {
 
   if (index > 1) {
     cmd.length = index;
-    host_can_cfg.send_sync(&cmd, recv_buffer, &recv_length, 200, 2);
+    ret = host_can_cfg.send_sync(&cmd, recv_buffer, &recv_length, 200, 2);
+    if (ret != E_SUCCESS)
+      LOG_E("failed to bind message id to module: 0x%08x\n", cmd.peer);
   }
 
   vPortFree(buffer);
 
-  LOG_I("Done\n\n");
-  return E_SUCCESS;
+  return ret;
 }
 
 
@@ -530,9 +530,9 @@ err_code_t ModuleService::register_routine(void *obj, routine_function cb) {
 
 void ModuleService::background_thread() {
     // perform routine of modules
-    for (auto &&routine : routines) {
-      if (routine.cb)
-        routine.cb(routine.obj);
+    for (int i = 0; i < MODULE_ACCESSIBLE_MAX; i++) {
+      if (routines[i].cb)
+        routines[i].cb(routines[i].obj);
       else
         break;
     }

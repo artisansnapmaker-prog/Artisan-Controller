@@ -461,8 +461,6 @@ err_code_t ModuleService::bind_message_id(ModuleBase &module) {
   uint8_t func_len;
 
   sacp_module_message_t cmd;
-  uint8_t recv_buffer[4];
-  uint16_t recv_length;
 
   // start saving data in index 1 of buffer
   int index = 1;
@@ -498,7 +496,7 @@ err_code_t ModuleService::bind_message_id(ModuleBase &module) {
 
   if (index > 1) {
     cmd.length = index;
-    ret = host_can_cfg.send_sync(&cmd, recv_buffer, &recv_length, 200, 2);
+    ret = host_can_cfg.send(&cmd);
     if (ret != E_SUCCESS)
       LOG_E("failed to bind message id to module: 0x%08x\n", cmd.peer);
   }

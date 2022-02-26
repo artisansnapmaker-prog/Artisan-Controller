@@ -51,7 +51,6 @@ err_code_t HostSMCAN::send(smcan_message_t *message) {
 
 err_code_t HostSMCAN::send_sync(smcan_message_t *message, uint8_t *out, uint8_t *out_len, uint32_t timeout, uint8_t retry) {
   int        i;
-  uint16_t   recv_id;
   size_t     recv_len;
   err_code_t ret = E_SUCCESS;
 
@@ -61,12 +60,12 @@ err_code_t HostSMCAN::send_sync(smcan_message_t *message, uint8_t *out, uint8_t 
   }
 
   if (xSemaphoreTake(waiting_lock, pdMS_TO_TICKS(timeout)) != pdPASS) {
-    LOG_E("no avail waiting node for cmd: 0x%x!\n", message->id);
+    LOG_E("failed to take lock of sm can sync, cmd: %u!\n", message->id);
     return E_NO_RESRC;
   }
 
   for (i = 0; i < SM_CAN_WAITING_NODE_MAX; i++) {
-    if (waiting_nodes[i].msg_id != MODULE_MESSAGE_ID_INVALID) {
+    if (waiting_nodes[i].msg_id == MODULE_MESSAGE_ID_INVALID) {
       waiting_nodes[i].msg_id = message->id;
       break;
     }
@@ -75,7 +74,7 @@ err_code_t HostSMCAN::send_sync(smcan_message_t *message, uint8_t *out, uint8_t 
 
   if (i >= SM_CAN_WAITING_NODE_MAX) {
     // node waiting for us
-    LOG_E("no avail waiting node for cmd: 0x%x!\n", message->id);
+    LOG_E("no avail waiting node for cmd: %u!\n", message->id);
     return E_NO_RESRC;
   }
 
@@ -86,20 +85,20 @@ err_code_t HostSMCAN::send_sync(smcan_message_t *message, uint8_t *out, uint8_t 
     }
 
     recv_len = xMessageBufferReceive(waiting_nodes[i].queue, out, *out_len, pdMS_TO_TICKS(timeout));
-    if (recv_len < 2) {
+    if (recv_len == 0) {
       ret = E_TIMEOUT;
       continue;
     }
-
-    recv_id = *(uint16_t *)out;
-    if (recv_id != message->id) {
-      LOG_E("ACK[%u] is not of CMD[%u]\n", out[0], message->id);
-    }
-    else {
-      *out_len = recv_len;
+    else
       break;
-    }
   }
+
+  // if try <retry> times and result is not success, return error
+  if (retry == 0 && ret != E_SUCCESS)
+    return ret;
+
+  // else got success
+  *out_len = recv_len;
 
   // release node of wait queue
   if (xSemaphoreTake(waiting_lock, pdMS_TO_TICKS(timeout)) == pdPASS) {

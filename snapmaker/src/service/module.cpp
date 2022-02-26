@@ -536,17 +536,17 @@ void ModuleService::background_thread() {
         break;
     }
 
-    for (auto &&module : modules) {
-      if (!module->check_online()) {
-        // TODO: notify HMI there is a module offline!
+    // for (auto &&module : modules) {
+    //   if (!module->check_online()) {
+    //     // TODO: notify HMI there is a module offline!
 
-      }
-    }
+    //   }
+    // }
 
     // TODO: check if need to upgrade module
 
     // TODO: scan modules
-    host_mac.send(MODULE_MAC_CMD_SCAN);
+    // host_mac.send(MODULE_MAC_CMD_SCAN);
 }
 
 

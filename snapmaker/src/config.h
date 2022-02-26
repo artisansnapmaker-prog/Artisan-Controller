@@ -7,7 +7,7 @@
 #define HIGHEST_TASK_PRIORITY         (5)
 
 // parameters for system task
-#define SYSTEM_TASK_PRIORITY          (2)
+#define SYSTEM_TASK_PRIORITY          (3)
 #define SYSTEM_TASK_STACK_SIZE        (2048)  // 8kBytes
 
 // parameters for motion service
@@ -18,11 +18,11 @@
 #define HMI_RECV_TASK_PRIORITY       (4)
 #define HMI_RECV_TASK_STACK_SIZE     (512)  // 2kBytes
 // parameters for HMI(screen & luban) receive handler task
-#define HMI_EVENT_TASK_PRIORITY      (2)
+#define HMI_EVENT_TASK_PRIORITY      (3)
 #define HMI_EVENT_TASK_STACK_SIZE    (2048) // 8kBytes
 
 // parameters for module event handler task
-#define MODULE_EVENT_TASK_PRIORITY      (2)
+#define MODULE_EVENT_TASK_PRIORITY      (3)
 #define MODULE_EVENT_TASK_STACK_DEPTH   (512)  // 2kBytes
 // parameters for module receive handler task
 #define MODULE_RECEIVE_TASK_PRIORITY    (4)

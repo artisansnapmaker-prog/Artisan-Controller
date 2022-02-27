@@ -78,11 +78,11 @@ err_code_t LinkCAN::config_baudrate(LinkCANChannel ch, linkcan_baudrate_t br) {
   init_cfg.TimeSeg1             = br.bs1;
   init_cfg.TimeSeg2             = br.bs2;
   init_cfg.TimeTriggeredMode    = DISABLE;
-  init_cfg.TransmitFifoPriority = DISABLE;
+  init_cfg.TransmitFifoPriority = ENABLE;
   init_cfg.AutoBusOff           = DISABLE;
-  init_cfg.AutoWakeUp           = DISABLE;
+  init_cfg.AutoWakeUp           = ENABLE;
   init_cfg.AutoRetransmission   = ENABLE;
-  init_cfg.ReceiveFifoLocked    = DISABLE;
+  init_cfg.ReceiveFifoLocked    = ENABLE;
 
   bus_handler[ch].Init = init_cfg;
 
@@ -181,39 +181,89 @@ void LinkCAN::unlock(LinkCANChannel ch) {
   xSemaphoreGive(LinkCAN::locks[ch]);
 }
 
-err_code_t LinkCAN::send_packet(LinkCANChannel ch, void *header, uint8_t *packet) {
-  CAN_TxHeaderTypeDef *pkt_header = (CAN_TxHeaderTypeDef *)header;
-  HAL_StatusTypeDef   ret;
+err_code_t LinkCAN::send_packet(LinkCANChannel ch, LinkCANType type, uint32_t id, uint8_t *data, uint8_t length) {
+  bool lock_res;
 
-  uint32_t tx_mail_box;
-  uint8_t  buffer[8];
-  bool     lock_res;
+  union {
+      struct {
+        uint32_t tdlr;
+        uint32_t tdhr;
+      };
+      uint8_t buffer[8];
+  } tx_data;
 
+  CAN_TypeDef *bus = bus_handler[ch].Instance;
+  CAN_TxMailBox_TypeDef *mailbox = NULL;
 
-  // check if we have free TX box
-  if (HAL_CAN_GetTxMailboxesFreeLevel(&bus_handler[ch]) == 0) {
-    LOG_E("CAN[%u] bus busy!", ch);
+  for (int i = 0; i < 100; i++) {
+    if ((bus->TSR & CAN_TSR_TME0) != 0) {
+      mailbox = &bus->sTxMailBox[0];
+    }
+    else if ((bus->TSR & CAN_TSR_TME1) != 0) {
+      mailbox = &bus->sTxMailBox[1];
+    }
+    else if ((bus->TSR & CAN_TSR_TME2) != 0) {
+      mailbox = &bus->sTxMailBox[2];
+    }
+
+    if (!mailbox)
+      vTaskDelay(pdMS_TO_TICKS(1));
+    else
+      break;
+  }
+
+  if (!mailbox) {
+    LOG_E("CAN[%u] bus busy\n!", ch);
     return E_BUSY;
   }
 
+  for (int i = 0; i < 8; i++) {
+    if (i < length && data)
+      tx_data.buffer[i] = data[i];
+    else
+      tx_data.buffer[i] = 0;
+  }
 
   lock_res = lock(ch);
-  if (packet)
-    ret = HAL_CAN_AddTxMessage(&bus_handler[ch], pkt_header, packet, &tx_mail_box);
-  else
-    ret = HAL_CAN_AddTxMessage(&bus_handler[ch], pkt_header, buffer, &tx_mail_box);
 
-  HAL_CAN_IsTxMessagePending(&bus_handler[ch], tx_mail_box);
+  switch (type)
+  {
+  case LINK_CAN_TYPE_EXT_DATA:
+    mailbox->TIR  = (id<<CAN_TI0R_EXID_Pos) | CAN_ID_EXT;
+    mailbox->TDTR = length;
+    mailbox->TDLR = tx_data.tdlr;
+    mailbox->TDHR = tx_data.tdhr;
+    break;
+  
+  case LINK_CAN_TYPE_EXT_REMOTE:
+    mailbox->TIR  = (id<<CAN_TI0R_EXID_Pos) | CAN_ID_EXT | CAN_RTR_REMOTE;
+    mailbox->TDLR = 0;
+    mailbox->TDHR = 0;
+    mailbox->TDTR = 0;
+    break;
+  
+  case LINK_CAN_TYPE_STD_DATA:
+    mailbox->TIR = (id<<CAN_TI0R_STID_Pos);
+    mailbox->TDTR = length;
+    mailbox->TDLR = tx_data.tdlr;
+    mailbox->TDHR = tx_data.tdhr;
+    break;
+  
+  case LINK_CAN_TYPE_STD_REMOTE:
+    mailbox->TIR = (id<<CAN_TI0R_STID_Pos) | CAN_RTR_REMOTE;
+    mailbox->TDLR = 0;
+    mailbox->TDHR = 0;
+    mailbox->TDTR = 0;
+    break;
+  
+  default:
+    break;
+  }
+
+  SET_BIT(mailbox->TIR, CAN_TI0R_TXRQ);
 
   if (lock_res)
     unlock(ch);
-
-  if(ret != HAL_OK) {
-    LOG_E("CAN[%u] err: HAL ret=0x%u,sta=%u,code=%u,tbox=%u\n", ch, ret, bus_handler[ch].State, bus_handler[ch].ErrorCode, tx_mail_box);
-    return E_HARDWARE;
-  }
-
-  vTaskDelay(pdMS_TO_TICKS(1));
 
   return E_SUCCESS;
 }
@@ -247,7 +297,7 @@ err_code_t LinkCANExtRemote::write(uint32_t cmd) {
   header.ExtId = cmd;
 
   for (int i = 0; i < LINK_CAN_CH_INVALID; i++) {
-    ret = send_packet((LinkCANChannel)i, &header, NULL);
+    ret = send_packet((LinkCANChannel)i, LINK_CAN_TYPE_EXT_REMOTE, cmd, NULL, 0);
   }
 
   return ret;
@@ -277,19 +327,12 @@ BaseType_t LinkCANExtData::receive_data(uint8_t *data, uint8_t length) {
 
 err_code_t LinkCANExtData::write(LinkCANChannel ch, uint32_t mac, uint8_t *data, uint16_t length) {
   err_code_t   ret = 0;
-  CAN_TxHeaderTypeDef header;
-
-  header.IDE = CAN_ID_EXT;
-  header.RTR = CAN_RTR_DATA;
-  header.ExtId = LINK_CAN_GET_ID_FROM_MAC(mac);
 
   for (int32_t  i = 0; i < length; i += 8) {
       if (length - i >= 8)
-        header.DLC = 8;
+        ret = send_packet(ch, LINK_CAN_TYPE_EXT_DATA, LINK_CAN_GET_ID_FROM_MAC(mac), data + i, 8);
       else
-        header.DLC = length - i;
-
-      ret = send_packet(ch, &header, data + i);
+        ret = send_packet(ch, LINK_CAN_TYPE_EXT_DATA, LINK_CAN_GET_ID_FROM_MAC(mac), data + i, length - i);
 
       if (ret != E_SUCCESS) {
         LOG_E("failed to send packet for mac: 0x%x\n", mac);
@@ -321,14 +364,8 @@ BaseType_t LinkCANStdData::receive_data(linkcan_std_data_t &data, uint8_t length
 
 err_code_t LinkCANStdData::write(LinkCANChannel ch, uint16_t id, uint8_t *data, uint16_t length) {
   err_code_t   ret = 0;
-  CAN_TxHeaderTypeDef header;
 
-  header.IDE = CAN_ID_STD;
-  header.RTR = CAN_RTR_DATA;
-  header.DLC = length;
-  header.StdId = id;
-
-  ret = send_packet(ch, &header, data);
+  ret = send_packet(ch, LINK_CAN_TYPE_STD_DATA, id, data, length);
 
   if (ret != E_SUCCESS) {
     LOG_E("failed to send packet for message: 0x%x\n", id);

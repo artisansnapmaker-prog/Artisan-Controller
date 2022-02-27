@@ -69,7 +69,7 @@ class LinkCAN {
     bool lock(LinkCANChannel ch);
     void unlock(LinkCANChannel ch);
 
-    err_code_t send_packet(LinkCANChannel ch, void *header, uint8_t *packet);
+    err_code_t send_packet(LinkCANChannel ch, LinkCANType type, uint32_t id, uint8_t *data, uint8_t length);
     err_code_t config_baudrate(LinkCANChannel bus, linkcan_baudrate_t br);
     err_code_t config_filter(LinkCANChannel ch, int filter_bank, int filter_len, uint32_t filt_id, uint32_t mask_id, int rxfifo_num);
 

@@ -102,6 +102,7 @@ class ModuleService {
 
     ModuleBase *modules[MODULE_ACCESSIBLE_MAX];
     uint8_t    configured_module = 0;
+    SemaphoreHandle_t configuring_lock = NULL;
 
     struct list_head function_list[MODULE_FUNC_PRIORITY_MAX];
     uint8_t max_function_one_module = 0;

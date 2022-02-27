@@ -50,13 +50,15 @@ static __unused void handle_can_events(__unused void *p) {
 
 
 err_code_t handle_module_inserted(void *obj, uint32_t mac, LinkCANChannel ch) {
+  err_code_t ret = E_SUCCESS;
   ModuleService *ms = (ModuleService *)obj;
+
   if (ms->status != MS_STATUS_SCANNING && ms->status != MS_STATUS_CONFIG)
-    return -1;
+    return E_INVALID_STATE;
 
   if (ms->configured_module >= MODULE_ACCESSIBLE_MAX) {
     // too many modules connected
-    return -1;
+    return E_NO_RESRC;
   }
 
   // check if we already have this module by mac
@@ -65,6 +67,9 @@ err_code_t handle_module_inserted(void *obj, uint32_t mac, LinkCANChannel ch) {
   ModuleBase *module = NULL;
 
   LOG_I("Got module: 0x%08x\n", mac);
+
+  // tell modules service  we are initializing module
+  xSemaphoreGive(ms->configuring_lock);;
 
   for (; i < ms->configured_module; i++) {
     if (ms->modules[i]->get_mac() == mac) {
@@ -75,7 +80,9 @@ err_code_t handle_module_inserted(void *obj, uint32_t mac, LinkCANChannel ch) {
       else {
         // got same mac module! throw exception!
         LOG_E("got same MAC with another online module: 0x%8x\n", mac);
-        return E_PARAM;
+        xSemaphoreGive(ms->configuring_lock);
+        ret = E_PARAM;
+        goto out;
       }
     }
   }
@@ -105,7 +112,7 @@ err_code_t handle_module_inserted(void *obj, uint32_t mac, LinkCANChannel ch) {
     // re-bind message id
     ms->bind_message_id(*module);
     module->post_init();
-    return 0;
+    goto out;
   }
 
   // NOTE! to here if module is not none, its status should be MODULE_STATUS_UNCONFIGURE !!!
@@ -116,7 +123,8 @@ err_code_t handle_module_inserted(void *obj, uint32_t mac, LinkCANChannel ch) {
     module = module_factory(mac, i);
     if (!module) {
       LOG_E("Unknow module: 0x%08x\n", mac);
-      return E_HARDWARE;
+      ret = E_HARDWARE;
+      goto out;
     }
     ms->modules[ms->configured_module++] = module;
   }
@@ -128,13 +136,15 @@ err_code_t handle_module_inserted(void *obj, uint32_t mac, LinkCANChannel ch) {
   // it is plugged in correct port! if not, should throw an exception!
   if (module->pre_init() != E_SUCCESS) {
     LOG_E("failed to do pre_init for mac: 0x%x\n", mac);
-    return E_FAILURE;
+    ret = E_FAILURE;
+    goto out;
   }
 
   // get all function id from module
   // if failed to get function list, its status should be MODULE_STATUS_UNCONFIGURE !!!
   if (ms->get_function_list(*module) != E_SUCCESS) {
-    return E_FAILURE;
+    ret =  E_FAILURE;
+    goto out;
   }
 
   // new module is plugged dynamically, bind message id for it
@@ -143,11 +153,14 @@ err_code_t handle_module_inserted(void *obj, uint32_t mac, LinkCANChannel ch) {
     // if got failure in post_init(), its status should be MODULE_STATUS_INVALID
     if (module->post_init() != E_SUCCESS) {
       LOG_E("failed to do post_init for mac: 0x%x\n", mac);
-      return E_FAILURE;
+      ret = E_FAILURE;
+      goto out;
     }
   }
 
-  return E_SUCCESS;
+out:
+  xSemaphoreTake(ms->configuring_lock, pdMS_TO_TICKS(100));
+  return ret;
 }
 
 
@@ -178,6 +191,9 @@ void ModuleService::init() {
 
   // stop scheduler, waiting for CAN Host initalization done
   vPortEnterCritical();
+  configuring_lock = xSemaphoreCreateBinary();
+  configASSERT(configuring_lock);
+
   recv_signal = xSemaphoreCreateCounting(65535, 0);
   configASSERT(recv_signal);
 
@@ -216,10 +232,26 @@ void ModuleService::init() {
   // register callback to handle SSTP events from modules
   host_can_cfg.register_callback(MODULE_EXT_CMD_TRANS_FW_ACK, (void *)this, (sacp_module_callback)handle_fw_request);
 
+  // waiting modules to finish intialization
+  vTaskDelay(pdMS_TO_TICKS(500));
+
   status = MS_STATUS_SCANNING;
   // scan the modules
   LOG_I("starting scan modules...\n");
   host_mac.send(MODULE_MAC_CMD_SCAN);
+
+  uint32_t waiting_time = 0;
+  // after all module done init, waiting for 500ms again
+  while (waiting_time < 50) {
+    // return 1 while Semaphore is available, indicates no module is initializing
+    if (uxSemaphoreGetCount(configuring_lock)) {
+      waiting_time = 0;
+    }
+    else {
+      waiting_time++;
+    }
+    vTaskDelay(pdMS_TO_TICKS(10));
+  }
 
   // waiting module discovery
   vTaskDelay(pdMS_TO_TICKS(2000));

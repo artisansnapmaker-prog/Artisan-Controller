@@ -80,7 +80,6 @@ err_code_t handle_module_inserted(void *obj, uint32_t mac, LinkCANChannel ch) {
       else {
         // got same mac module! throw exception!
         LOG_E("got same MAC with another online module: 0x%8x\n", mac);
-        xSemaphoreGive(ms->configuring_lock);
         ret = E_PARAM;
         goto out;
       }
@@ -252,9 +251,6 @@ void ModuleService::init() {
     }
     vTaskDelay(pdMS_TO_TICKS(10));
   }
-
-  // waiting module discovery
-  vTaskDelay(pdMS_TO_TICKS(2000));
 
   // assign and bind message id for all discovered modules
   status = MS_STATUS_BINDING;

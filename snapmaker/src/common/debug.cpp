@@ -130,13 +130,16 @@ void SnapDebug::SendLog2Screen(SnapDebugLevel l) {
 //    ... - args
 void SnapDebug::Log(SnapDebugLevel level, const char *fmt, ...) {
   va_list args;
+  BaseType_t ret = pdFAIL;
 
-  if (xSemaphoreTake(lock, pdMS_TO_TICKS(10)) != pdPASS) {
-    return;
-  }
+  if (xTaskGetSchedulerState() == taskSCHEDULER_RUNNING)
+    if ((ret = xSemaphoreTake(lock, pdMS_TO_TICKS(10))) != pdPASS) {
+      return;
+    }
 
   if (level < pc_msg_level && level < sc_msg_level) {
-    xSemaphoreGive(lock);
+    if (ret != pdFAIL)
+      xSemaphoreGive(lock);
     return;
   }
 
@@ -149,7 +152,8 @@ void SnapDebug::Log(SnapDebugLevel level, const char *fmt, ...) {
   if (level >= pc_msg_level)
     CONSOLE_OUTPUT(log_buf + 2);
 
-  xSemaphoreGive(lock);
+  if (ret != pdFAIL)
+    xSemaphoreGive(lock);
 
   // TODO:
   // if (level >= sc_msg_level)

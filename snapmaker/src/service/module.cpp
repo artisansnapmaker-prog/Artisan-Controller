@@ -189,7 +189,8 @@ void ModuleService::init() {
   init_virtual_modules();
 
   // stop scheduler, waiting for CAN Host initalization done
-  vPortEnterCritical();
+  vTaskSuspendAll();
+
   configuring_lock = xSemaphoreCreateBinary();
   configASSERT(configuring_lock);
 
@@ -223,7 +224,8 @@ void ModuleService::init() {
   host_mac.init(event_task, recv_signal);
   host_can_cfg.init(event_task, recv_signal);
   host_can_rou.init(event_task, recv_signal);
-  vPortExitCritical();
+
+  xTaskResumeAll();
 
   // register callback to handle module inserted
   host_mac.register_callback((void *)this, (smmac_callback)handle_module_inserted);

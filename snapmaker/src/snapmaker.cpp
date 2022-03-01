@@ -166,7 +166,7 @@ static void system_thread(void *p) {
     module_svc.background_thread();
     system_svc.background_thread();
 
-    vTaskDelay(pdMS_TO_TICKS(1));
+    taskYIELD();
   }
 
 }

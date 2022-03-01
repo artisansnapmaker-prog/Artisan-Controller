@@ -73,7 +73,8 @@ err_code_t handle_module_inserted(void *obj, uint32_t mac, LinkCANChannel ch) {
 
   for (; i < ms->configured_module; i++) {
     if (ms->modules[i]->get_mac() == mac) {
-      if (ms->modules[i]->get_status() == MODULE_STATUS_INVALID) {
+      if (ms->modules[i]->get_status() == MODULE_STATUS_INVALID || 
+          ms->modules[i]->get_status() == MODULE_STATUS_UNCONFIGURE) {
           module = ms->modules[i];
           break;
       }
@@ -103,6 +104,7 @@ err_code_t handle_module_inserted(void *obj, uint32_t mac, LinkCANChannel ch) {
     }
   }
 
+  // if status is unconfigured, need to assign message id again 
   if (module && module->get_status() == MODULE_STATUS_INVALID) {
     // update mac
     module->set_mac(mac);
@@ -140,7 +142,7 @@ err_code_t handle_module_inserted(void *obj, uint32_t mac, LinkCANChannel ch) {
   }
 
   // get all function id from module
-  // if failed to get function list, its status should be MODULE_STATUS_UNCONFIGURE !!!
+  // TODO: if failed to get function list, its status should be MODULE_STATUS_UNCONFIGURE !!!
   if (ms->get_function_list(*module) != E_SUCCESS) {
     ret =  E_FAILURE;
     goto out;
@@ -148,7 +150,10 @@ err_code_t handle_module_inserted(void *obj, uint32_t mac, LinkCANChannel ch) {
 
   // new module is plugged dynamically, bind message id for it
   if (ms->status == MS_STATUS_CONFIG) {
-    ms->bind_message_id(*module);
+    if (ms->bind_message_id(*module) != E_SUCCESS) {
+      LOG_E("failed to bind message id!\n");
+      goto out;
+    }
     // if got failure in post_init(), its status should be MODULE_STATUS_INVALID
     if (module->post_init() != E_SUCCESS) {
       LOG_E("failed to do post_init for mac: 0x%x\n", mac);
@@ -158,7 +163,6 @@ err_code_t handle_module_inserted(void *obj, uint32_t mac, LinkCANChannel ch) {
   }
 
 out:
-  xSemaphoreTake(ms->configuring_lock, pdMS_TO_TICKS(100));
   return ret;
 }
 
@@ -245,7 +249,7 @@ void ModuleService::init() {
   // after all module done init, waiting for 500ms again
   while (waiting_time < 50) {
     // return 1 while Semaphore is available, indicates no module is initializing
-    if (uxSemaphoreGetCount(configuring_lock)) {
+    if (xSemaphoreTake(configuring_lock, 0)) {
       waiting_time = 0;
     }
     else {

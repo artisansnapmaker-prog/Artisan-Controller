@@ -257,6 +257,7 @@ void SnapmakerPrinter::register_module(uint16_t type, ModuleBase *module) {
     break;
 
   case MODULE_DEVICE_ID_LASER_10W_2021:
+    laser = (ToolHeadLaser *)module;
     break;
 
   case MODULE_DEVICE_ID_CNC_200W_2021:

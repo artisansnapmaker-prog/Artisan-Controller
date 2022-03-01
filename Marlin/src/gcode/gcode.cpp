@@ -1059,6 +1059,8 @@ void GcodeSuite::process_parsed_command(const bool no_ok/*=false*/) {
       #endif
 
       #if MB_SNAPMAKER
+        case 3: M3(); break;
+        case 5: M5(); break;
         case 2000: M2000(); break;
       #endif
 

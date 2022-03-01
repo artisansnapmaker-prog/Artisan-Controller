@@ -3,7 +3,7 @@
 #include "bed_virt.h"
 #include "linear_virt.h"
 #include "toolhead_cnc.h"
-
+#include "toolhead_laser.h"
 
 int ModuleBase::get_function_priority(uint16_t function_id) {
   if (!function_prio_map) {
@@ -88,6 +88,7 @@ ModuleBase *module_factory(uint32_t mac, uint8_t key, uint8_t sub_index) {
     break;
 
   case MODULE_DEVICE_ID_LASER_10W_2021:
+    return new ToolHeadLaser(mac, key);
     break;
 
   case MODULE_DEVICE_ID_CNC_200W_2021:

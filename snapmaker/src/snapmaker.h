@@ -7,6 +7,7 @@
 #include "common/debug.h"
 
 #include "module/toolhead_cnc.h"
+#include "module/toolhead_laser.h"
 
 struct SnapmakerHandle {
   TaskHandle_t marlin;
@@ -81,8 +82,24 @@ class SnapmakerPrinter
         return 0;
     }
 
-    uint8_t runout_state(uint8_t pin_index) { return 0x0; }
+    // Laser APIs for marlin
+    void set_laser_output(float power) {
+      if (laser)
+        laser->set_output(power);
+    }
 
+    void turn_on_laser() {
+      if (laser)
+        laser->turn_on();
+    }
+
+    void turn_off_laser() {
+      if (laser)
+        laser->turn_off();
+    }
+
+
+    uint8_t runout_state(uint8_t pin_index) { return 0x0; }
 
     void register_module(uint16_t type, ModuleBase *new_module);
   private:
@@ -91,10 +108,7 @@ class SnapmakerPrinter
     TaskHandle_t thandle_can_event;
 
     ToolHeadCNC *cnc = NULL;
-    // toolhead fdm 1e
-    // toolhead fdm 2e
-    // toolhead laser 1.6w
-    // toolhead laser 10w
+    ToolHeadLaser *laser = NULL;
 };
 
 extern SnapmakerPrinter smprinter;

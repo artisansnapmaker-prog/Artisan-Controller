@@ -604,7 +604,7 @@ float Probe::run_z_probe(const bool sanity_check/*=true*/) {
 
     // Do a first probe at the fast speed
     const bool probe_fail = probe_down_to_z(z_probe_low_point, fr_mm_s),            // No probe trigger?
-               early_fail = (scheck && current_position.z > -offset.z + clearance); // Probe triggered too high?
+               early_fail = false;//(scheck && current_position.z > -offset.z + clearance); // Probe triggered too high?
     #if ENABLED(DEBUG_LEVELING_FEATURE)
       if (DEBUGGING(LEVELING) && (probe_fail || early_fail)) {
         DEBUG_ECHOPGM_P(plbl);
@@ -677,6 +677,8 @@ float Probe::run_z_probe(const bool sanity_check/*=true*/) {
       TERN_(MEASURE_BACKLASH_WHEN_PROBING, backlash.measure_with_probe());
 
       const float z = current_position.z;
+      SERIAL_ECHOLNPGM("probed z: ", z);
+
 
       #if EXTRA_PROBING > 0
         // Insert Z measurement into probes[]. Keep it sorted ascending.
@@ -773,10 +775,10 @@ float Probe::probe_at_point(const_float_t rx, const_float_t ry, const ProbePtRai
 
   // On delta keep Z below clip height or do_blocking_move_to will abort
   xyz_pos_t npos = { rx, ry, TERN(DELTA, _MIN(delta_clip_start_height, current_position.z), current_position.z) };
-  if (!can_reach(npos, probe_relative)) {
-    if (DEBUGGING(LEVELING)) DEBUG_ECHOLNPGM("Position Not Reachable");
-    return NAN;
-  }
+  // if (!can_reach(npos, probe_relative)) {
+  //   if (DEBUGGING(LEVELING)) DEBUG_ECHOLNPGM("Position Not Reachable");
+  //   return NAN;
+  // }
   if (probe_relative) npos -= offset_xy;  // Get the nozzle position
 
   // Move the probe to the starting XYZ

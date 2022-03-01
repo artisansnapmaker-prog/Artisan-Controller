@@ -100,7 +100,7 @@ void extrapolate_unprobed_bed_level() {
   #ifdef HALF_IN_X
     constexpr uint8_t ctrx2 = 0, xend = GRID_MAX_POINTS_X - 1;
   #else
-    constexpr uint8_t ctrx1 = (GRID_MAX_CELLS_X) / 2, // left-of-center
+   uint8_t ctrx1 = (GRID_MAX_CELLS_X) / 2, // left-of-center
                       ctrx2 = (GRID_MAX_POINTS_X) / 2,  // right-of-center
                       xend = ctrx1;
   #endif
@@ -108,7 +108,7 @@ void extrapolate_unprobed_bed_level() {
   #ifdef HALF_IN_Y
     constexpr uint8_t ctry2 = 0, yend = GRID_MAX_POINTS_Y - 1;
   #else
-    constexpr uint8_t ctry1 = (GRID_MAX_CELLS_Y) / 2, // top-of-center
+    uint8_t ctry1 = (GRID_MAX_CELLS_Y) / 2, // top-of-center
                       ctry2 = (GRID_MAX_POINTS_Y) / 2,  // bottom-of-center
                       yend = ctry1;
   #endif
@@ -147,7 +147,8 @@ void print_bilinear_leveling_grid() {
   #define ABL_GRID_POINTS_VIRT_Y GRID_MAX_CELLS_Y * (BILINEAR_SUBDIVISIONS) + 1
   #define ABL_TEMP_POINTS_X (GRID_MAX_POINTS_X + 2)
   #define ABL_TEMP_POINTS_Y (GRID_MAX_POINTS_Y + 2)
-  float z_values_virt[ABL_GRID_POINTS_VIRT_X][ABL_GRID_POINTS_VIRT_Y];
+
+  float z_values_virt[VIRTUAL_GRID_MAX_NUM][VIRTUAL_GRID_MAX_NUM];
   xy_pos_t bilinear_grid_spacing_virt;
   xy_float_t bilinear_grid_factor_virt;
 

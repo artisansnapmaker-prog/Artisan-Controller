@@ -590,6 +590,10 @@ private:
     static void G425();
   #endif
 
+  #if MB_SNAPMAKER
+    static void G1029();
+  #endif
+
   #if HAS_RESUME_CONTINUE
     static void M0_M1();
   #endif

@@ -118,7 +118,7 @@ public:
       bool                topography_map;
       xy_uint8_t          grid_points;
     #else // Bilinear
-      static constexpr xy_uint8_t grid_points = { GRID_MAX_POINTS_X, GRID_MAX_POINTS_Y };
+      static constexpr xy_uint8_t grid_points = { GRID_MAX_NUM, GRID_MAX_NUM };
     #endif
 
     #if ENABLED(AUTO_BED_LEVELING_BILINEAR)
@@ -135,7 +135,7 @@ public:
 };
 
 #if ABL_USES_GRID && EITHER(AUTO_BED_LEVELING_3POINT, AUTO_BED_LEVELING_BILINEAR)
-  constexpr xy_uint8_t G29_State::grid_points;
+  // xy_uint8_t G29_State::grid_points;
   constexpr int G29_State::abl_points;
 #endif
 

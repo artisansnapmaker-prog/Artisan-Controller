@@ -46,6 +46,13 @@
   #include "../../lcd/extui/ui_api.h"
 #endif
 
+uint8_t GRID_MAX_POINTS_X;
+uint8_t GRID_MAX_POINTS_Y;
+uint8_t GRID_MAX_CELLS_X;    // #define GRID_MAX_CELLS_X (GRID_MAX_POINTS_X - 1)
+uint8_t GRID_MAX_CELLS_Y;    // #define GRID_MAX_CELLS_Y (GRID_MAX_POINTS_Y - 1)
+
+
+
 bool leveling_is_valid() {
   return TERN1(MESH_BED_LEVELING,          mbl.has_mesh())
       && TERN1(AUTO_BED_LEVELING_BILINEAR, !!bilinear_grid_spacing.x)

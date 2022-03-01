@@ -447,6 +447,10 @@ void GcodeSuite::process_parsed_command(const bool no_ok/*=false*/) {
         case 425: G425(); break;                                  // G425: Perform calibration with calibration cube
       #endif
 
+      #if MB_SNAPMAKER
+        case 1029: G1029();
+      #endif
+
       #if ENABLED(DEBUG_GCODE_PARSER)
         case 800: parser.debug(); break;                          // G800: GCode Parser Test for G
       #endif

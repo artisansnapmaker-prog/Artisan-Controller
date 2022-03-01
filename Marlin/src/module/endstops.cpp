@@ -30,6 +30,7 @@
 #include "../sd/cardreader.h"
 #include "temperature.h"
 #include "../lcd/marlinui.h"
+#include "../../../snapmaker/src/snapmaker.h"
 
 #if ENABLED(ENDSTOP_INTERRUPTS_FEATURE)
   #include HAL_PATH(../HAL, endstop_interrupts.h)
@@ -631,7 +632,7 @@ void Endstops::update() {
   #if ENABLED(G38_PROBE_TARGET) && NONE(CORE_IS_XY, CORE_IS_XZ, MARKFORGED_XY, MARKFORGED_XY)
     #define HAS_G38_PROBE 1
     // For G38 moves check the probe's pin for ALL movement
-    if (G38_move) UPDATE_ENDSTOP_BIT(Z, TERN(USES_Z_MIN_PROBE_PIN, MIN_PROBE, MIN));
+    if (G38_move) SET_BIT_TO(live_state, Z_MIN_PROBE, smprinter.get_probe_state());//UPDATE_ENDSTOP_BIT(Z, TERN(USES_Z_MIN_PROBE_PIN, MIN_PROBE, MIN));
   #endif
 
   // With Dual X, endstops are only checked in the homing direction for the active extruder
@@ -733,8 +734,9 @@ void Endstops::update() {
 
   #if HAS_BED_PROBE
     // When closing the gap check the enabled probe
-    if (probe_switch_activated())
-      UPDATE_ENDSTOP_BIT(Z, TERN(USES_Z_MIN_PROBE_PIN, MIN_PROBE, MIN));
+    // if (probe_switch_activated())
+      // UPDATE_ENDSTOP_BIT(Z, TERN(USES_Z_MIN_PROBE_PIN, MIN_PROBE, MIN));
+    SET_BIT_TO(live_state, Z_MIN_PROBE, smprinter.get_probe_state());
   #endif
 
   #if HAS_Z_MAX && !Z_SPI_SENSORLESS

@@ -27,6 +27,8 @@
 #include "../../../Marlin/src/module/planner.h"
 #include "../../../Marlin/src/feature/bedlevel/bedlevel.h"
 #include "../../Marlin/src/module/motion.h"
+#include "../../Marlin/src/module/endstops.h"
+#include "../../Marlin/src/module/probe.h"
 
 // X Y Z I J K
 #define AXIS_NUM  6
@@ -101,6 +103,16 @@ class MotionService {
     bool leveling_active() { return planner.leveling_active; }
     void disable_leveling() {set_bed_leveling_enabled(false);}
     void enable_leveling() {set_bed_leveling_enabled(true);}
+    void set_leveling_grids(uint8_t grids);
+    void enable_z_probe() {endstops.enable_z_probe(true);}
+    void disable_z_probe() {endstops.enable_z_probe(false);}
+    float probe_at_point(float x, float y, ProbePtRaise raise_after=PROBE_PT_RAISE);
+    void sync_z_values_to_platform(float z_values_raw[][GRID_MAX_NUM], float compensation);
+    void extrapolate_unprobed_points() {extrapolate_unprobed_bed_level();}
+    void interpolate_virt_points() {refresh_bed_level();}
+    void print_leveling_grid() { print_bilinear_leveling_grid();}
+    void print_leveling_grid_virt() { print_bilinear_leveling_grid_virt();}
+
 
     // extruder control API
     uint8_t active_extruder() { return 0; }

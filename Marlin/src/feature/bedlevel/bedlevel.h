@@ -33,6 +33,11 @@
   constexpr bool g29_in_progress = false;
 #endif
 
+extern uint8_t GRID_MAX_POINTS_X;
+extern uint8_t GRID_MAX_POINTS_Y;
+extern uint8_t GRID_MAX_CELLS_X;
+extern uint8_t GRID_MAX_CELLS_Y;
+
 bool leveling_is_valid();
 void set_bed_leveling_enabled(const bool enable=true);
 void reset_bed_level();
@@ -59,7 +64,7 @@ class TemporaryBedLevelingState {
 
 #if HAS_MESH
 
-  typedef float bed_mesh_t[GRID_MAX_POINTS_X][GRID_MAX_POINTS_Y];
+  typedef float bed_mesh_t[GRID_MAX_NUM][GRID_MAX_NUM];
 
   #if ENABLED(AUTO_BED_LEVELING_BILINEAR)
     #include "abl/abl.h"

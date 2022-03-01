@@ -5,7 +5,6 @@
 #include <stdio.h>
 #include "config.h"
 #include "common/debug.h"
-
 #include "module/toolhead_cnc.h"
 #include "module/toolhead_laser.h"
 #include "module/toolhead_cnc_200w.h"
@@ -166,6 +165,7 @@ class SnapmakerPrinter
     TaskHandle_t thandle_can_recv;
     TaskHandle_t thandle_can_event;
 
+  public:
     ToolHeadCNC *cnc = NULL;
     ToolHeadLaser *laser = NULL;
     ToolHeadFDM *fdm = NULL;

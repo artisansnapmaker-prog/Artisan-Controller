@@ -1207,6 +1207,8 @@ private:
 
   #if MB_SNAPMAKER
     static void M2000();
+    static void M3();
+    static void M5();
   #endif
 
   #if ENABLED(HAS_MCP3426_ADC)

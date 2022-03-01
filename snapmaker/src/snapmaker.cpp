@@ -1,6 +1,7 @@
 #include "snapmaker.h"
 #include "src/HAL/HAL.h"
 #include "src/pins/pins.h"
+#include "src/core/serial.h"
 
 #include "service/module.h"
 #include "service/system.h"
@@ -14,33 +15,39 @@ SnapmakerPrinter smprinter;
 
 pin_t X_STEP_PIN_var = PB4;
 pin_t X_DIR_PIN_var = PB3;
-pin_t X_ENABLE_PIN_var = PB5;
+pin_t X_ENABLE_PIN_var = PB2;
 pin_t X_MAX_PIN_var = PE7;
 pin_t X_UART_PIN_var = PD12;
+pin_t X_STANDBY_PIN_var = PB5;
+
 
 pin_t Y_STEP_PIN_var = PB7;
 pin_t Y_DIR_PIN_var = PB6;
-pin_t Y_ENABLE_PIN_var = PE3;
+pin_t Y_ENABLE_PIN_var = PB2;
 pin_t Y_MAX_PIN_var = PE8;
 pin_t Y_UART_PIN_var = PD13;
+pin_t Y_STANDBY_PIN_var = PE3;
 
 pin_t Y2_STEP_PIN_var = PE6;
 pin_t Y2_DIR_PIN_var = PE5;
-pin_t Y2_ENABLE_PIN_var = PE4;
+pin_t Y2_ENABLE_PIN_var = PB2;
 pin_t Y2_MAX_PIN_var = PE9;
 pin_t Y2_UART_PIN_var = PD14;
+pin_t Y2_STANDBY_PIN_var = PE4;
 
 pin_t Z_STEP_PIN_var = PC6;
 pin_t Z_DIR_PIN_var = PD15;
-pin_t Z_ENABLE_PIN_var = PC7;
+pin_t Z_ENABLE_PIN_var = PB2;
 pin_t Z_MAX_PIN_var = PE10;
 pin_t Z_UART_PIN_var = PC8;
+pin_t Z_STANDBY_PIN_var = PC7;
 
 pin_t Z2_STEP_PIN_var = PB14;
 pin_t Z2_DIR_PIN_var = PD9;
-pin_t Z2_ENABLE_PIN_var = PD8;
+pin_t Z2_ENABLE_PIN_var = PB2;
 pin_t Z2_MAX_PIN_var = PE11;
 pin_t Z2_UART_PIN_var = PC9;
+pin_t Z2_STANDBY_PIN_var = PD8;
 
 pin_t E0_STEP_PIN_var = PE14;
 pin_t E0_DIR_PIN_var = PB10;
@@ -156,10 +163,10 @@ static void system_thread(void *p) {
 
   // loop
   for (;;) {
-    //module_svc.background_thread();
+    module_svc.background_thread();
     system_svc.background_thread();
 
-    vTaskDelay(pdMS_TO_TICKS(100));
+    vTaskDelay(pdMS_TO_TICKS(1));
   }
 
 }
@@ -168,6 +175,13 @@ static void system_thread(void *p) {
 void SnapmakerPrinter::pre_init(void) {
   // enable the power to do TMC initialization in arduino setup()
   OUT_WRITE(POWER_CTRL_MOTOR, POWER_CTRL_ON);
+  OUT_WRITE(TMC_MASTER_SWITCH, TMC_SWITCH_ON);
+
+  OUT_WRITE(X_STANDBY_PIN_var, LOW);
+  OUT_WRITE(Y_STANDBY_PIN_var, LOW);
+  OUT_WRITE(Y2_STANDBY_PIN_var, LOW);
+  OUT_WRITE(Z_STANDBY_PIN_var, LOW);
+  OUT_WRITE(Z2_STANDBY_PIN_var, LOW);
 }
 
 
@@ -179,7 +193,6 @@ void SnapmakerPrinter::post_init() {
   OUT_WRITE(POWER_CTRL_BED, POWER_CTRL_ON);
   OUT_WRITE(POWER_CTRL_MOTION, POWER_CTRL_ON);
   OUT_WRITE(POWER_CTRL_HMI, POWER_CTRL_ON);
-  // OUT_WRITE(POWER_CTRL_MOTOR, POWER_CTRL_ON);
   OUT_WRITE(POWER_CTRL_4P, POWER_CTRL_ON);
 
   debug.init();

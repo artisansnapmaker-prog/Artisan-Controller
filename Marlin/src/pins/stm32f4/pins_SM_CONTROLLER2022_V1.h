@@ -232,6 +232,10 @@ extern pin_t E1_ENABLE_PIN_var;
 #define VOL1_DETECT_PIN                     PC1
 #define VOL2_DETECT_PIN                     PC2
 
+#define TMC_MASTER_SWITCH                   PB2
+#define TMC_SWITCH_ON                       LOW
+#define TMC_SWITCH_OFF                      HIGH
+
 #define POWER_CTRL_BED                      PE2
 #define POWER_CTRL_MOTION                   PD7
 #define POWER_CTRL_HMI                      PD11

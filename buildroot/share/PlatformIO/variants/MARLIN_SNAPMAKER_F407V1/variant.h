@@ -119,6 +119,9 @@ extern "C" {
 #define PB13 72
 #define PB14 73
 #define PB4  74
+#define PB2  75
+#define PC14 76
+#define PC15 77
 
 // This must be a literal
 #define NUM_DIGITAL_PINS        75

@@ -163,6 +163,7 @@ err_code_t handle_module_inserted(void *obj, uint32_t mac, LinkCANChannel ch) {
   }
 
 out:
+  xSemaphoreTake(ms->configuring_lock, pdMS_TO_TICKS(100));;
   return ret;
 }
 
@@ -249,7 +250,7 @@ void ModuleService::init() {
   // after all module done init, waiting for 500ms again
   while (waiting_time < 50) {
     // return 1 while Semaphore is available, indicates no module is initializing
-    if (xSemaphoreTake(configuring_lock, 0)) {
+    if (uxSemaphoreGetCount(configuring_lock)) {
       waiting_time = 0;
     }
     else {

@@ -6,6 +6,7 @@
 #include "service/module.h"
 #include "service/system.h"
 #include "service/motion.h"
+#include "service/bed_level.h"
 
 #include "host/sacp.h"
 
@@ -161,6 +162,7 @@ static void system_thread(void *p) {
   //host_hmi.init(hmi_event_task, hmi_recv_task);
 
   motion_svc.init();
+  bedlevel_svc.init();
 
   // loop
   for (;;) {

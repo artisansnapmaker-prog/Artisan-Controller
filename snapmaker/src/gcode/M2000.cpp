@@ -1,6 +1,8 @@
 #include "src/gcode/gcode.h"
 #include "../snapmaker.h"
 #include "../common/debug.h"
+#include "../../../Marlin/src/core/serial.h"
+#include "../service/bed_level.h"
 #if MB_SNAPMAKER
 
 void GcodeSuite::M2000() {

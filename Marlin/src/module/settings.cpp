@@ -36,7 +36,7 @@
  */
 
 // Change EEPROM version if the structure changes
-#define EEPROM_VERSION "V86"
+#define EEPROM_VERSION "V87"
 #define EEPROM_OFFSET 100
 
 // Check the integrity of data offsets.
@@ -257,6 +257,11 @@ typedef struct SettingsDataStruct {
   // ABL_PLANAR
   //
   matrix_3x3 planner_bed_level_matrix;                  // planner.bed_level_matrix
+
+  #if MB_SNAPMAKER
+  float z_compensation[EXTRUDERS];
+  bed_mesh_t z_values_raw;
+  #endif
 
   //
   // AUTO_BED_LEVELING_BILINEAR
@@ -840,6 +845,13 @@ void MarlinSettings::postprocess() {
         for (uint8_t q = 9; q--;) EEPROM_WRITE(dummyf);
       #endif
     }
+
+    #if MB_SNAPMAKER
+      {
+        EEPROM_WRITE(z_compensation);
+        EEPROM_WRITE(z_values_raw);
+      }
+    #endif
 
     //
     // Bilinear Auto Bed Leveling
@@ -1739,6 +1751,13 @@ void MarlinSettings::postprocess() {
           for (uint8_t q = 9; q--;) EEPROM_READ(dummyf);
         #endif
       }
+
+      #if MB_SNAPMAKER
+        {
+          EEPROM_READ(z_compensation);
+          EEPROM_READ(z_values_raw);
+        }
+      #endif
 
       //
       // Bilinear Auto Bed Leveling

@@ -145,6 +145,13 @@ void reset_bed_level() {
     #elif ABL_PLANAR
       planner.bed_level_matrix.set_to_identity();
     #endif
+    #if MB_SNAPMAKER
+      z_compensation[0] = 0;
+      z_compensation[1] = 0;
+      GRID_LOOP(x, y) {
+        z_values_raw[x][y] = NAN;
+      }
+    #endif
   #endif
 }
 

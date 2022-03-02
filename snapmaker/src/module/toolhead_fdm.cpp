@@ -466,11 +466,30 @@ void ToolHeadFDM::switch_extruder_without_move(uint8_t e) {
 
 }
 
-void ToolHeadFDM::extruder_status_check_ctrl(extruder_status_e status) {
+err_code_t ToolHeadFDM::extruder_status_check_ctrl(extruder_status_e status) {
+  err_code_t ret;
+  smcan_message_t msg;
+  uint8_t buffer[1];
 
+  msg.id = get_message_id(MODULE_SET_EXTRUDER_CHECK);
+    if (msg.id == MODULE_MESSAGE_ID_INVALID) {
+    LOG_E("invalid message to switch extruder\n");
+    return E_FAILURE;
+  }
+
+  buffer[0]  = status;
+  msg.ch     = get_channel();
+  msg.data   = buffer;
+  msg.length = 1;
+  ret = host_can_rou.send(&msg);
+
+  if (ret != E_SUCCESS) {
+    LOG_E("failed to , ret: %u\n", ret);
+    return ret;
+  }
 }
 
-err_code_t ToolHeadFDM::tool_change(uint8_t new_tool) {
+err_code_t ToolHeadFDM::tool_change(uint8_t new_tool, bool z_compensation/*=true*/) {
   motion_svc.synchronize_planner();
   bool leveling_was_active = motion_svc.leveling_active();
   motion_svc.disable_leveling();
@@ -486,6 +505,12 @@ err_code_t ToolHeadFDM::tool_change(uint8_t new_tool) {
     LOG_E("need go home before ");
     ret = E_FAILURE;
     goto EXIT;
+  }
+
+  float hotend_offset[3][EXTRUDERS];
+  memcpy(hotend_offset, hotend_offset_, sizeof(hotend_offset));
+  if (z_compensation == false) {
+    hotend_offset[Z_AXIS][1] = 0;
   }
 
   if (new_tool != active_extruder_) {
@@ -512,21 +537,22 @@ err_code_t ToolHeadFDM::tool_change(uint8_t new_tool) {
 
     // performing extruder switch
     if (new_tool == 0) {
-      motion_svc.moveto_x(EXTRUDER0_SWITCH_POSITION + hotend_offset_[X_AXIS][1], 80);
+      motion_svc.moveto_x(EXTRUDER0_SWITCH_POSITION + hotend_offset[X_AXIS][1], 120);
     } else if (new_tool == 1) {
-      motion_svc.moveto_x(EXTRUDER1_SWITCH_POSITION, 80);
+      motion_svc.moveto_x(EXTRUDER1_SWITCH_POSITION, 120);
     }
-    float xdiff = hotend_offset_[X_AXIS][new_tool] - hotend_offset_[X_AXIS][active_extruder_];
-    float ydiff = hotend_offset_[Y_AXIS][new_tool] - hotend_offset_[Y_AXIS][active_extruder_];
-    float zdiff = hotend_offset_[Z_AXIS][new_tool] - hotend_offset_[Z_AXIS][active_extruder_];
+    float xdiff = hotend_offset[X_AXIS][new_tool] - hotend_offset[X_AXIS][active_extruder_];
+    float ydiff = hotend_offset[Y_AXIS][new_tool] - hotend_offset[Y_AXIS][active_extruder_];
+    float zdiff = hotend_offset[Z_AXIS][new_tool] - hotend_offset[Z_AXIS][active_extruder_];
     SERIAL_ECHOLNPGM("xdiff: ", xdiff, "ydiff: ", ydiff, "zdiff: ", zdiff);
     motion_svc.current_position_[X_AXIS] += xdiff;
     motion_svc.current_position_[Y_AXIS] += ydiff;
     motion_svc.current_position_[Z_AXIS] += zdiff;
     SERIAL_ECHOLNPGM("cur_x: ", motion_svc.current_position_[X_AXIS], "cur_y: ", motion_svc.current_position_[X_AXIS], "cur_z: ", motion_svc.current_position_[X_AXIS]);
     motion_svc.sync_plan_position_to_platform();
-    motion_svc.moveto_xyz(motion_svc.destination_position_[X_AXIS], motion_svc.destination_position_[Y_AXIS], motion_svc.destination_position_[Z_AXIS], 80);
+    motion_svc.moveto_xyz(motion_svc.destination_position_[X_AXIS], motion_svc.destination_position_[Y_AXIS], motion_svc.destination_position_[Z_AXIS], 120);
     active_extruder_ = new_tool;
+    motion_svc.update_active_extruder_to_platform(active_extruder_);
     switch_extruder(active_extruder_);
     extruder_status_check_ctrl(EXTRUDER_STATUS_CHECK);
 

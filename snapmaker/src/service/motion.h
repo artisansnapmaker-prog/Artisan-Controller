@@ -29,6 +29,8 @@
 #include "../../Marlin/src/module/motion.h"
 #include "../../Marlin/src/module/endstops.h"
 #include "../../Marlin/src/module/probe.h"
+#include "../../Marlin/src/module/tool_change.h"
+#include "../../Marlin/src/module/settings.h"
 
 // X Y Z I J K
 #define AXIS_NUM  6
@@ -42,31 +44,12 @@ class MotionService {
     void init();
 
     // moving API
-    void moveto_xy(float x, float y, float feedrate, bool blocked=true) {}
-    void moveto_xyz(float x, float y, float z, float feedrate, bool blocked=true) {
-      xy_pos_t xy;
-      xy.x = x;
-      xy.y = y;
-      do_blocking_move_to_xy_z(xy, z, feedrate);
-      synchronize_planner();
-      update_position_from_platform();
-    }
+    void moveto_xy(float x, float y, float feedrate, bool blocked=true);
+    void moveto_xyz(float x, float y, float z, float feedrate, bool blocked=true);
     void moveto_xyze(float x, float y, float z, float e, float feedrate, bool blocked=true) {}
-    void moveto_x(float x, float feedrate, bool blocked=true) {
-      do_blocking_move_to_x(x, feedrate);
-      synchronize_planner();
-      update_position_from_platform();
-    }
-    void moveto_y(float y, float feedrate, bool blocked=true) {
-      do_blocking_move_to_y(y, feedrate);
-      synchronize_planner();
-      update_position_from_platform();
-    }
-    void moveto_z(float z, float feedrate, bool blocked=true) {
-      do_blocking_move_to_z(z, feedrate);
-      synchronize_planner();
-      update_position_from_platform();
-    }
+    void moveto_x(float x, float feedrate, bool blocked=true);
+    void moveto_y(float y, float feedrate, bool blocked=true);
+    void moveto_z(float z, float feedrate, bool blocked=true);
     void moveto_a(float a, float feedrate, bool blocked=true) {}
     void moveto_b(float b, float feedrate, bool blocked=true) {}
     void moveto_e(float e, float feedrate, bool blocked=true) {}
@@ -74,7 +57,6 @@ class MotionService {
     void moveto(float target[AXIS_NUM], float feedrate, bool blocked=true);
     void synchronize_planner() { planner.synchronize(); }
     bool is_all_axes_homed() {return all_axes_homed();}
-
 
     // position info API
     float current_position_[AXIS_NUM];
@@ -107,15 +89,18 @@ class MotionService {
     void enable_z_probe() {endstops.enable_z_probe(true);}
     void disable_z_probe() {endstops.enable_z_probe(false);}
     float probe_at_point(float x, float y, ProbePtRaise raise_after=PROBE_PT_RAISE);
-    void sync_z_values_to_platform(float z_values_raw[][GRID_MAX_NUM], float compensation);
+    void sync_z_values_to_platform();
+    void sync_z_values_from_platform();
+    void sync_z_compensation_to_platform();
+    void sync_z_compensation_from_platform();
     void extrapolate_unprobed_points() {extrapolate_unprobed_bed_level();}
     void interpolate_virt_points() {refresh_bed_level();}
     void print_leveling_grid() { print_bilinear_leveling_grid();}
     void print_leveling_grid_virt() { print_bilinear_leveling_grid_virt();}
 
-
     // extruder control API
-    uint8_t active_extruder() { return 0; }
+    // uint8_t active_extruder() { return 0; }
+    void update_active_extruder_to_platform(uint8_t e) { active_extruder = e; }
 
     // temperature API
     float current_hotend_temp(uint8_t heater_id = 0) { return 0.0; }
@@ -128,8 +113,8 @@ class MotionService {
 
     // settings control
     void reset_settings() {}
-    void load_settings() {}
-    void save_settings() {}
+    void load_settings();
+    void save_settings();
 
     void run_gcode(char *gcode) {}
 

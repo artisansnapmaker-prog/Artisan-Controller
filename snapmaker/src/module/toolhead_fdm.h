@@ -112,10 +112,11 @@ class ToolHeadFDM: public ModuleBase {
     void update_filament_state(uint8_t *data);
     uint8_t get_filament_state(uint8_t e);
     uint8_t get_filament_state();
-    void extruder_status_check_ctrl(extruder_status_e status);
-    err_code_t tool_change(uint8_t new_tool);
+    err_code_t extruder_status_check_ctrl(extruder_status_e status);
+    err_code_t tool_change(uint8_t new_tool, bool z_compensation=true);
     err_code_t switch_extruder(uint8_t e);
     void switch_extruder_without_move(uint8_t e);
+    void set_hotend_offset_z(float offset) { hotend_offset_[2][1] = offset; }
 
   // private methods
   private:

@@ -24,18 +24,26 @@
 #include "../config.h"
 #include "motion.h"
 
+#define CALIBRATION_PAPER_THICKNESS   0.2
 class BedLevelService {
   public:
     BedLevelService() {
-      z_compensation_ = 1.5;
+      z_compensation_[0] = 1.5;
+      z_compensation_[1] = 1.5;
     }
 
     void init();
-    err_code_t start_bed_level(uint8_t grids);
+    err_code_t start_auto_bed_leveling(uint8_t grids);
+    err_code_t probe_sensor_calibration(float x, float y);
+    err_code_t confirm_probe_sensor_calibration(uint8_t e);
+    err_code_t work_height_auto_detection();
 
-  private:
+
     float z_values_[GRID_MAX_NUM][GRID_MAX_NUM];
-    float z_compensation_;
+    float z_compensation_[EXTRUDERS];
+  private:
+    float hotend_triggered_z_[EXTRUDERS];
+    float hotend_touch_bed_z_[EXTRUDERS];
 };
 
 

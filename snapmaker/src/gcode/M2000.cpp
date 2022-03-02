@@ -59,6 +59,57 @@ void GcodeSuite::M2000() {
   default:
     break;
   }
+
+  switch (c)
+  {
+  case 0:
+    // set cnc control mode, 0:constant power, 1:constant rpm
+    smprinter.set_spindle_run_mode((CNCSpeedControlMode)(!!p));
+    break;
+
+  case 1:
+    // set cnc running direction, only valid if set in cnc stop state!!!
+    LOG_I("change cnc dir: %d \n", !!p);
+    smprinter.spindle_debug_config(CMD_SET_MOTOR_RUN_DIR, (!!p));
+    break;
+  
+  case 2:
+    // cnc pid parameter setting 
+    float tmp;
+    if (parser.seenval('P')) {
+      tmp = parser.value_float();
+      LOG_I("set cnc Kp: %f\n",tmp);
+      smprinter.spindle_debug_config(CMD_SET_MOTOR_PID_KP, (uint32_t)(tmp * 1000));
+    }
+
+    if (parser.seenval('I')) {
+      tmp = parser.value_float();
+      LOG_I("set cnc Ki: %f\n",tmp);
+      smprinter.spindle_debug_config(CMD_SET_MOTOR_PID_KI, (uint32_t)(tmp * 1000));
+    }
+
+    if (parser.seenval('D')) {
+      tmp = parser.value_float();
+      LOG_I("set cnc Kd: %f\n",tmp);
+      smprinter.spindle_debug_config(CMD_SET_MOTOR_PID_KD, (uint32_t)(tmp * 1000));
+    }
+    smprinter.spindle_debug_config(CMD_GET_MOTOR_PID_VALUE, 0);
+    break;
+
+  case 3:
+    // get cnc rpm
+    p = smprinter.get_spindle_rpm();
+    LOG_I("get cnc rpm: %d\n", p);
+    break;
+  
+  case 4:
+    // get cnc status
+    smprinter.get_spindle_status();
+    break;
+
+  default:
+    break;
+  }
 }
 
 #endif

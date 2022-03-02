@@ -261,6 +261,7 @@ void SnapmakerPrinter::register_module(uint16_t type, ModuleBase *module) {
     break;
 
   case MODULE_DEVICE_ID_CNC_200W_2021:
+    cnc = (ToolHeadCNC200W *)module;
     break;
 
   case MODULE_DEVICE_ID_ENCLOSURE_A400_2022:
@@ -277,6 +278,69 @@ void SnapmakerPrinter::register_module(uint16_t type, ModuleBase *module) {
 
   default:
     break;
+  }
+}
+
+// CNC related function interface 
+void SnapmakerPrinter::set_spindle_power(uint8_t new_power) {
+  if (cnc_online_check()) {
+    cnc->set_output_power(new_power);
+  }
+  else {
+    LOG_I("CNC not recognised or CNC offline\n");
+  }
+}
+
+void SnapmakerPrinter::set_spindle_rpm(uint16_t rpm) {
+  if (cnc_online_check()) {
+    if (cnc->set_output_rpm(rpm) == E_INVALID_CMD) {
+       LOG_I("The current module does not support setting rpm\n");
+    }
+  }
+  else {
+    LOG_I("CNC not recognised or CNC offline\n");
+  }
+}
+
+uint16_t SnapmakerPrinter::get_spindle_rpm(void) {
+  uint16_t spindle_rpm = 0;
+  if (cnc_online_check()) {
+    spindle_rpm = cnc->get_rpm();
+  }
+  else {
+    LOG_I("CNC not recognised or CNC offline\n");
+  }
+  return spindle_rpm;
+}
+
+void SnapmakerPrinter::get_spindle_status(void) {
+  if (cnc_online_check()) {
+    cnc->report_cnc_status_info();
+  }
+  else {
+    LOG_I("CNC not recognised or CNC offline\n");
+  }
+}
+
+void SnapmakerPrinter::set_spindle_run_mode(CNCSpeedControlMode mode) {
+  if (cnc_online_check()) {
+    if (cnc->set_run_mode(mode) == E_INVALID_CMD) {
+      LOG_I("The current module does not support setting run mode\n");
+    }
+  }
+  else {
+    LOG_I("CNC not recognised or CNC offline\n");
+  }
+}
+
+void SnapmakerPrinter::spindle_debug_config(uint8_t cmd, uint32_t param) {
+  if (cnc_online_check()) {
+    if (cnc->cnc_debug_function(cmd, param) == E_INVALID_CMD) {
+      LOG_I("The current module does not support debug config\n");
+    }
+  }
+  else {
+    LOG_I("CNC not recognised or CNC offline\n");
   }
 }
 

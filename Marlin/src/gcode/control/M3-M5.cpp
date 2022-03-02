@@ -22,7 +22,7 @@
 
 #include "../../inc/MarlinConfig.h"
 
-#if HAS_CUTTER
+#if HAS_CUTTER && !MB_SNAPMAKER
 
 #include "../gcode.h"
 #include "../../feature/spindle_laser.h"

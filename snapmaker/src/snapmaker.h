@@ -8,6 +8,7 @@
 
 #include "module/toolhead_cnc.h"
 #include "module/toolhead_laser.h"
+#include "module/toolhead_cnc_200w.h"
 
 struct SnapmakerHandle {
   TaskHandle_t marlin;
@@ -65,22 +66,14 @@ class SnapmakerPrinter
     void set_fan_speed(uint8_t fan, uint16_t speed) { return; }
 
     // CNC
-    void set_spindle_output(uint8_t new_power) {
-      if (cnc)
-        cnc->set_output(new_power);
-    }
+    bool cnc_online_check(void) { return (cnc && cnc->check_online()); }
+    void set_spindle_power(uint8_t new_power); 
+    void set_spindle_rpm(uint16_t rpm);
+    uint16_t get_spindle_rpm(void);
+    void get_spindle_status(void); 
+    void set_spindle_run_mode(CNCSpeedControlMode mode);
+    void spindle_debug_config(uint8_t cmd, uint32_t param);   // CNC debug
 
-    void set_spindle_power(uint8_t new_power) {
-      if (cnc)
-        cnc->set_power(new_power);
-    }
-
-    uint16_t get_spindle_rpm() {
-      if (cnc)
-        return cnc->get_rpm();
-      else
-        return 0;
-    }
 
     // Laser APIs for marlin
     void set_laser_output(float power) {

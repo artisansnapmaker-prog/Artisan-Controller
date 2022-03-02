@@ -3,6 +3,9 @@
 #include "../common/debug.h"
 #include "src/core/boards.h"
 
+// because macro UNUSED is defined in Marlin and HAL, so undefine it here to avoid buid warning
+#undef UNUSED(X)
+
 #include "arduino.h"
 #include "stm32f4xx_hal_can.h"
 
@@ -288,13 +291,7 @@ BaseType_t LinkCANExtRemote::receive_data(LinkCANChannel ch, uint32_t id) {
 }
 
 err_code_t LinkCANExtRemote::write(uint32_t cmd) {
-  err_code_t   ret = 0;
-  CAN_TxHeaderTypeDef header;
-
-  header.IDE = CAN_ID_EXT;
-  header.RTR = CAN_RTR_REMOTE;
-  header.DLC = 0;
-  header.ExtId = cmd;
+  err_code_t ret = 0;
 
   for (int i = 0; i < LINK_CAN_CH_INVALID; i++) {
     ret = send_packet((LinkCANChannel)i, LINK_CAN_TYPE_EXT_REMOTE, cmd, NULL, 0);

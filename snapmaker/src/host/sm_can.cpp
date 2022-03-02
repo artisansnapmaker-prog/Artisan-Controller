@@ -50,8 +50,8 @@ err_code_t HostSMCAN::send(smcan_message_t *message) {
 
 
 err_code_t HostSMCAN::send_sync(smcan_message_t *message, uint8_t *out, uint8_t *out_len, uint32_t timeout, uint8_t retry) {
-  int        i;
-  size_t     recv_len;
+  int        i = 0;
+  size_t     recv_len = 0;
   err_code_t ret = E_SUCCESS;
 
   if (!message || !out || !out_len) {
@@ -129,7 +129,6 @@ err_code_t HostSMCAN::register_callback(uint16_t msg_id, void *obj, smcan_callba
 
 
 void HostSMCAN::handle_receive() {
-  uint8_t buffer[SM_CAN_MESSAGE_SIZE];
   int32_t length;
   MessageBufferHandle_t tmp_queue;
   linkcan_std_data_t msg;
@@ -173,7 +172,7 @@ void HostSMCAN::handle_receive() {
     // if level of message id is equal or higher than HIGH, will call the handles directly
     if (msg.id < high_prio_bound) {
       if (handles[msg.id].callback) {
-        handles[msg.id].callback(handles[msg.id].obj, buffer, length);
+        handles[msg.id].callback(handles[msg.id].obj, msg.data, msg.length);
         continue;
       }
     }
@@ -186,7 +185,6 @@ void HostSMCAN::handle_receive() {
 
 
 void HostSMCAN::handle_events() {
-  uint8_t buffer[SM_CAN_MESSAGE_SIZE];
   size_t length;
 
   linkcan_std_data_t msg;

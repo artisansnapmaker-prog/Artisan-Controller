@@ -543,7 +543,7 @@ err_code_t ModuleService::register_routine(void *obj, routine_function cb) {
   int i = 0;
 
   for (; i < MODULE_ACCESSIBLE_MAX; i++) {
-    if (routines[i].obj == NULL) {
+    if (routines[i].obj == obj || routines[i].obj == NULL) {
       routines[i].obj = obj;
       routines[i].cb = cb;
       break;

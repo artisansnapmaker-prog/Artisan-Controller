@@ -67,6 +67,7 @@ err_code_t HostSMCAN::send_sync(smcan_message_t *message, uint8_t *out, uint8_t 
   for (i = 0; i < SM_CAN_WAITING_NODE_MAX; i++) {
     if (waiting_nodes[i].msg_id == MODULE_MESSAGE_ID_INVALID) {
       waiting_nodes[i].msg_id = message->id;
+      xMessageBufferReset(waiting_nodes[i].queue);
       break;
     }
   }
@@ -165,6 +166,7 @@ void HostSMCAN::handle_receive() {
 
     // if yes, send message to who is waiting for
     if (tmp_queue) {
+      LOG_V("send to wait nodes\n");
       xMessageBufferSend(tmp_queue, msg.data, msg.length, 0);
       continue;
     }

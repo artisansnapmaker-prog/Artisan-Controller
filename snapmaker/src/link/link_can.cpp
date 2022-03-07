@@ -198,15 +198,19 @@ err_code_t LinkCAN::send_packet(LinkCANChannel ch, LinkCANType type, uint32_t id
   CAN_TypeDef *bus = bus_handler[ch].Instance;
   CAN_TxMailBox_TypeDef *mailbox = NULL;
 
+  // wait 100ms
   for (int i = 0; i < 100; i++) {
     if ((bus->TSR & CAN_TSR_TME0) != 0) {
       mailbox = &bus->sTxMailBox[0];
+      SET_BIT(bus->TSR, CAN_TSR_TXOK0 | CAN_TSR_RQCP0);
     }
     else if ((bus->TSR & CAN_TSR_TME1) != 0) {
       mailbox = &bus->sTxMailBox[1];
+      SET_BIT(bus->TSR, CAN_TSR_TXOK1 | CAN_TSR_RQCP1);
     }
     else if ((bus->TSR & CAN_TSR_TME2) != 0) {
       mailbox = &bus->sTxMailBox[2];
+      SET_BIT(bus->TSR, CAN_TSR_TXOK2 | CAN_TSR_RQCP2);
     }
 
     if (!mailbox)

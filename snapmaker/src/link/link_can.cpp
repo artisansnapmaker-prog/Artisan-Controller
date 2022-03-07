@@ -173,15 +173,20 @@ void LinkCAN::hal_init() {
 
 
 bool LinkCAN::lock(LinkCANChannel ch) {
-  if (xSemaphoreTake(LinkCAN::locks[ch], 100) != pdPASS)
-    return false;
+  if (xTaskGetSchedulerState() == taskSCHEDULER_RUNNING) {
+    if (xSemaphoreTake(LinkCAN::locks[ch], 100) != pdPASS)
+      return false;
+    else
+      return true;
+  }
   else
-    return true;
+    return false;
 }
 
 
 void LinkCAN::unlock(LinkCANChannel ch) {
-  xSemaphoreGive(LinkCAN::locks[ch]);
+  if (xTaskGetSchedulerState() == taskSCHEDULER_RUNNING)
+    xSemaphoreGive(LinkCAN::locks[ch]);
 }
 
 err_code_t LinkCAN::send_packet(LinkCANChannel ch, LinkCANType type, uint32_t id, uint8_t *data, uint8_t length) {
@@ -197,24 +202,31 @@ err_code_t LinkCAN::send_packet(LinkCANChannel ch, LinkCANType type, uint32_t id
 
   CAN_TypeDef *bus = bus_handler[ch].Instance;
   CAN_TxMailBox_TypeDef *mailbox = NULL;
+  uint32_t tx_status_bits = 0;
+  uint32_t tx_clear_bits = 0;
 
   // wait 100ms
   for (int i = 0; i < 100; i++) {
     if ((bus->TSR & CAN_TSR_TME0) != 0) {
       mailbox = &bus->sTxMailBox[0];
-      SET_BIT(bus->TSR, CAN_TSR_TXOK0 | CAN_TSR_RQCP0);
+      tx_status_bits = CAN_TSR_TXOK0 | CAN_TSR_RQCP0 | CAN_TSR_TME0;
+      tx_clear_bits = CAN_TSR_RQCP0;
     }
     else if ((bus->TSR & CAN_TSR_TME1) != 0) {
       mailbox = &bus->sTxMailBox[1];
-      SET_BIT(bus->TSR, CAN_TSR_TXOK1 | CAN_TSR_RQCP1);
+      tx_status_bits = CAN_TSR_TXOK1 | CAN_TSR_RQCP1 | CAN_TSR_TME1;
+      tx_clear_bits = CAN_TSR_RQCP1;
     }
     else if ((bus->TSR & CAN_TSR_TME2) != 0) {
       mailbox = &bus->sTxMailBox[2];
-      SET_BIT(bus->TSR, CAN_TSR_TXOK2 | CAN_TSR_RQCP2);
+      tx_status_bits = CAN_TSR_TXOK2 | CAN_TSR_RQCP2 | CAN_TSR_TME2;
+      tx_clear_bits = CAN_TSR_RQCP2;
     }
 
-    if (!mailbox)
-      vTaskDelay(pdMS_TO_TICKS(1));
+    if (!mailbox) {
+      if (xTaskGetSchedulerState() == taskSCHEDULER_RUNNING)
+        vTaskDelay(pdMS_TO_TICKS(1));
+    }
     else
       break;
   }
@@ -241,33 +253,51 @@ err_code_t LinkCAN::send_packet(LinkCANChannel ch, LinkCANType type, uint32_t id
     mailbox->TDLR = tx_data.tdlr;
     mailbox->TDHR = tx_data.tdhr;
     break;
-  
+
   case LINK_CAN_TYPE_EXT_REMOTE:
     mailbox->TIR  = (id<<CAN_TI0R_EXID_Pos) | CAN_ID_EXT | CAN_RTR_REMOTE;
     mailbox->TDLR = 0;
     mailbox->TDHR = 0;
     mailbox->TDTR = 0;
     break;
-  
+
   case LINK_CAN_TYPE_STD_DATA:
     mailbox->TIR = (id<<CAN_TI0R_STID_Pos);
     mailbox->TDTR = length;
     mailbox->TDLR = tx_data.tdlr;
     mailbox->TDHR = tx_data.tdhr;
     break;
-  
+
   case LINK_CAN_TYPE_STD_REMOTE:
     mailbox->TIR = (id<<CAN_TI0R_STID_Pos) | CAN_RTR_REMOTE;
     mailbox->TDLR = 0;
     mailbox->TDHR = 0;
     mailbox->TDTR = 0;
     break;
-  
+
   default:
     break;
   }
 
   SET_BIT(mailbox->TIR, CAN_TI0R_TXRQ);
+
+  for (int i = 0; i < 100; i++) {
+    if ((bus->TSR & tx_status_bits) == tx_status_bits)
+      break;
+    if (xTaskGetSchedulerState() == taskSCHEDULER_RUNNING)
+      vTaskDelay(pdMS_TO_TICKS(1));
+  }
+
+  if ((bus->TSR & tx_status_bits) != tx_status_bits) {
+    LOG_E("CAN[%u] failed to send id[%u], esr[0x%08x]\n!", ch, id, bus->ESR);
+    if (lock_res)
+      unlock(ch);
+    return E_HARDWARE;
+  }
+  else {
+    // clear status
+    SET_BIT(bus->TSR, tx_clear_bits);
+  }
 
   if (lock_res)
     unlock(ch);

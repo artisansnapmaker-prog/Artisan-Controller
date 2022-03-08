@@ -95,8 +95,8 @@ err_code_t BedLevelService::goto_next_leveling_point() {
     }
 
     // move to new point
-    manual_leveling_point_index_++;
     motion_svc.moveto_xy(_GET_MESH_X(manual_leveling_point_index_ % GRID_MAX_POINTS_X), _GET_MESH_Y(manual_leveling_point_index_ / GRID_MAX_POINTS_Y), 80);
+    manual_leveling_point_index_++;
   }
 
   return E_SUCCESS;

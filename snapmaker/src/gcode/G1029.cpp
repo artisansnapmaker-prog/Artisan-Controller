@@ -25,9 +25,8 @@ void GcodeSuite::G1029() {
     bedlevel_svc.start_manual_bed_leveling(m);
   }
 
-  const uint8_t seen_n = parser.seenval('n');
+  const uint8_t seen_n = parser.seenval('N');
   if (seen_n) {
-    uint8_t n = (uint8_t)parser.byteval('n', (uint8_t)0);
     bedlevel_svc.goto_next_leveling_point();
   }
 

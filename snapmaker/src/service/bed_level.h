@@ -24,7 +24,7 @@
 #include "../config.h"
 #include "motion.h"
 
-#define CALIBRATION_PAPER_THICKNESS   0.2
+#define CALIBRATION_PAPER_THICKNESS   0.0
 class BedLevelService {
   public:
     BedLevelService() {

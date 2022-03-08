@@ -252,7 +252,7 @@ void ToolHeadFDM::set_probe_state(uint8_t state[]) {
 
 void ToolHeadFDM::update_filament_state(uint8_t *data) {
   if (device_id_ == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
-    if (!data[0])
+    if (data[0])
       filament_state_ |= 0x01;
     else
       filament_state_ &= ~0x01;
@@ -430,11 +430,13 @@ err_code_t ToolHeadFDM::set_hotend_temp(uint16_t temp, uint8_t e) {
 }
 
 uint8_t ToolHeadFDM::get_filament_state(uint8_t e) {
-  return (filament_state_ & (1<<e)) >> e;
+  // return (filament_state_ & (1<<e)) >> e;
+  return 1;
 }
 
 uint8_t ToolHeadFDM::get_filament_state() {
-  return (filament_state_ & (1<<active_extruder_)) >> active_extruder_;
+  // return (filament_state_ & (1<<active_extruder_)) >> active_extruder_;
+  return 1;
 }
 
 err_code_t ToolHeadFDM::switch_extruder(uint8_t e) {

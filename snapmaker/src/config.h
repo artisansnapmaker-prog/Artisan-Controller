@@ -56,6 +56,11 @@
 #define NOTIFY_EVENT_CAN_ROUTINE  (0x00000004)
 #define NOTIFY_EVENT_HMI          (0x00000008)
 
+// enable Marlin Serials
+#define USING_HW_SERIAL2  1
+#define USING_HW_SERIAL3  1
+#define USING_HW_SERIAL4  1
+#define USING_HW_SERIAL5  1
 
 //FLASH layout
 #define FLASH_SIZE      (1024*1024)

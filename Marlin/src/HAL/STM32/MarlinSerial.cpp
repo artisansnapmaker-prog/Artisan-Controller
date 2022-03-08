@@ -31,6 +31,10 @@
   #include "../../feature/e_parser.h"
 #endif
 
+#if MB_SNAPMAKER
+  #include "snapmaker.h"
+#endif
+
 #ifndef USART4
   #define USART4 UART4
 #endif

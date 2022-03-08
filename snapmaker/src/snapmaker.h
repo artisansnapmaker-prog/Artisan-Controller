@@ -22,6 +22,13 @@ struct SnapmakerHandle {
 };
 typedef struct SnapmakerHandle* SnapmakerHandle_t;
 
+enum toolHeadType {
+  TH_TYPE_3DP = 0,
+  TH_TYPE_CNC,
+  TH_TYPE_LASER,
+  TH_TYPE_UNKNOW,
+};
+
 #define EVENT_GROUP_MODULE_READY      (0x00000001)
 #define EVENT_GROUP_WAIT_FOR_HEATING  (0X00000002)
 
@@ -54,10 +61,29 @@ void disable_action_ban(uint8_t ab);
 class SnapmakerPrinter
 {
   public:
+    /**
+     * Set by stepper in ISR, define as public for faster visite from stepper
+    */
+    uint32_t gcode_file_position;
+
+  public:
     SnapmakerPrinter() {}
 
     void pre_init();
     void post_init();
+
+    // API for printer body
+    float get_feedrate(void);
+    void set_feedrate(float);
+    float get_travl_feedrate(void);
+    void set_travl_feedrate(float);
+    bool get_relative_mode(void);
+    void set_relative_mode(bool);
+    uint16_t get_bet_temp(void);
+    bool set_bet_temp(uint16_t);
+
+    // API for gcode
+    bool get_gcode_from_job(uint8_t *cmd, uint16_t max_len, uint32_t *line);
 
     // API for marlin
     // CNC
@@ -68,7 +94,6 @@ class SnapmakerPrinter
     void get_spindle_status(void);
     void set_spindle_run_mode(CNCSpeedControlMode mode);
     void spindle_debug_config(uint8_t cmd, uint32_t param);   // CNC debug
-
 
     // Laser APIs for marlin
     void set_laser_output(float power) {
@@ -159,13 +184,19 @@ class SnapmakerPrinter
     // ENCLOSURE
     void set_enclosure_fan_speed(uint16_t speed) {}
 
+    uint8_t runout_state(uint8_t pin_index) { return 0x0; }
     void register_module(uint16_t type, ModuleBase *new_module);
+
+    ModuleBase *get_cur_toolhead(void);
+    toolHeadType get_toolhead_type(void);
+
   private:
     TaskHandle_t thandle_marlin;
     TaskHandle_t thandle_can_recv;
     TaskHandle_t thandle_can_event;
 
   public:
+    /* ToolHeadFDM *_3dp = NULL; */
     ToolHeadCNC *cnc = NULL;
     ToolHeadLaser *laser = NULL;
     ToolHeadFDM *fdm = NULL;

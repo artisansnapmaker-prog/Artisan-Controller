@@ -3,6 +3,10 @@
 #include "../common/debug.h"
 #include "../../../Marlin/src/core/serial.h"
 #include "../service/bed_level.h"
+#include "../common/utility.h"
+#include "../src/service/client_node.h"
+
+
 #if MB_SNAPMAKER
 
 // publish callback
@@ -39,6 +43,19 @@ void GcodeSuite::M2000() {
 
   // common info
   __unused uint32_t p = (uint32_t)parser.ulongval('P', (uint32_t)0);
+
+  // These use for job control
+  uint8_t *index;
+  uint8_t msg_buf[128];
+  sacp_hmi_message_t msg;
+  msg.peer = SACP_CLIENT_ID_DEBUG;
+  msg.ch = SACP_CH_DEBUG;
+  msg.ver = 0;
+  msg.attr = 0;// req
+  msg.seq = 1;
+  msg.cmd_set = CMD_SET_JOB_CTRL;
+  msg.data = msg_buf;
+  index = msg.data;
 
   switch (s)
   {
@@ -79,6 +96,37 @@ void GcodeSuite::M2000() {
       host_hmi.send(&msg);
     }
     return;
+  case 200:
+    /* start a job */
+    msg.cmd_id = CMD_ID_JOB_CTRL_START;
+    msg.length = 2+32 + 2+8;
+    _16_TO_LITTLE_STREAM(32, index); index += 2;
+    memcpy(index, "0123456789ABCDEF0123456789ABCDEF", 32); index += 32;
+    _16_TO_LITTLE_STREAM(9, index); index += 2;
+    memcpy(index, "gcodefile", 9);
+    ClientNode::sacp_cb(NULL, &msg);
+    break;
+
+  case 201:
+    /* pause a job */
+    msg.cmd_id = CMD_ID_JOB_CTRL_PAUSE;
+    msg.length = 0;
+    ClientNode::sacp_cb(NULL, &msg);
+    break;
+
+  case 202:
+    /* resume a job */
+    msg.cmd_id = CMD_ID_JOB_CTRL_RESUME;
+    msg.length = 0;
+    ClientNode::sacp_cb(NULL, &msg);
+    break;
+
+  case 203:
+    /* stop a job */
+    msg.cmd_id = CMD_ID_JOB_CTRL_STOP;
+    msg.length = 0;
+    ClientNode::sacp_cb(NULL, &msg);
+    break;
 
   // test subscribe
   case 6:

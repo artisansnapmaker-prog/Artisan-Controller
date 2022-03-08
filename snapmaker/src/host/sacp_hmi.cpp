@@ -307,6 +307,7 @@ err_code_t HostSACPHMI::send(sacp_hmi_message_t *message) {
   }
   xSemaphoreGive(channel.lock);
 
+  // TODO: when CH == SACP_DEBUG_CH, output this message to debug port
   return E_SUCCESS;
 
 #else

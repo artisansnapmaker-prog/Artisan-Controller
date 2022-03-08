@@ -96,6 +96,8 @@ Stepper stepper; // Singleton
 #include "../sd/cardreader.h"
 #include "../MarlinCore.h"
 #include "../HAL/shared/Delay.h"
+// Add by 747
+#include "../../snapmaker/src/snapmaker.h"
 
 #if ENABLED(INTEGRATED_BABYSTEPPING)
   #include "../feature/babystep.h"
@@ -2302,6 +2304,8 @@ uint32_t Stepper::block_phase_isr() {
       // Compute the acceleration and deceleration points
       accelerate_until = current_block->accelerate_until << oversampling;
       decelerate_after = current_block->decelerate_after << oversampling;
+      // Add by snapmaker 747, update the system's file position
+      smprinter.gcode_file_position = current_block->file_position;
 
       TERN_(MIXING_EXTRUDER, mixer.stepper_setup(current_block->b_color));
 

@@ -63,4 +63,5 @@ typedef uint8_t err_code_t;
 #define E_INVALID_CMD   E_INVALID_CMD_ID
 #define E_TIMEOUT       E_EXE_TIMEOUT
 
+
 #endif // #ifndef ERROR_H_

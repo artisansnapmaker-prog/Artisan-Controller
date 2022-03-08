@@ -22,6 +22,7 @@
 #define SNAPMAKER_SYSTEM_SERVICE_H_
 
 #include <stdint.h>
+#include "../config.h"
 
 enum MachineModel {
   MACHINE_MODEL_A150,
@@ -59,17 +60,16 @@ class SystemService {
   // public methods
   public:
     SystemService() {}
-
     void init() {}
     void background_thread() { return ; }
-
+    uint32_t millis(void);
+    
   // private methods
   private:
 
 
   // public properties
   public:
-
 
   // private properties
   private:

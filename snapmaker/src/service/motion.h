@@ -31,6 +31,8 @@
 #include "../../Marlin/src/module/probe.h"
 #include "../../Marlin/src/module/tool_change.h"
 #include "../../Marlin/src/module/settings.h"
+#include "../common/error.h"
+
 
 // X Y Z I J K
 #define AXIS_NUM  6
@@ -42,6 +44,9 @@ class MotionService {
     MotionService() {}
 
     void init();
+
+    // status get API
+    bool sm_homing_needed() { return homing_needed(); }
 
     // moving API
     void moveto_xy(float x, float y, float feedrate, bool blocked=true);
@@ -57,6 +62,12 @@ class MotionService {
     void moveto(float target[AXIS_NUM], float feedrate, bool blocked=true);
     void synchronize_planner() { planner.synchronize(); }
     bool is_all_axes_homed() {return all_axes_homed();}
+
+    // home API
+    err_code_t home(){return E_SUCCESS;}
+    err_code_t home_x(){return E_SUCCESS;}
+    err_code_t home_y(){return E_SUCCESS;}
+    err_code_t home_z(){return E_SUCCESS;}
 
     // position info API
     float current_position_[AXIS_NUM];

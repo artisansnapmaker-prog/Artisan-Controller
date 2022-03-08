@@ -1,3 +1,6 @@
+#include "../../../Marlin/src/module/motion.h"
+#include "../../../Marlin/src/module/temperature.h"
+
 #include "snapmaker.h"
 #include "src/HAL/HAL.h"
 #include "src/pins/pins.h"
@@ -9,8 +12,15 @@
 #include "service/bed_level.h"
 
 #include "host/sacp.h"
+#include "service/client_node.h"
+#include "service/job_ctrl.h"
+
 
 SnapmakerPrinter smprinter;
+// This variable define in G0_G1.cpp
+#if ENABLED(VARIABLE_G0_FEEDRATE)
+  extern feedRate_t fast_move_feedrate;
+#endif
 
 // dynamic pins defination and default value
 
@@ -204,6 +214,7 @@ void SnapmakerPrinter::post_init() {
   OUT_WRITE(POWER_CTRL_4P, POWER_CTRL_ON);
 
   debug.init();
+  ClientNode::class_init();
 
   ret = xTaskCreate((TaskFunction_t)system_thread, "system", SYSTEM_TASK_STACK_SIZE,
         (void *)(this), SYSTEM_TASK_PRIORITY,  &thandle_can_recv);
@@ -351,6 +362,89 @@ void SnapmakerPrinter::spindle_debug_config(uint8_t cmd, uint32_t param) {
   else {
     LOG_I("CNC not recognised or CNC offline\n");
   }
+}
+
+float SnapmakerPrinter::get_feedrate(void) {
+  return feedrate_mm_s;
+}
+
+void SnapmakerPrinter::set_feedrate(float fr) {
+  feedrate_mm_s = fr;
+}
+
+float SnapmakerPrinter::get_travl_feedrate(void) {
+#if ENABLED(VARIABLE_G0_FEEDRATE)
+  return fast_move_feedrate;
+#else
+  return 0.0;
+#endif
+}
+
+void SnapmakerPrinter::set_travl_feedrate(float tfr) {
+#if ENABLED(VARIABLE_G0_FEEDRATE)
+  fast_move_feedrate = tfr;
+#endif
+}
+
+bool SnapmakerPrinter::get_relative_mode(void) {
+  return relative_mode;
+}
+
+void SnapmakerPrinter::set_relative_mode(bool rm) {
+  relative_mode = rm;
+}
+
+uint16_t SnapmakerPrinter::get_bet_temp(void) {
+  return thermalManager.degTargetBed();
+}
+
+ bool SnapmakerPrinter::set_bet_temp(uint16_t t) {
+  thermalManager.setTargetBed(t);
+  return thermalManager.wait_for_bed();
+}
+
+// API for gcode
+bool SnapmakerPrinter::get_gcode_from_job(uint8_t *cmd, uint16_t max_len, uint32_t *line) {
+  return job_ctrl_svc.consume_a_gcode(cmd, max_len, line);
+}
+
+ModuleBase *SnapmakerPrinter::get_cur_toolhead(void) { 
+  /*
+  if (_3dp && !cnc && !laser) {
+    return _3dp;
+  }
+
+  if (cnc && !_3dp && !laser) {
+    return cnc;
+  }
+
+  if (laser && !_3dp && !cnc) {
+    return laser;
+  }
+  */
+
+  LOG_E("More than one toohead online or No toolhead\r\n");
+  return NULL;
+}
+
+// The toolhead type should get from toolhead
+toolHeadType SnapmakerPrinter::get_toolhead_type(void) {
+  /*
+  if (_3dp && !cnc && !laser) {
+    return TH_TYPE_3DP;
+  }
+
+  if (cnc && !_3dp && !laser) {
+    return TH_TYPE_CNC;
+  }
+
+  if (laser && !_3dp && !cnc) {
+    return TH_TYPE_LASER;
+  }
+  */
+
+ LOG_E("toolhead unknow\r\n");
+ return TH_TYPE_UNKNOW;
 }
 
 extern "C" {

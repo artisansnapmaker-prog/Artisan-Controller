@@ -300,6 +300,14 @@ class ModuleBase {
     virtual err_code_t post_init() = 0;
     virtual err_code_t deinit() = 0;
 
+    virtual err_code_t save_env(uint8_t *env_buf, uint32_t &len) { 
+      len = 0;
+      return E_SUCCESS; 
+    }
+    virtual err_code_t resume_env(uint8_t *env_buf, uint32_t &len) {
+      return E_SUCCESS; 
+    }
+
     virtual bool check_online() = 0;
 
     int get_function_priority(uint16_t function_id);

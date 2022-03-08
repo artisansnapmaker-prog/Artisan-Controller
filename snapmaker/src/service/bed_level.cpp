@@ -8,6 +8,28 @@ BedLevelService bedlevel_svc;
 void BedLevelService::init() {
 }
 
+err_code_t BedLevelService::start_probe_test(uint8_t b, float x, float y) {
+  if (b == 0) {
+    return E_PARAM;
+  }
+
+  motion_svc.disable_leveling();
+  motion_svc.enable_z_probe();
+  motion_svc.moveto_xy(x, y, 80);
+
+  // calibrate extruder0 first
+  smprinter.fdm->set_probe_sensor(PROBE_SENSOR_LEFT_OPTOCOUPLER);
+  motion_svc.moveto_z(20, 30);
+  smprinter.fdm->tool_change(0);
+
+  for (uint32_t i = 0; i < b; i++) {
+    float z_value = motion_svc.probe_at_point(x, y, PROBE_PT_RAISE);
+    LOG_I("\n\n");
+    LOG_I("probed_times%d: %f\n", i, z_value);
+    LOG_I("\n\n");
+  }
+}
+
 err_code_t BedLevelService::start_manual_bed_leveling(uint8_t grids) {
   if (grids < 2 && grids > 11) {
     LOG_I("\n");

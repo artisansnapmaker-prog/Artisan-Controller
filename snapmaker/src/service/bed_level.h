@@ -33,6 +33,7 @@ class BedLevelService {
     }
 
     void init();
+    err_code_t start_probe_test(uint8_t b, float x, float y);
     err_code_t start_manual_bed_leveling(uint8_t grids);
     err_code_t goto_next_leveling_point();
     err_code_t start_auto_bed_leveling(uint8_t grids);

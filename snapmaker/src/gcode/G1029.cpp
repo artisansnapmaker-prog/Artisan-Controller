@@ -5,6 +5,14 @@
 #if MB_SNAPMAKER
 
 void GcodeSuite::G1029() {
+  const uint8_t seen_b = parser.seenval('B');
+  if (seen_b) {
+    uint8_t b = (uint8_t)parser.byteval('B', (uint8_t)0);
+    float x = (float)parser.floatval('X', (float)200);
+    float y = (float)parser.floatval('Y', (float)200);
+    bedlevel_svc.start_probe_test(b, x, y);
+  }
+
   const uint8_t seen_m = parser.seenval('M');
   if (seen_m) {
     uint8_t m = (uint8_t)parser.byteval('M', (uint8_t)0);
@@ -26,8 +34,8 @@ void GcodeSuite::G1029() {
   const bool seen_x = parser.seenval('X');
   const bool seen_y = parser.seenval('Y');
   if (seen_x && seen_y) {
-    float x = (uint8_t)parser.floatval('X', (uint8_t)100);
-    float y = (uint8_t)parser.floatval('Y', (uint8_t)100);
+    float x = (float)parser.floatval('X', (float)200);
+    float y = (float)parser.floatval('Y', (float)200);
     bedlevel_svc.probe_sensor_calibration(x, y);
   }
 

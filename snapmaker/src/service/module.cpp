@@ -568,12 +568,14 @@ void ModuleService::background_thread() {
         break;
     }
 
-    // for (auto &&module : modules) {
-    //   if (!module->check_online()) {
-    //     // TODO: notify HMI there is a module offline!
+    for (int i = 0; i < MODULE_ACCESSIBLE_MAX; i++) {
+      if (!modules[i])
+        continue;
 
-    //   }
-    // }
+      // if (!modules[i]->check_online()) {
+      //   // TODO: tell HMI someone is offline
+      // }
+    }
 
     // TODO: check if need to upgrade module
 

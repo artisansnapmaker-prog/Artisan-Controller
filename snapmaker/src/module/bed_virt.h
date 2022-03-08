@@ -26,7 +26,7 @@
 class BedVirtual: public ModuleBase {
   // public methods
   public:
-    BedVirtual(uint32_t mac, uint8_t key, uint8_t zone_number): ModuleBase(mac, key) {}
+    BedVirtual(uint8_t zone_number, uint32_t mac, uint8_t key, uint8_t sub_index): ModuleBase(mac, key, sub_index) {}
     bool check_online() { return true; }
     err_code_t pre_init() { return E_SUCCESS; }
     err_code_t post_init() { return E_SUCCESS; }

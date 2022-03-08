@@ -68,6 +68,17 @@ class ModuleService {
     void init();
     err_code_t register_routine(void *obj, routine_function cb);
 
+    ModuleBase *get_module(uint16_t device_id, uint8_t sub_index) {
+      for (int i = 0; i < MODULE_ACCESSIBLE_MAX; i++) {
+        if (!modules[i])
+          continue;
+
+        if (modules[i]->get_device_id() == device_id &&
+          modules[i]->get_sub_index() == sub_index)
+          return modules[i];
+      }
+    }
+
     // background thread
     void background_thread();
 

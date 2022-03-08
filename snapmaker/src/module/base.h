@@ -293,10 +293,8 @@ typedef struct {
 class ModuleBase {
   // public methods
   public:
-    ModuleBase() {}
-
-    ModuleBase(uint32_t mac, uint8_t key):
-      mac(mac), key(key) {}
+    ModuleBase(uint32_t mac, uint8_t key, uint8_t i):
+      mac(mac), key(key), index(i) {}
 
     virtual err_code_t pre_init() = 0;
     virtual err_code_t post_init() = 0;
@@ -318,6 +316,8 @@ class ModuleBase {
 
     uint8_t get_function_nodes(function_node_t **nodes) { if (nodes) *nodes = function_nodes; return func_length; }
     void set_function_nodes(function_node_t *nodes, uint8_t len) { function_nodes = nodes; func_length = len; }
+
+    uint8_t get_sub_index() { return index; }
 
   // private methods
   protected:

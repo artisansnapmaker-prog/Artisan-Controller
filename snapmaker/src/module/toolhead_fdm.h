@@ -76,8 +76,8 @@ class ToolHeadFDM: public ModuleBase {
   // public methods
   public:
     // construtor to do pre-init
-    ToolHeadFDM(uint32_t mac, uint8_t key, uint8_t extruder):
-    ModuleBase(mac, key) {
+    ToolHeadFDM(uint8_t extruder, uint32_t mac, uint8_t key, uint8_t sub_index):
+    ModuleBase(mac, key, sub_index) {
       for (int i = 0; i < EXTRUDERS; i++) {
         hotend_type_[i] = HOTEND_TYPE_IDLE;
       }

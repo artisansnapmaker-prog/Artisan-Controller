@@ -44,11 +44,11 @@ uint16_t ModuleBase::get_message_id(uint16_t function_id) {
 ModuleBase *module_factory(uint32_t mac, uint8_t key, uint8_t sub_index) {
   switch (MODULE_GET_DEVICE_ID(mac)) {
   case MODULE_DEVICE_ID_FDM_1EXTRUDER_2019:
-    return new ToolHeadFDM(mac, key, 1);
+    return new ToolHeadFDM(1, mac, key, sub_index);
     break;
 
   case MODULE_DEVICE_ID_CNC_50W_2019:
-    return new ToolHeadCNC(mac, key);
+    return new ToolHeadCNC(mac, key, sub_index);
     break;
 
   case MODULE_DEVICE_ID_LASER_1P6W_2019:
@@ -85,15 +85,15 @@ ModuleBase *module_factory(uint32_t mac, uint8_t key, uint8_t sub_index) {
     break;
 
   case MODULE_DEVICE_ID_FDM_2EXTRUDER_2021:
-    return new ToolHeadFDM(mac, key, 2);
+    return new ToolHeadFDM(2, mac, key, sub_index);
     break;
 
   case MODULE_DEVICE_ID_LASER_10W_2021:
-    return new ToolHeadLaser(mac, key);
+    return new ToolHeadLaser(mac, key, sub_index);
     break;
 
   case MODULE_DEVICE_ID_CNC_200W_2021:
-    return new ToolHeadCNC200W(mac, key);
+    return new ToolHeadCNC200W(mac, key, sub_index);
     break;
 
   case MODULE_DEVICE_ID_ENCLOSURE_A400_2022:
@@ -104,11 +104,11 @@ ModuleBase *module_factory(uint32_t mac, uint8_t key, uint8_t sub_index) {
     break;
 
   case MODULE_DEVICE_ID_A400_BED:
-    return new BedVirtual(mac, key, 2);
+    return new BedVirtual(2, mac, key, sub_index);
     break;
 
   case MODULE_DEVICE_ID_SM2_BED:
-    return new BedVirtual(mac, key, 1);
+    return new BedVirtual(1, mac, key, sub_index);
     break;
 
   default:

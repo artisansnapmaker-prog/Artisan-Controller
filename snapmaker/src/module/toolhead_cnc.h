@@ -51,7 +51,7 @@ enum CNCSpeedControlMode {
 
 class ToolHeadCNC: public ModuleBase {
   public:
-		ToolHeadCNC(uint32_t mac, uint8_t key): ModuleBase(mac, key) {
+		ToolHeadCNC(uint32_t mac, uint8_t key, uint8_t sub_index): ModuleBase(mac, key, sub_index) {
       power     = 0;
       rpm       = 0;
     }

@@ -36,7 +36,7 @@ enum CNCConfigCmdType {
 
 class ToolHeadCNC200W: public ToolHeadCNC {
   public:
-    ToolHeadCNC200W(uint32_t mac, uint8_t key): ToolHeadCNC(mac, key) {}
+    ToolHeadCNC200W(uint32_t mac, uint8_t key, uint8_t sub_index): ToolHeadCNC(mac, key, sub_index) {}
     err_code_t pre_init();
     err_code_t post_init();
     err_code_t param_init();

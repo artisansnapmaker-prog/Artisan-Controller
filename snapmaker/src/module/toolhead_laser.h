@@ -94,7 +94,7 @@ enum ToolheadLaserSwitchState {
 
 class ToolHeadLaser: public ModuleBase {
   public:
-    ToolHeadLaser(uint32_t mac, uint8_t key): ModuleBase(mac, key) {}
+    ToolHeadLaser(uint32_t mac, uint8_t key, uint8_t sub_index): ModuleBase(mac, key, sub_index) {}
 
     err_code_t pre_init();
 

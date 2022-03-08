@@ -5,6 +5,12 @@
 #if MB_SNAPMAKER
 
 void GcodeSuite::G1029() {
+  const bool seen_d = parser.seenval('D');
+  if (seen_d) {
+      float d = (float)parser.floatval('D', (float)0);
+      bedlevel_svc.set_live_z_offset(d);
+  }
+
   const uint8_t seen_b = parser.seenval('B');
   if (seen_b) {
     uint8_t b = (uint8_t)parser.byteval('B', (uint8_t)0);

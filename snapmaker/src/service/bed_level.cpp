@@ -8,6 +8,21 @@ BedLevelService bedlevel_svc;
 void BedLevelService::init() {
 }
 
+err_code_t BedLevelService::set_live_z_offset(float offset) {
+  float zdiff = live_z_offset_ - offset;
+  LOG_I("zdiff: %f\n", zdiff);
+
+  motion_svc.destination_position_[Z_AXIS] = motion_svc.get_current_position(Z_AXIS);
+  LOG_I("destnation_position_z: %f\n", motion_svc.destination_position_[Z_AXIS]);
+
+  motion_svc.current_position_[Z_AXIS] += zdiff;
+  motion_svc.sync_plan_position_to_platform();
+  motion_svc.moveto_z(motion_svc.destination_position_[Z_AXIS], 30);
+  LOG_I("destnation_position_z: %f\n", motion_svc.get_current_position(Z_AXIS));
+
+  return E_SUCCESS;
+}
+
 err_code_t BedLevelService::start_probe_test(uint8_t b, float x, float y) {
   if (b == 0) {
     return E_PARAM;

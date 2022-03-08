@@ -5,10 +5,22 @@
 #if MB_SNAPMAKER
 
 void GcodeSuite::G1029() {
-  const uint8_t seen_p = parser.seenval('P');
-  if (seen_p) {
-    uint8_t p = (uint8_t)parser.byteval('P', (uint8_t)0);
-    bedlevel_svc.start_auto_bed_leveling(p);
+  const uint8_t seen_m = parser.seenval('M');
+  if (seen_m) {
+    uint8_t m = (uint8_t)parser.byteval('M', (uint8_t)0);
+    bedlevel_svc.start_manual_bed_leveling(m);
+  }
+
+  const uint8_t seen_n = parser.seenval('n');
+  if (seen_n) {
+    uint8_t n = (uint8_t)parser.byteval('n', (uint8_t)0);
+    bedlevel_svc.goto_next_leveling_point();
+  }
+
+  const uint8_t seen_a = parser.seenval('A');
+  if (seen_a) {
+    uint8_t a = (uint8_t)parser.byteval('A', (uint8_t)0);
+    bedlevel_svc.start_auto_bed_leveling(a);
   }
 
   const bool seen_x = parser.seenval('X');

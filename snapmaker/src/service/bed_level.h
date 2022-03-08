@@ -33,6 +33,8 @@ class BedLevelService {
     }
 
     void init();
+    err_code_t start_manual_bed_leveling(uint8_t grids);
+    err_code_t goto_next_leveling_point();
     err_code_t start_auto_bed_leveling(uint8_t grids);
     err_code_t probe_sensor_calibration(float x, float y);
     err_code_t confirm_probe_sensor_calibration(uint8_t e);
@@ -44,6 +46,8 @@ class BedLevelService {
   private:
     float hotend_triggered_z_[EXTRUDERS];
     float hotend_touch_bed_z_[EXTRUDERS];
+    uint8_t manual_leveling_point_index_;
+    float manual_leveling_z_values_[GRID_MAX_NUM*GRID_MAX_NUM];
 };
 
 

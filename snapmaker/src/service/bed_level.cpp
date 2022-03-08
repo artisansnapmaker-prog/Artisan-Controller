@@ -8,8 +8,65 @@ BedLevelService bedlevel_svc;
 void BedLevelService::init() {
 }
 
+err_code_t BedLevelService::start_manual_bed_leveling(uint8_t grids) {
+  if (grids < 2 && grids > 11) {
+    LOG_I("\n");
+    return E_PARAM;
+  }
+  motion_svc.set_leveling_grids(grids);
+  manual_leveling_point_index_ = 0;
+
+  // go home
+  // todo
+
+  motion_svc.disable_leveling();
+  if (smprinter.fdm->get_device_id() == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
+    motion_svc.moveto_z(20, 30);
+  } else if (smprinter.fdm->get_device_id() == MODULE_DEVICE_ID_FDM_1EXTRUDER_2019) {
+    // todo
+  }
+
+  return E_SUCCESS;
+}
+
+err_code_t BedLevelService::goto_next_leveling_point() {
+  if (manual_leveling_point_index_ == 0) {
+    motion_svc.moveto_xy(_GET_MESH_X(manual_leveling_point_index_ % GRID_MAX_POINTS_X), _GET_MESH_Y(manual_leveling_point_index_ / GRID_MAX_POINTS_Y), 80);
+    manual_leveling_point_index_++;
+  } else if (manual_leveling_point_index_ <= GRID_MAX_POINTS_X * GRID_MAX_POINTS_Y) {
+    manual_leveling_z_values_[manual_leveling_point_index_-1] = motion_svc.get_current_position(Z_AXIS);
+    LOG_I("P[%d]: (%.2f, %.2f, %.2f)\n",manual_leveling_point_index_-1, motion_svc.get_current_position(X_AXIS), motion_svc.get_current_position(Y_AXIS), motion_svc.get_current_position(Z_AXIS));
+
+    if (manual_leveling_point_index_ < GRID_MAX_POINTS_X * GRID_MAX_POINTS_Y) {
+      motion_svc.moveto_z(motion_svc.get_current_position(Z_AXIS)+3, 30);
+    } else {
+      for (uint32_t j = 0; j < GRID_MAX_POINTS_Y; j++) {
+        for (uint32_t i = 0; i < GRID_MAX_POINTS_X; i++) {
+          z_values_[i][j] = manual_leveling_z_values_[j * GRID_MAX_POINTS_X + i];
+        }
+      }
+      motion_svc.sync_z_values_to_platform();
+      motion_svc.extrapolate_unprobed_points();
+      motion_svc.interpolate_virt_points();
+      motion_svc.print_leveling_grid();
+      motion_svc.print_leveling_grid_virt();
+      motion_svc.disable_z_probe();
+      motion_svc.save_settings();
+      motion_svc.enable_leveling();
+      motion_svc.moveto_z(motion_svc.get_current_position(Z_AXIS)+100, 30);
+      return E_SUCCESS;
+    }
+
+    // move to new point
+    manual_leveling_point_index_++;
+    motion_svc.moveto_xy(_GET_MESH_X(manual_leveling_point_index_ % GRID_MAX_POINTS_X), _GET_MESH_Y(manual_leveling_point_index_ / GRID_MAX_POINTS_Y), 80);
+  }
+
+  return E_SUCCESS;
+}
+
 err_code_t BedLevelService::start_auto_bed_leveling(uint8_t grids) {
-  if (grids < 2 && grids > 7) {
+  if (grids < 2 && grids > 11) {
     return E_PARAM;
   }
   motion_svc.set_leveling_grids(grids);

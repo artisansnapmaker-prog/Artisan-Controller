@@ -50,8 +50,11 @@ err_code_t BedLevelService::start_manual_bed_leveling(uint8_t grids) {
     LOG_I("\n");
     return E_PARAM;
   }
+
   motion_svc.set_leveling_grids(grids);
-  manual_leveling_point_index_ = 0;
+  bedlevel_svc.z_compensation_[0] = 0;
+  bedlevel_svc.z_compensation_[1] = 0;
+  manual_leveling_point_index_ = 25;
 
   // go home
   // todo
@@ -66,38 +69,46 @@ err_code_t BedLevelService::start_manual_bed_leveling(uint8_t grids) {
   return E_SUCCESS;
 }
 
-err_code_t BedLevelService::goto_next_leveling_point() {
-  if (manual_leveling_point_index_ == 0) {
-    motion_svc.moveto_xy(_GET_MESH_X(manual_leveling_point_index_ % GRID_MAX_POINTS_X), _GET_MESH_Y(manual_leveling_point_index_ / GRID_MAX_POINTS_Y), 80);
-    manual_leveling_point_index_++;
-  } else if (manual_leveling_point_index_ <= GRID_MAX_POINTS_X * GRID_MAX_POINTS_Y) {
-    manual_leveling_z_values_[manual_leveling_point_index_-1] = motion_svc.get_current_position(Z_AXIS);
-    LOG_I("P[%d]: (%.2f, %.2f, %.2f)\n",manual_leveling_point_index_-1, motion_svc.get_current_position(X_AXIS), motion_svc.get_current_position(Y_AXIS), motion_svc.get_current_position(Z_AXIS));
+err_code_t BedLevelService::goto_leveling_point(uint8_t index) {
+  if ((index <= GRID_MAX_POINTS_X * GRID_MAX_POINTS_Y) && (index > 0)) {
+    if (manual_leveling_point_index_ <= GRID_MAX_POINTS_X * GRID_MAX_POINTS_Y) {
+      manual_leveling_z_values_[manual_leveling_point_index_] = motion_svc.get_current_position(Z_AXIS);
+      LOG_I("P[%d]: (%.2f, %.2f, %.2f)\n",manual_leveling_point_index_, motion_svc.get_current_position(X_AXIS), motion_svc.get_current_position(Y_AXIS), motion_svc.get_current_position(Z_AXIS));
 
-    if (manual_leveling_point_index_ < GRID_MAX_POINTS_X * GRID_MAX_POINTS_Y) {
-      motion_svc.moveto_z(motion_svc.get_current_position(Z_AXIS)+3, 30);
-    } else {
-      for (uint32_t j = 0; j < GRID_MAX_POINTS_Y; j++) {
-        for (uint32_t i = 0; i < GRID_MAX_POINTS_X; i++) {
-          z_values_[i][j] = manual_leveling_z_values_[j * GRID_MAX_POINTS_X + i];
-        }
-      }
-      motion_svc.sync_z_values_to_platform();
-      motion_svc.extrapolate_unprobed_points();
-      motion_svc.interpolate_virt_points();
-      motion_svc.print_leveling_grid();
-      motion_svc.print_leveling_grid_virt();
-      motion_svc.disable_z_probe();
-      motion_svc.save_settings();
-      motion_svc.enable_leveling();
-      motion_svc.moveto_z(motion_svc.get_current_position(Z_AXIS)+100, 30);
-      return E_SUCCESS;
+      // if ((manual_leveling_point_index_ != index - 1) && ) {
+
+      // }
+      motion_svc.moveto_z(motion_svc.get_current_position(Z_AXIS) + 3, 10);
     }
 
     // move to new point
+    manual_leveling_point_index_ = index - 1;
     motion_svc.moveto_xy(_GET_MESH_X(manual_leveling_point_index_ % GRID_MAX_POINTS_X), _GET_MESH_Y(manual_leveling_point_index_ / GRID_MAX_POINTS_Y), 80);
-    manual_leveling_point_index_++;
   }
+
+  return E_SUCCESS;
+}
+
+err_code_t BedLevelService::finish_manual_bed_leveling () {
+  manual_leveling_z_values_[manual_leveling_point_index_] = motion_svc.get_current_position(Z_AXIS);
+  LOG_I("P[%d]: (%.2f, %.2f, %.2f)\n",manual_leveling_point_index_, motion_svc.get_current_position(X_AXIS), motion_svc.get_current_position(Y_AXIS), motion_svc.get_current_position(Z_AXIS));
+  uint32_t i, j;
+  for (j = 0; j < GRID_MAX_POINTS_Y; j++) {
+    for (i = 0; i < GRID_MAX_POINTS_X; i++) {
+      LOG_I("i: %d, j: %d\n", i, j);
+      LOG_I("index: %d, value: %f\n", j * GRID_MAX_POINTS_X + i, manual_leveling_z_values_[j * GRID_MAX_POINTS_X + i]);
+      z_values_[i][j] = manual_leveling_z_values_[j * GRID_MAX_POINTS_X + i];
+    }
+  }
+  motion_svc.sync_z_values_to_platform();
+  motion_svc.extrapolate_unprobed_points();
+  motion_svc.interpolate_virt_points();
+  motion_svc.print_leveling_grid();
+  motion_svc.print_leveling_grid_virt();
+  motion_svc.disable_z_probe();
+  motion_svc.save_settings();
+  motion_svc.enable_leveling();
+  motion_svc.moveto_z(motion_svc.get_current_position(Z_AXIS)+100, 30);
 
   return E_SUCCESS;
 }

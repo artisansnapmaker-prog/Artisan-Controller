@@ -27,7 +27,13 @@ void GcodeSuite::G1029() {
 
   const uint8_t seen_n = parser.seenval('N');
   if (seen_n) {
-    bedlevel_svc.goto_next_leveling_point();
+    uint8_t n = (uint8_t)parser.byteval('N', (uint8_t)0);
+    bedlevel_svc.goto_leveling_point(n);
+  }
+
+  const uint8_t seen_f = parser.seenval('F');
+  if (seen_f) {
+    bedlevel_svc.finish_manual_bed_leveling();
   }
 
   const uint8_t seen_a = parser.seenval('A');

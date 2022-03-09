@@ -68,6 +68,8 @@ struct MarlinSerial : public HardwareSerial {
   }
 
   void set_sec_rx_waiting(uint16_t waiting_bytes);
+  int read_multi(uint8_t ch, uint8_t *buffer, uint16_t length);
+  int write_multi(uint8_t ch, uint8_t *buffer, uint16_t length);
 
 protected:
   usart_rx_callback_t _rx_callback;
@@ -92,6 +94,9 @@ protected:
   uint16_t sec_tx_size = 0;
   uint16_t sec_tx_head = 0;
   uint16_t sec_tx_tail = 0;
+
+  void *read_lock = NULL;
+  void *write_lock = NULL;
 };
 
 typedef Serial1Class<MarlinSerial> MSerialT;

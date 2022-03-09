@@ -249,6 +249,77 @@ void MarlinSerial::set_sec_rx_waiting(uint16_t waiting_bytes) {
   taskEXIT_CRITICAL();
 }
 
+int MarlinSerial::read_multi(uint8_t ch, uint8_t *buffer, uint16_t length) {
+  if (ch != active_ch)
+    return 0;
+
+  volatile uint16_t size = 0;
+
+  if (ch == MARLIN_SERIAL_CHANNEL_ORIGINAL) {
+    size = SERIAL_RX_BUFFER_SIZE;
+      if (available() == 0)
+        return 0;
+
+      if (available() < length)
+        length = available();
+  }
+  else {
+    size = sec_rx_size;
+
+    if (available_sec() == 0)
+      return 0;
+
+    if (available_sec() < length)
+      length = available_sec();
+  }
+
+  for (int i = 0; i < length; i++) {
+    buffer[i] = _serial.rx_buff[_serial.rx_tail];
+    _serial.rx_tail = (rx_buffer_index_t)(_serial.rx_tail + 1) % size;
+  }
+
+  return length;
+}
+
+
+int MarlinSerial::write_multi(uint8_t ch, uint8_t *buffer, uint16_t length) {
+  if (ch != active_ch)
+    return 0;
+
+  volatile uint16_t buffer_size = 0;
+  volatile uint16_t free_size = 0;
+
+  tx_buffer_index_t head = _serial.tx_head;
+  tx_buffer_index_t tail = _serial.tx_tail;
+
+  if (ch == MARLIN_SERIAL_CHANNEL_ORIGINAL) {
+    buffer_size = SERIAL_TX_BUFFER_SIZE;
+  }
+  else {
+    buffer_size = sec_tx_size;
+  }
+
+  if (head >= tail) {
+    free_size =  buffer_size - 1 - head + tail;
+  }
+  free_size =  tail - head - 1;
+
+  if (free_size == 0)
+    return free_size;
+
+  if (free_size < length)
+    length = free_size;
+
+  for (int i = 0; i < length; i++) {
+    head = (_serial.tx_head + 1) % buffer_size;
+    _serial.tx_buff[head] = buffer[i];
+    _serial.tx_head = head;
+  }
+
+  return length;
+}
+
+
 int MarlinSerial::set_active_channel(uint8_t new_ch) {
 
   if (new_ch == active_ch)

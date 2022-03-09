@@ -8,17 +8,24 @@ BedLevelService bedlevel_svc;
 void BedLevelService::init() {
 }
 
-void BedLevelService::set_leveling_grids(uint8_t grids) {
+err_code_t BedLevelService::set_leveling_limit(float x_min, float x_max, float y_min, float y_max) {
+  motion_svc.sync_leveling_limit_to_platform(x_min, x_max, y_min, y_max);
+  return E_SUCCESS;
+}
+
+err_code_t BedLevelService::set_leveling_grids(uint8_t grids) {
   motion_svc.set_leveling_grids(grids);
   bedlevel_svc.z_compensation_[0] = 0;
   bedlevel_svc.z_compensation_[1] = 0;
+  return E_SUCCESS;
 }
 
-void BedLevelService::set_z_values(float z, uint8_t i, uint8_t j) {
+err_code_t BedLevelService::set_z_values(float z, uint8_t i, uint8_t j) {
   z_values_[i][j] = z;
+  return E_SUCCESS;
 }
 
-void BedLevelService::refresh_leveling_data() {
+err_code_t BedLevelService::refresh_leveling_data() {
   motion_svc.disable_leveling();
   motion_svc.sync_z_values_to_platform();
   motion_svc.extrapolate_unprobed_points();
@@ -28,6 +35,7 @@ void BedLevelService::refresh_leveling_data() {
   motion_svc.disable_z_probe();
   motion_svc.save_settings();
   motion_svc.enable_leveling();
+  return E_SUCCESS;
 }
 
 err_code_t BedLevelService::set_live_z_offset(float offset) {

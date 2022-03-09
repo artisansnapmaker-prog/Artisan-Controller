@@ -76,17 +76,18 @@ void MotionService::moveto_z(float z, float feedrate, bool blocked) {
   }
 }
 
+void MotionService::sync_leveling_limit_to_platform(float x_start, float x_end, float y_start, float y_end) {
+  startx = x_start;
+  endx   = x_end;
+  starty = y_start;
+  endy   = y_end;
+}
+
 void MotionService::set_leveling_grids(uint8_t grids) {
   GRID_MAX_POINTS_X = grids;
   GRID_MAX_POINTS_Y = grids;
   GRID_MAX_CELLS_X  = GRID_MAX_POINTS_X - 1;
   GRID_MAX_CELLS_Y  = GRID_MAX_POINTS_Y - 1;
-
-  float startx, starty, endx, endy;
-  startx = 60;   //X_DEF_SIZE / 2.0 - MAGNET_X_SPAN / 2.0;
-  endx   = 380; //X_DEF_SIZE / 2.0 + MAGNET_X_SPAN / 2.0;
-  starty = 40;   //Y_DEF_SIZE / 2.0 - MAGNET_Y_SPAN / 2.0;
-  endy   = 350; //Y_DEF_SIZE / 2.0 + MAGNET_Y_SPAN / 2.0;
 
   bilinear_grid_spacing[X_AXIS] = (endx - startx) / (GRID_MAX_POINTS_X - 1);
   bilinear_grid_spacing[Y_AXIS] = (endy - starty) / (GRID_MAX_POINTS_Y - 1);

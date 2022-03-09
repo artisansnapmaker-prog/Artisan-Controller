@@ -28,6 +28,10 @@ extern uint32_t ABL_GRID_POINTS_VIRT_Y;
 extern uint32_t ABL_TEMP_POINTS_X;
 extern uint32_t ABL_TEMP_POINTS_Y;
 
+extern float startx;
+extern float endx;
+extern float starty;
+extern float endy;
 extern xy_pos_t bilinear_grid_spacing, bilinear_start;
 extern xy_float_t bilinear_grid_factor;
 extern bed_mesh_t z_values;

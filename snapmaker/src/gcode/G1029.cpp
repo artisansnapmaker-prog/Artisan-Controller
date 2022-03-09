@@ -5,10 +5,21 @@
 #if MB_SNAPMAKER
 
 void GcodeSuite::G1029() {
+  const bool seen_l = parser.seenval('L');
+  if (seen_l) {
+      float a = (float)parser.floatval('A', (float)60);
+      float b = (float)parser.floatval('B', (float)380);
+      float c = (float)parser.floatval('C', (float)40);
+      float d = (float)parser.floatval('D', (float)350);
+      bedlevel_svc.set_leveling_limit(a, b, c, d);
+      return;
+  }
+
   const bool seen_g = parser.seenval('G');
   if (seen_g) {
-      uint8_t g = (float)parser.byteval('G', (uint8_t)0);
+      uint8_t g = (byte)parser.byteval('G', (uint8_t)0);
       bedlevel_svc.set_leveling_grids(g);
+      return;
   }
 
   const bool seen_z = parser.seenval('Z');
@@ -17,17 +28,20 @@ void GcodeSuite::G1029() {
       uint8_t i = (uint8_t)parser.byteval('I', (uint8_t)0);
       uint8_t j = (uint8_t)parser.byteval('J', (uint8_t)0);
       bedlevel_svc.set_z_values(z, i, j);
+      return;
   }
 
   const bool seen_r = parser.seenval('R');
   if (seen_r) {
       bedlevel_svc.refresh_leveling_data();
+      return;
   }
 
   const bool seen_d = parser.seenval('D');
   if (seen_d) {
       float d = (float)parser.floatval('D', (float)0);
       bedlevel_svc.set_live_z_offset(d);
+      return;
   }
 
   const uint8_t seen_b = parser.seenval('B');
@@ -36,29 +50,34 @@ void GcodeSuite::G1029() {
     float x = (float)parser.floatval('X', (float)200);
     float y = (float)parser.floatval('Y', (float)200);
     bedlevel_svc.start_probe_test(b, x, y);
+    return;
   }
 
   const uint8_t seen_m = parser.seenval('M');
   if (seen_m) {
     uint8_t m = (uint8_t)parser.byteval('M', (uint8_t)0);
     bedlevel_svc.start_manual_bed_leveling(m);
+    return;
   }
 
   const uint8_t seen_n = parser.seenval('N');
   if (seen_n) {
     uint8_t n = (uint8_t)parser.byteval('N', (uint8_t)0);
     bedlevel_svc.goto_leveling_point(n);
+    return;
   }
 
   const uint8_t seen_f = parser.seenval('F');
   if (seen_f) {
     bedlevel_svc.finish_manual_bed_leveling();
+    return;
   }
 
   const uint8_t seen_a = parser.seenval('A');
   if (seen_a) {
     uint8_t a = (uint8_t)parser.byteval('A', (uint8_t)0);
     bedlevel_svc.start_auto_bed_leveling(a);
+    return;
   }
 
   const bool seen_x = parser.seenval('X');
@@ -67,12 +86,14 @@ void GcodeSuite::G1029() {
     float x = (float)parser.floatval('X', (float)200);
     float y = (float)parser.floatval('Y', (float)200);
     bedlevel_svc.probe_sensor_calibration(x, y);
+    return;
   }
 
   const uint8_t seen_t = parser.seenval('T');
   if (seen_t) {
     uint8_t t = (uint8_t)parser.byteval('T', (uint8_t)0);
     bedlevel_svc.confirm_probe_sensor_calibration(t);
+    return;
   }
 
   // const uint8_t seen_i = parser.seenval('I');

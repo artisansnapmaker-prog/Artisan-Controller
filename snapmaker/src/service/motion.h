@@ -100,6 +100,7 @@ class MotionService {
     void enable_z_probe() {endstops.enable_z_probe(true);}
     void disable_z_probe() {endstops.enable_z_probe(false);}
     float probe_at_point(float x, float y, ProbePtRaise raise_after=PROBE_PT_RAISE);
+    void sync_leveling_limit_to_platform(float x_start, float x_end, float y_start, float y_end);
     void sync_z_values_to_platform();
     void sync_z_values_from_platform();
     void sync_z_compensation_to_platform();

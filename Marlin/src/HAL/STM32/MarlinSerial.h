@@ -29,6 +29,13 @@
 
 #include "../../core/serial_hook.h"
 
+enum MarlinSeralChannel {
+  MARLIN_SERIAL_CHANNEL_ORIGINAL,
+  MARLIN_SERIAL_CHANNEL_SECOND,
+
+  MARLIN_SERIAL_CHANNEL_INVALID
+};
+
 typedef void (*usart_rx_callback_t)(serial_t * obj);
 
 struct MarlinSerial : public HardwareSerial {
@@ -41,8 +48,50 @@ struct MarlinSerial : public HardwareSerial {
 
   void _rx_complete_irq(serial_t *obj);
 
+  int peek(void);
+  int read(void);
+  void flush(void);
+  size_t write(uint8_t);
+  int available(void);
+
+  int peek_sec(void);
+  int read_sec(void);
+  void flush_sec(void);
+  size_t write_sec(uint8_t);
+  int available_sec(void);
+
+  int set_active_channel(uint8_t new_ch);
+
+  void set_sec_rx_signal(void *signal) {
+    if (!signal)
+      sec_rx_signal = signal;
+  }
+
+  void set_sec_rx_waiting(uint16_t waiting_bytes);
+
 protected:
   usart_rx_callback_t _rx_callback;
+
+  uint8_t active_ch = MARLIN_SERIAL_CHANNEL_ORIGINAL;
+
+  uint16_t orig_rx_head = 0;
+  uint16_t orig_rx_tail = 0;
+
+  uint16_t orig_tx_head = 0;
+  uint16_t orig_tx_tail = 0;
+
+  uint8_t *sec_rx_buffer = NULL;
+  uint16_t sec_rx_size = 0;
+  uint16_t sec_rx_head = 0;
+  uint16_t sec_rx_tail = 0;
+
+  void *sec_rx_signal = NULL;
+  uint16_t sec_rx_waiting = 0;
+
+  uint8_t *sec_tx_buffer = NULL;
+  uint16_t sec_tx_size = 0;
+  uint16_t sec_tx_head = 0;
+  uint16_t sec_tx_tail = 0;
 };
 
 typedef Serial1Class<MarlinSerial> MSerialT;

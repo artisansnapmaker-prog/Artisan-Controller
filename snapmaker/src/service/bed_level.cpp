@@ -8,6 +8,28 @@ BedLevelService bedlevel_svc;
 void BedLevelService::init() {
 }
 
+void BedLevelService::set_leveling_grids(uint8_t grids) {
+  motion_svc.set_leveling_grids(grids);
+  bedlevel_svc.z_compensation_[0] = 0;
+  bedlevel_svc.z_compensation_[1] = 0;
+}
+
+void BedLevelService::set_z_values(float z, uint8_t i, uint8_t j) {
+  z_values_[i][j] = z;
+}
+
+void BedLevelService::refresh_leveling_data() {
+  motion_svc.disable_leveling();
+  motion_svc.sync_z_values_to_platform();
+  motion_svc.extrapolate_unprobed_points();
+  motion_svc.interpolate_virt_points();
+  motion_svc.print_leveling_grid();
+  motion_svc.print_leveling_grid_virt();
+  motion_svc.disable_z_probe();
+  motion_svc.save_settings();
+  motion_svc.enable_leveling();
+}
+
 err_code_t BedLevelService::set_live_z_offset(float offset) {
   float zdiff = live_z_offset_ - offset;
   LOG_I("zdiff: %f\n", zdiff);

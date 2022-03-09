@@ -34,6 +34,9 @@ class BedLevelService {
     }
 
     void init();
+    void set_leveling_grids(uint8_t grids);
+    void set_z_values(float z, uint8_t i, uint8_t j);
+    void refresh_leveling_data();
     err_code_t set_live_z_offset(float offset);
     err_code_t start_probe_test(uint8_t b, float x, float y);
     err_code_t start_manual_bed_leveling(uint8_t grids);

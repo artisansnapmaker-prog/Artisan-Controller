@@ -5,6 +5,25 @@
 #if MB_SNAPMAKER
 
 void GcodeSuite::G1029() {
+  const bool seen_g = parser.seenval('G');
+  if (seen_g) {
+      uint8_t g = (float)parser.byteval('G', (uint8_t)0);
+      bedlevel_svc.set_leveling_grids(g);
+  }
+
+  const bool seen_z = parser.seenval('Z');
+  if (seen_z) {
+      float z = (float)parser.floatval('Z', (float)0);
+      uint8_t i = (uint8_t)parser.byteval('I', (uint8_t)0);
+      uint8_t j = (uint8_t)parser.byteval('J', (uint8_t)0);
+      bedlevel_svc.set_z_values(z, i, j);
+  }
+
+  const bool seen_r = parser.seenval('R');
+  if (seen_r) {
+      bedlevel_svc.refresh_leveling_data();
+  }
+
   const bool seen_d = parser.seenval('D');
   if (seen_d) {
       float d = (float)parser.floatval('D', (float)0);
@@ -56,10 +75,10 @@ void GcodeSuite::G1029() {
     bedlevel_svc.confirm_probe_sensor_calibration(t);
   }
 
-  const uint8_t seen_i = parser.seenval('I');
-  if (seen_i) {
-    bedlevel_svc.work_height_auto_detection();
-  }
+  // const uint8_t seen_i = parser.seenval('I');
+  // if (seen_i) {
+  //   bedlevel_svc.work_height_auto_detection();
+  // }
 }
 
 #endif

@@ -50,17 +50,6 @@ typedef struct {
   MessageBufferHandle_t queue;
 } sacp_module_waiting_node_t;
 
-
-enum SACPParserStatus {
-  SACP_PARSER_STA_IDLE,
-  SACP_PARSER_STA_GOT_SOF,
-  SACP_PARSER_STA_GOT_HEAD,
-  SACP_PARSER_STA_GOT_LENGTH,
-  SACP_PARSER_STA_GOT_MESSAGE,
-
-  SACP_PARSER_STA_INVALID
-};
-
 class HostSACPModule: public HostSACP {
   // public methods
   public:
@@ -85,7 +74,7 @@ class HostSACPModule: public HostSACP {
 
     virtual err_code_t send(sacp_module_message_t *in) = 0;
 
-    void handle_receive();
+    virtual void handle_receive();
 
     void handle_events();
 
@@ -138,6 +127,8 @@ class HostSACPModuleUART: public HostSACPModule {
     HostSACPModuleUART(LinkUART &l, SACPVerion ver): HostSACPModule(ver), link(l) {}
     err_code_t init(TaskHandle_t event_task, EventGroupHandle_t recv_event);
     err_code_t send(sacp_module_message_t *in);
+
+    void handle_receive();
 
   // private methods
   private:

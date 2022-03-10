@@ -107,10 +107,6 @@ enum PortIndex {
   PORT_INDEX_P3
 };
 
-static TaskHandle_t hmi_recv_task;
-static TaskHandle_t hmi_event_task;
-
-
 // can recv handler
 static void hmi_recv_handler(void *param) {
 
@@ -133,12 +129,18 @@ static void hmi_event_handler(void *param) {
 static void system_thread(void *p) {
   BaseType_t ret;
 
+  TaskHandle_t hmi_recv_task;
+  TaskHandle_t hmi_event_task;
+  SemaphoreHandle_t hmi_recv_signal = NULL; 
+
   // module init
   module_svc.init();
 
+  hmi_recv_signal = xSemaphoreCreateCounting(65535, 0);
+
   LOG_I("Creating HMI receive task...");
   ret = xTaskCreate((TaskFunction_t)hmi_recv_handler, "hmi_recv", HMI_RECV_TASK_STACK_SIZE,
-        NULL, HMI_RECV_TASK_PRIORITY, &hmi_recv_task);
+        hmi_recv_signal, HMI_RECV_TASK_PRIORITY, &hmi_recv_task);
   if (ret != pdPASS) {
     LOG_E(LOG_RESULT_FAIL);
     while(1);
@@ -157,6 +159,8 @@ static void system_thread(void *p) {
   else {
     LOG_I(LOG_RESULT_OK);
   }
+
+  host_hmi.init(hmi_event_task, hmi_recv_signal);
 
   // sacp host init
   //host_hmi.init(hmi_event_task, hmi_recv_task);

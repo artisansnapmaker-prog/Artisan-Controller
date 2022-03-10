@@ -25,7 +25,6 @@
 #include "sacp.h"
 #include "../link/link_uart.h"
 
-#define SACP_HMI_LINK_MAX (2)
 
 typedef err_code_t (*sacp_hmi_callback)(void *obj, sacp_hmi_message_t *msg);
 
@@ -33,32 +32,64 @@ typedef uint16_t (*sacp_hmi_subscribe_callback)(void *obj, uint8_t *buffer);
 
 typedef struct {
   void *obj;
-  sacp_hmi_callback cb;
+  sacp_hmi_callback req_cb;
+  sacp_hmi_callback ack_cb;
   uint32_t attr;
 } sacp_hmi_handle_t;
 
+typedef struct {
+  uint8_t  status;
+  uint8_t  cmd_set;
+  uint8_t  cmd_id;
+  uint32_t seq;
+  MessageBufferHandle_t queue;
+} sacp_hmi_waiting_node_t;
+
+#define SACP_HMI_WAITING_NODE_MAX (4)
+
+#define SACP_V1_CMD_SET_MAX (0xFF)
+
+// #defination for callback attribution
+#define SACP_V1_CB_ATTR_ACK                   (0x00000001)
+#define SACP_V1_CB_ATTR_BLOCK_WITH_MOTION     (0x00000002)
+#define SACP_V1_CB_ATTR_BLOCK_WITHOUT_MOTION  (0x00000004)
+
+enum SACPHMIChannel {
+  SACP_HMI_CH_SCREEN,
+  SACP_HMI_CH_PC,
+
+  SACP_HMI_CH_MAX
+};
 
 class HostSACPHMI: public HostSACP {
   // public methods
   public:
-    HostSACPHMI(SACPVerion ver): HostSACP() {
+    HostSACPHMI(SACPVerion ver, uint32_t id): HostSACP() {
       version = ver;
+      host_id = id;
     }
 
     err_code_t init(TaskHandle_t event_task, SemaphoreHandle_t recv_signal);
 
+    // apply resource to save cmd set handle, except the command id for subcribtion
+    err_code_t apply_cmd_set_handle(uint8_t cmd_set, uint8_t length);
+
     err_code_t register_callback(uint8_t cmd_set, uint8_t cmd_id, void *obj, sacp_hmi_callback cb, uint32_t attr=0);
+
     err_code_t register_subscription(uint8_t cmd_set, uint8_t cmd_id, void *obj, sacp_hmi_subscribe_callback cb);
 
     err_code_t send_sync(sacp_hmi_message_t *message, uint8_t *out, uint16_t *out_len, uint32_t timeout=100, uint8_t retry=1);
     err_code_t send(sacp_hmi_message_t *in);
+
+    err_code_t add_link(SACPHMIChannel ch, LinkUART *link);
 
     void handle_receive();
     void handle_events();
 
   // private methods
   private:
-
+  err_code_t parse_packets(sacp_channel_t &channel);
+  void handle_message(sacp_hmi_message_t &msg);
 
   // public properties
   public:
@@ -66,7 +97,18 @@ class HostSACPHMI: public HostSACP {
 
   // private properties
   private:
-    LinkUART *links[SACP_HMI_LINK_MAX];
+    // LinkUART *links[SACP_HMI_CH_MAX];
+    // sacp_parser_t parsers[SACP_HMI_CH_MAX];
+    sacp_channel_t channels[SACP_HMI_CH_MAX];
+
+    MessageBufferHandle_t event_queue;
+
+    // waiting queue
+    xSemaphoreHandle        waiting_lock;
+    sacp_hmi_waiting_node_t waiting_nodes[SACP_HMI_WAITING_NODE_MAX];
+
+    sacp_hmi_handle_t *cmd_set_handle[SACP_V1_CMD_SET_MAX];
+    uint8_t cmd_set_handle_len[SACP_V1_CMD_SET_MAX];
 };
 
 // initalized in system thread

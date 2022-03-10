@@ -26,15 +26,29 @@
 
 #include "base.h"
 #include "../link/link_can.h"
+#include "../link/link_uart.h"
 
 /*
   This host handle also SSTP protocol, but its verion = 0
 */
+
+#define SACP_PDU_MAX_SIZE   (1024)
+#define SACP_FRAME_SOF_1  (0xaa)
+#define SACP_FRAME_SOF_2  (0x55)
+
+// for attributions 
+// bit[7:0] is on the packet defination
+#define SACP_MESSAGE_ATTR_ACK        (0x00000001)
+
+// bit[31:8] is used to tell API some info
+#define SACP_MESSAGE_ATTR_SET_SEQ    (0x80000000) // indicates we want to use customize sequence to send message
+
 typedef struct {
   uint32_t peer;
 
+  uint8_t  ch;
   uint8_t  ver;
-  uint8_t  attr;
+  uint32_t  attr;
   uint32_t seq;
 
   uint8_t cmd_set;
@@ -44,6 +58,13 @@ typedef struct {
   uint8_t  *data;
 } sacp_message_t;
 
+enum SACPHostID {
+  SACP_HOST_ID_LUBAN,
+  SACP_HOST_ID_CONTROLLER,
+  SACP_HOST_ID_SCREEN,
+  
+};
+
 enum SACPVerion {
   SACP_VER_0,
   SACP_VER_1,
@@ -51,8 +72,31 @@ enum SACPVerion {
   SACP_VER_INVALID
 };
 
-#define SACP_FRAME_SOF_1  (0xaa)
-#define SACP_FRAME_SOF_2  (0x55)
+enum SACPParserStatus {
+  SACP_PARSER_STA_IDLE,
+  SACP_PARSER_STA_GOT_SOF,
+  SACP_PARSER_STA_GOT_HEAD,
+  SACP_PARSER_STA_GOT_LENGTH,
+  SACP_PARSER_STA_GOT_MESSAGE,
+
+  SACP_PARSER_STA_INVALID
+};
+typedef struct {
+  uint8_t           ver;
+  SACPParserStatus status;
+  uint32_t         next_timeout;
+  uint16_t         length;
+  uint8_t buffer[SACP_PDU_MAX_SIZE];
+} sacp_parser_t;
+
+
+typedef struct {
+  uint32_t      seq;
+  LinkUART      *link;
+  sacp_parser_t parser;
+} sacp_channel_t;
+
+// V0 definations ++++++++++++++
 
 #define SACP_V0_MODULE_MIN_SIZE   (9)
 #define SACP_V0_HMI_MIN_SIZE      (10)
@@ -83,19 +127,20 @@ typedef struct {
   uint8_t  *data;
 } sacp_module_message_t;
 
-typedef struct {
-  uint32_t peer;
 
-  uint8_t  ver;
-  uint8_t  attr;
-  uint32_t seq;
 
-  uint8_t cmd_set;
-  uint8_t cmd_id;
+// V1 definations ++++++++++++++
 
-  uint16_t length;
-  uint8_t  *data;
-} sacp_hmi_message_t;
+#define SACP_V1_PDU_MAX_SIZE    (SACP_PDU_MAX_SIZE)
+#define SACP_V1_PDU_MIN_SIZE      (15)
+#define SACP_V1_FRONT_HEADER_SIZE (7)
+#define SACP_V1_REAR_HEADER_SIZE  (4)
+
+#define SACP_V1_SEQ_INVALID     (0xFFFFFFFF)
+#define SACP_V1_CMD_SET_INVALID (0xFF)
+#define SACP_V1_CMD_ID_INVALID  (0xFF)
+
+typedef sacp_message_t sacp_hmi_message_t;
 
 // use little ending when V1
 enum SACPV1FrameIndex {
@@ -121,6 +166,7 @@ enum SACPWaitingNodeStatus {
   SACP_WAITING_NODE_STA_INVALID
 };
 
+
 class HostSACP: public HostBase {
   // public methods
   public:
@@ -130,13 +176,15 @@ class HostSACP: public HostBase {
   // private methods
   protected:
     err_code_t package(sacp_module_message_t *message, uint8_t *pdu, uint16_t *pdu_len);
-    err_code_t package(sacp_hmi_message_t *message, uint8_t *pdu, uint16_t *pdu_len);
+    err_code_t package(sacp_message_t *message, uint8_t *pdu, uint16_t *pdu_len);
 
     uint16_t calculate_checksum(uint8_t *buffer, uint16_t length);
+    uint8_t calc_crc8(uint8_t *data, uint16_t length);
 
   private:
     uint16_t package_v0(uint8_t *in, uint16_t in_len, uint8_t *out, uint16_t event_id=0xFFFF, uint16_t opcode=0xFFFF);
-    err_code_t package_v1();
+    uint16_t package_v1(sacp_message_t *msg, uint8_t *out);
+
 
   // public properties
   public:
@@ -145,6 +193,10 @@ class HostSACP: public HostBase {
   // protected properties
   protected:
     SACPVerion version;
+
+    // host id
+    uint32_t host_id;
+
 };
 
 #endif  // #ifndef SNAPMAKER_HOST_SACP_H_

@@ -284,7 +284,7 @@ int MarlinSerial::read_multi(uint8_t ch, uint8_t *buffer, uint16_t length) {
 
 int MarlinSerial::write_multi(uint8_t ch, uint8_t *buffer, uint16_t length) {
   if (ch != active_ch)
-    return 0;
+    return -1;
 
   volatile uint16_t buffer_size = 0;
   volatile uint16_t free_size = 0;

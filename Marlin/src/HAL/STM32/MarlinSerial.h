@@ -61,13 +61,33 @@ struct MarlinSerial : public HardwareSerial {
   int available_sec(void);
 
   int set_active_channel(uint8_t new_ch);
+  uint8_t get_active_channel() {
+    return active_ch;
+  }
 
   void set_sec_rx_signal(void *signal) {
     if (!signal)
       sec_rx_signal = signal;
   }
 
+  void set_sec_rx_buffer(uint8_t *buffer, uint16_t size) {
+    if (sec_rx_buffer)
+      return;
+
+    sec_rx_buffer = buffer;
+    sec_rx_size = size;
+  }
+
+  void set_sec_tx_buffer(uint8_t *buffer, uint16_t size) {
+    if (sec_tx_buffer)
+      return;
+
+    sec_tx_buffer = buffer;
+    sec_tx_size = size;
+  }
+
   void set_sec_rx_waiting(uint16_t waiting_bytes);
+
   int read_multi(uint8_t ch, uint8_t *buffer, uint16_t length);
   int write_multi(uint8_t ch, uint8_t *buffer, uint16_t length);
 

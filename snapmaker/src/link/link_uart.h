@@ -21,13 +21,96 @@
 #ifndef SNAPMAKER_HOST_LINK_UART_H_
 #define SNAPMAKER_HOST_LINK_UART_H_
 
+#include "src/HAL/HAL.h"
+
 class LinkUART {
   // public methods
   public:
     LinkUART() {}
 
+    LinkUART(MSerialT *ser): serial(ser) {}
+
+    int peek() { 
+      if (serial)
+        return serial->peek_sec(); 
+      else
+        return -1;
+    }
+
+    int read() {
+      if (serial)
+        return serial->read_sec(); 
+      else
+        return -1;
+    }
+
+    size_t write(uint8_t c) {
+      if (serial)
+        return serial->write_sec(c); 
+      else
+        return 0;
+    }
+
+    int available() {
+      if (serial)
+        return serial->available_sec(); 
+      else
+        return 0;
+    }
+
+    int set_active_channel(uint8_t new_ch) {
+        if (serial)
+          return serial->set_active_channel(new_ch); 
+        else
+          return -1;
+    }
+
+    int set_sec_rx_signal(void *signal) {
+        if (serial) {
+          serial->set_sec_rx_signal(signal); 
+          return 0;
+        }
+        else
+          return -1;
+    }
+
+    int set_sec_rx_buffer(uint8_t *buffer, uint16_t size) {
+    if (serial) {
+      serial->set_sec_rx_buffer(buffer, size);
+      return 0;
+    }
+    else
+      return -1;
+    }
+
+    int set_sec_tx_buffer(uint8_t *buffer, uint16_t size) {
+    if (serial) {
+      serial->set_sec_tx_buffer(buffer, size);
+      return 0;
+    }
+    else
+      return -1;
+    }
+
+    int read_multi(uint8_t *buffer, uint16_t length) {
+        if (serial)
+          return serial->read_multi(MARLIN_SERIAL_CHANNEL_SECOND, buffer, length); 
+        else
+          return -1;
+    }
+
+    int write_multi(uint8_t *buffer, uint16_t length) {
+        if (serial)
+          return serial->write_multi(MARLIN_SERIAL_CHANNEL_SECOND, buffer, length); 
+        else
+          return -1;
+    }
 
 
+  void set_serial(MSerialT *ser) {
+    if (!ser)
+      serial = ser;
+  }
   // private methods
   private:
 
@@ -38,7 +121,7 @@ class LinkUART {
 
   // private properties
   private:
-
+    MSerialT *serial = NULL;
 };
 
 extern LinkUART link_hmi;

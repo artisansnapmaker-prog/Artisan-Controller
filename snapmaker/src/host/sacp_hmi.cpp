@@ -23,29 +23,57 @@ err_code_t HostSACPHMI::init(TaskHandle_t event_task, SemaphoreHandle_t recv_sig
     channels[i].seq   = 0;
     channels[i].link  = NULL;
     channels[i].parser.status = SACP_PARSER_STA_IDLE;
+    channels[i].lock = xSemaphoreCreateMutex();
+    configASSERT(channels[i].lock);
   }
 
+  // initialize subscriptions node
+  for (int i = 0; i < SACP_SUBSCRIPTION_NODE_MAX; i++) {
+    for (int j = 0; j < SACP_SUBSCRIPTION_HOST_MAX; j++) {
+      subscription_nodes[i].peer[j] = SACP_V1_HOST_INVALID;
+    }
+    // use period of 0xffffffff to indicate if this node is free
+    subscription_nodes[i].period = SACP_SUBSCRIPTION_PERIOD_INVALID;
+    subscription_nodes[i].handle.obj = NULL;
+    subscription_nodes[i].handle.cb  = NULL;
+  }
+
+  // setup links
+  link_pc.set_serial(&MSerial1);
+
+  // setup RX
   buffer = (uint8_t *)pvPortMalloc(SACP_PDU_MAX_SIZE);
   configASSERT(buffer);
-
-  link_luban.set_serial(&MSerial1);
-  link_luban.set_sec_rx_signal(recv_signal);
-  link_luban.set_sec_rx_buffer(buffer, SACP_PDU_MAX_SIZE);
-
+  link_pc.set_sec_rx_buffer(buffer, SACP_PDU_MAX_SIZE);
+  link_pc.set_sec_rx_signal(recv_signal);
+  link_pc.set_sec_rx_waiting(SACP_V1_PDU_MIN_SIZE);
+  // setup TX
   buffer = (uint8_t *)pvPortMalloc(SACP_PDU_MAX_SIZE);
   configASSERT(buffer);
-  link_luban.set_sec_tx_buffer(buffer, SACP_PDU_MAX_SIZE);
+  link_pc.set_sec_tx_buffer(buffer, SACP_PDU_MAX_SIZE);
 
-  link_hmi.set_serial(&MSerial2);
-  link_hmi.set_sec_rx_signal(recv_signal);
-  link_hmi.set_sec_rx_buffer(buffer, SACP_PDU_MAX_SIZE);
-
+  // initialize HMI
+  MSerial2.begin(115200);
+  link_screen.set_serial(&MSerial2);
+  // setup RX
   buffer = (uint8_t *)pvPortMalloc(SACP_PDU_MAX_SIZE);
   configASSERT(buffer);
-  link_hmi.set_sec_tx_buffer(buffer, SACP_PDU_MAX_SIZE);
+  link_screen.set_sec_rx_buffer(buffer, SACP_PDU_MAX_SIZE);
+  link_screen.set_sec_rx_waiting(SACP_V1_PDU_MIN_SIZE);
+  link_screen.set_sec_rx_signal(recv_signal);
+  // setup TX
+  buffer = (uint8_t *)pvPortMalloc(SACP_PDU_MAX_SIZE);
+  configASSERT(buffer);
+  link_screen.set_sec_tx_buffer(buffer, SACP_PDU_MAX_SIZE);
 
   // active second channel
-  link_hmi.set_active_channel(MARLIN_SERIAL_CHANNEL_SECOND);
+  link_screen.set_active_channel(MARLIN_SERIAL_CHANNEL_SECOND);
+
+  add_link(SACP_HMI_CH_PC, &link_pc);
+  add_link(SACP_HMI_CH_SCREEN, &link_screen);
+
+  event_queue = xMessageBufferCreate(SACP_PDU_MAX_SIZE);
+  configASSERT(event_queue);
 
   return E_SUCCESS;
 }
@@ -80,6 +108,7 @@ err_code_t HostSACPHMI::apply_cmd_set_handle(uint8_t cmd_set, uint8_t length) {
     return E_NO_MEM;
   }
 
+  // TODO: make sure there won't be multi-user set the var, add lock
   memset(cmd_set_handle[cmd_set], 0x00, sizeof(sacp_hmi_handle_t) * length);
   cmd_set_handle_len[cmd_set] = length;
 
@@ -159,6 +188,7 @@ err_code_t HostSACPHMI::send_sync(sacp_hmi_message_t *message, uint8_t *out, uin
     }
 
     *out_len = recv_len;
+    ret = E_SUCCESS;
     break;
   }
 
@@ -191,7 +221,9 @@ err_code_t HostSACPHMI::send(sacp_hmi_message_t *message) {
 
   // won't update sequence when it is ACK or USERs want to set sequence by themself
   if (!(message->attr & SACP_MESSAGE_ATTR_ACK) && !(message->attr & SACP_MESSAGE_ATTR_SET_SEQ)) {
+    xSemaphoreTake(channel.lock, portMAX_DELAY);
     message->seq = channel.seq++;
+    xSemaphoreGive(channel.lock);
   }
 
   if (package(message, buffer, &length) != E_SUCCESS) {
@@ -199,6 +231,17 @@ err_code_t HostSACPHMI::send(sacp_hmi_message_t *message) {
     return E_FAILURE;
   }
 
+#if 1
+  // TODO: some bugs in write_multi() to be fix, so use write() to send data
+  xSemaphoreTake(channel.lock, portMAX_DELAY);
+  for (int i = 0; i < length; i++) {
+    channel.link->write(buffer[i]);
+  }
+  xSemaphoreGive(channel.lock);
+
+  return E_SUCCESS;
+
+#else
   for (; i < 100; i++) {
     write_length += channel.link->write_multi(buffer + write_length, length);
     if (write_length <= 0) {
@@ -222,6 +265,7 @@ err_code_t HostSACPHMI::send(sacp_hmi_message_t *message) {
     LOG_E("failed to send message[%u, %u]\n", message->cmd_set, message->cmd_id);
     return E_FAILURE;
   }
+#endif
 }
 
 err_code_t HostSACPHMI::parse_packets(sacp_channel_t &channel) {
@@ -318,7 +362,7 @@ err_code_t HostSACPHMI::parse_packets(sacp_channel_t &channel) {
     }
 
     recv_checksum = (uint16_t)(link->read() | link->read()<<8);
-    calc_checksum = calculate_checksum(parser.buffer + sizeof(sacp_hmi_message_t), parser.length - 2);
+    calc_checksum = calculate_checksum(parser.buffer + SACP_V1_FRONT_HEADER_SIZE, parser.length - 2);
 
     if (recv_checksum != calc_checksum) {
       LOG_I("invalid checksum: recv[%x], calc[%x]\n", recv_checksum, calc_checksum);
@@ -350,6 +394,9 @@ void HostSACPHMI::handle_receive() {
   uint8_t *parser_buff = NULL;
   uint16_t buffer_len = 0;
 
+  if (!event_queue)
+    return;
+
   for (int i = 0; i < SACP_HMI_CH_MAX; i++) {
     if (parse_packets(channels[i]) != E_SUCCESS)
       continue;
@@ -374,7 +421,7 @@ void HostSACPHMI::handle_receive() {
     }
 
     // if someone is waiting this message, send to it
-    if (!tmp_queue) {
+    if (tmp_queue) {
       // just send the payload part except cmd set and cmd id
       xMessageBufferSend(tmp_queue, parser_buff + SACP_V1_FRAME_INDEX_CMD_ID + 1,
         buffer_len - SACP_V1_PDU_MIN_SIZE, pdMS_TO_TICKS(100));
@@ -433,6 +480,9 @@ void HostSACPHMI::handle_events() {
   uint16_t pdu_length;
   uint8_t buffer[SACP_V1_PDU_MAX_SIZE];
 
+  if (!event_queue)
+    return;
+
   length = xMessageBufferReceive(event_queue, buffer, SACP_V1_PDU_MAX_SIZE, 0);
 
   if (!length)
@@ -458,10 +508,67 @@ void HostSACPHMI::handle_events() {
   msg.ver     = buffer[SACP_V1_FRAME_INDEX_VER];
   msg.seq     = buffer[SACP_V1_FRAME_INDEX_SEQ_H]<<8 | buffer[SACP_V1_FRAME_INDEX_SEQ_L];
 
-  msg.ch      = buffer[SACP_V1_FRAME_INDEX_CRC8]; // use CRC8 position to transmit the receive channel
+  msg.ch = buffer[SACP_V1_FRAME_INDEX_CRC8]; // use CRC8 position to transmit the receive channel
+
   if (msg.length)
-    msg.data    = buffer + SACP_V1_FRAME_INDEX_CMD_SET;
+    msg.data = buffer + SACP_V1_FRAME_INDEX_CMD_SET;
+
+  if (msg.cmd_set == SACP_CMD_SET_GLOBAL) {
+    switch (msg.cmd_id) {
+    case SACP_CMD_ID_GLOABL_SUBSCRIPT:
+      handle_subscript(msg);
+      return;
+    
+    case SACP_CMD_ID_GLOABL_UNSUBSCRIPT:
+      handle_unsubscript(msg);
+      return;
+    
+    default:
+      break;
+    }
+  }
 
   handle_message(msg);
 }
 
+
+err_code_t HostSACPHMI::register_subscription(uint8_t cmd_set, uint8_t cmd_id, void *obj,
+  sacp_hmi_subscribe_callback cb) {
+
+  return E_SUCCESS;
+}
+
+
+void HostSACPHMI::handle_subscript(sacp_hmi_message_t &msg) {
+  if (msg.length < 4) {
+    LOG_E("invalid data length[%u] for subscription!\n", msg.length);
+    return;
+  }
+
+  LOG_I("handle_subscript!\n");
+
+  uint8_t cmd_set = msg.data[0];
+  uint8_t cmd_id  = msg.data[1];
+  uint16_t period = msg.data[2] | msg.data[3]<<8;
+  int i = 0;
+
+  for (; i < SACP_SUBSCRIPTION_NODE_MAX; i++) {
+    if (subscription_nodes[i].cmd_set == cmd_set &&
+        subscription_nodes[i].cmd_id == cmd_id) {
+        int j = 0;
+      for (; j < SACP_SUBSCRIPTION_HOST_MAX; j++) {
+        if (subscription_nodes[i].peer[j] == msg.peer)
+          break;
+        else
+          continue;
+      }
+    }
+  }
+}
+
+
+void HostSACPHMI::handle_unsubscript(sacp_hmi_message_t &msg) {
+
+  LOG_I("handle_unsubscript!\n");
+
+}

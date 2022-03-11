@@ -32,6 +32,7 @@ typedef uint16_t (*sacp_hmi_subscribe_callback)(void *obj, uint8_t *buffer);
 
 typedef struct {
   void *obj;
+  uint8_t cmd_id;
   sacp_hmi_callback req_cb;
   sacp_hmi_callback ack_cb;
   uint32_t attr;
@@ -50,9 +51,9 @@ typedef struct {
 #define SACP_V1_CMD_SET_MAX (0xFF)
 
 // #defination for callback attribution
-#define SACP_V1_CB_ATTR_ACK                   (0x00000001)
-#define SACP_V1_CB_ATTR_BLOCK_WITH_MOTION     (0x00000002)
-#define SACP_V1_CB_ATTR_BLOCK_WITHOUT_MOTION  (0x00000004)
+#define SACP_V1_CB_ATTR_ACK                     (0x00000001)
+#define SACP_V1_CB_ATTR_BLOCKED_WITH_MOTION     (0x00000002)
+#define SACP_V1_CB_ATTR_BLOCKED_WITHOUT_MOTION  (0x00000004)
 
 enum SACPHMIChannel {
   SACP_HMI_CH_SCREEN,
@@ -60,6 +61,28 @@ enum SACPHMIChannel {
 
   SACP_HMI_CH_MAX
 };
+
+// defination for subscription
+#define SACP_SUBSCRIPTION_HOST_MAX        (4)
+#define SACP_SUBSCRIPTION_NODE_MAX        (10)
+#define SACP_SUBSCRIPTION_PERIOD_INVALID  (10)
+#define SACP_CMD_SET_GLOBAL               (0x01)
+#define SACP_CMD_ID_GLOABL_SUBSCRIPT      (0x00)
+#define SACP_CMD_ID_GLOABL_UNSUBSCRIPT    (0x01)
+typedef struct sacp_subscription_handle {
+  void *obj;
+  sacp_hmi_subscribe_callback cb;
+  sacp_subscription_handle *next;
+} sacp_subscription_handle_t;
+
+typedef struct {
+  uint8_t  cmd_set, cmd_id;
+  uint32_t period; // ms
+  uint8_t  ch[SACP_SUBSCRIPTION_HOST_MAX];
+  uint32_t peer[SACP_SUBSCRIPTION_HOST_MAX];
+  sacp_subscription_handle_t handle;
+} sacp_subscription_node_t;
+
 
 class HostSACPHMI: public HostSACP {
   // public methods
@@ -91,6 +114,9 @@ class HostSACPHMI: public HostSACP {
   err_code_t parse_packets(sacp_channel_t &channel);
   void handle_message(sacp_hmi_message_t &msg);
 
+  void handle_subscript(sacp_hmi_message_t &msg);
+  void handle_unsubscript(sacp_hmi_message_t &msg);
+
   // public properties
   public:
 
@@ -109,6 +135,8 @@ class HostSACPHMI: public HostSACP {
 
     sacp_hmi_handle_t *cmd_set_handle[SACP_V1_CMD_SET_MAX];
     uint8_t cmd_set_handle_len[SACP_V1_CMD_SET_MAX];
+
+    sacp_subscription_node_t subscription_nodes[SACP_SUBSCRIPTION_NODE_MAX];
 };
 
 // initalized in system thread

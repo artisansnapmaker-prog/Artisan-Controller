@@ -96,7 +96,7 @@ void MarlinSerial::_rx_complete_irq(serial_t *obj) {
 
   if (uart_getc(obj, &c) == 0) {
 
-    rx_buffer_index_t i = (unsigned int)(obj->rx_head + 1) % SERIAL_RX_BUFFER_SIZE;
+    uint16_t i = (unsigned int)(obj->rx_head + 1) % SERIAL_RX_BUFFER_SIZE;
 
     // if we should be storing the received character into the location
     // just before the tail (meaning that the head would advance to the
@@ -109,8 +109,9 @@ void MarlinSerial::_rx_complete_irq(serial_t *obj) {
 
     BaseType_t if_wakeup_task = pdFALSE;
     if (active_ch == MARLIN_SERIAL_CHANNEL_SECOND) {
-      if (available_sec() >= sec_rx_waiting) {
-        if (sec_rx_signal) {
+      if (sec_rx_signal) {
+        if (available_sec() >= sec_rx_waiting) {
+          sec_rx_waiting = 0xFFFF;
           xSemaphoreGiveFromISR((SemaphoreHandle_t)sec_rx_signal, &if_wakeup_task);
           portYIELD_FROM_ISR(if_wakeup_task);
         }
@@ -122,6 +123,19 @@ void MarlinSerial::_rx_complete_irq(serial_t *obj) {
       emergency_parser.update(static_cast<MSerialT*>(this)->emergency_state, c);
     #endif
   }
+}
+
+
+int MarlinSerial::_sec_tx_complete_irq(serial_t *obj) {
+  // If interrupts are enabled, there must be more data in the output
+  // buffer. Send the next byte
+  obj->tx_tail = (obj->tx_tail + 1) % SACP_PDU_MAX_SIZE;
+
+  if (obj->tx_head == obj->tx_tail) {
+    return -1;
+  }
+
+  return 0;
 }
 
 // implemented APIs for marlin
@@ -153,7 +167,7 @@ size_t MarlinSerial::write(uint8_t c) {
     return HardwareSerial::write(c);
   }
   else {
-    tx_buffer_index_t i = (orig_tx_head + 1) % SERIAL_TX_BUFFER_SIZE;
+    uint16_t i = (orig_tx_head + 1) % SERIAL_TX_BUFFER_SIZE;
 
     // If the output buffer is full, there's nothing for it other than to
     // wait for the interrupt handler to empty it a bit
@@ -199,7 +213,7 @@ int MarlinSerial::read_sec(void) {
   }
   else {
     unsigned char c = _serial.rx_buff[_serial.rx_tail];
-    _serial.rx_tail = (rx_buffer_index_t)(_serial.rx_tail + 1) % sec_rx_size;
+    _serial.rx_tail = (uint16_t)(_serial.rx_tail + 1) % sec_rx_size;
     return c;
   }
 }
@@ -218,7 +232,7 @@ size_t MarlinSerial::write_sec(uint8_t c) {
 
   _written = true;
 
-  tx_buffer_index_t i = (_serial.tx_head + 1) % sec_tx_size;
+  uint16_t i = (_serial.tx_head + 1) % sec_tx_size;
 
   // If the output buffer is full, there's nothing for it other than to
   // wait for the interrupt handler to empty it a bit
@@ -230,7 +244,7 @@ size_t MarlinSerial::write_sec(uint8_t c) {
   _serial.tx_head = i;
 
   if (!serial_tx_active(&_serial)) {
-    uart_attach_tx_callback(&_serial, _tx_complete_irq);
+    uart_attach_tx_callback(&_serial, _sec_tx_complete_irq);
   }
 
   return 1;
@@ -275,7 +289,7 @@ int MarlinSerial::read_multi(uint8_t ch, uint8_t *buffer, uint16_t length) {
 
   for (int i = 0; i < length; i++) {
     buffer[i] = _serial.rx_buff[_serial.rx_tail];
-    _serial.rx_tail = (rx_buffer_index_t)(_serial.rx_tail + 1) % size;
+    _serial.rx_tail = (uint16_t)(_serial.rx_tail + 1) % size;
   }
 
   return length;
@@ -289,8 +303,8 @@ int MarlinSerial::write_multi(uint8_t ch, uint8_t *buffer, uint16_t length) {
   volatile uint16_t buffer_size = 0;
   volatile uint16_t free_size = 0;
 
-  tx_buffer_index_t head = _serial.tx_head;
-  tx_buffer_index_t tail = _serial.tx_tail;
+  uint16_t head = _serial.tx_head;
+  uint16_t tail = _serial.tx_tail;
 
   if (ch == MARLIN_SERIAL_CHANNEL_ORIGINAL) {
     buffer_size = SERIAL_TX_BUFFER_SIZE;
@@ -302,7 +316,9 @@ int MarlinSerial::write_multi(uint8_t ch, uint8_t *buffer, uint16_t length) {
   if (head >= tail) {
     free_size =  buffer_size - 1 - head + tail;
   }
-  free_size =  tail - head - 1;
+  else {
+    free_size =  tail - head - 1;
+  }
 
   if (free_size == 0)
     return free_size;
@@ -312,8 +328,19 @@ int MarlinSerial::write_multi(uint8_t ch, uint8_t *buffer, uint16_t length) {
 
   for (int i = 0; i < length; i++) {
     head = (_serial.tx_head + 1) % buffer_size;
+
+    while (head == _serial.tx_tail) {
+      // nop, the interrupt handler will free up space for us
+    }
     _serial.tx_buff[head] = buffer[i];
     _serial.tx_head = head;
+  }
+
+  if (!serial_tx_active(&_serial)) {
+    if (active_ch == MARLIN_SERIAL_CHANNEL_ORIGINAL)
+      uart_attach_tx_callback(&_serial, _tx_complete_irq);
+    else
+      uart_attach_tx_callback(&_serial, _sec_tx_complete_irq);
   }
 
   return length;

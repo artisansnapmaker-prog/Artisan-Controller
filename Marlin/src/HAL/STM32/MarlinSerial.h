@@ -48,6 +48,8 @@ struct MarlinSerial : public HardwareSerial {
 
   void _rx_complete_irq(serial_t *obj);
 
+  static int _sec_tx_complete_irq(serial_t *obj);
+
   int peek(void);
   int read(void);
   void flush(void);

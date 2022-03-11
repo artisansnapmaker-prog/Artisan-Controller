@@ -74,6 +74,15 @@ class LinkUART {
           return -1;
     }
 
+    int set_sec_rx_waiting(uint16_t bytes_num) {
+      if (serial) {
+        serial->set_sec_rx_waiting(bytes_num); 
+        return 0;
+      }
+      else
+        return -1;
+    }
+
     int set_sec_rx_buffer(uint8_t *buffer, uint16_t size) {
     if (serial) {
       serial->set_sec_rx_buffer(buffer, size);
@@ -108,7 +117,7 @@ class LinkUART {
 
 
   void set_serial(MSerialT *ser) {
-    if (!ser)
+    if (ser)
       serial = ser;
   }
   // private methods
@@ -124,8 +133,8 @@ class LinkUART {
     MSerialT *serial = NULL;
 };
 
-extern LinkUART link_hmi;
+extern LinkUART link_screen;
 extern LinkUART link_camera;
-extern LinkUART link_luban;
+extern LinkUART link_pc;
 
 #endif  // #ifndef SNAPMAKER_HOST_LINK_UART_H_

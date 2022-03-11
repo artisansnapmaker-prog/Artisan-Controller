@@ -62,7 +62,7 @@ enum SACPHostID {
   SACP_HOST_ID_LUBAN,
   SACP_HOST_ID_CONTROLLER,
   SACP_HOST_ID_SCREEN,
-  
+
 };
 
 enum SACPVerion {
@@ -94,6 +94,7 @@ typedef struct {
   uint32_t      seq;
   LinkUART      *link;
   sacp_parser_t parser;
+  SemaphoreHandle_t lock;
 } sacp_channel_t;
 
 // V0 definations ++++++++++++++
@@ -134,8 +135,9 @@ typedef struct {
 #define SACP_V1_PDU_MAX_SIZE    (SACP_PDU_MAX_SIZE)
 #define SACP_V1_PDU_MIN_SIZE      (15)
 #define SACP_V1_FRONT_HEADER_SIZE (7)
-#define SACP_V1_REAR_HEADER_SIZE  (4)
+#define SACP_V1_REAR_HEADER_SIZE  (6)
 
+#define SACP_V1_HOST_INVALID    (0xFFFFFFFF)
 #define SACP_V1_SEQ_INVALID     (0xFFFFFFFF)
 #define SACP_V1_CMD_SET_INVALID (0xFF)
 #define SACP_V1_CMD_ID_INVALID  (0xFF)

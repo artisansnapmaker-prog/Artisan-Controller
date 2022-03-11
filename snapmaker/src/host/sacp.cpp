@@ -107,7 +107,7 @@ uint16_t HostSACP::package_v1(sacp_message_t *msg, uint8_t *out) {
     out[length++] = msg->data[i];
   }
 
-  checksum = calculate_checksum(out, length);
+  checksum = calculate_checksum(out + SACP_V1_FRAME_INDEX_SENDER_ID, msg->length + SACP_V1_REAR_HEADER_SIZE);
   out[length++] = checksum&0xFF;
   out[length++] = checksum>>8;
 

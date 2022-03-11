@@ -111,18 +111,19 @@ enum PortIndex {
 static void hmi_recv_handler(void *param) {
 
   for (;;) {
-    // host_hmi.handle_receive();
+    host_hmi.handle_receive();
 
-    vTaskDelay(pdMS_TO_TICKS(10));
+    vTaskDelay(pdMS_TO_TICKS(5));
   }
 }
 
 // can event handler
 static void hmi_event_handler(void *param) {
+
   for (;;) {
     host_hmi.handle_events();
 
-    vTaskDelay(pdMS_TO_TICKS(10));
+    taskYIELD();
   }
 }
 

@@ -43,6 +43,24 @@ void GcodeSuite::M2000() {
     /* clear exception */
     break;
 
+  case 5:
+    {
+      sacp_hmi_message_t msg;
+      uint8_t buffer[4] = {0x10, 0xa, 0xaa, 0x01};
+      msg.attr = 0;
+      msg.ch   = SACP_HMI_CH_SCREEN;
+      msg.cmd_set = 1;
+      msg.cmd_id  = 0;
+      msg.data = buffer;
+      msg.length = 4;
+      msg.peer = 1;
+      msg.ver = 1;
+      msg.seq = 0;
+
+      host_hmi.send(&msg);
+    }
+    return;
+
   default:
     break;
   }

@@ -5,18 +5,37 @@
 #include "../service/bed_level.h"
 #if MB_SNAPMAKER
 
+// publish callback
+static uint16_t publish(void *obj, uint8_t *buffer) {
+  buffer[0] = 0x11;
+  buffer[1] = 0x22;
+  buffer[2] = 0x33;
+  buffer[3] = 0x44;
+  return 4;
+}
+
+static err_code_t test_req_cb(void *obj, sacp_hmi_message_t *msg) {
+  LOG_I("got req: [%x:%x], data len=%u\n", msg->cmd_set, msg->cmd_id, msg->length);
+  return host_hmi.send_ack(msg, E_SUCCESS);
+}
+
+static err_code_t test_ack_cb(void *obj, sacp_hmi_message_t *msg) {
+  LOG_I("got ack: [%x:%x], data len=%u\n", msg->cmd_set, msg->cmd_id, msg->length);
+  return E_SUCCESS;
+}
+
 void GcodeSuite::M2000() {
   // system debug options
-  __unused uint8_t s = (uint8_t)parser.byteval('S', (uint8_t)0);
+  __unused uint8_t s = (uint8_t)parser.byteval('S', (uint8_t)0xFF);
 
   // CNC debug options
-  __unused uint8_t c = (uint8_t)parser.byteval('C', (uint8_t)0);
+  __unused uint8_t c = (uint8_t)parser.byteval('C', (uint8_t)0xFF);
 
   // laser debug options
-  __unused uint8_t l = (uint8_t)parser.byteval('L', (uint8_t)0);
+  __unused uint8_t l = (uint8_t)parser.byteval('L', (uint8_t)0xFF);
 
   // FDM toolhead debug options
-  __unused uint8_t f = (uint8_t)parser.byteval('F', (uint8_t)0);
+  __unused uint8_t f = (uint8_t)parser.byteval('F', (uint8_t)0xFF);
 
   // common info
   __unused uint32_t p = (uint32_t)parser.ulongval('P', (uint32_t)0);
@@ -60,6 +79,34 @@ void GcodeSuite::M2000() {
       host_hmi.send(&msg);
     }
     return;
+
+  // test subscribe
+  case 6:
+    {
+      host_hmi.register_subscription(0x10, 0xa0, (void *)0x12345678, publish);
+    }
+    break;
+
+  // apply system handle
+  case 7:
+    {
+      host_hmi.apply_cmd_set_handle(SACP_CMD_SET_GLOBAL, 10);
+    }
+    break;
+
+  // register REQ cb
+  case 8:
+    {
+      host_hmi.register_callback(0x01, 0x10, NULL, test_req_cb);
+    }
+    break;
+
+  // register ACK cb
+  case 9:
+    {
+      host_hmi.register_callback(0x01, 0x11, NULL, test_ack_cb, SACP_CB_ATTR_ACK);
+    }
+    break;
 
   default:
     break;

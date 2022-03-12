@@ -33,4 +33,11 @@
 #define _16_TO_LITTLE_STREAM(s, buf)    do{ ((buf)[0] = s & 0xFF); ((buf)[1] = (s>>8) & 0xFF); }while(0)
 #define _32_TO_LITTLE_STREAM(s, buf)    do{ ((buf)[0] = s & 0xFF); ((buf)[1] = (s>>8) & 0xFF); ((buf)[1] = (s>>16) & 0xFF); ((buf)[3] = (s>>24) & 0xFF); }while(0)
 
+#define LOCK(lock, wait_time)   do{\
+                                  if(pdTRUE != xSemaphoreTake(lock, (TickType_t )wait_time)) {\
+                                    return E_BUSY;\
+                                  }\
+                                } while(0)
+#define UNLOCK(lock)            do{ xSemaphoreGive(lock); } while(0)
+
 #endif  // #ifndef SNAPMAKER_UTILITY_H_

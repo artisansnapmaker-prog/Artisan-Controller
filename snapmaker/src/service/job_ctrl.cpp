@@ -34,7 +34,7 @@ JobCtrl job_ctrl_svc;
 void JobCtrl::init(void) { 
   _lock = xSemaphoreCreateMutex();
   if (!_lock) {
-    LOG_E("_lock create failed\r\n");
+    LOG_E("job ctrl: _lock create failed\r\n");
     while(1);
   }
 
@@ -209,7 +209,7 @@ err_code_t JobCtrl::start(uint8_t client_id, struct GcodeFileInfo *gcodeInfo, to
     return E_JOB_NO_HOME;
   }
 
-  JOB_LOCK();
+  LOCK(_lock, JOB_LOCK_WAIT_TICK);
   // TODO: record this client
   _client_id = client_id;
   _env.type = th_type;
@@ -220,7 +220,7 @@ err_code_t JobCtrl::start(uint8_t client_id, struct GcodeFileInfo *gcodeInfo, to
   _env.time_elape = 0;
   _env.status = JOB_STATUE_PRINTING;
   _err_get_batch_gcode_cnt = 0;
-  JOB_UNLOCK();
+  UNLOCK(_lock);
 
   return E_SUCCESS;
 }
@@ -233,24 +233,24 @@ err_code_t JobCtrl::pause(void) {
   }
 
   err_code_t ret;
-  JOB_LOCK();
+  LOCK(_lock, JOB_LOCK_WAIT_TICK);
   /**
    * We assume all these actions are executable and return true.
    * Should we need to check?
   */
   _env.status = JOB_STATUE_PAUSING;
   if (E_SUCCESS != (ret = save_env())) {
-    JOB_UNLOCK();
+    UNLOCK(_lock);
     return ret;
   }
   clear_gcode_queue();
   normal_stop();
   if (E_SUCCESS != (ret = machine_standby())) {
-    JOB_UNLOCK();
+    UNLOCK(_lock);
     return ret;
   }
   _env.status = JOB_STATUE_PAUSED;
-  JOB_UNLOCK();
+  UNLOCK(_lock);
 
   return E_SUCCESS;
 }
@@ -263,14 +263,14 @@ err_code_t JobCtrl::resume(uint8_t client_id) {
     return E_JOB_NOT_IN_PAUSE_STATUS;
   }
 
-  JOB_LOCK();
+  LOCK(_lock, JOB_LOCK_WAIT_TICK);
   if (!resum_env()) {
     LOG_E("resume failed\r\n");
     return E_JOB_RESUME_ENV_FAILURE;
   }
   _client_id = client_id;
   // start gcode request
-  JOB_UNLOCK();
+  UNLOCK(_lock);
 
   return E_SUCCESS;
 }
@@ -283,10 +283,10 @@ err_code_t JobCtrl::resume(uint8_t client_id, struct JobEnv &env) {
 
 err_code_t JobCtrl::stop(void) {
   // Just stop, no matter what the status the machin on
-  JOB_LOCK();
+  LOCK(_lock, JOB_LOCK_WAIT_TICK);
   machine_standby();
   _env.status = JOB_STATUE_STOPPED;
-  JOB_UNLOCK();
+  UNLOCK(_lock);
   return E_SUCCESS;
 }
 
@@ -304,9 +304,13 @@ bool JobCtrl::consume_a_gcode(uint8_t *cmd, uint16_t max_len, uint32_t *line) {
   uint8_t c;
   uint32_t cmd_len;
 
+  if (JOB_STATUE_PRINTING != _env.status) {
+    return false;
+  }
+
   ret = false;
   cmd_len = 0;
-  JOB_LOCK();
+  LOCK(_lock, JOB_LOCK_WAIT_TICK);
   while(_gcode_rb.remove_one(c)) {    
     if(cmd_len >= max_len) {
       LOG_W("gcode too long for the command buffer");
@@ -323,7 +327,7 @@ bool JobCtrl::consume_a_gcode(uint8_t *cmd, uint16_t max_len, uint32_t *line) {
       break;
     }
   }
-  JOB_UNLOCK();
+  UNLOCK(_lock);
 
   return ret;
 }

@@ -30,23 +30,31 @@
 
 
 bool ClientNode::client_node_class_init;
+SemaphoreHandle_t ClientNode::_lock;
 ClientNode* ClientNode::client_node_tab[MAX_CLIENT_NODE_NUM];
 
 
 void ClientNode::class_init(void) {
-  LOG_I("client node class int\r\n");
+  LOG_I("client node: client node class int\r\n");
   for (uint8_t i = 0; i < MAX_CLIENT_NODE_NUM; i++) {
     client_node_tab[i] = NULL;
   }
 
-  LOG_I("register SACP cmd set and cmd id");
+  _lock = xSemaphoreCreateMutex();
+  if (!_lock) {
+    LOG_E("client node: _lock create failed\r\n");
+    while(1);
+  }
+
+  LOG_I("client node: register SACP cmd set and cmd id");
   host_hmi.register_callback(CMD_SET_JOB_CTRL, CMD_ID_JOB_CTRL_START, NULL, sacp_cb);
   host_hmi.register_callback(CMD_SET_JOB_CTRL, CMD_ID_JOB_CTRL_PAUSE, NULL, sacp_cb);
   host_hmi.register_callback(CMD_SET_JOB_CTRL, CMD_ID_JOB_CTRL_RESUME, NULL, sacp_cb);
   host_hmi.register_callback(CMD_SET_JOB_CTRL, CMD_ID_JOB_CTRL_STOP, NULL, sacp_cb);
 
-  LOG_I("TODO: register subscribe to SACP ");
-
+  // register subscribe to SACP
+  host_hmi.apply_cmd_set_handle(CMD_SET_JOB_CTRL, SUB_NUM_JOB_CTRL);
+  host_hmi.register_subscription(CMD_SET_JOB_CTRL, SUB_ID_JOB_CTRL_CUR_LINE_NUM, (void *)subscribe_cb, subscribe_cb);
   client_node_class_init = true;
 }
 
@@ -83,24 +91,33 @@ err_code_t ClientNode::sacp_send_result(sacp_hmi_message_t *msg, uint8_t result)
   uint8_t send_buf[SEND_BUF_SIZE];
 
   s_msg = *msg;
-  // set sender id
-  // set reciver id
-  s_msg.attr = SACP_ATTR_ACK;
+  s_msg.attr = SACP_MESSAGE_ATTR_ACK;
   s_msg.data = send_buf;
   send_buf[0] = result;
-  s_msg.length = SACP_FIXED_PAYLOAD_LENGTH + 1;
+  s_msg.length = 1;
   return host_hmi.send(&s_msg);
 }
 
 ClientNode *ClientNode::find_client_node(uint32_t peer) {
-  // Lock?
   for(uint8_t i = 0; i < MAX_CLIENT_NODE_NUM; i++) {
     if (peer == client_node_tab[i]->_peer) {
       return client_node_tab[i];
     }
   }
-
   return NULL;
+}
+
+err_code_t ClientNode::add_client_node(ClientNode *cn) {
+  LOCK(_lock, 0);
+  for(uint8_t i = 0; i < MAX_CLIENT_NODE_NUM; i++) {
+    if (NULL == client_node_tab[i]) {
+      client_node_tab[i] = cn;
+      UNLOCK(_lock);
+      return E_SUCCESS;
+    }
+  }
+  UNLOCK(_lock);
+  return E_NO_RESRC;
 }
 
 bool ClientNode::get_batch_gcode(uint8_t client_id, req_batch_gcode_t &req_batch_gcode, res_batch_gcode_t &res_batch_gcode) {
@@ -116,19 +133,9 @@ bool ClientNode::get_batch_gcode(uint8_t client_id, req_batch_gcode_t &req_batch
   }
 }
 
-bool ClientNode::subscribe_cb(/* TODO: parame */) {
+uint16_t ClientNode::subscribe_cb(void *obj, uint8_t *buffer) {
   // TODO:
-}
-
-err_code_t ClientNode::add_client_node(ClientNode *cn) {
-  // Lock?
-  for(uint8_t i = 0; i < MAX_CLIENT_NODE_NUM; i++) {
-    if (NULL == client_node_tab[i]) {
-      client_node_tab[i] = cn;
-      return E_SUCCESS;
-    }
-  }
-  return E_NO_RESRC;
+  return 0;
 }
 
 err_code_t ClientNode::init(void) {
@@ -146,7 +153,7 @@ bool ClientNode::sacp_get_batch_gcode(req_batch_gcode_t &req_batch_gcode, res_ba
   // peer id? and send id?
   // seq not change
   s_msg.ch = _ch;
-  s_msg.attr = SACP_ATTR_ACK;
+  s_msg.attr = SACP_MESSAGE_ATTR_ACK;
   s_msg.data = send_buf;
   _32_TO_LITTLE_STREAM(req_batch_gcode.line_num, send_buf);
   _16_TO_LITTLE_STREAM(req_batch_gcode.buf_len, send_buf + 4);
@@ -200,9 +207,7 @@ err_code_t ClientNode::req_start_job(sacp_hmi_message_t *msg) {
   uint16_t str_len;
   toolHeadType type;
   struct GcodeFileInfo gfi;
-  sacp_hmi_message_t s_msg;
   uint8_t *p = msg->data;
-  uint8_t send_buf[SEND_BUF_SIZE];
 
   // MD5
   str_len = LITTLE_STREAM_TO_16(p);
@@ -237,35 +242,18 @@ err_code_t ClientNode::req_start_job(sacp_hmi_message_t *msg) {
   ret = job_ctrl_svc.start(_peer, &gfi, type);
 
 _out:
-  s_msg = *msg;
-  // peer id? and send id?
-  // seq not change
-  s_msg.attr = SACP_ATTR_ACK;
-  s_msg.data = send_buf;
-  send_buf[0] = ret;
-  _16_TO_LITTLE_STREAM(0, send_buf + 1);
-  _16_TO_LITTLE_STREAM(0, send_buf + 3);
-  s_msg.length = SACP_FIXED_PAYLOAD_LENGTH + 5;
-  return host_hmi.send(&s_msg);
+  return sacp_send_result(msg, ret);
 }
 
 err_code_t ClientNode::req_pause_job(sacp_hmi_message_t* msg) {
   LOG_I("client %d request pause a job\r\n");
   
   err_code_t ret;
-  sacp_hmi_message_t s_msg;
-  uint8_t send_buf[SEND_BUF_SIZE];
+  ret = sacp_send_result(msg, SACP_RET_EXECUTING);
+  // TODO: do we need to check this ret?
 
-  s_msg = *msg;
-  s_msg.attr = SACP_ATTR_ACK;
-  s_msg.data = send_buf;
-  send_buf[0] = SACP_RET_EXECUTING;
-  s_msg.length = 1;
-  host_hmi.send(&s_msg);
   ret = job_ctrl_svc.pause();
-  send_buf[0] = ret;
-  host_hmi.send(&s_msg);
-
+  sacp_send_result(msg, ret);
   return ret;
 }
 
@@ -273,36 +261,22 @@ err_code_t ClientNode::req_resume_job(sacp_hmi_message_t* msg) {
   LOG_I("client %d request resume a job\r\n");
   
   err_code_t ret;
-  sacp_hmi_message_t s_msg;
-  uint8_t send_buf[SEND_BUF_SIZE];
+  ret = sacp_send_result(msg, SACP_RET_EXECUTING);
+  // TODO: do we need to check this ret?
 
-  s_msg = *msg;
-  s_msg.attr = SACP_ATTR_ACK;
-  s_msg.data = send_buf;
-  send_buf[0] = SACP_RET_EXECUTING;
-  s_msg.length = 1;
-  host_hmi.send(&s_msg);
   ret = job_ctrl_svc.resume(_peer);
-  send_buf[0] = ret;
-  host_hmi.send(&s_msg);
+  sacp_send_result(msg, ret);
+  return ret;
 }
 
 err_code_t ClientNode::req_stop_job(sacp_hmi_message_t* msg) {
   LOG_I("client %d request stop a job\r\n");
   
   err_code_t ret;
-  sacp_hmi_message_t s_msg;
-  uint8_t send_buf[SEND_BUF_SIZE];
+  ret = sacp_send_result(msg, SACP_RET_EXECUTING);
+  // TODO: do we need to check this ret?
 
-  s_msg = *msg;
-  s_msg.attr = SACP_ATTR_ACK;
-  s_msg.data = send_buf;
-  send_buf[0] = SACP_RET_EXECUTING;
-  s_msg.length = 1;
   ret = job_ctrl_svc.stop();
-  send_buf[0] = ret;
-  host_hmi.send(&s_msg);
-
+  sacp_send_result(msg, ret);
   return ret;
 }
-

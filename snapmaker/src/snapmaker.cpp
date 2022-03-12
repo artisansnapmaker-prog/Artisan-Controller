@@ -178,6 +178,7 @@ static void system_thread(void *p) {
 
   motion_svc.init();
   bedlevel_svc.init();
+  ClientNode::class_init();
 
   // loop
   for (;;) {
@@ -214,7 +215,6 @@ void SnapmakerPrinter::post_init() {
   OUT_WRITE(POWER_CTRL_4P, POWER_CTRL_ON);
 
   debug.init();
-  ClientNode::class_init();
 
   ret = xTaskCreate((TaskFunction_t)system_thread, "system", SYSTEM_TASK_STACK_SIZE,
         (void *)(this), SYSTEM_TASK_PRIORITY,  &thandle_can_recv);

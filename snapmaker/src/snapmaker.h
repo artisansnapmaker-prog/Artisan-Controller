@@ -184,7 +184,6 @@ class SnapmakerPrinter
     // ENCLOSURE
     void set_enclosure_fan_speed(uint16_t speed) {}
 
-    uint8_t runout_state(uint8_t pin_index) { return 0x0; }
     void register_module(uint16_t type, ModuleBase *new_module);
 
     ModuleBase *get_cur_toolhead(void);

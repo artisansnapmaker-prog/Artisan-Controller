@@ -38,20 +38,15 @@
 #define MAX_CLIENT_NODE_NUM 4
 #define SEND_BUF_SIZE 256
 
-// TODO: this should define in other file
-#define SACP_CH_DEBUG               (1<<8)
-#define SACP_CLIENT_ID_DEBUG        (1<<8)
-
-#define CMD_SET_JOB_CTRL            (0xAC)
-#define CMD_ID_JOB_CTRL_ISSUE       (0x01)
-#define CMD_ID_JOB_CTRL_REQ_GCODE   (0x02)
-#define CMD_ID_JOB_CTRL_START       (0x03)
-#define CMD_ID_JOB_CTRL_PAUSE       (0x04)
-#define CMD_ID_JOB_CTRL_RESUME      (0x05)
-#define CMD_ID_JOB_CTRL_STOP        (0x06)
-
-// TODO: this should define in the SACP
-#define SACP_FIXED_PAYLOAD_LENGTH                       (6)
+#define CMD_SET_JOB_CTRL                  (0xAC)
+#define CMD_ID_JOB_CTRL_ISSUE             (0x01)
+#define CMD_ID_JOB_CTRL_REQ_GCODE         (0x02)
+#define CMD_ID_JOB_CTRL_START             (0x03)
+#define CMD_ID_JOB_CTRL_PAUSE             (0x04)
+#define CMD_ID_JOB_CTRL_RESUME            (0x05)
+#define CMD_ID_JOB_CTRL_STOP              (0x06)
+#define SUB_ID_JOB_CTRL_CUR_LINE_NUM      (0xA0)
+#define SUB_NUM_JOB_CTRL                  (1)
 
 // TODO: this should define in the SACP
 #define SACP_RESULT_CODE_APP_BASE                       (200)
@@ -69,15 +64,6 @@
 #define SACP_RESULT_CODE_JOB_RESUME_ENV_FAILURE         (SACP_RESULT_CODE_APP_BASE + 13)
 #define SACP_RESULT_CODE_JOB_UNKNOW_STOP_TPYE           (SACP_RESULT_CODE_APP_BASE + 14)
 #define SACP_RESULT_CODE_JOB_BUSY                       (SACP_RESULT_CODE_APP_BASE + 15)
-
-// TODO: this should define in the SACP
-#define SACP_SEQ_CHECK(rx_seq, exp_seq)                 ((int16_t)(exp_seq) - (int16_t)(rx_seq) < 0)
-
-// TODO: this should define in the SACP
-enum {
-  SACP_ATTR_REQ = 0,
-  SACP_ATTR_ACK = 1,
-};
 
 // TODO: this result code for sacp should define in the sacp module
 enum SacpResultCode {
@@ -115,15 +101,19 @@ class ClientNode {
   // Class define
   public:
     static void class_init(void);
+
     static ClientNode *find_client_node(uint32_t peer);
     static err_code_t add_client_node(ClientNode *cn);
+    // TODO: client node delete() and client node?
+
     static err_code_t sacp_cb(void *obj, sacp_hmi_message_t *);
     static err_code_t sacp_send_result(sacp_hmi_message_t *msg, uint8_t result);
     static bool get_batch_gcode(uint8_t client_id, req_batch_gcode_t &req_batch_gcode, res_batch_gcode_t &res_batch_gcode);
-    static bool subscribe_cb(/* TODO: parame */);
+    static uint16_t subscribe_cb(void *obj, uint8_t *buffer);
 
   private:
     static bool client_node_class_init;
+    static SemaphoreHandle_t _lock;
     static ClientNode* client_node_tab[MAX_CLIENT_NODE_NUM];
 
   // Instance define

@@ -47,18 +47,11 @@
 #define E_JOB_RESUME_ENV_FAILURE         SACP_RESULT_CODE_JOB_RESUME_ENV_FAILURE
 #define E_JOB_UNKNOW_STOP_TPYE           SACP_RESULT_CODE_JOB_UNKNOW_STOP_TPYE
 
-
 #define GCODE_MD5_LENGTH 64
 #define GCODE_FILE_NAME_SIZE 128
 #define JOB_LOCK_WAIT_TICK 100
 #define TOOLHEAD_ENV_MAX_SIZE 128
 #define GCODE_RB_SIZE 1024
-#define JOB_LOCK()        do{\
-                            if(pdTRUE != xSemaphoreTake(_lock, (TickType_t )JOB_LOCK_WAIT_TICK)) {\
-                              return E_BUSY;\
-                            }\
-                          } while(0)
-#define JOB_UNLOCK()      do{ xSemaphoreGive(_lock); } while(0)
 
 
 // TODO: this type should define other

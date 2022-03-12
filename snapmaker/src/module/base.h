@@ -109,6 +109,7 @@ enum ModuleDeviceID {
   MODULE_DEVICE_ID_LASER_10W_2021       ,   // 14
   MODULE_DEVICE_ID_CNC_200W_2021        ,   // 15
   MODULE_DEVICE_ID_ENCLOSURE_A400_2022  ,   // 16
+  MODULE_DEVICE_ID_DRYBOX               ,   // 17
 
   // below is virtual module
   MODULE_DEVICE_ID_SM2_BED         = 512,   // 512
@@ -183,6 +184,7 @@ enum ModuleFunctionID {
   MODULE_FUNC_CONFIG_SPINDLE              ,  // 38
   MODULE_FUNC_REPORT_SPINDLE_RUN_INFO     ,  // 39
   MODULE_FUNC_REPORT_SPINDLE_SENSOR_INFO  ,  // 40
+  MODULE_FUNC_REPORT_TEMP_HUMIDITY        ,  // 41
 
   MODULE_FUNC_MAX
 };

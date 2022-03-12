@@ -5,6 +5,7 @@
 #include "toolhead_cnc.h"
 #include "toolhead_laser.h"
 #include "toolhead_cnc_200w.h"
+#include "drybox.h"
 
 int ModuleBase::get_function_priority(uint16_t function_id) {
   if (!function_prio_map) {
@@ -97,6 +98,10 @@ ModuleBase *module_factory(uint32_t mac, uint8_t key, uint8_t sub_index) {
     break;
 
   case MODULE_DEVICE_ID_ENCLOSURE_A400_2022:
+    break;
+
+  case MODULE_DEVICE_ID_DRYBOX:
+    return new DryBox(mac,key);
     break;
 
   case MODULE_DEVICE_ID_A400_LINEAR:

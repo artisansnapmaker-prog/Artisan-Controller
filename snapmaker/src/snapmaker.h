@@ -9,6 +9,7 @@
 #include "module/toolhead_laser.h"
 #include "module/toolhead_cnc_200w.h"
 #include "module/toolhead_fdm.h"
+#include "module/drybox.h"
 
 struct SnapmakerHandle {
   TaskHandle_t marlin;
@@ -184,6 +185,13 @@ class SnapmakerPrinter
     // ENCLOSURE
     void set_enclosure_fan_speed(uint16_t speed) {}
 
+    // DryBox
+    void set_drybox_temp(int16_t heater_temp, int16_t chamber_temp) {
+      if (drybox) {
+        drybox->set_temp(heater_temp, chamber_temp);
+      }
+    }
+
     void register_module(uint16_t type, ModuleBase *new_module);
 
     ModuleBase *get_cur_toolhead(void);
@@ -199,6 +207,7 @@ class SnapmakerPrinter
     ToolHeadCNC *cnc = NULL;
     ToolHeadLaser *laser = NULL;
     ToolHeadFDM *fdm = NULL;
+    DryBox *drybox = NULL;
     // toolhead fdm 1e
     // toolhead laser 1.6w
     // toolhead laser 10w

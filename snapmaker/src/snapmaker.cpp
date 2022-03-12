@@ -288,6 +288,10 @@ void SnapmakerPrinter::register_module(uint16_t type, ModuleBase *module) {
   case MODULE_DEVICE_ID_ENCLOSURE_A400_2022:
     break;
 
+  case MODULE_DEVICE_ID_DRYBOX:
+    drybox = (DryBox *)module;
+    break;
+
   case MODULE_DEVICE_ID_A400_LINEAR:
     break;
 

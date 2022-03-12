@@ -1064,6 +1064,7 @@ void GcodeSuite::process_parsed_command(const bool no_ok/*=false*/) {
 
       #if MB_SNAPMAKER
         case 2000: M2000(); break;
+        case 2001: M2001(); break;
       #endif
 
       default: parser.unknown_command_warning(); break;

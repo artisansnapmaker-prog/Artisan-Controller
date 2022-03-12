@@ -67,9 +67,10 @@ err_code_t handle_module_inserted(void *obj, uint32_t mac, LinkCANChannel ch) {
   ModuleBase *module = NULL;
 
   LOG_I("Got module: 0x%08x\n", mac);
+  LOG_I("module device id: %d\n", device_id);
 
   // tell modules service  we are initializing module
-  xSemaphoreGive(ms->configuring_lock);;
+  xSemaphoreGive(ms->configuring_lock);
 
   for (; i < ms->configured_module; i++) {
     if (ms->modules[i]->get_mac() == mac) {

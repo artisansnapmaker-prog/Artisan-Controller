@@ -117,24 +117,31 @@ err_code_t HostSACPHMI::apply_cmd_set_handle(uint8_t cmd_set, uint8_t length) {
 
 
 err_code_t HostSACPHMI::register_callback(uint8_t cmd_set, uint8_t cmd_id, void *obj, sacp_hmi_callback cb, uint32_t attr) {
-  if (!cmd_set_handle[cmd_set]) {
-    LOG_E("no handle for cmd set[%u]\n", cmd_set);
+  int i = 0;
+  
+  if (!cmd_set_handle[cmd_set] || cmd_set_handle_len[cmd_set] == 0) {
+    LOG_E("you didn't registered handle for cmd[%x:%x]\n", cmd_set, cmd_id);
     return E_NO_RESRC;
   }
 
-  if (cmd_id > cmd_set_handle_len[cmd_set]) {
-    LOG_E("no handle for cmd id[%u]\n", cmd_id);
-    return E_NO_RESRC;
+  for (; i < cmd_set_handle_len[cmd_set]; i++) {
+    if (cmd_set_handle[cmd_set][i].cmd_id == cmd_id) {
+      LOG_W("will overwirte handle of [%x:%x]\n", cmd_set, cmd_id);
+      break;
+    }
+
+    if (cmd_set_handle[cmd_set][i].obj == NULL)
+      break;
   }
 
-  cmd_set_handle[cmd_set]->obj  = obj;
-  cmd_set_handle[cmd_set]->attr = attr;
+  cmd_set_handle[cmd_set][i].obj  = obj;
+  cmd_set_handle[cmd_set][i].attr = attr;
 
   if (attr & SACP_V1_CB_ATTR_ACK) {
-    cmd_set_handle[cmd_set]->ack_cb = cb;
+    cmd_set_handle[cmd_set][i].ack_cb = cb;
   }
   else {
-    cmd_set_handle[cmd_set]->req_cb = cb;
+    cmd_set_handle[cmd_set][i].req_cb = cb;
   }
 
   return E_SUCCESS;
@@ -442,14 +449,21 @@ void HostSACPHMI::handle_receive() {
 
 
 void HostSACPHMI::handle_message(sacp_hmi_message_t &msg) {
-  sacp_hmi_handle_t *handle = cmd_set_handle[msg.cmd_set];
-  if (!handle) {
-    LOG_E("no cb for cmd set[%u]\n", msg.cmd_set);
+  sacp_hmi_handle_t *handle = NULL;
+
+  if (!cmd_set_handle[msg.cmd_set] || cmd_set_handle_len[msg.cmd_set] == 0) {
+    LOG_E("nobody have registered handle for cmd[%x:%x]\n", msg.cmd_set, msg.cmd_id);
     return;
   }
 
-  if (cmd_set_handle_len[msg.cmd_set] < msg.cmd_id) {
-    LOG_E("no cb for cmd id[%u]\n", msg.cmd_id);
+  for (int i = 0; i < cmd_set_handle_len[msg.cmd_set]; i++) {
+    if (cmd_set_handle[msg.cmd_set][i].cmd_id == msg.cmd_id &&
+        cmd_set_handle[msg.cmd_set][i].obj)
+      handle = &cmd_set_handle[msg.cmd_set][i];
+  }
+
+  if (!handle) {
+    LOG_E("no handle for cmd[%x:%x]\n", msg.cmd_set, msg.cmd_id);
     return;
   }
 
@@ -467,7 +481,7 @@ void HostSACPHMI::handle_message(sacp_hmi_message_t &msg) {
       handle->req_cb(handle->obj, &msg);
     }
     else {
-      LOG_E("no callback for ACK[%x:%x]\n", msg.cmd_set, msg.cmd_id);
+      LOG_E("no callback for REQ[%x:%x]\n", msg.cmd_set, msg.cmd_id);
       return;
     }
   }

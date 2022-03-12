@@ -230,7 +230,7 @@ err_code_t HostSACPHMI::send_sync(sacp_hmi_message_t *message, uint8_t *out, uin
 
     recv_len = xMessageBufferReceive(waiting_nodes[node_index].queue, out, *out_len, pdMS_TO_TICKS(timeout));
     if (recv_len < 1) {
-      ret = E_TIMEOUT;
+      ret = E_EXE_TIMEOUT;
       continue;
     }
 
@@ -596,11 +596,11 @@ void HostSACPHMI::handle_events() {
     case SACP_CMD_ID_GLOABL_SUBSCRIPT:
       handle_subscript(msg);
       return;
-    
+
     case SACP_CMD_ID_GLOABL_UNSUBSCRIPT:
       handle_unsubscript(msg);
       return;
-    
+
     default:
       break;
     }
@@ -633,7 +633,7 @@ err_code_t HostSACPHMI::register_subscription(uint8_t cmd_set, uint8_t cmd_id, v
       xSemaphoreTake(subscription_lock, portMAX_DELAY);
       handle->cb = cb;
       xSemaphoreGive(subscription_lock);
-  
+
       LOG_I("this obj has registered subscription cb\n");
       return E_SUCCESS;
     }
@@ -782,7 +782,7 @@ void HostSACPHMI::handle_subscript(sacp_hmi_message_t &msg) {
   if (client_index >= SACP_SUBSCRIPTION_CLIENT_MAX) {
     LOG_E("no avaliable client for subscription[%x:%x]\n", cmd_set, cmd_id);
   }
-  
+
   // add new client
   xSemaphoreTake(subscription_lock, portMAX_DELAY);
   subscription_clients[client_index].peer = msg.peer;
@@ -792,7 +792,7 @@ void HostSACPHMI::handle_subscript(sacp_hmi_message_t &msg) {
   xSemaphoreGive(subscription_lock);
   subscription_clients[client_index].timer = xTimerCreate(NULL, pdMS_TO_TICKS(period),
   pdTRUE, (void *)&subscription_clients[client_index], subscription_timer_cb);
-  
+
   if (xTimerStart(subscription_clients[client_index].timer, portMAX_DELAY) != pdPASS) {
     LOG_E("failed to start timer for subscribe[%x:%x]\n", cmd_set, cmd_id);
     ret = E_FAILURE;

@@ -75,7 +75,7 @@ err_code_t HostSACPModule::send_sync(sacp_module_message_t *message, uint8_t *ou
 
     recv_len = xMessageBufferReceive(waiting_nodes[node_index].queue, out, *out_len, pdMS_TO_TICKS(timeout));
     if (recv_len < 1) {
-      ret = E_TIMEOUT;
+      ret = E_EXE_TIMEOUT;
       continue;
     }
 

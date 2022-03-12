@@ -36,7 +36,7 @@
 #define SACP_FRAME_SOF_1  (0xaa)
 #define SACP_FRAME_SOF_2  (0x55)
 
-// for attributions 
+// for attributions
 // bit[7:0] is on the packet defination
 #define SACP_MESSAGE_ATTR_ACK        (0x00000001)
 

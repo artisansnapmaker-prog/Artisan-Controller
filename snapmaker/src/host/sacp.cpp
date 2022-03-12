@@ -131,7 +131,7 @@ err_code_t HostSACP::package(sacp_module_message_t *message, uint8_t *pdu, uint1
   }
 
   // TODO: if version is larger than SACP_VER_0, show warning
-    
+
   return E_SUCCESS;
 }
 
@@ -159,7 +159,7 @@ err_code_t HostSACP::package(sacp_message_t *message, uint8_t *pdu, uint16_t *pd
   }
 
   // TODO: if version is larger than SACP_VER_0, show warning
-    
+
   return E_SUCCESS;
 }
 

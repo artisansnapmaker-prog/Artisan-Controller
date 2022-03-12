@@ -178,6 +178,7 @@ static void system_thread(void *p) {
 
   motion_svc.init();
   bedlevel_svc.init();
+  job_ctrl_svc.init();
   ClientNode::class_init();
 
   // loop

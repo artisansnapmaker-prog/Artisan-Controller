@@ -93,6 +93,9 @@ void GcodeSuite::M2000() {
       memcpy(p, "0123456789ABCDEF0123456789ABCDEF", 32); p += 32;
       _16_TO_LITTLE_STREAM(9, p); p += 2;
       memcpy(p, "gcodefile", 9);
+      p += 9;
+      p[0] = TH_TYPE_3DP;
+      p++;
 
       sacp_hmi_message_t msg;
       msg.peer = SACP_HOST_ID_CONTROLLER;
@@ -102,7 +105,7 @@ void GcodeSuite::M2000() {
       msg.cmd_set = CMD_SET_JOB_CTRL;
       msg.data = msg_buf;
       msg.cmd_id = CMD_ID_JOB_CTRL_START;
-      msg.length = 2+32 + 2+9;
+      msg.length = 2+32 + 2+9 + 1;
       ClientNode::sacp_cb(NULL, &msg);
       break;
     }

@@ -122,6 +122,7 @@ err_code_t JobCtrl::resum_env(void) {
 
 err_code_t JobCtrl::machine_standby(void) {
   // TODO:
+  LOG_I("machine standby\r\n");
   return E_SUCCESS;
 }
 
@@ -285,7 +286,7 @@ err_code_t JobCtrl::stop(void) {
   // Just stop, no matter what the status the machin on
   LOCK(_lock, JOB_LOCK_WAIT_TICK);
   machine_standby();
-  _env.status = JOB_STATUE_STOPPED;
+  _env.status = JOB_STATUE_IDLE;
   UNLOCK(_lock);
   return E_SUCCESS;
 }

@@ -25,14 +25,13 @@
 #include "sacp.h"
 #include "../link/link_uart.h"
 
-
 typedef err_code_t (*sacp_hmi_callback)(void *obj, sacp_hmi_message_t *msg);
 
 typedef uint16_t (*sacp_hmi_subscribe_callback)(void *obj, uint8_t *buffer);
 
 typedef struct {
   void *obj;
-  uint8_t cmd_id;
+  uint16_t cmd_id;
   sacp_hmi_callback req_cb;
   sacp_hmi_callback ack_cb;
   uint32_t attr;
@@ -42,18 +41,15 @@ typedef struct {
   uint8_t  status;
   uint8_t  cmd_set;
   uint8_t  cmd_id;
-  uint32_t seq;
+  uint8_t  ch;
+  uint32_t peer;
+  uint16_t seq;
   MessageBufferHandle_t queue;
 } sacp_hmi_waiting_node_t;
 
 #define SACP_HMI_WAITING_NODE_MAX (4)
 
 #define SACP_V1_CMD_SET_MAX (0xFF)
-
-// #defination for callback attribution
-#define SACP_V1_CB_ATTR_ACK                     (0x00000001)
-#define SACP_V1_CB_ATTR_BLOCKED_WITH_MOTION     (0x00000002)
-#define SACP_V1_CB_ATTR_BLOCKED_WITHOUT_MOTION  (0x00000004)
 
 enum SACPHMIChannel {
   SACP_HMI_CH_SCREEN,
@@ -63,12 +59,14 @@ enum SACPHMIChannel {
 };
 
 // defination for subscription
-#define SACP_SUBSCRIPTION_HOST_MAX        (4)
-#define SACP_SUBSCRIPTION_NODE_MAX        (10)
+#define SACP_SUBSCRIPTION_HANDLE_MAX      (32)
+#define SACP_SUBSCRIPTION_NODE_MAX        (20)
+#define SACP_SUBSCRIPTION_CLIENT_MAX      (32)
 #define SACP_SUBSCRIPTION_PERIOD_INVALID  (10)
 #define SACP_CMD_SET_GLOBAL               (0x01)
 #define SACP_CMD_ID_GLOABL_SUBSCRIPT      (0x00)
 #define SACP_CMD_ID_GLOABL_UNSUBSCRIPT    (0x01)
+
 typedef struct sacp_subscription_handle {
   void *obj;
   sacp_hmi_subscribe_callback cb;
@@ -76,13 +74,17 @@ typedef struct sacp_subscription_handle {
 } sacp_subscription_handle_t;
 
 typedef struct {
-  uint8_t  cmd_set, cmd_id;
-  uint32_t period; // ms
-  uint8_t  ch[SACP_SUBSCRIPTION_HOST_MAX];
-  uint32_t peer[SACP_SUBSCRIPTION_HOST_MAX];
-  sacp_subscription_handle_t handle;
+  uint16_t cmd_set, cmd_id;
+  sacp_subscription_handle *handle;
 } sacp_subscription_node_t;
 
+typedef struct {
+  uint32_t period; // ms, relative with period in timer
+  uint32_t peer;
+  uint8_t  ch;
+  sacp_subscription_node_t *node;
+  TimerHandle_t timer;
+} sacp_subscription_client_t;
 
 class HostSACPHMI: public HostSACP {
   // public methods
@@ -102,15 +104,16 @@ class HostSACPHMI: public HostSACP {
     err_code_t register_subscription(uint8_t cmd_set, uint8_t cmd_id, void *obj, sacp_hmi_subscribe_callback cb);
 
     err_code_t send_sync(sacp_hmi_message_t *message, uint8_t *out, uint16_t *out_len, uint32_t timeout=100, uint8_t retry=1);
-    err_code_t send(sacp_hmi_message_t *in);
-
-    err_code_t add_link(SACPHMIChannel ch, LinkUART *link);
+    err_code_t send(sacp_hmi_message_t *message);
+    err_code_t send_ack(sacp_hmi_message_t *message, uint8_t result = E_SUCCESS);
+    err_code_t send_ack(sacp_hmi_message_t *message, uint8_t *data, uint16_t length);
 
     void handle_receive();
     void handle_events();
 
   // private methods
   private:
+  err_code_t add_link(SACPHMIChannel ch, LinkUART *link);
   err_code_t parse_packets(sacp_channel_t &channel);
   void handle_message(sacp_hmi_message_t &msg);
 
@@ -134,9 +137,12 @@ class HostSACPHMI: public HostSACP {
     sacp_hmi_waiting_node_t waiting_nodes[SACP_HMI_WAITING_NODE_MAX];
 
     sacp_hmi_handle_t *cmd_set_handle[SACP_V1_CMD_SET_MAX];
-    uint8_t cmd_set_handle_len[SACP_V1_CMD_SET_MAX];
+    uint8_t           cmd_set_handle_len[SACP_V1_CMD_SET_MAX];
 
-    sacp_subscription_node_t subscription_nodes[SACP_SUBSCRIPTION_NODE_MAX];
+    sacp_subscription_handle_t subscription_handles[SACP_SUBSCRIPTION_HANDLE_MAX];
+    sacp_subscription_node_t   subscription_nodes[SACP_SUBSCRIPTION_NODE_MAX];
+    sacp_subscription_client_t subscription_clients[SACP_SUBSCRIPTION_CLIENT_MAX];
+    xSemaphoreHandle           subscription_lock;
 };
 
 // initalized in system thread

@@ -42,6 +42,12 @@
 
 // bit[31:8] is used to tell API some info
 #define SACP_MESSAGE_ATTR_SET_SEQ    (0x80000000) // indicates we want to use customize sequence to send message
+#define SACP_MESSAGE_ATTR_SET_VER    (0x40000000) // indicates we want to use customize sequence to send message
+
+// #defination for callback attribution
+#define SACP_CB_ATTR_ACK                     (0x00000001)
+#define SACP_CB_ATTR_BLOCKED_WITH_MOTION     (0x00000002)
+#define SACP_CB_ATTR_BLOCKED_WITHOUT_MOTION  (0x00000004)
 
 typedef struct {
   uint32_t peer;
@@ -139,8 +145,8 @@ typedef struct {
 
 #define SACP_V1_HOST_INVALID    (0xFFFFFFFF)
 #define SACP_V1_SEQ_INVALID     (0xFFFFFFFF)
-#define SACP_V1_CMD_SET_INVALID (0xFF)
-#define SACP_V1_CMD_ID_INVALID  (0xFF)
+#define SACP_V1_CMD_SET_INVALID (0xFFFF)
+#define SACP_V1_CMD_ID_INVALID  (0xFFFF)
 
 typedef sacp_message_t sacp_hmi_message_t;
 

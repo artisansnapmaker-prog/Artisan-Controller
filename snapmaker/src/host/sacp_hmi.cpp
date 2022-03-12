@@ -490,6 +490,8 @@ void HostSACPHMI::handle_receive() {
       xSemaphoreGive(waiting_lock);
     }
 
+    LOG_I("recv new msg[%x:%x]\n", parser_buff[SACP_V1_FRAME_INDEX_CMD_SET], parser_buff[SACP_V1_FRAME_INDEX_CMD_ID]);
+
     // if someone is waiting this message, send to it
     if (tmp_queue) {
       // just send the payload part except cmd set and cmd id
@@ -516,6 +518,7 @@ void HostSACPHMI::handle_message(sacp_hmi_message_t &msg) {
 
   if (!cmd_set_handle[msg.cmd_set] || cmd_set_handle_len[msg.cmd_set] == 0) {
     LOG_E("nobody have registered handle for cmd[%x:%x]\n", msg.cmd_set, msg.cmd_id);
+    send_ack(&msg, E_INVALID_CMD_SET);
     return;
   }
 
@@ -528,27 +531,31 @@ void HostSACPHMI::handle_message(sacp_hmi_message_t &msg) {
 
   if (!handle) {
     LOG_E("no handle for cmd[%x:%x]\n", msg.cmd_set, msg.cmd_id);
+    send_ack(&msg, E_INVALID_CMD_ID);
     return;
   }
 
   if (msg.attr & SACP_MESSAGE_ATTR_ACK) {
     if (handle->ack_cb) {
       handle->ack_cb(handle->obj, &msg);
+      return;
     }
     else {
       LOG_E("no callback for ACK[%x:%x]\n", msg.cmd_set, msg.cmd_id);
-      return;
     }
   }
   else {
     if (handle->req_cb) {
       handle->req_cb(handle->obj, &msg);
+      return;
     }
     else {
       LOG_E("no callback for REQ[%x:%x]\n", msg.cmd_set, msg.cmd_id);
-      return;
     }
   }
+
+  send_ack(&msg, E_INVALID_CMD_ID);
+  return;
 }
 
 

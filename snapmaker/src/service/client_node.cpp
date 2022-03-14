@@ -69,7 +69,7 @@ err_code_t ClientNode::sacp_cb(void *obj, sacp_hmi_message_t *msg) {
     ClientNode *new_cn = new ClientNode(msg->peer, msg->ch);
     if (!new_cn) {
       LOG_E("can not new this client node\r\n");
-      sacp_send_result(msg, SACP_RET_NO_MEM);
+      host_hmi.send_ack(msg, SACP_RET_NO_MEM);
       return E_FAILURE;
     }
     else {
@@ -79,23 +79,11 @@ err_code_t ClientNode::sacp_cb(void *obj, sacp_hmi_message_t *msg) {
       else {
         LOG_E("can not add this client node to list\r\n");
         delete new_cn;
-        sacp_send_result(msg, SACP_RET_NO_MEM);
+        host_hmi.send_ack(msg, SACP_RET_NO_MEM);
         return E_FAILURE;
       }
     }
   }
-}
-
-err_code_t ClientNode::sacp_send_result(sacp_hmi_message_t *msg, uint8_t result) {
-  sacp_hmi_message_t s_msg;
-  uint8_t send_buf[SEND_BUF_SIZE];
-
-  s_msg = *msg;
-  s_msg.attr = SACP_MESSAGE_ATTR_ACK;
-  s_msg.data = send_buf;
-  send_buf[0] = result;
-  s_msg.length = 1;
-  return host_hmi.send(&s_msg);
 }
 
 ClientNode *ClientNode::find_client_node(uint32_t peer) {
@@ -242,18 +230,18 @@ err_code_t ClientNode::req_start_job(sacp_hmi_message_t *msg) {
   ret = job_ctrl_svc.start(_peer, &gfi, type);
 
 _out:
-  return sacp_send_result(msg, ret);
+  return host_hmi.send_ack(msg, ret);
 }
 
 err_code_t ClientNode::req_pause_job(sacp_hmi_message_t* msg) {
   LOG_I("client %d request pause a job\r\n");
   
   err_code_t ret;
-  ret = sacp_send_result(msg, SACP_RET_EXECUTING);
+  ret = host_hmi.send_ack(msg, SACP_RET_EXECUTING);
   // TODO: do we need to check this ret?
 
   ret = job_ctrl_svc.pause();
-  sacp_send_result(msg, ret);
+  host_hmi.send_ack(msg, ret);
   return ret;
 }
 
@@ -261,11 +249,11 @@ err_code_t ClientNode::req_resume_job(sacp_hmi_message_t* msg) {
   LOG_I("client %d request resume a job\r\n");
   
   err_code_t ret;
-  ret = sacp_send_result(msg, SACP_RET_EXECUTING);
+  ret = host_hmi.send_ack(msg, SACP_RET_EXECUTING);
   // TODO: do we need to check this ret?
 
   ret = job_ctrl_svc.resume(_peer);
-  sacp_send_result(msg, ret);
+  host_hmi.send_ack(msg, ret);
   return ret;
 }
 
@@ -273,10 +261,10 @@ err_code_t ClientNode::req_stop_job(sacp_hmi_message_t* msg) {
   LOG_I("client %d request stop a job\r\n");
   
   err_code_t ret;
-  ret = sacp_send_result(msg, SACP_RET_EXECUTING);
+  ret = host_hmi.send_ack(msg, SACP_RET_EXECUTING);
   // TODO: do we need to check this ret?
 
   ret = job_ctrl_svc.stop();
-  sacp_send_result(msg, ret);
+  host_hmi.send_ack(msg, ret);
   return ret;
 }

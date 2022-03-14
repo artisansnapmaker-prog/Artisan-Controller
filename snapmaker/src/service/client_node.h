@@ -106,7 +106,6 @@ class ClientNode {
     // TODO: client node delete() and client node?
 
     static err_code_t sacp_cb(void *obj, sacp_hmi_message_t *);
-    static err_code_t sacp_send_result(sacp_hmi_message_t *msg, uint8_t result);
     static bool get_batch_gcode(uint8_t client_id, req_batch_gcode_t &req_batch_gcode, res_batch_gcode_t &res_batch_gcode);
     static uint16_t subscribe_cb(void *obj, uint8_t *buffer);
 

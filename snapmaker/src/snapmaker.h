@@ -123,24 +123,32 @@ class SnapmakerPrinter
       if (fdm) {
         return fdm->get_probe_state();
       }
+
+      return false;
     }
 
     bool get_probe_state(probe_sensor_t sensor) {
       if (fdm) {
         return fdm->get_probe_state(sensor);
       }
+
+      return false;
     }
 
     uint8_t get_hotend_type(uint8_t e) {
       if (fdm) {
         return fdm->get_hotend_type(e);
       }
+
+      return 0xff;
     }
 
     float get_hotend_temp(uint8_t e) {
       if (fdm) {
         return fdm->get_hotend_temp(e);
       }
+
+      return 0;
     }
 
     void set_hotend_temp(int16_t temp, uint8_t heater_id) {
@@ -159,12 +167,16 @@ class SnapmakerPrinter
       if (fdm) {
         return fdm->get_filament_state(e);
       }
+
+      return 0;
     }
 
     uint8_t runout_state() {
       if (fdm) {
         return fdm->get_filament_state();
       }
+
+      return 0;
     }
 
     void switch_extruder(uint8_t e) {

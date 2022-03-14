@@ -74,7 +74,7 @@ err_code_t handle_module_inserted(void *obj, uint32_t mac, LinkCANChannel ch) {
 
   for (; i < ms->configured_module; i++) {
     if (ms->modules[i]->get_mac() == mac) {
-      if (ms->modules[i]->get_status() == MODULE_STATUS_INVALID ||
+      if (ms->modules[i]->get_status() == MODULE_STATUS_OFFLINE ||
           ms->modules[i]->get_status() == MODULE_STATUS_UNCONFIGURE) {
           module = ms->modules[i];
           break;
@@ -96,7 +96,7 @@ err_code_t handle_module_inserted(void *obj, uint32_t mac, LinkCANChannel ch) {
       // a same type of resource available which applied previously.
       // if yes, just re-use previous resource
       if (ms->modules[i]->get_device_id() == device_id) {
-        if (ms->modules[i]->get_status() == MODULE_STATUS_INVALID ||
+        if (ms->modules[i]->get_status() == MODULE_STATUS_OFFLINE ||
             ms->modules[i]->get_status() == MODULE_STATUS_UNCONFIGURE) {
           module = ms->modules[i];
           break;
@@ -105,9 +105,8 @@ err_code_t handle_module_inserted(void *obj, uint32_t mac, LinkCANChannel ch) {
     }
   }
 
-  // if status is unconfigured, need to assign message id again
-  if (module && module->get_status() == MODULE_STATUS_INVALID) {
-    // update mac
+  // if status is MODULE_STATUS_OFFLINE, need to assign message id again
+  if (module && module->get_status() == MODULE_STATUS_OFFLINE) {
     module->set_mac(mac);
     module->set_channel(ch);
     module->pre_init();
@@ -137,6 +136,8 @@ err_code_t handle_module_inserted(void *obj, uint32_t mac, LinkCANChannel ch) {
   // check the result from pre_init(), some module will check if
   // it is plugged in correct port! if not, should throw an exception!
   if (module->pre_init() != E_SUCCESS) {
+    module->set_status(MODULE_STATUS_UNCONFIGURE);
+    ms->unregister_routine((void *)module);
     LOG_E("failed to do pre_init for mac: 0x%x\n", mac);
     ret = E_FAILURE;
     goto out;
@@ -145,6 +146,8 @@ err_code_t handle_module_inserted(void *obj, uint32_t mac, LinkCANChannel ch) {
   // get all function id from module
   // TODO: if failed to get function list, its status should be MODULE_STATUS_UNCONFIGURE !!!
   if (ms->get_function_list(*module) != E_SUCCESS) {
+    module->set_status(MODULE_STATUS_UNCONFIGURE);
+    ms->unregister_routine((void *)module);
     ret =  E_FAILURE;
     goto out;
   }
@@ -155,8 +158,10 @@ err_code_t handle_module_inserted(void *obj, uint32_t mac, LinkCANChannel ch) {
       LOG_E("failed to bind message id!\n");
       goto out;
     }
-    // if got failure in post_init(), its status should be MODULE_STATUS_INVALID
+    // if got failure in post_init(), its status should be MODULE_STATUS_UNCONFIGURE
     if (module->post_init() != E_SUCCESS) {
+      module->set_status(MODULE_STATUS_UNCONFIGURE);
+      ms->unregister_routine((void *)module);
       LOG_E("failed to do post_init for mac: 0x%x\n", mac);
       ret = E_FAILURE;
       goto out;
@@ -557,6 +562,26 @@ err_code_t ModuleService::register_routine(void *obj, routine_function cb) {
   }
 
   return E_SUCCESS;
+}
+
+
+void ModuleService::unregister_routine(void *obj) {
+  int i = 0;
+  if (!obj) {
+    return;
+  }
+
+  for (; i < MODULE_ACCESSIBLE_MAX; i++) {
+    if (routines[i].obj == obj) {
+      break;
+    }
+  }
+
+  if (i < MODULE_ACCESSIBLE_MAX) {
+    taskENTER_CRITICAL();
+    routines[i].cb = NULL;
+    taskEXIT_CRITICAL();
+  }
 }
 
 

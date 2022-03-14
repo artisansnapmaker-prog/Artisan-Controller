@@ -64,11 +64,11 @@
 #define MODULE_TYPE_STATIC  (1)
 #define MODULE_TYPE_DYNAMIC (0)
 
-
 #define MODULE_TYPE_REAL        (511)
 #define MODULE_TYPE_VIRTUAL     (512)
 #define MODULE_TYPE(device_id)  ((device_id) & 0x8000)
 
+#define MODULE_FW_VER_SIZE  (33)
 
 enum ModuleStatus: uint8_t {
   MODULE_STATUS_UNCONFIGURE,
@@ -78,6 +78,8 @@ enum ModuleStatus: uint8_t {
 
   MODULE_STATUS_UPGRADING,
   MODULE_STATUS_UPGRADE_FAILED,
+
+  MODULE_STATUS_OFFLINE,
 
   MODULE_STATUS_INVALID
 };
@@ -302,18 +304,19 @@ class ModuleBase {
     virtual err_code_t post_init() = 0;
     virtual err_code_t deinit() = 0;
 
-    virtual err_code_t save_env(uint8_t *env_buf, uint32_t &len) { 
+    virtual err_code_t save_env(uint8_t *env_buf, uint32_t &len) {
       len = 0;
-      return E_SUCCESS; 
+      return E_SUCCESS;
     }
     virtual err_code_t resume_env(uint8_t *env_buf, uint32_t &len) {
-      return E_SUCCESS; 
+      return E_SUCCESS;
     }
 
     virtual bool check_online() = 0;
 
     int get_function_priority(uint16_t function_id);
 
+    // get device id 
     uint16_t get_device_id() { return MODULE_GET_DEVICE_ID(mac); }
 
     uint32_t get_mac() { return mac; }
@@ -323,11 +326,30 @@ class ModuleBase {
     void set_channel(LinkCANChannel ch) { if (ch < LINK_CAN_CH_INVALID) channel = ch; }
 
     ModuleStatus get_status() { return status; }
+    void set_status(ModuleStatus sta) { if (status < MODULE_STATUS_INVALID) status = sta; }
 
     uint8_t get_function_nodes(function_node_t **nodes) { if (nodes) *nodes = function_nodes; return func_length; }
     void set_function_nodes(function_node_t *nodes, uint8_t len) { function_nodes = nodes; func_length = len; }
 
     uint8_t get_sub_index() { return index; }
+
+    uint8_t get_key() { return key; }
+
+    uint8_t get_hw_verion() { return hw_ver; }
+    void set_hw_version(uint8_t ver) { hw_ver = ver; }
+
+    char *get_fw_version() { return fw_ver; }
+    void set_fw_version(char *ver) {
+      for (int i = 0; i < MODULE_FW_VER_SIZE; i++) {
+        if (*ver) {
+          fw_ver[i] = *ver++;
+        }
+        else {
+          fw_ver[i] = 0;
+          return;
+        }
+      }
+    }
 
   // private methods
   protected:
@@ -350,7 +372,7 @@ class ModuleBase {
 
     ModuleStatus status = MODULE_STATUS_UNCONFIGURE;
     uint8_t  hw_ver;
-    char     fw_ver[33];
+    char     fw_ver[MODULE_FW_VER_SIZE];
 
     LinkCANChannel channel;
 

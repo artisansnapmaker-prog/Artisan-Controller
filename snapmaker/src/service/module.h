@@ -67,6 +67,7 @@ class ModuleService {
 
     void init();
     err_code_t register_routine(void *obj, routine_function cb);
+    void unregister_routine(void *obj);
 
     ModuleBase *get_module(uint16_t device_id, uint8_t sub_index) {
       for (int i = 0; i < MODULE_ACCESSIBLE_MAX; i++) {

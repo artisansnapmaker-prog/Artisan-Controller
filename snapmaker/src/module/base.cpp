@@ -101,7 +101,7 @@ ModuleBase *module_factory(uint32_t mac, uint8_t key, uint8_t sub_index) {
     break;
 
   case MODULE_DEVICE_ID_DRYBOX:
-    return new DryBox(mac,key);
+    return new DryBox(mac, key, sub_index);
     break;
 
   case MODULE_DEVICE_ID_A400_LINEAR:

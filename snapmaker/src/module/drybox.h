@@ -27,8 +27,8 @@ class DryBox: public ModuleBase {
   // public methods
   public:
     // construtor to do pre-init
-    DryBox(uint32_t mac, uint8_t key):
-    ModuleBase(mac, key) {
+    DryBox(uint32_t mac, uint8_t key, uint8_t sub_index):
+    ModuleBase(mac, key, sub_index) {
 
     }
 

@@ -35,8 +35,8 @@
 #include "job_ctrl.h"
 
 
-#define MAX_CLIENT_NODE_NUM 4
-#define SEND_BUF_SIZE 256
+#define MAX_CLIENT_NODE_NUM                           4
+#define SEND_BUF_SIZE                                 256
 
 #define CMD_SET_JOB_CTRL                              (0xAC)
 #define CMD_ID_JOB_CTRL_ISSUE                         (0x01)
@@ -110,7 +110,6 @@ class ClientNode {
     static uint16_t subscribe_cb(void *obj, uint8_t *buffer);
 
   private:
-    static bool client_node_class_init;
     static SemaphoreHandle_t _lock;
     static ClientNode* client_node_tab[MAX_CLIENT_NODE_NUM];
 

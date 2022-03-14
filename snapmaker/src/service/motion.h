@@ -64,10 +64,10 @@ class MotionService {
     bool is_all_axes_homed() {return all_axes_homed();}
 
     // home API
-    err_code_t home(){return E_SUCCESS;}
-    err_code_t home_x(){return E_SUCCESS;}
-    err_code_t home_y(){return E_SUCCESS;}
-    err_code_t home_z(){return E_SUCCESS;}
+    err_code_t home();
+    err_code_t home_x();
+    err_code_t home_y();
+    err_code_t home_z();
 
     // position info API
     xyze_pos_t sm_current_position;

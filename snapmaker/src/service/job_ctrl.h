@@ -34,19 +34,20 @@
 // TODO: include client node header file
 
 
-#define E_JOB_LAST_GCODE_PACK            SACP_RET_JOB_LAST_GCODE_PACK
-#define E_JOB_NOT_IN_IDLE_STATUS         SACP_RET_JOB_NOT_IN_IDLE_STATUS
-#define E_JOB_NO_HOME                    SACP_RET_JOB_NO_HOME
-#define E_JOB_IVALID_GCODE_FILE          SACP_RET_JOB_IVALID_GCODE_FILE
-#define E_JOB_NOT_IN_WORKING_STATUS      SACP_RET_JOB_NOT_IN_WORKING_STATUS
-#define E_JOB_NOT_IN_PAUSE_STATUS        SACP_RET_JOB_NOT_IN_PAUSE_STATUS
-#define E_JOB_IVALID_POWER_LOSE_DATA     SACP_RET_JOB_IVALID_POWER_LOSE_DATA
-#define E_JOB_POWER_LOSE_CHECK_FAILURE   SACP_RET_JOB_POWER_LOSE_CHECK_FAILURE
-#define E_JOB_GCODE_FILE_NO_EXIT         SACP_RET_JOB_GCODE_FILE_NO_EXIT
-#define E_JOB_SAVE_ENV_FAILURE           SACP_RET_JOB_SAVE_ENV_FAILURE
-#define E_JOB_RESUME_ENV_FAILURE         SACP_RET_JOB_RESUME_ENV_FAILURE
-#define E_JOB_UNKNOW_STOP_TPYE           SACP_RET_JOB_UNKNOW_STOP_TPYE
-#define E_JOB_UNSUPPORT_PARAM            SACP_RET_UNSUPPORT_PARAM
+#define E_JOB_FAILURE                     SACP_RET_FAILURE
+#define E_JOB_LAST_GCODE_PACK             SACP_RET_JOB_LAST_GCODE_PACK
+#define E_JOB_NOT_IN_IDLE_STATUS          SACP_RET_JOB_NOT_IN_IDLE_STATUS
+#define E_JOB_NO_HOME                     SACP_RET_JOB_NO_HOME
+#define E_JOB_IVALID_GCODE_FILE           SACP_RET_JOB_IVALID_GCODE_FILE
+#define E_JOB_NOT_IN_WORKING_STATUS       SACP_RET_JOB_NOT_IN_WORKING_STATUS
+#define E_JOB_NOT_IN_PAUSE_STATUS         SACP_RET_JOB_NOT_IN_PAUSE_STATUS
+#define E_JOB_IVALID_POWER_LOSE_DATA      SACP_RET_JOB_IVALID_POWER_LOSE_DATA
+#define E_JOB_POWER_LOSE_CHECK_FAILURE    SACP_RET_JOB_POWER_LOSE_CHECK_FAILURE
+#define E_JOB_GCODE_FILE_NO_EXIT          SACP_RET_JOB_GCODE_FILE_NO_EXIT
+#define E_JOB_SAVE_ENV_FAILURE            SACP_RET_JOB_SAVE_ENV_FAILURE
+#define E_JOB_RESUME_ENV_FAILURE          SACP_RET_JOB_RESUME_ENV_FAILURE
+#define E_JOB_UNKNOW_STOP_TPYE            SACP_RET_JOB_UNKNOW_STOP_TPYE
+#define E_JOB_UNSUPPORT_PARAM             SACP_RET_UNSUPPORT_PARAM
 
 #define GCODE_MD5_LENGTH 32
 #define GCODE_FILE_NAME_SIZE 128
@@ -103,16 +104,16 @@ class JobCtrl {
     JobCtrl(){};
     void init(void);
 
+    // job control
     err_code_t start(uint8_t client_id, struct GcodeFileInfo *gcodeInfo, toolHeadType th_type);
     err_code_t pause(void);
     err_code_t resume(uint8_t client_id);
     err_code_t resume(uint8_t client_id, struct JobEnv &env);
     err_code_t stop(void);
+
+    // set & get
     err_code_t set_env(struct JobEnv &env);
     struct JobEnv get_env(void);
-    bool consume_a_gcode(uint8_t *cmd, uint16_t max_len, uint32_t *line);
-    bool push_gcode();
-
     JobStatus get_status(void) { return _env.status; }
     toolHeadType get_type(void) { return _env.type; }
     struct GcodeFileInfo *get_gcode_info(void) { return &_env.gcode_file_info; }
@@ -120,6 +121,10 @@ class JobCtrl {
     uint32_t get_time_elaps(void) { return _env.time_elape; }
     void statistics_log_set(uint32_t interval_ms) { _statistics_log_interval_ms = interval_ms; };
     void statistics_output(void);
+
+    // gcode
+    bool consume_a_gcode(uint8_t *cmd, uint16_t max_len, uint32_t *line);
+    bool push_gcode();
 
   // private methods
   private:
@@ -140,7 +145,7 @@ class JobCtrl {
     uint32_t _tick_ms;                                          /** use for periodically main loop                                        */
     struct JobEnv _env;                                         /** environment of this job, used to job resume                           */
 
-    // below variable use for state of self-inspection
+    // use for state of self-inspection
     uint32_t _err_get_batch_gcode_cnt;
     uint32_t _statistics_log_interval_ms;
     uint32_t _statistics_log_last_tick_ms;

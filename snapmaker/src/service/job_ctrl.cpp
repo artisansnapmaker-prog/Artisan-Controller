@@ -209,8 +209,9 @@ err_code_t JobCtrl::start(uint8_t client_id, struct GcodeFileInfo *gcodeInfo, to
     return E_JOB_NOT_IN_IDLE_STATUS;
   }
   if (motion_svc.sm_homing_needed()) {
-    LOG_E("not in home state\r\n");
-    return E_JOB_NO_HOME;
+    if(E_SUCCESS != motion_svc.home()) {
+      return E_JOB_FAILURE;
+    }
   }
 
   LOCK(_lock, JOB_LOCK_WAIT_TICK);

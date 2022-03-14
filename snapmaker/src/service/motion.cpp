@@ -4,6 +4,9 @@
 #include "Arduino.h"
 #include "../snapmaker.h"
 #include "bed_level.h"
+#include "../Marlin/src/gcode/parser.h"
+#include "../Marlin/src/gcode/gcode.h"
+
 
 MotionService motion_svc;
 
@@ -14,7 +17,6 @@ static void motion_background(void *p) {
     vTaskDelay(pdMS_TO_TICKS(1));
   }
 }
-
 
 void MotionService::init() {
   BaseType_t ret;
@@ -81,6 +83,29 @@ void MotionService::sync_leveling_limit_to_platform(float x_start, float x_end, 
   endx   = x_end;
   starty = y_start;
   endy   = y_end;
+}
+err_code_t MotionService::home() {
+  parser.parse((char *)"G28");
+  gcode.process_parsed_command();
+  return E_SUCCESS;
+}
+
+err_code_t MotionService::home_x() {
+  parser.parse((char *)"G28 X");
+  gcode.process_parsed_command();
+  return E_SUCCESS;
+}
+
+err_code_t MotionService::home_y() {
+  parser.parse((char *)"G28 Y");
+  gcode.process_parsed_command();
+  return E_SUCCESS;
+}
+
+err_code_t MotionService::home_z() {
+  parser.parse((char *)"G28 Z");
+  gcode.process_parsed_command();
+  return E_SUCCESS;
 }
 
 void MotionService::set_leveling_grids(uint8_t grids) {

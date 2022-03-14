@@ -29,7 +29,6 @@
 #include "client_node.h"
 
 
-bool ClientNode::client_node_class_init;
 SemaphoreHandle_t ClientNode::_lock;
 ClientNode* ClientNode::client_node_tab[MAX_CLIENT_NODE_NUM];
 
@@ -46,7 +45,7 @@ void ClientNode::class_init(void) {
     while(1);
   }
 
-  LOG_I("client node: register SACP cmd set and cmd id");
+  LOG_I("client node: register SACP cmd set and cmd id callback");
   host_hmi.apply_cmd_set_handle(CMD_SET_JOB_CTRL, CMD_ID_JOB_CTRL_NUM);
   host_hmi.register_callback(CMD_SET_JOB_CTRL, CMD_ID_JOB_CTRL_START, NULL, sacp_cb);
   host_hmi.register_callback(CMD_SET_JOB_CTRL, CMD_ID_JOB_CTRL_PAUSE, NULL, sacp_cb);
@@ -54,8 +53,8 @@ void ClientNode::class_init(void) {
   host_hmi.register_callback(CMD_SET_JOB_CTRL, CMD_ID_JOB_CTRL_STOP, NULL, sacp_cb);
 
   // register subscribe to SACP
+  LOG_I("client node: register SACP subscription callback");
   host_hmi.register_subscription(CMD_SET_JOB_CTRL, SUB_ID_JOB_CTRL_CUR_LINE_NUM, (void *)subscribe_cb, subscribe_cb);
-  client_node_class_init = true;
 }
 
 err_code_t ClientNode::sacp_cb(void *obj, sacp_hmi_message_t *msg) {

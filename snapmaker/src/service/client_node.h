@@ -46,6 +46,7 @@
 #define CMD_ID_JOB_CTRL_RESUME            (0x05)
 #define CMD_ID_JOB_CTRL_STOP              (0x06)
 #define SUB_ID_JOB_CTRL_CUR_LINE_NUM      (0xA0)
+#define CMD_ID_JOB_CTRL_NUM               (10)
 #define SUB_NUM_JOB_CTRL                  (1)
 
 // TODO: this should define in the SACP

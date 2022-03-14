@@ -79,16 +79,16 @@ class ToolHeadFDM: public ModuleBase {
     ToolHeadFDM(uint8_t extruder, uint32_t mac, uint8_t key, uint8_t sub_index):
     ModuleBase(mac, key, sub_index) {
       for (int i = 0; i < EXTRUDERS; i++) {
-        hotend_type_[i] = HOTEND_TYPE_IDLE;
+        hotend_type[i] = HOTEND_TYPE_IDLE;
       }
       for (int i = 0; i < EXTRUDERS; i++) {
-        hotend_temp_[i].current = 0;
-        hotend_temp_[i].target  = 0;
+        hotend_temp[i].current = 0;
+        hotend_temp[i].target  = 0;
       }
-      probe_state_    = 0;
-      probe_sensor_   = PROBE_SENSOR_PROXIMITY_SWITCH;
-      extruder_info_  = 0;
-      active_extruder_ = 0;
+      probe_state    = 0;
+      probe_sensor   = PROBE_SENSOR_PROXIMITY_SWITCH;
+      extruder_info  = 0;
+      active_extruder = 0;
     }
 
     bool check_online() { return false; }
@@ -116,19 +116,19 @@ class ToolHeadFDM: public ModuleBase {
     err_code_t tool_change(uint8_t new_tool, bool z_compensation=true);
     err_code_t switch_extruder(uint8_t e);
     void switch_extruder_without_move(uint8_t e);
-    void set_hotend_offset_z(float offset) { hotend_offset_[2][1] = offset; }
+    void set_hotend_offset_z(float offset) { hotend_offset[2][1] = offset; }
 
   // private methods
   private:
-    uint8_t probe_state_;
-    probe_sensor_t probe_sensor_;
-    uint8_t extruder_info_;
-    hotend_type_t hotend_type_[EXTRUDERS];
-    hotend_temp_t hotend_temp_[EXTRUDERS];
-    uint8_t filament_state_;
-    uint8_t active_extruder_;
-    probe_sensor_t active_probe_sensor_;
-    float hotend_offset_[3][EXTRUDERS];
+    uint8_t probe_state;
+    probe_sensor_t probe_sensor;
+    uint8_t extruder_info;
+    hotend_type_t hotend_type[EXTRUDERS];
+    hotend_temp_t hotend_temp[EXTRUDERS];
+    uint8_t filament_state;
+    uint8_t active_extruder;
+    probe_sensor_t active_probe_sensor;
+    float hotend_offset[3][EXTRUDERS];
 
   // public properties
   public:
@@ -136,7 +136,7 @@ class ToolHeadFDM: public ModuleBase {
 
   // private properties
   private:
-    uint16_t device_id_;
+    uint16_t device_id;
 
 };
 

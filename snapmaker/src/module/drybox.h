@@ -53,10 +53,10 @@ class DryBox: public ModuleBase {
 
   // private properties
   private:
-    uint16_t device_id_;
-    int16_t heater_temp_;
-    int16_t chamber_temp_;
-    uint16_t chamber_humidity_;
+    uint16_t device_id;
+    int16_t heater_temp;
+    int16_t chamber_temp;
+    uint16_t chamber_humidity;
 
 };
 

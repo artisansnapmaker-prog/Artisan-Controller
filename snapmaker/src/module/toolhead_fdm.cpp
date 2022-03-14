@@ -95,13 +95,13 @@ err_code_t ToolHeadFDM::post_init() {
     return E_FAILURE;
   }
 
-  device_id_ = get_device_id();
-  if (MODULE_DEVICE_ID_INVALID == device_id_) {
+  device_id = get_device_id();
+  if (MODULE_DEVICE_ID_INVALID == device_id) {
     return E_FAILURE;
   }
-  smprinter.register_module(device_id_, this);
+  smprinter.register_module(device_id, this);
   module_svc.register_routine((void *)this, fdm_callback_routine);
-  if (device_id_ == MODULE_DEVICE_ID_FDM_1EXTRUDER_2019) {
+  if (device_id == MODULE_DEVICE_ID_FDM_1EXTRUDER_2019) {
     LOG_I("fdm single extruder ready\n");
   } else {
     LOG_I("fdm dual extruder ready\n");
@@ -111,12 +111,12 @@ err_code_t ToolHeadFDM::post_init() {
   hotend_type_sync();
   filament_state_sync();
 
-  hotend_offset_[0][0] = 0;
-  hotend_offset_[1][0] = 0;
-  hotend_offset_[2][0] = 0;
-  hotend_offset_[0][1] = 24;
-  hotend_offset_[1][1] = 0.1;
-  hotend_offset_[2][1] = 2;
+  hotend_offset[0][0] = 0;
+  hotend_offset[1][0] = 0;
+  hotend_offset[2][0] = 0;
+  hotend_offset[0][1] = 24;
+  hotend_offset[1][1] = 0.1;
+  hotend_offset[2][1] = 2;
 
   return E_SUCCESS;
 }
@@ -223,91 +223,91 @@ err_code_t ToolHeadFDM::filament_state_sync() {
 }
 
 void ToolHeadFDM::set_probe_state(uint8_t state[]) {
-  if (device_id_ == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
+  if (device_id == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
     if (!state[0]) {
-      probe_state_ |= 0x01;
+      probe_state |= 0x01;
     } else {
-      probe_state_ &= ~0x01;
+      probe_state &= ~0x01;
     }
 
     if (!state[1]) {
-      probe_state_ |= 0x02;
+      probe_state |= 0x02;
     } else {
-      probe_state_ &= ~0x02;
+      probe_state &= ~0x02;
     }
 
     if (!state[2]) {
-      probe_state_ |= 0x04;
+      probe_state |= 0x04;
     } else {
-      probe_state_ &= ~0x04;
+      probe_state &= ~0x04;
     }
     // LOG_I("state: %d, %d, %d\n", state[0], state[1], state[2]);
-  } else if (device_id_ == MODULE_DEVICE_ID_FDM_1EXTRUDER_2019) {
+  } else if (device_id == MODULE_DEVICE_ID_FDM_1EXTRUDER_2019) {
     if (state[0])
-      probe_state_ |= 0x01;
+      probe_state |= 0x01;
     else
-      probe_state_ &= ~0x01;
+      probe_state &= ~0x01;
   }
 }
 
 void ToolHeadFDM::update_filament_state(uint8_t *data) {
-  if (device_id_ == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
+  if (device_id == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
     if (data[0])
-      filament_state_ |= 0x01;
+      filament_state |= 0x01;
     else
-      filament_state_ &= ~0x01;
+      filament_state &= ~0x01;
 
     if (!data[1])
-      filament_state_ |= 0x02;
+      filament_state |= 0x02;
     else
-      filament_state_ &= ~0x02;
-  } else if (device_id_ == MODULE_DEVICE_ID_FDM_1EXTRUDER_2019) {
+      filament_state &= ~0x02;
+  } else if (device_id == MODULE_DEVICE_ID_FDM_1EXTRUDER_2019) {
     if (data[0])
-      filament_state_ |= 0x01;
+      filament_state |= 0x01;
     else
-      filament_state_ &= ~0x01;
+      filament_state &= ~0x01;
   }
 }
 
 void ToolHeadFDM::set_hotend_type(uint8_t *data) {
   for (uint32_t i = 0; i < EXTRUDERS; i++) {
-    if (hotend_type_[i] != (hotend_type_t)data[i]) {
-      hotend_type_[i] = (hotend_type_t)data[i];
+    if (hotend_type[i] != (hotend_type_t)data[i]) {
+      hotend_type[i] = (hotend_type_t)data[i];
     }
   }
 }
 
 void ToolHeadFDM::update_hotend_temp(uint8_t *data) {
-  hotend_temp_[0].current = data[0] << 8 | data[1];
-  if (device_id_ == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
-    hotend_temp_[1].current = data[4] << 8 | data[5];
+  hotend_temp[0].current = data[0] << 8 | data[1];
+  if (device_id == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
+    hotend_temp[1].current = data[4] << 8 | data[5];
   }
 }
 
 uint8_t ToolHeadFDM::get_hotend_type(uint8_t e) {
-  if (device_id_ != MODULE_DEVICE_ID_FDM_2EXTRUDER_2021 || e >= EXTRUDERS) {
+  if (device_id != MODULE_DEVICE_ID_FDM_2EXTRUDER_2021 || e >= EXTRUDERS) {
     return HOTEND_TYPE_INVALID;
   }
 
-  return hotend_type_[e];
+  return hotend_type[e];
 }
 
 void ToolHeadFDM::set_probe_sensor(probe_sensor_t sensor) {
   if (sensor >= PROBE_SENSOR_INVALID) return;
-  probe_sensor_ = sensor;
+  probe_sensor = sensor;
 }
 
 bool ToolHeadFDM::get_probe_state() {
-  return (bool)(probe_state_ & (1<<probe_sensor_));
+  return (bool)(probe_state & (1<<probe_sensor));
 }
 
 bool ToolHeadFDM::get_probe_state(probe_sensor_t sensor) {
-  LOG_I("probe_state: %x\n", probe_state_);
-  return (bool)(probe_state_ & (1<<((uint8_t)sensor)));
+  LOG_I("probe_state: %x\n", probe_state);
+  return (bool)(probe_state & (1<<((uint8_t)sensor)));
 }
 
 float ToolHeadFDM::get_hotend_temp(uint8_t e) {
-  return hotend_temp_[e].current / 10.f;
+  return hotend_temp[e].current / 10.f;
 }
 
 err_code_t ToolHeadFDM::set_fan_speed(uint8_t fan_index, uint16_t speed, uint8_t delay_time) {
@@ -358,13 +358,13 @@ err_code_t ToolHeadFDM::set_hotend_temp(uint16_t temp, uint8_t e) {
     return E_PARAM;
   }
 
-  hotend_temp_[e].target = temp;
-  LOG_I("Set T%d=%d\n", e, hotend_temp_[e].target);
+  hotend_temp[e].target = temp;
+  LOG_I("Set T%d=%d\n", e, hotend_temp[e].target);
 
   uint8_t buffer[2*EXTRUDERS];
   for (int i = 0; i < EXTRUDERS; i++) {
-    buffer[2*i + 0] = (uint8_t)(hotend_temp_[i].target>>8);
-    buffer[2*i + 1] = (uint8_t)hotend_temp_[i].target;
+    buffer[2*i + 0] = (uint8_t)(hotend_temp[i].target>>8);
+    buffer[2*i + 1] = (uint8_t)hotend_temp[i].target;
   }
 
   fan_e module_fan_index = SINGLE_EXTRUDER_MODULE_FAN;
@@ -372,15 +372,15 @@ err_code_t ToolHeadFDM::set_hotend_temp(uint16_t temp, uint8_t e) {
   uint8_t fan_speed = 0;
   uint8_t fan_delay = 0;
 
-  if (hotend_temp_[e].target >= 60) {
+  if (hotend_temp[e].target >= 60) {
     fan_speed = 255;
-  } else if (hotend_temp_[e].target == 0) {
+  } else if (hotend_temp[e].target == 0) {
     // check if need to delay to turn off fan
-    if (hotend_temp_[e].current >= 150) {
+    if (hotend_temp[e].current >= 150) {
       fan_speed = 0;
       fan_delay = 120;
     }
-    else if (hotend_temp_[e].target >= 60) {
+    else if (hotend_temp[e].target >= 60) {
       fan_speed = 0;
       fan_delay = 60;
     }
@@ -390,11 +390,11 @@ err_code_t ToolHeadFDM::set_hotend_temp(uint16_t temp, uint8_t e) {
     }
   }
 
-  if (device_id_ == MODULE_DEVICE_ID_FDM_1EXTRUDER_2019) {
+  if (device_id == MODULE_DEVICE_ID_FDM_1EXTRUDER_2019) {
     module_fan_index = SINGLE_EXTRUDER_MODULE_FAN;
     nozzle_fan_index = SINGLE_EXTRUDER_NOZZLE_FAN;
   }
-  else if (device_id_ == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
+  else if (device_id == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
     if (e == 0) {
       module_fan_index = DUAL_EXTRUDER_LEFT_MODULE_FAN;
     }
@@ -430,12 +430,12 @@ err_code_t ToolHeadFDM::set_hotend_temp(uint16_t temp, uint8_t e) {
 }
 
 uint8_t ToolHeadFDM::get_filament_state(uint8_t e) {
-  // return (filament_state_ & (1<<e)) >> e;
+  // return (filament_state & (1<<e)) >> e;
   return 1;
 }
 
 uint8_t ToolHeadFDM::get_filament_state() {
-  // return (filament_state_ & (1<<active_extruder_)) >> active_extruder_;
+  // return (filament_state & (1<<active_extruder)) >> active_extruder;
   return 1;
 }
 
@@ -510,12 +510,12 @@ err_code_t ToolHeadFDM::tool_change(uint8_t new_tool, bool z_compensation/*=true
   }
 
   float hotend_offset[3][EXTRUDERS];
-  memcpy(hotend_offset, hotend_offset_, sizeof(hotend_offset));
+  memcpy(hotend_offset, hotend_offset, sizeof(hotend_offset));
   if (z_compensation == false) {
     hotend_offset[Z_AXIS][1] = 0;
   }
 
-  if (new_tool != active_extruder_) {
+  if (new_tool != active_extruder) {
     motion_svc.update_position_from_platform();
     if (motion_svc.current_position_[X_AXIS] < X_MIN_POS + TOOL_CHANGE_SAFE_SPACE) {
       motion_svc.moveto_x(X_MIN_POS + TOOL_CHANGE_SAFE_SPACE, 50);
@@ -543,9 +543,9 @@ err_code_t ToolHeadFDM::tool_change(uint8_t new_tool, bool z_compensation/*=true
     } else if (new_tool == 1) {
       motion_svc.moveto_x(EXTRUDER1_SWITCH_POSITION, 120);
     }
-    float xdiff = hotend_offset[X_AXIS][new_tool] - hotend_offset[X_AXIS][active_extruder_];
-    float ydiff = hotend_offset[Y_AXIS][new_tool] - hotend_offset[Y_AXIS][active_extruder_];
-    float zdiff = hotend_offset[Z_AXIS][new_tool] - hotend_offset[Z_AXIS][active_extruder_];
+    float xdiff = hotend_offset[X_AXIS][new_tool] - hotend_offset[X_AXIS][active_extruder];
+    float ydiff = hotend_offset[Y_AXIS][new_tool] - hotend_offset[Y_AXIS][active_extruder];
+    float zdiff = hotend_offset[Z_AXIS][new_tool] - hotend_offset[Z_AXIS][active_extruder];
     SERIAL_ECHOLNPGM("xdiff: ", xdiff, "ydiff: ", ydiff, "zdiff: ", zdiff);
     motion_svc.current_position_[X_AXIS] += xdiff;
     motion_svc.current_position_[Y_AXIS] += ydiff;
@@ -553,9 +553,9 @@ err_code_t ToolHeadFDM::tool_change(uint8_t new_tool, bool z_compensation/*=true
     SERIAL_ECHOLNPGM("cur_x: ", motion_svc.current_position_[X_AXIS], "cur_y: ", motion_svc.current_position_[X_AXIS], "cur_z: ", motion_svc.current_position_[X_AXIS]);
     motion_svc.sync_plan_position_to_platform();
     motion_svc.moveto_xyz(motion_svc.destination_position_[X_AXIS], motion_svc.destination_position_[Y_AXIS], motion_svc.destination_position_[Z_AXIS], 120);
-    active_extruder_ = new_tool;
-    motion_svc.update_active_extruder_to_platform(active_extruder_);
-    switch_extruder(active_extruder_);
+    active_extruder = new_tool;
+    motion_svc.update_active_extruder_to_platform(active_extruder);
+    switch_extruder(active_extruder);
     extruder_status_check_ctrl(EXTRUDER_STATUS_CHECK);
 
     // use new live_z_offset

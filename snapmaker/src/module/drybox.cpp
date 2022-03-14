@@ -51,11 +51,11 @@ err_code_t DryBox::post_init() {
     return E_FAILURE;
   }
 
-  device_id_ = get_device_id();
-  if (MODULE_DEVICE_ID_INVALID == device_id_) {
+  device_id = get_device_id();
+  if (MODULE_DEVICE_ID_INVALID == device_id) {
     return E_FAILURE;
   }
-  smprinter.register_module(device_id_, this);     // no need for the moment
+  smprinter.register_module(device_id, this);     // no need for the moment
   module_svc.register_routine((void *)this, drybox_callback_routine);
   LOG_I("drybox ready\n");
 
@@ -73,10 +73,10 @@ static void drybox_callback_report_pid(void *obj, uint8_t *data, uint8_t length)
 }
 
 void DryBox::update_temp_humidity(uint8_t *data) {
-  heater_temp_  = (data[0] << 8) | data[1];
-  chamber_temp_ = (data[2] << 8) | data[3];
-  chamber_humidity_ = (data[4] << 8) | data[5];
-  LOG_I("heater_temp: %d, chamber_temp: %d, chamber_humidity_: %d\n", heater_temp_, chamber_temp_, chamber_humidity_);
+  heater_temp  = (data[0] << 8) | data[1];
+  chamber_temp = (data[2] << 8) | data[3];
+  chamber_humidity = (data[4] << 8) | data[5];
+  LOG_I("heater_temp: %d, chamber_temp: %d, chamber_humidity: %d\n", heater_temp, chamber_temp, chamber_humidity);
 }
 
 void DryBox::report_pid(uint8_t *data) {

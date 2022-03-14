@@ -72,6 +72,10 @@ typedef enum {
     EXTRUDER_STATUS_IDLE,
 }extruder_status_e;
 
+typedef enum {
+
+}toolhead_status_e;
+
 class ToolHeadFDM: public ModuleBase {
   // public methods
   public:
@@ -101,24 +105,42 @@ class ToolHeadFDM: public ModuleBase {
     err_code_t filament_state_sync();
     void set_probe_state(uint8_t state[]);
     void set_hotend_type(uint8_t *data);
-    uint8_t get_hotend_type(uint8_t e);
+    hotend_type_t get_hotend_type(uint8_t e);
+    float get_hotend_diameter(uint8_t e);
     void set_probe_sensor(probe_sensor_t sensor);
     bool get_probe_state();
     bool get_probe_state(probe_sensor_t sensor);
     void update_hotend_temp(uint8_t *data);
     err_code_t set_hotend_temp(uint16_t temp, uint8_t e);
     float get_hotend_temp(uint8_t e);
+    float get_hotend_target_temp(uint8_t e);
     err_code_t set_fan_speed(uint8_t fan_index, uint16_t speed, uint8_t delay_time=0);
+    uint8_t get_fan_speed(uint8_t fan_index);
     void update_filament_state(uint8_t *data);
     uint8_t get_filament_state(uint8_t e);
     uint8_t get_filament_state();
+    uint8_t get_filament_detection_state(uint8_t e);
+    uint8_t get_extruder_status(uint8_t e);
     err_code_t extruder_status_check_ctrl(extruder_status_e status);
     err_code_t tool_change(uint8_t new_tool, bool z_compensation=true);
     err_code_t switch_extruder(uint8_t e);
     void switch_extruder_without_move(uint8_t e);
+    err_code_t get_hotend_offset(float &x_offset, float &y_offset, float &z_offset);
+    err_code_t set_hotend_offset(float offset, uint8_t axis);
     void set_hotend_offset_z(float offset) { hotend_offset[2][1] = offset; }
+    uint8_t get_extruders_count();
+    err_code_t set_extruders_feedrate_percentage(int16_t percentage, uint8_t e);
+    err_code_t filament_detect_ctrl(uint8_t state, uint8_t e);
 
   // private methods
+  private:
+
+
+  // public properties
+  public:
+
+
+  // private properties
   private:
     uint8_t probe_state;
     probe_sensor_t probe_sensor;
@@ -129,14 +151,13 @@ class ToolHeadFDM: public ModuleBase {
     uint8_t active_extruder;
     probe_sensor_t active_probe_sensor;
     float hotend_offset[3][EXTRUDERS];
+    uint8_t filament_detect_mask;
+    uint8_t extruder_status[EXTRUDERS];
+    float hotend_diameter[EXTRUDERS];
+    uint8_t fan_speed[3];
+    int16_t extruders_feedrate_percentage[EXTRUDERS];
+    uint8_t filament_detect_state[EXTRUDERS];
 
-  // public properties
-  public:
-
-
-  // private properties
-  private:
-    uint16_t device_id;
 
 };
 

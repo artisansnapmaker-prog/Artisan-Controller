@@ -5,8 +5,85 @@
 
 BedLevelService bedlevel_svc;
 
+/*************************************************************************************************************************************
+reference links: https://snapmaker2.atlassian.net/wiki/spaces/SNAP/pages/1984824804/FDM?focusedCommentId=2010743286#comment-2010743286
+*************************************************************************************************************************************/
+typedef enum {
+  BEDLEVEL_REQ_CMD_ID_SET_LEVEL_MODE           = 0x01,
+  BEDLEVEL_REQ_CMD_ID_START_LEVEL              = 0x03,
+  BEDLEVEL_REQ_CMD_ID_GOTO_PROBE_POINT         = 0x04,
+  BEDLEVEL_REQ_CMD_ID_EXIT_LEVEL               = 0x06,
+  BEDLEVEL_REQ_CMD_ID_GET_LEVEL_STATE          = 0x07,
+  BEDLEVEL_REQ_CMD_ID_BED_POSITION_DETECTION   = 0x12,
+  BEDLEVEL_REQ_CMD_ID_PROBE_SENSOR_CALIBRATION = 0x13,
+  BEDLEVEL_REQ_CMD_ID_SET_LIVE_Z_OFFSET        = 0x15,
+  BEDLEVEL_REQ_CMD_ID_GET_LIVE_Z_OFFSET        = 0x16,
+
+  BEDLEVEL_REQ_CMD_ID_SUM                      = 9,               // Adding or deleting IDs requires changing this value
+}bedlevel_req_cmd_id_e;
+
+// hmi request callback
+static err_code_t hmi_req_callback_set_level_mode(void *obj, sacp_hmi_message_t *msg);
+static err_code_t hmi_req_callback_start_level(void *obj, sacp_hmi_message_t *msg);
+static err_code_t hmi_req_callback_goto_probe_point(void *obj, sacp_hmi_message_t *msg);
+static err_code_t hmi_req_callback_exit_level(void *obj, sacp_hmi_message_t *msg);
+static err_code_t hmi_req_callback_get_level_state(void *obj, sacp_hmi_message_t *msg);
+static err_code_t hmi_req_callback_bed_position_detection(void *obj, sacp_hmi_message_t *msg);
+static err_code_t hmi_req_callback_probe_sensor_calibration(void *obj, sacp_hmi_message_t *msg);
+static err_code_t hmi_req_callback_set_live_z_offset(void *obj, sacp_hmi_message_t *msg);
+static err_code_t hmi_req_callback_get_live_z_offset(void *obj, sacp_hmi_message_t *msg);
+
 void BedLevelService::init() {
+  // apply fdm cmd ids handle and register hmi request callback
+  host_hmi.apply_cmd_set_handle(SACP_CMD_SET_CALIBRATE_FDM, BEDLEVEL_REQ_CMD_ID_SUM);
+  host_hmi.register_callback(SACP_CMD_SET_CALIBRATE_FDM, BEDLEVEL_REQ_CMD_ID_SET_LEVEL_MODE, this, hmi_req_callback_set_level_mode, SACP_CB_ATTR_BLOCKED_WITHOUT_MOTION);
+  host_hmi.register_callback(SACP_CMD_SET_CALIBRATE_FDM, BEDLEVEL_REQ_CMD_ID_START_LEVEL, this, hmi_req_callback_start_level, SACP_CB_ATTR_BLOCKED_WITH_MOTION);
+  host_hmi.register_callback(SACP_CMD_SET_CALIBRATE_FDM, BEDLEVEL_REQ_CMD_ID_GOTO_PROBE_POINT, this, hmi_req_callback_goto_probe_point, SACP_CB_ATTR_BLOCKED_WITH_MOTION);
+  host_hmi.register_callback(SACP_CMD_SET_CALIBRATE_FDM, BEDLEVEL_REQ_CMD_ID_EXIT_LEVEL, this, hmi_req_callback_exit_level, SACP_CB_ATTR_BLOCKED_WITH_MOTION);
+  host_hmi.register_callback(SACP_CMD_SET_CALIBRATE_FDM, BEDLEVEL_REQ_CMD_ID_GET_LEVEL_STATE, this, hmi_req_callback_get_level_state, SACP_CB_ATTR_BLOCKED_WITHOUT_MOTION);
+  host_hmi.register_callback(SACP_CMD_SET_CALIBRATE_FDM, BEDLEVEL_REQ_CMD_ID_BED_POSITION_DETECTION, this, hmi_req_callback_bed_position_detection, SACP_CB_ATTR_BLOCKED_WITH_MOTION);
+  host_hmi.register_callback(SACP_CMD_SET_CALIBRATE_FDM, BEDLEVEL_REQ_CMD_ID_PROBE_SENSOR_CALIBRATION, this, hmi_req_callback_probe_sensor_calibration, SACP_CB_ATTR_BLOCKED_WITH_MOTION);
+  host_hmi.register_callback(SACP_CMD_SET_CALIBRATE_FDM, BEDLEVEL_REQ_CMD_ID_SET_LIVE_Z_OFFSET, this, hmi_req_callback_set_live_z_offset, SACP_CB_ATTR_BLOCKED_WITHOUT_MOTION);
+  host_hmi.register_callback(SACP_CMD_SET_CALIBRATE_FDM, BEDLEVEL_REQ_CMD_ID_GET_LIVE_Z_OFFSET, this, hmi_req_callback_get_live_z_offset, SACP_CB_ATTR_BLOCKED_WITHOUT_MOTION);
 }
+
+// hmi request callback
+static err_code_t hmi_req_callback_set_level_mode(void *obj, sacp_hmi_message_t *msg) {
+
+}
+
+static err_code_t hmi_req_callback_start_level(void *obj, sacp_hmi_message_t *msg) {
+
+}
+
+static err_code_t hmi_req_callback_goto_probe_point(void *obj, sacp_hmi_message_t *msg) {
+
+}
+
+static err_code_t hmi_req_callback_exit_level(void *obj, sacp_hmi_message_t *msg) {
+
+}
+
+static err_code_t hmi_req_callback_get_level_state(void *obj, sacp_hmi_message_t *msg) {
+
+}
+
+static err_code_t hmi_req_callback_bed_position_detection(void *obj, sacp_hmi_message_t *msg) {
+
+}
+
+static err_code_t hmi_req_callback_probe_sensor_calibration(void *obj, sacp_hmi_message_t *msg) {
+
+}
+
+static err_code_t hmi_req_callback_set_live_z_offset(void *obj, sacp_hmi_message_t *msg) {
+
+}
+
+static err_code_t hmi_req_callback_get_live_z_offset(void *obj, sacp_hmi_message_t *msg) {
+
+}
+
 
 err_code_t BedLevelService::set_leveling_limit(float x_min, float x_max, float y_min, float y_max) {
   motion_svc.sync_leveling_limit_to_platform(x_min, x_max, y_min, y_max);

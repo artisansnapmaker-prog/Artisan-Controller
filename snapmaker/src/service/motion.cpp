@@ -325,6 +325,12 @@ void MotionService::sync_z_compensation_from_platform() {
   bedlevel_svc.z_compensation_[0] = z_compensation[1];
 }
 
+void MotionService::sync_hotend_offset_to_platform(float x_offset, float y_offset, float z_offset) {
+  hotend_offset[X_AXIS][1] = x_offset;
+  hotend_offset[Y_AXIS][1] = y_offset;
+  hotend_offset[Z_AXIS][1] = z_offset;
+}
+
 void MotionService::load_settings() {
   settings.load();
   sync_z_compensation_from_platform();

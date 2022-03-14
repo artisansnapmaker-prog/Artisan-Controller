@@ -76,7 +76,7 @@ class MotionService {
   public:
     MotionService() {}
 
-    void init();    
+    void init();
 
     // moving API
     void moveto_xy(float x, float y, float feedrate, bool blocked=true);
@@ -97,6 +97,7 @@ class MotionService {
     }
     bool is_all_axes_homed() {return all_axes_homed();}
     void quickstop(void) {quickstop_stepper();}
+    void sync_feedrate_percentage_to_platform(int16_t percentage) { feedrate_percentage = percentage; }
 
     // home API
     bool sm_homing_needed() { return homing_needed(); }
@@ -168,6 +169,7 @@ class MotionService {
 
     // fdm API
     bool runout_state(uint8_t extruder = 0) { return false; }
+    void sync_hotend_offset_to_platform(float x_offset, float y_offset, float z_offset);
 
     // settings control
     void reset_settings() {}

@@ -48,6 +48,7 @@ void JobCtrl::init(void) {
   _gcode_rb.init(rb_buf, (int32_t)GCODE_RB_SIZE);
   _statistics_log_interval_ms = 0;
   _statistics_log_last_tick_ms = 0;
+  _resume_feedrate = RESUME_FEEDRATE;
 }
 
 void JobCtrl::loop(void) {
@@ -70,23 +71,23 @@ void JobCtrl::loop(void) {
 err_code_t JobCtrl::save_env(void) {
   ModuleBase *cur_toolhead;
 
-  _env.cur_line_num = smprinter.gcode_file_position;
-  _env.print_feadrate = smprinter.get_feedrate();
-  _env.travel_feadrate = smprinter.get_travl_feedrate();
-  _env.g0g1_relative_mode = smprinter.get_relative_mode();
-  
-  if (TH_TYPE_3DP == _env.type)
-    _env.bed_temp = smprinter.get_bet_temp();
-
   if (!(cur_toolhead = smprinter.get_cur_toolhead())) {
-    LOG_E("can NOT get toolhead\r\n");
+    LOG_E("Can not get toolhead\r\n");
     return E_JOB_SAVE_ENV_FAILURE;
   }
-  
   if (!cur_toolhead->save_env(_env.toolhead_env_buf, _env.toolhead_env_buf_size)) {
-    LOG_E("can NOT get toolhead\r\n");
+    LOG_E("Toolhead save env error\r\n");
     return E_JOB_SAVE_ENV_FAILURE;
   }
+  if (TH_TYPE_3DP == _env.type)
+    _env.bed_temp = motion_svc.get_bet_temp();
+
+  _env.cur_line_num = smprinter.gcode_file_position;
+  _env.print_feadrate = motion_svc.get_feedrate();
+  _env.travel_feadrate = motion_svc.get_travl_feedrate();
+  _env.g0g1_relative_mode = motion_svc.get_relative_mode();
+  for(uint32_t i = 0; i < AXIS_NUM; i++)
+    _env.current_pos[i] = motion_svc.get_current_position(i);
 
   return E_SUCCESS;
 }
@@ -94,31 +95,31 @@ err_code_t JobCtrl::save_env(void) {
 err_code_t JobCtrl::resum_env(void) {
   ModuleBase *cur_toolhead;
 
+  if (!(cur_toolhead = smprinter.get_cur_toolhead())) {
+    LOG_E("can not get toolhead\r\n");
+    return E_JOB_RESUME_ENV_FAILURE;
+  }
   // Check toolhead
   if (smprinter.get_toolhead_type() != _env.type) {
     return E_JOB_UNSUPPORT_PARAM;
   }
-
-  smprinter.set_feedrate(_env.print_feadrate);
-  smprinter.set_travl_feedrate(_env.travel_feadrate);
-  smprinter.set_relative_mode(_env.g0g1_relative_mode);
-
-  if (TH_TYPE_3DP == _env.type) {
-    if (!smprinter.set_bet_temp(_env.bed_temp)) {
-      LOG_E("can NOT resume bed_temp\r\n");
-      return E_JOB_RESUME_ENV_FAILURE;
-    }
-  }
-
-  if (!(cur_toolhead = smprinter.get_cur_toolhead())) {
-    LOG_E("can NOT get toolhead\r\n");
-    return E_JOB_RESUME_ENV_FAILURE;
-  }
-  
   if (!cur_toolhead->save_env(_env.toolhead_env_buf, _env.toolhead_env_buf_size)) {
-    LOG_E("can NOT get toolhead\r\n");
+    LOG_E("can not resume toolhead\r\n");
     return E_JOB_RESUME_ENV_FAILURE;
   }
+  if (TH_TYPE_3DP == _env.type) {
+    thermalManager.setTargetBed(_env.bed_temp);
+    thermalManager.wait_for_bed();
+  }
+
+  _env.req_line_num = _env.cur_line_num;
+  motion_svc.moveto_xyz(  _env.current_pos[0], 
+                          _env.current_pos[1],
+                          _env.current_pos[2],
+                          _resume_feedrate);
+  motion_svc.set_feedrate(_env.print_feadrate);
+  motion_svc.set_travl_feedrate(_env.travel_feadrate);
+  motion_svc.set_relative_mode(_env.g0g1_relative_mode);
 
   return E_SUCCESS;
 }
@@ -127,10 +128,6 @@ err_code_t JobCtrl::machine_standby(void) {
   // TODO:
   LOG_I("machine standby\r\n");
   return E_SUCCESS;
-}
-
-void JobCtrl::clear_gcode_queue(void) {
-
 }
 
 void JobCtrl::notify() {
@@ -162,7 +159,7 @@ void JobCtrl::get_gcodes_from_client(void) {
       }
       // shoule we check the line number?
       uint8_t *p = res_batch_gcode.gcode_str;
-      uint32_t rx_line_num;
+      uint32_t rx_line_num = 0;
       {
         while('\0' != *p) {
           if ('\n' == *p) {
@@ -175,6 +172,7 @@ void JobCtrl::get_gcodes_from_client(void) {
           _err_get_batch_gcode_cnt++;
           break;
         }
+        // gcode ringbuffer guarantee to hold all the gcode string.
         _gcode_rb.insert_multi(res_batch_gcode.gcode_str, p - res_batch_gcode.gcode_str);
         _env.req_line_num = res_batch_gcode.end_line_num;
       }
@@ -208,13 +206,21 @@ err_code_t JobCtrl::start(uint8_t client_id, struct GcodeFileInfo *gcodeInfo, to
     LOG_E("can not start job as current status is not idle\r\n");
     return E_JOB_NOT_IN_IDLE_STATUS;
   }
-  if (motion_svc.sm_homing_needed()) {
-    if(E_SUCCESS != motion_svc.home()) {
-      return E_JOB_FAILURE;
-    }
+
+  if (!gcode_file_info_check(gcodeInfo)) {
+    LOG_E("Ivalid gcode file information\r\n");
+    return E_JOB_IVALID_GCODE_FILE;
   }
 
   LOCK(_lock, JOB_LOCK_WAIT_TICK);
+  _env.status = JOB_STATUE_STARTING;
+  if (motion_svc.sm_homing_needed()) {
+    if(E_SUCCESS != motion_svc.home()) {
+      _env.status = JOB_STATUE_IDLE;
+      UNLOCK(_lock);
+      return E_JOB_FAILURE;
+    }
+  }
   _client_id = client_id;
   _env.type = th_type;
   _env.gcode_file_info = *(gcodeInfo);
@@ -232,24 +238,21 @@ err_code_t JobCtrl::start(uint8_t client_id, struct GcodeFileInfo *gcodeInfo, to
 err_code_t JobCtrl::pause(void) {
   // status check
   if (JOB_STATUE_PRINTING != _env.status || JOB_STATUE_STARTING != _env.status) {
-    LOG_E("can NOT pause a job as current status is NOT printing\r\n");
+    LOG_E("can not pause a job as current status is no printing\r\n");
     return E_JOB_NOT_IN_WORKING_STATUS;
   }
 
   err_code_t ret;
   LOCK(_lock, JOB_LOCK_WAIT_TICK);
-  /**
-   * We assume all these actions are executable and return true.
-   * Should we need to check?
-  */
   _env.status = JOB_STATUE_PAUSING;
   if (E_SUCCESS != (ret = save_env())) {
     UNLOCK(_lock);
     return ret;
   }
-  clear_gcode_queue();
+  _gcode_rb.reset();
   normal_stop();
   if (E_SUCCESS != (ret = machine_standby())) {
+    _env.status = JOB_STATUE_IDLE;
     UNLOCK(_lock);
     return ret;
   }
@@ -270,10 +273,12 @@ err_code_t JobCtrl::resume(uint8_t client_id) {
   LOCK(_lock, JOB_LOCK_WAIT_TICK);
   if (!resum_env()) {
     LOG_E("resume failed\r\n");
+    _env.status = JOB_STATUE_IDLE;
+    UNLOCK(_lock);
     return E_JOB_RESUME_ENV_FAILURE;
   }
   _client_id = client_id;
-  // start gcode request
+  _env.status = JOB_STATUE_PRINTING;
   UNLOCK(_lock);
 
   return E_SUCCESS;
@@ -325,8 +330,8 @@ bool JobCtrl::consume_a_gcode(uint8_t *cmd, uint16_t max_len, uint32_t *line) {
 
     cmd[cmd_len++] = c;
     if('\n' == c) {
-      _env.cur_line_num++;
       *line = _env.cur_line_num;
+      _env.cur_line_num++;
       cmd[cmd_len] = 0;
       ret = true;
       break;
@@ -335,4 +340,31 @@ bool JobCtrl::consume_a_gcode(uint8_t *cmd, uint16_t max_len, uint32_t *line) {
   UNLOCK(_lock);
 
   return ret;
+}
+
+bool JobCtrl::gcode_file_info_check(struct GcodeFileInfo *gfi) {
+  if(!gfi)
+    return false;
+
+  uint8_t *p = gfi->MD5;
+  for (uint32_t i = 0; i < GCODE_MD5_LENGTH; i++) {
+    if(!( ('a' <= p[i] && p[i] <= 'z') ||
+          ('A' <= p[i] && p[i] <= 'Z') ||
+          ('0' <= p[i] && p[i] <= '9')
+        )
+    ) {
+      return false;
+    }
+  }
+
+  p = gfi->name;
+  uint32_t nl = 0;
+  while(*p != '\0') {
+    nl++;
+    if(nl > GCODE_FILE_NAME_SIZE){
+      return false;
+    }
+  }
+
+  return true;
 }

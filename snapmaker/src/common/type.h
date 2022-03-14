@@ -22,12 +22,4 @@
 #define SNAPMAKER_TYPE_H_
 
 
-typedef struct {
-  float x;
-  float y;
-  float z;
-  float e;
-} xyze_float_pos_t;
-
-
 #endif // SNAPMAKER_TYPE_H_

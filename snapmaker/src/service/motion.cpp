@@ -6,6 +6,7 @@
 #include "bed_level.h"
 #include "../Marlin/src/gcode/parser.h"
 #include "../Marlin/src/gcode/gcode.h"
+#include "../../Marlin/src/module/motion.h"
 
 
 MotionService motion_svc;
@@ -106,6 +107,46 @@ err_code_t MotionService::home_z() {
   parser.parse((char *)"G28 Z");
   gcode.process_parsed_command();
   return E_SUCCESS;
+}
+
+
+float MotionService::get_feedrate(void) {
+  return feedrate_mm_s;
+}
+
+void MotionService::set_feedrate(float fr) {
+  feedrate_mm_s = fr;
+}
+
+float MotionService::get_travl_feedrate(void) {
+#if ENABLED(VARIABLE_G0_FEEDRATE)
+  return fast_move_feedrate;
+#else
+  return 0.0;
+#endif
+}
+
+void MotionService::set_travl_feedrate(float tfr) {
+#if ENABLED(VARIABLE_G0_FEEDRATE)
+  fast_move_feedrate = tfr;
+#endif
+}
+
+bool MotionService::get_relative_mode(void) {
+  return relative_mode;
+}
+
+void MotionService::set_relative_mode(bool rm) {
+  relative_mode = rm;
+}
+
+uint16_t MotionService::get_bet_temp(void) {
+  return thermalManager.degTargetBed();
+}
+
+ bool MotionService::set_bet_temp(uint16_t t) {
+  thermalManager.setTargetBed(t);
+  return thermalManager.wait_for_bed();
 }
 
 void MotionService::set_leveling_grids(uint8_t grids) {

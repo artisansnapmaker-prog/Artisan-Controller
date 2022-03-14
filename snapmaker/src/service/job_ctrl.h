@@ -54,6 +54,7 @@
 #define JOB_LOCK_WAIT_TICK 100
 #define TOOLHEAD_ENV_MAX_SIZE 128
 #define GCODE_RB_SIZE 1024
+#define RESUME_FEEDRATE 3000
 
 
 // TODO: this type should define other
@@ -82,6 +83,8 @@ enum JobNotiy {
   PAUSE_EXCEPTION,
 };
 
+typedef float xyzijk_position_t[AXIS_NUM];
+
 struct JobEnv {
   JobStatus status;                                           /** job current status                                                    */
   toolHeadType type;                                          /** job type :                                                            */
@@ -89,7 +92,7 @@ struct JobEnv {
   uint32_t req_line_num;                                      /** request line number                                                   */
   uint32_t cur_line_num;                                      /** current linenumber, use with gcode file to save the job point         */
   uint32_t time_elape;                                        /** time elaps from the job starting, in second                           */
-  xyze_float_pos_t current_xyze;
+  xyzijk_position_t current_pos;
   float print_feadrate;
   float travel_feadrate;
   bool g0g1_relative_mode;
@@ -124,7 +127,7 @@ class JobCtrl {
 
     // gcode
     bool consume_a_gcode(uint8_t *cmd, uint16_t max_len, uint32_t *line);
-    bool push_gcode();
+    bool gcode_file_info_check(struct GcodeFileInfo *gfi);
 
   // private methods
   private:
@@ -132,17 +135,17 @@ class JobCtrl {
     err_code_t save_env(void);                                  /** save current job enviroment                                           */
     err_code_t resum_env(void);                                 /** resume saved enviroment to job                                        */
     err_code_t machine_standby(void);                           /** set the machine in standby status                                     */
-    void clear_gcode_queue(void);                               /**                                                                       */
     void notify();                                              /** notify the client about job status                                    */
     void quit_stop();                                           /** stop right now, when in emergency situation                           */
     void normal_stop();                                         /** stop when current block finish                                        */
-    void get_gcodes_from_client(void);
     void issue_nodify(void);
+    void get_gcodes_from_client(void);
 
     SemaphoreHandle_t _lock;                                    /** lock, TODO:should use the snapmaker's API                             */
     RingBuffer<uint8_t> _gcode_rb;                              /** ringbuffer for rx the gcode string                                    */
     uint8_t _client_id;                                         /** A pointer to client node,                                             */
     uint32_t _tick_ms;                                          /** use for periodically main loop                                        */
+    uint32_t _resume_feedrate;                                  /** set the resume move feedrate                                          */
     struct JobEnv _env;                                         /** environment of this job, used to job resume                           */
 
     // use for state of self-inspection

@@ -73,16 +73,6 @@ class SnapmakerPrinter
     void pre_init();
     void post_init();
 
-    // API for printer body
-    float get_feedrate(void);
-    void set_feedrate(float);
-    float get_travl_feedrate(void);
-    void set_travl_feedrate(float);
-    bool get_relative_mode(void);
-    void set_relative_mode(bool);
-    uint16_t get_bet_temp(void);
-    bool set_bet_temp(uint16_t);
-
     // API for gcode
     bool get_gcode_from_job(uint8_t *cmd, uint16_t max_len, uint32_t *line);
 

@@ -17,10 +17,6 @@
 
 
 SnapmakerPrinter smprinter;
-// This variable define in G0_G1.cpp
-#if ENABLED(VARIABLE_G0_FEEDRATE)
-  extern feedRate_t fast_move_feedrate;
-#endif
 
 // dynamic pins defination and default value
 
@@ -366,45 +362,6 @@ void SnapmakerPrinter::spindle_debug_config(uint8_t cmd, uint32_t param) {
   else {
     LOG_I("CNC not recognised or CNC offline\n");
   }
-}
-
-float SnapmakerPrinter::get_feedrate(void) {
-  return feedrate_mm_s;
-}
-
-void SnapmakerPrinter::set_feedrate(float fr) {
-  feedrate_mm_s = fr;
-}
-
-float SnapmakerPrinter::get_travl_feedrate(void) {
-#if ENABLED(VARIABLE_G0_FEEDRATE)
-  return fast_move_feedrate;
-#else
-  return 0.0;
-#endif
-}
-
-void SnapmakerPrinter::set_travl_feedrate(float tfr) {
-#if ENABLED(VARIABLE_G0_FEEDRATE)
-  fast_move_feedrate = tfr;
-#endif
-}
-
-bool SnapmakerPrinter::get_relative_mode(void) {
-  return relative_mode;
-}
-
-void SnapmakerPrinter::set_relative_mode(bool rm) {
-  relative_mode = rm;
-}
-
-uint16_t SnapmakerPrinter::get_bet_temp(void) {
-  return thermalManager.degTargetBed();
-}
-
- bool SnapmakerPrinter::set_bet_temp(uint16_t t) {
-  thermalManager.setTargetBed(t);
-  return thermalManager.wait_for_bed();
 }
 
 // API for gcode

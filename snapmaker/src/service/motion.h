@@ -39,14 +39,16 @@
 #define XYZ 3
 
 
+// This variable define in G0_G1.cpp
+#if ENABLED(VARIABLE_G0_FEEDRATE)
+  extern feedRate_t fast_move_feedrate;
+#endif
+
 class MotionService {
   public:
     MotionService() {}
 
-    void init();
-
-    // status get API
-    bool sm_homing_needed() { return homing_needed(); }
+    void init();    
 
     // moving API
     void moveto_xy(float x, float y, float feedrate, bool blocked=true);
@@ -64,10 +66,21 @@ class MotionService {
     bool is_all_axes_homed() {return all_axes_homed();}
 
     // home API
+    bool sm_homing_needed() { return homing_needed(); }
     err_code_t home();
     err_code_t home_x();
     err_code_t home_y();
     err_code_t home_z();
+
+    // API for printer body
+    float get_feedrate(void);
+    void set_feedrate(float);
+    float get_travl_feedrate(void);
+    void set_travl_feedrate(float);
+    bool get_relative_mode(void);
+    void set_relative_mode(bool);
+    uint16_t get_bet_temp(void);
+    bool set_bet_temp(uint16_t);
 
     // position info API
     xyze_pos_t sm_current_position;
@@ -83,10 +96,6 @@ class MotionService {
       current_position = sm_current_position;
       sync_plan_position();
     }
-
-    // moving mode API
-    void set_relative_mode(bool mode) {}
-    bool get_relative_mode() { return false; }
 
     // speed control API
     float get_current_feedrate() { return 0.0; }

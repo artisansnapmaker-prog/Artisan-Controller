@@ -213,7 +213,7 @@ err_code_t ClientNode::req_start_job(sacp_hmi_message_t *msg) {
   str_len = LITTLE_STREAM_TO_16(p);
   if (str_len < GCODE_MD5_LENGTH) {
     LOG_E("MD5 length error\r\n");
-    ret = SACP_RESULT_CODE_JOB_IVALID_GCODE_FILE;
+    ret = SACP_RET_JOB_IVALID_GCODE_FILE;
     goto _out;
   }
   memcpy(gfi.MD5, p + 2, str_len);
@@ -223,7 +223,7 @@ err_code_t ClientNode::req_start_job(sacp_hmi_message_t *msg) {
   str_len = LITTLE_STREAM_TO_16(p);
   if (str_len > GCODE_FILE_NAME_SIZE-1) {
     LOG_E("file name too long\r\n");
-    ret = SACP_RESULT_CODE_JOB_IVALID_GCODE_FILE;
+    ret = SACP_RET_JOB_IVALID_GCODE_FILE;
     goto _out;
   }
   memcpy(gfi.name, p + 2, str_len);

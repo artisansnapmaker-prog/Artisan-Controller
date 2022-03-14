@@ -38,47 +38,45 @@
 #define MAX_CLIENT_NODE_NUM 4
 #define SEND_BUF_SIZE 256
 
-#define CMD_SET_JOB_CTRL                  (0xAC)
-#define CMD_ID_JOB_CTRL_ISSUE             (0x01)
-#define CMD_ID_JOB_CTRL_REQ_GCODE         (0x02)
-#define CMD_ID_JOB_CTRL_START             (0x03)
-#define CMD_ID_JOB_CTRL_PAUSE             (0x04)
-#define CMD_ID_JOB_CTRL_RESUME            (0x05)
-#define CMD_ID_JOB_CTRL_STOP              (0x06)
-#define SUB_ID_JOB_CTRL_CUR_LINE_NUM      (0xA0)
-#define CMD_ID_JOB_CTRL_NUM               (10)
-#define SUB_NUM_JOB_CTRL                  (1)
+#define CMD_SET_JOB_CTRL                              (0xAC)
+#define CMD_ID_JOB_CTRL_ISSUE                         (0x01)
+#define CMD_ID_JOB_CTRL_REQ_GCODE                     (0x02)
+#define CMD_ID_JOB_CTRL_START                         (0x03)
+#define CMD_ID_JOB_CTRL_PAUSE                         (0x04)
+#define CMD_ID_JOB_CTRL_RESUME                        (0x05)
+#define CMD_ID_JOB_CTRL_STOP                          (0x06)
+#define SUB_ID_JOB_CTRL_CUR_LINE_NUM                  (0xA0)
+#define CMD_ID_JOB_CTRL_NUM                           (10)
+#define SUB_NUM_JOB_CTRL                              (1)
 
-// TODO: this should define in the SACP
-#define SACP_RESULT_CODE_APP_BASE                       (200)
+#define SACP_RET_SUCCESS                              E_SUCCESS
+#define SACP_RET_EXECUTING                            E_EXECUTING
+#define SACP_RET_TRANS_TIMEOUT                        E_TRANS_TIMEOUT
+#define SACP_RET_EXECUTING_TIMEOUT                    E_EXE_TIMEOUT
+#define SACP_RET_UNSUPPORT_CMD_SET                    E_INVALID_CMD_SET
+#define SACP_RET_UNSUPPORT_CMD_ID                     E_INVALID_CMD_ID
+#define SACP_RET_UNSUPPORT_PARAM                      E_PARAM
+#define SACP_RET_UNSUPPORT_MOUDLE_KEY                 E_INVALID_MODULE_KEY
+#define SACP_RET_NO_MEM                               E_NO_MEM
+#define SACP_RET_NO_RESC                              E_NO_RESRC
+#define SACP_RET_FAILURE                              E_FAILURE
+#define SACP_RET_BUSY                                 E_BUSY
 
-#define SACP_RESULT_CODE_JOB_LAST_GCODE_PACK            (SACP_RESULT_CODE_APP_BASE + 1)
-#define SACP_RESULT_CODE_JOB_NOT_IN_IDLE_STATUS         (SACP_RESULT_CODE_APP_BASE + 2)
-#define SACP_RESULT_CODE_JOB_NO_HOME                    (SACP_RESULT_CODE_APP_BASE + 3)
-#define SACP_RESULT_CODE_JOB_IVALID_GCODE_FILE          (SACP_RESULT_CODE_APP_BASE + 4)
-#define SACP_RESULT_CODE_JOB_NOT_IN_WORKING_STATUS      (SACP_RESULT_CODE_APP_BASE + 5)
-#define SACP_RESULT_CODE_JOB_NOT_IN_PAUSE_STATUS        (SACP_RESULT_CODE_APP_BASE + 6)
-#define SACP_RESULT_CODE_JOB_IVALID_POWER_LOSE_DATA     (SACP_RESULT_CODE_APP_BASE + 7)
-#define SACP_RESULT_CODE_JOB_POWER_LOSE_CHECK_FAILURE   (SACP_RESULT_CODE_APP_BASE + 8)
-#define SACP_RESULT_CODE_JOB_GCODE_FILE_NO_EXIT         (SACP_RESULT_CODE_APP_BASE + 10)
-#define SACP_RESULT_CODE_JOB_SAVE_ENV_FAILURE           (SACP_RESULT_CODE_APP_BASE + 11)
-#define SACP_RESULT_CODE_JOB_RESUME_ENV_FAILURE         (SACP_RESULT_CODE_APP_BASE + 13)
-#define SACP_RESULT_CODE_JOB_UNKNOW_STOP_TPYE           (SACP_RESULT_CODE_APP_BASE + 14)
-#define SACP_RESULT_CODE_JOB_BUSY                       (SACP_RESULT_CODE_APP_BASE + 15)
+#define SACP_RET_PRIVATE_BASE                         (PRIVATE_ERROR_BASE)
+#define SACP_RET_JOB_LAST_GCODE_PACK                  (SACP_RET_PRIVATE_BASE + 1)
+#define SACP_RET_JOB_NOT_IN_IDLE_STATUS               (SACP_RET_PRIVATE_BASE + 2)
+#define SACP_RET_JOB_NO_HOME                          (SACP_RET_PRIVATE_BASE + 3)
+#define SACP_RET_JOB_IVALID_GCODE_FILE                (SACP_RET_PRIVATE_BASE + 4)
+#define SACP_RET_JOB_NOT_IN_WORKING_STATUS            (SACP_RET_PRIVATE_BASE + 5)
+#define SACP_RET_JOB_NOT_IN_PAUSE_STATUS              (SACP_RET_PRIVATE_BASE + 6)
+#define SACP_RET_JOB_IVALID_POWER_LOSE_DATA           (SACP_RET_PRIVATE_BASE + 7)
+#define SACP_RET_JOB_POWER_LOSE_CHECK_FAILURE         (SACP_RET_PRIVATE_BASE + 8)
+#define SACP_RET_JOB_GCODE_FILE_NO_EXIT               (SACP_RET_PRIVATE_BASE + 10)
+#define SACP_RET_JOB_SAVE_ENV_FAILURE                 (SACP_RET_PRIVATE_BASE + 11)
+#define SACP_RET_JOB_RESUME_ENV_FAILURE               (SACP_RET_PRIVATE_BASE + 13)
+#define SACP_RET_JOB_UNKNOW_STOP_TPYE                 (SACP_RET_PRIVATE_BASE + 14)
+#define SACP_RET_JOB_BUSY                             (SACP_RET_PRIVATE_BASE + 15)
 
-// TODO: this result code for sacp should define in the sacp module
-enum SacpResultCode {
-  SACP_RET_SUCCESS = 0,
-  SACP_RET_EXECUTING = 1,
-  SACP_RET_TRANS_TIMEOUT = 2,
-  SACP_RET_EXECUTING_TIMEOUT = 3,
-  SACP_RET_UNSUPPORT_CMD_SET = 4,
-  SACP_RET_UNSUPPORT_CMD_ID = 5,
-  SACP_RET_UNSUPPORT_PARAM = 6,
-  SACP_RET_UNSUPPORT_MOUDLE_KEY = 7,
-  SACP_RET_NO_MEM = 8,
-  SACP_RET_NO_RESC = 9,
-};
 
 //Types of event function callbacks
 typedef std::function<err_code_t(sacp_hmi_message_t&)> evevnt_cb_f;

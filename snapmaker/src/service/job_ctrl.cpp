@@ -31,6 +31,7 @@
 
 JobCtrl job_ctrl_svc;
 
+
 void JobCtrl::init(void) { 
   _lock = xSemaphoreCreateMutex();
   if (!_lock) {
@@ -38,6 +39,7 @@ void JobCtrl::init(void) {
     while(1);
   }
 
+  // TODO: should we malloc this buffer use static memory?
   uint8_t *rb_buf = (uint8_t *)pvPortMalloc(GCODE_RB_SIZE);
   if (!rb_buf) {
     LOG_E("can NOT alloc memory for gcode ringbuffer\r\n");
@@ -94,7 +96,7 @@ err_code_t JobCtrl::resum_env(void) {
 
   // Check toolhead
   if (smprinter.get_toolhead_type() != _env.type) {
-
+    return E_JOB_UNSUPPORT_PARAM;
   }
 
   smprinter.set_feedrate(_env.print_feadrate);
@@ -104,6 +106,7 @@ err_code_t JobCtrl::resum_env(void) {
   if (TH_TYPE_3DP == _env.type) {
     if (!smprinter.set_bet_temp(_env.bed_temp)) {
       LOG_E("can NOT resume bed_temp\r\n");
+      return E_JOB_RESUME_ENV_FAILURE;
     }
   }
 
@@ -211,7 +214,6 @@ err_code_t JobCtrl::start(uint8_t client_id, struct GcodeFileInfo *gcodeInfo, to
   }
 
   LOCK(_lock, JOB_LOCK_WAIT_TICK);
-  // TODO: record this client
   _client_id = client_id;
   _env.type = th_type;
   _env.gcode_file_info = *(gcodeInfo);
@@ -294,6 +296,7 @@ err_code_t JobCtrl::stop(void) {
 err_code_t JobCtrl::set_env(struct JobEnv &env) {
   // TODO: check env
   _env = env;
+  return E_SUCCESS;
 }
 
 struct JobEnv JobCtrl::get_env(void) {

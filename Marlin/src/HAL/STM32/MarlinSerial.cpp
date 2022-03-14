@@ -96,7 +96,11 @@ void MarlinSerial::_rx_complete_irq(serial_t *obj) {
 
   if (uart_getc(obj, &c) == 0) {
 
-    uint16_t i = (unsigned int)(obj->rx_head + 1) % SERIAL_RX_BUFFER_SIZE;
+    uint16_t i;
+    if (active_ch == MARLIN_SERIAL_CHANNEL_ORIGINAL)
+      i = (unsigned int)(obj->rx_head + 1) % SERIAL_RX_BUFFER_SIZE;
+    else
+      i = (unsigned int)(obj->rx_head + 1) % sec_rx_size;
 
     // if we should be storing the received character into the location
     // just before the tail (meaning that the head would advance to the

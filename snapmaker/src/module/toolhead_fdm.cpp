@@ -95,13 +95,12 @@ err_code_t ToolHeadFDM::post_init() {
     return E_FAILURE;
   }
 
-  device_id = get_device_id();
-  if (MODULE_DEVICE_ID_INVALID == device_id) {
+  if (MODULE_DEVICE_ID_INVALID == get_device_id()) {
     return E_FAILURE;
   }
-  smprinter.register_module(device_id, this);
+  smprinter.register_module(get_device_id(), this);
   module_svc.register_routine((void *)this, fdm_callback_routine);
-  if (device_id == MODULE_DEVICE_ID_FDM_1EXTRUDER_2019) {
+  if (get_device_id() == MODULE_DEVICE_ID_FDM_1EXTRUDER_2019) {
     LOG_I("fdm single extruder ready\n");
   } else {
     LOG_I("fdm dual extruder ready\n");
@@ -223,7 +222,7 @@ err_code_t ToolHeadFDM::filament_state_sync() {
 }
 
 void ToolHeadFDM::set_probe_state(uint8_t state[]) {
-  if (device_id == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
+  if (get_device_id() == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
     if (!state[0]) {
       probe_state |= 0x01;
     } else {
@@ -242,7 +241,7 @@ void ToolHeadFDM::set_probe_state(uint8_t state[]) {
       probe_state &= ~0x04;
     }
     // LOG_I("state: %d, %d, %d\n", state[0], state[1], state[2]);
-  } else if (device_id == MODULE_DEVICE_ID_FDM_1EXTRUDER_2019) {
+  } else if (get_device_id() == MODULE_DEVICE_ID_FDM_1EXTRUDER_2019) {
     if (state[0])
       probe_state |= 0x01;
     else
@@ -251,7 +250,7 @@ void ToolHeadFDM::set_probe_state(uint8_t state[]) {
 }
 
 void ToolHeadFDM::update_filament_state(uint8_t *data) {
-  if (device_id == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
+  if (get_device_id() == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
     if (data[0])
       filament_state |= 0x01;
     else
@@ -261,7 +260,7 @@ void ToolHeadFDM::update_filament_state(uint8_t *data) {
       filament_state |= 0x02;
     else
       filament_state &= ~0x02;
-  } else if (device_id == MODULE_DEVICE_ID_FDM_1EXTRUDER_2019) {
+  } else if (get_device_id() == MODULE_DEVICE_ID_FDM_1EXTRUDER_2019) {
     if (data[0])
       filament_state |= 0x01;
     else
@@ -279,13 +278,13 @@ void ToolHeadFDM::set_hotend_type(uint8_t *data) {
 
 void ToolHeadFDM::update_hotend_temp(uint8_t *data) {
   hotend_temp[0].current = data[0] << 8 | data[1];
-  if (device_id == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
+  if (get_device_id() == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
     hotend_temp[1].current = data[4] << 8 | data[5];
   }
 }
 
 uint8_t ToolHeadFDM::get_hotend_type(uint8_t e) {
-  if (device_id != MODULE_DEVICE_ID_FDM_2EXTRUDER_2021 || e >= EXTRUDERS) {
+  if (get_device_id() != MODULE_DEVICE_ID_FDM_2EXTRUDER_2021 || e >= EXTRUDERS) {
     return HOTEND_TYPE_INVALID;
   }
 
@@ -390,11 +389,11 @@ err_code_t ToolHeadFDM::set_hotend_temp(uint16_t temp, uint8_t e) {
     }
   }
 
-  if (device_id == MODULE_DEVICE_ID_FDM_1EXTRUDER_2019) {
+  if (get_device_id() == MODULE_DEVICE_ID_FDM_1EXTRUDER_2019) {
     module_fan_index = SINGLE_EXTRUDER_MODULE_FAN;
     nozzle_fan_index = SINGLE_EXTRUDER_NOZZLE_FAN;
   }
-  else if (device_id == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
+  else if (get_device_id() == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
     if (e == 0) {
       module_fan_index = DUAL_EXTRUDER_LEFT_MODULE_FAN;
     }

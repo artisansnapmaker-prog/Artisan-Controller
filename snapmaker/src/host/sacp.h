@@ -49,6 +49,34 @@
 #define SACP_CB_ATTR_BLOCKED_WITH_MOTION     (0x00000002)
 #define SACP_CB_ATTR_BLOCKED_WITHOUT_MOTION  (0x00000004)
 
+enum SACPCommandSet {
+  SACP_CMD_SET_GLOBAL_REQ                 = 0x1,
+
+  SACP_CMD_SET_GLOBAL_NOTIFICATION        = 0x4,
+
+  SACP_CMD_SET_FDM                        = 0x10,
+  SACP_CMD_SET_CNC                        = 0x11,
+  SACP_CMD_SET_LASER                      = 0x12,
+  SACP_CMD_SET_LINEAR_MODULE              = 0x13,
+  SACP_CMD_SET_HEATED_BED                 = 0x14,
+  SACP_CMD_SET_ENCLOSURE                  = 0x15,
+  SACP_CMD_SET_ROTARY_MODULE              = 0x16,
+  SACP_CMD_SET_AIR_PURIFIER               = 0x17,
+  SACP_CMD_SET_DRY_BOX                    = 0x18,
+
+  SACP_CMD_SET_CALIBRATE_FDM              = 0xa0,
+  SACP_CMD_SET_CALIBRATE_CNC              = 0xa4,
+  SACP_CMD_SET_CALIBRATE_LASER            = 0xa8,
+  SACP_CMD_SET_CAMERA                     = 0xa9,
+  SACP_CMD_SET_WOKRING_FLOW               = 0xac,
+  SACP_CMD_SET_UPGRADE                    = 0xad,
+
+  SACP_CMD_SET_MAX
+};
+
+#define SACP_CMD_ID_GLOABL_REQ_SUBSCRIPT      (0x00)
+#define SACP_CMD_ID_GLOABL_REQ_UNSUBSCRIPT    (0x01)
+
 typedef struct {
   uint32_t peer;
 

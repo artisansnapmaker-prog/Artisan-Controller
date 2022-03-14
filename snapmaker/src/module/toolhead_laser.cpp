@@ -383,6 +383,21 @@ err_code_t ToolHeadLaser::do_auto_focusing(void *obj, sacp_hmi_message_t *messag
 err_code_t laser_routine(void *obj) {
   ToolHeadLaser &laser = *(ToolHeadLaser *)obj;
 
+  if (!laser.pwm_normal) {
+    if (laser.confirm_pwm_pin_state(laser.output_pin) == E_SUCCESS)
+      laser.pwm_normal = true;
+
+    if (laser.pwm_normal) {
+      pinMode(laser.output_pin, OUTPUT);
+      set_pwm_duty(laser.output_pin, 0, 255, true);
+      set_pwm_frequency(laser.output_pin, 250);
+      laser.set_output(0);
+    }
+
+    laser.next_ms = millis() + 500;
+    return E_SUCCESS;
+  }
+
   // if ((int)(NOW-(SOON))<0), return
   if ((int)(millis() - laser.next_ms) < 0)
   return E_SUCCESS;
@@ -562,14 +577,21 @@ err_code_t ToolHeadLaser::post_init() {
     }
     power_table = power_table_10w;
 
-    smprinter.register_module(MODULE_DEVICE_ID_LASER_10W_2021, this);
     ret = confirm_pwm_pin_state(output_pin);
     if (ret != E_SUCCESS) {
-      return ret;
+      pwm_normal = false;
     }
+    else {
+      pwm_normal = true;
+    }
+
+    smprinter.register_module(MODULE_DEVICE_ID_LASER_10W_2021, this);
   }
   else {
     power_table = power_table_1p6w;
+    smprinter.register_module(MODULE_DEVICE_ID_LASER_1P6W_2019, this);\
+    // for old laser, couldn't check PWM
+    pwm_normal = true;
   }
 
   tube_status = LASER_TUBE_STA_OFF;
@@ -583,12 +605,6 @@ err_code_t ToolHeadLaser::post_init() {
 
   master_switch_tick  = 0;
   master_switch_state = LASER_SWITCH_STATE_CLOSED;
-
-  pinMode(output_pin, OUTPUT);
-  set_pwm_duty(output_pin, 0, 255, true);
-  set_pwm_frequency(output_pin, 250);
-  set_output(0);
-  tube_status = LASER_TUBE_STA_OFF;
 
   if (get_device_id() == MODULE_DEVICE_ID_LASER_10W_2021) {
     host_hmi.apply_cmd_set_handle(SACP_CMD_SET_LASER, SACP_CMD_ID_LASER_MAX);
@@ -621,6 +637,17 @@ err_code_t ToolHeadLaser::post_init() {
     do_manual_focusing);
   host_hmi.register_callback(SACP_CMD_SET_CALIBRATE_LASER, SACP_CMD_ID_LASER_CALI_AUTO, (void *)this,
     do_auto_focusing);
+
+  if (pwm_normal) {
+    pinMode(output_pin, OUTPUT);
+    set_pwm_duty(output_pin, 0, 255, true);
+    set_pwm_frequency(output_pin, 250);
+    set_output(0);
+  }
+
+  tube_status = LASER_TUBE_STA_OFF;
+
+  module_svc.register_routine( (void *)this, laser_routine);
 
   next_ms = millis();
   module_svc.register_routine((void *)this, laser_routine);

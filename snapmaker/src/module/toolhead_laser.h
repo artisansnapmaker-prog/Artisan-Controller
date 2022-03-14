@@ -227,6 +227,7 @@ class ToolHeadLaser: public ModuleBase {
     int16_t pitch;
     int8_t  laser_temp;
     int8_t  imu_temp;
+    bool pwm_normal;
 };
 
 #endif

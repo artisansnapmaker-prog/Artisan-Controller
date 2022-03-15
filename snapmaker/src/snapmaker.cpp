@@ -144,9 +144,6 @@ static void system_thread(void *p) {
   TaskHandle_t hmi_event_task;
   SemaphoreHandle_t hmi_recv_signal = NULL; 
 
-  // module init
-  module_svc.init();
-
   hmi_recv_signal = xSemaphoreCreateCounting(65535, 0);
 
   LOG_I("Creating HMI receive task...");
@@ -171,10 +168,12 @@ static void system_thread(void *p) {
     LOG_I(LOG_RESULT_OK);
   }
 
+  // must init hmi firstly
   host_hmi.init(hmi_event_task, hmi_recv_signal);
+  host_hmi.apply_cmd_set_handle(SACP_CMD_SET_GLOBAL_REQ, 32);
 
-  // sacp host init
-  //host_hmi.init(hmi_event_task, hmi_recv_task);
+  // module init
+  module_svc.init();
 
   motion_svc.init();
   bedlevel_svc.init();

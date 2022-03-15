@@ -63,9 +63,6 @@ enum SACPHMIChannel {
 #define SACP_SUBSCRIPTION_NODE_MAX        (20)
 #define SACP_SUBSCRIPTION_CLIENT_MAX      (32)
 #define SACP_SUBSCRIPTION_PERIOD_INVALID  (10)
-#define SACP_CMD_SET_GLOBAL               (0x01)
-#define SACP_CMD_ID_GLOABL_SUBSCRIPT      (0x00)
-#define SACP_CMD_ID_GLOABL_UNSUBSCRIPT    (0x01)
 
 typedef struct sacp_subscription_handle {
   void *obj;

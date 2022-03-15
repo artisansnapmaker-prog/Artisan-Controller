@@ -168,7 +168,7 @@ void GcodeSuite::M2000() {
   // apply system handle
   case 7:
     {
-      host_hmi.apply_cmd_set_handle(SACP_CMD_SET_GLOBAL, 10);
+      host_hmi.apply_cmd_set_handle(SACP_CMD_SET_GLOBAL_REQ, 10);
     }
     break;
 

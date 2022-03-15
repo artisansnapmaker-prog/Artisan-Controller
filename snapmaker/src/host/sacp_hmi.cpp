@@ -598,13 +598,13 @@ void HostSACPHMI::handle_events() {
 
   msg.data = buffer + (SACP_V1_FRONT_HEADER_SIZE + SACP_V1_REAR_HEADER_SIZE);
 
-  if (msg.cmd_set == SACP_CMD_SET_GLOBAL) {
+  if (msg.cmd_set == SACP_CMD_SET_GLOBAL_REQ) {
     switch (msg.cmd_id) {
-    case SACP_CMD_ID_GLOABL_SUBSCRIPT:
+    case SACP_CMD_ID_GLOABL_REQ_SUBSCRIPT:
       handle_subscript(msg);
       return;
 
-    case SACP_CMD_ID_GLOABL_UNSUBSCRIPT:
+    case SACP_CMD_ID_GLOABL_REQ_UNSUBSCRIPT:
       handle_unsubscript(msg);
       return;
 

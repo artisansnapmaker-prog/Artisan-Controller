@@ -70,17 +70,17 @@ class MotionService {
     err_code_t home_z(){return E_SUCCESS;}
 
     // position info API
-    float current_position_[AXIS_NUM];
-    float destination_position_[AXIS_NUM];
+    xyze_pos_t sm_current_position;
+    xyze_pos_t sm_destination_position;
     void  update_position_from_platform() {
-      memcpy(current_position_, current_position, sizeof(current_position_));
+      sm_current_position = current_position;
     }
     float get_current_position(uint8_t axis) {
       update_position_from_platform();
-      return current_position_[axis];
+      return sm_current_position[axis];
     }
     void sync_plan_position_to_platform() {
-      memcpy(current_position, current_position_, sizeof(current_position_));
+      current_position = sm_current_position;
       sync_plan_position();
     }
 

@@ -42,12 +42,12 @@ err_code_t BedLevelService::set_live_z_offset(float offset) {
   float zdiff = live_z_offset_ - offset;
   LOG_I("zdiff: %f\n", zdiff);
 
-  motion_svc.destination_position_[Z_AXIS] = motion_svc.get_current_position(Z_AXIS);
-  LOG_I("destnation_position_z: %f\n", motion_svc.destination_position_[Z_AXIS]);
+  motion_svc.sm_destination_position[Z_AXIS] = motion_svc.get_current_position(Z_AXIS);
+  LOG_I("destnation_position_z: %f\n", motion_svc.sm_destination_position[Z_AXIS]);
 
-  motion_svc.current_position_[Z_AXIS] += zdiff;
+  motion_svc.sm_current_position[Z_AXIS] += zdiff;
   motion_svc.sync_plan_position_to_platform();
-  motion_svc.moveto_z(motion_svc.destination_position_[Z_AXIS], 30);
+  motion_svc.moveto_z(motion_svc.sm_destination_position[Z_AXIS], 30);
   LOG_I("destnation_position_z: %f\n", motion_svc.get_current_position(Z_AXIS));
 
   return E_SUCCESS;
@@ -218,7 +218,7 @@ err_code_t BedLevelService::start_auto_bed_leveling(uint8_t grids) {
 
   motion_svc.enable_leveling();
   motion_svc.update_position_from_platform();
-  motion_svc.moveto_z(motion_svc.current_position_[Z_AXIS] + 100, 50);
+  motion_svc.moveto_z(motion_svc.sm_current_position[Z_AXIS] + 100, 50);
   motion_svc.synchronize_planner();
 
   return E_SUCCESS;
@@ -252,22 +252,22 @@ err_code_t BedLevelService::probe_sensor_calibration(float x, float y) {
 
 err_code_t BedLevelService::confirm_probe_sensor_calibration(uint8_t e) {
   motion_svc.update_position_from_platform();
-  hotend_touch_bed_z_[e] = motion_svc.current_position_[Z_AXIS];
+  hotend_touch_bed_z_[e] = motion_svc.sm_current_position[Z_AXIS];
   LOG_I("hotend%d_touch_bed_z: %f\n", e, hotend_touch_bed_z_[e]);
-  float stroke_temp = motion_svc.current_position_[Z_AXIS] - CALIBRATION_PAPER_THICKNESS - hotend_triggered_z_[e];
+  float stroke_temp = motion_svc.sm_current_position[Z_AXIS] - CALIBRATION_PAPER_THICKNESS - hotend_triggered_z_[e];
   LOG_I("extruder%d: %f\n", e, stroke_temp);
 
   if (e == 0) {
     z_compensation_[0] = stroke_temp;
     motion_svc.enable_leveling();
-    motion_svc.moveto_z(motion_svc.current_position_[Z_AXIS] + 100, 30);
+    motion_svc.moveto_z(motion_svc.sm_current_position[Z_AXIS] + 100, 30);
     smprinter.fdm->set_hotend_offset_z(hotend_touch_bed_z_[0] - hotend_touch_bed_z_[1]);
     LOG_I("hotend_offset_z: %f\n", hotend_touch_bed_z_[0] - hotend_touch_bed_z_[1]);
     motion_svc.sync_z_compensation_to_platform();
     motion_svc.save_settings();
   } else if (e == 1) {
     z_compensation_[1] = stroke_temp;
-    motion_svc.moveto_z(motion_svc.current_position_[Z_AXIS] + 1, 10);
+    motion_svc.moveto_z(motion_svc.sm_current_position[Z_AXIS] + 1, 10);
     smprinter.fdm->tool_change(0, false);
   }
 

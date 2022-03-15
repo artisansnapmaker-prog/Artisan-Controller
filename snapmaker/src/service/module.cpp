@@ -5,6 +5,17 @@
 
 ModuleService module_svc;
 
+typedef struct {
+  uint8_t   key;
+  uint16_t  device_id;
+  uint8_t   sub_index;
+  uint8_t   module_status;
+  uint32_t  sn;
+  uint8_t   hw_version;
+  uint16_t  fw_ver_len;
+  char      fw_version[0];
+} module_info_t;
+
 static __unused void handle_can_receive(void *p) {
   BaseType_t ret;
   SemaphoreHandle_t recv_signal = (SemaphoreHandle_t)p;
@@ -182,9 +193,65 @@ err_code_t handle_fw_request(void *obj, sacp_module_message_t &message) {
 
 
 err_code_t report_module_info(void *obj, sacp_hmi_message_t &message) {
-  // TODO: to be implemented
+  if (!obj)
+    return E_PARAM;
 
-  return E_SUCCESS;
+  ModuleService &ms = *(ModuleService *)obj;
+  ModuleBase *module;
+  module_info_t *info;
+  uint8_t avail_modules = 0;
+  char *fw_ver;
+
+  if (ms.status != MS_STATUS_CONFIG) {
+    return host_hmi.send_ack(&message, E_INVALID_STATE);
+  }
+
+  taskENTER_CRITICAL();
+  avail_modules = ms.configured_module;
+  taskEXIT_CRITICAL();
+
+  // save result
+  message.data[0] = E_SUCCESS;
+
+  // second byte is array length
+  message.data[1] = 0;
+
+  // start of second byte to save module information
+  message.length = 2;
+
+  int i, l;
+  for (i = 0; i < avail_modules; i++) {
+    // point to new area
+    info = (module_info_t *)(message.data + message.length);
+
+    module = ms.modules[i];
+    info->key = module->get_key();
+    info->device_id = module->get_device_id();
+    info->hw_version = module->get_hw_verion();
+    info->sub_index  = module->get_sub_index();
+    info->sn = module->get_sn();
+
+    fw_ver = module->get_fw_version();
+    if (!fw_ver) {
+      info->fw_ver_len = 0;
+    }
+    else {
+      for (l = 0; l < MODULE_FW_VER_SIZE; l++) {
+        info->fw_version[l] = fw_ver[l];
+        if (fw_ver[l] == 0)
+          break;
+      }
+      info->fw_ver_len = l;
+    }
+
+    // update length
+    message.length += (sizeof(module_info_t) + l);
+    message.data[1]++;
+  }
+
+  LOG_I("module info: count[%u], data len[%u]\n", message.data[1], message.length);
+
+  return host_hmi.send(&message);
 }
 
 
@@ -278,7 +345,8 @@ void ModuleService::init() {
   }
 
   // register callback to handle events from external host
-  host_hmi.register_callback(0x01, 0x20, (void *)this, (sacp_hmi_callback)report_module_info);
+  host_hmi.register_callback(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_GET_MODULE_INFO,
+        (void *)this, (sacp_hmi_callback)report_module_info);
 
   status = MS_STATUS_CONFIG;
 }

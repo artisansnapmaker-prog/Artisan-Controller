@@ -113,6 +113,85 @@ enum PortIndex {
   PORT_INDEX_P3
 };
 
+
+// HMI subscription callbacks
+uint16_t publish_system_status(void *obj, uint8_t *buffer) {
+  SnapmakerPrinter *printer = (SnapmakerPrinter *)obj;
+  buffer[0] = E_SUCCESS;
+  buffer[1] = printer->system_status;
+  return 2;
+}
+
+
+// HMI event callback
+typedef struct __packed MachineInfo {
+  uint8_t  model;
+  uint8_t  hw_ver;
+  uint32_t sn;
+  uint16_t fw_ver_len;
+  char     fw_ver[0];
+} machine_info_t;
+
+err_code_t hmi_cb_get_machine_info(void *obj, sacp_hmi_message_t *msg) {
+  SnapmakerPrinter *printerr = (SnapmakerPrinter *)obj;
+  char ver[] = "A400_V1.4.2";
+  int i = 0;
+
+  machine_info_t *info = (machine_info_t *)(msg->data + 1);
+
+  msg->data[0] = E_SUCCESS;
+
+  info->model      = (uint8_t)printerr->model;
+  info->hw_ver     = 0;
+  info->sn         = 0;
+  info->fw_ver_len = 30;
+
+  for (; i < 32; i++) {
+    info->fw_ver[i] = ver[i];
+    if (ver[i] == 0)
+      break;
+  }
+
+  info->fw_ver_len = i;
+
+  msg->length = sizeof(machine_info_t) + i + 1;
+  msg->attr |= SACP_MESSAGE_ATTR_ACK;
+
+  return host_hmi.send(msg);
+}
+
+struct __packed MachineSize {
+  coordinate_info_t axis_length[3];
+  coordinate_info_t home_offset[3];
+};
+
+err_code_t hmi_cb_get_machine_size(void *obj, sacp_hmi_message_t *msg) {
+  SnapmakerPrinter *printerr = (SnapmakerPrinter *)obj;
+  MachineSize *msize;
+
+  msg->data[0] = E_SUCCESS;
+
+  msize = (MachineSize *)(msg->data + 1);
+  msize->axis_length[0].axis  = AXIS_KEY_X1;
+  msize->axis_length[0].value = 400 * 1000;
+  msize->axis_length[1].axis  = AXIS_KEY_Y1;
+  msize->axis_length[1].value = 400 * 1000;
+  msize->axis_length[2].axis  = AXIS_KEY_Z1;
+  msize->axis_length[2].value = 400 * 1000;
+
+  msize->home_offset[0].axis = AXIS_KEY_X1;
+  msize->home_offset[0].value = 0;
+  msize->home_offset[1].axis = AXIS_KEY_Y1;
+  msize->home_offset[1].value = 0;
+  msize->home_offset[2].axis = AXIS_KEY_Z1;
+  msize->home_offset[2].value = 0;
+
+  msg->length = sizeof(MachineSize) + 1;
+  msg->attr |= SACP_MESSAGE_ATTR_ACK;
+
+  return host_hmi.send(msg);
+}
+
 // can recv handler
 static void hmi_recv_handler(void *param) {
 
@@ -138,7 +217,7 @@ static void system_thread(void *p) {
 
   TaskHandle_t hmi_recv_task;
   TaskHandle_t hmi_event_task;
-  SemaphoreHandle_t hmi_recv_signal = NULL; 
+  SemaphoreHandle_t hmi_recv_signal = NULL;
 
   hmi_recv_signal = xSemaphoreCreateCounting(65535, 0);
 
@@ -166,7 +245,7 @@ static void system_thread(void *p) {
 
   // must init hmi firstly
   host_hmi.init(hmi_event_task, hmi_recv_signal);
-  host_hmi.apply_cmd_set_handle(SACP_CMD_SET_GLOBAL_REQ, 32);
+  host_hmi.apply_cmd_set_handle(SACP_CMD_SET_GLOBAL_REQ, 20);
 
   // module init
   module_svc.init();
@@ -175,6 +254,15 @@ static void system_thread(void *p) {
   bedlevel_svc.init();
   job_ctrl_svc.init();
   ClientNode::class_init();
+
+  host_hmi.register_subscription(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_HEARTBEAT,
+      (void *)&smprinter, publish_system_status);
+
+  host_hmi.register_callback(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_GET_MACHINE_INFO,
+      (void *)&smprinter, hmi_cb_get_machine_info);
+  host_hmi.register_callback(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_GET_MACHINE_SIZE,
+      (void *)&smprinter, hmi_cb_get_machine_size);
+
 
   // loop
   for (;;) {
@@ -376,7 +464,7 @@ bool SnapmakerPrinter::get_gcode_from_job(uint8_t *cmd, uint16_t max_len, uint32
   return job_ctrl_svc.consume_a_gcode(cmd, max_len, line);
 }
 
-ModuleBase *SnapmakerPrinter::get_cur_toolhead(void) { 
+ModuleBase *SnapmakerPrinter::get_cur_toolhead(void) {
   /*
   if (_3dp && !cnc && !laser) {
     return _3dp;

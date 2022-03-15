@@ -11,6 +11,119 @@
 
 MotionService motion_svc;
 
+// subscription callback
+struct __packed CoordinateSystemInformation {
+  uint8_t all_homed;
+  uint8_t active_coordinate_system;
+  uint8_t is_original_offset;
+  uint8_t current_pos_num;
+  coordinate_info_t current_pos[5];
+  uint8_t origin_offset_num;
+  coordinate_info_t origin_offset[5];
+};
+
+uint16_t publish_coordinate_info(void *obj, uint8_t *buffer) {
+  MotionService *motion = (MotionService *)obj;
+
+  CoordinateSystemInformation *info = (CoordinateSystemInformation *)(buffer + 1);
+
+  // result
+  buffer[0] = E_SUCCESS;
+
+  info->all_homed                = motion->is_all_axes_homed();
+  info->active_coordinate_system = (uint8_t)(motion->get_active_coordinate_system() + 1);
+  info->is_original_offset       = motion->is_original_position_offset();
+
+  motion->update_position_from_platform();
+  info->current_pos[0].axis  = AXIS_KEY_X1;
+  info->current_pos[0].value = (int32_t)(motion->sm_current_position[X_AXIS] * 1000);
+  info->current_pos[1].axis  = AXIS_KEY_Y1;
+  info->current_pos[1].value = (int32_t)(motion->sm_current_position[Y_AXIS] * 1000);
+  info->current_pos[2].axis  = AXIS_KEY_Z1;
+  info->current_pos[2].value = (int32_t)(motion->sm_current_position[Z_AXIS] * 1000);
+  info->current_pos[3].axis  = AXIS_KEY_A1;
+  info->current_pos[3].value = (int32_t)(motion->sm_current_position[A_AXIS] * 1000);
+  info->current_pos[4].axis  = AXIS_KEY_B1;
+  info->current_pos[4].value = (int32_t)(motion->sm_current_position[B_AXIS] * 1000);
+  info->current_pos_num      = 5;
+  LOG_I("coor: X: %d, Y:%d, Z:%d, A: %d, B:%d\n", info->current_pos[0].value, info->current_pos[1].value,
+    info->current_pos[2].value, info->current_pos[3].value, info->current_pos[4].value);
+
+  motion->update_position_shift_from_platform();
+  info->origin_offset[0].axis  = AXIS_KEY_X1;
+  info->origin_offset[0].value = (int32_t)(motion->sm_position_shift[X_AXIS] * 1000);
+  info->origin_offset[1].axis  = AXIS_KEY_Y1;
+  info->origin_offset[1].value = (int32_t)(motion->sm_position_shift[Y_AXIS] * 1000);
+  info->origin_offset[2].axis  = AXIS_KEY_Z1;
+  info->origin_offset[2].value = (int32_t)(motion->sm_position_shift[Y_AXIS] * 1000);
+  info->origin_offset[3].axis  = AXIS_KEY_A1;
+  info->origin_offset[3].value = (int32_t)(motion->sm_position_shift[A_AXIS] * 1000);
+  info->origin_offset[4].axis  = AXIS_KEY_B1;
+  info->origin_offset[4].value = (int32_t)(motion->sm_position_shift[B_AXIS] * 1000);
+  info->origin_offset_num      = 5;
+
+  LOG_I("pos offset: X: %d, Y:%d, Z:%d, A: %d, B:%d\n", info->current_pos[0].value, info->current_pos[1].value,
+    info->current_pos[2].value, info->current_pos[3].value, info->current_pos[4].value);
+
+  return sizeof(CoordinateSystemInformation) + 1;
+}
+
+// HMI event callback
+err_code_t get_coordinate_info(void *obj, sacp_hmi_message_t *msg) {
+  msg->length = publish_coordinate_info(obj, msg->data);
+
+  msg->attr |= SACP_MESSAGE_ATTR_ACK;
+
+  return host_hmi.send(msg);
+}
+
+err_code_t set_active_coordinate_system(void *obj, sacp_hmi_message_t *msg) {
+  uint8_t id = msg->data[0];
+  MotionService *motion = (MotionService *)obj;
+
+  switch (id) {
+  case 0:
+    motion->run_gcode("G53\n");
+    break;
+
+  case 1:
+    motion->run_gcode("G54\n");
+    break;
+
+  default:
+    break;
+  }
+
+  return host_hmi.send_ack(msg, E_SUCCESS);
+}
+
+err_code_t set_origin(void *obj, sacp_hmi_message_t *msg) {
+  err_code_t ret = E_SUCCESS;
+  MotionService *motion = (MotionService *)obj;
+  uint8_t length = msg->data[0];
+
+  char gcode_cmd[32];
+  char axis_cmd[] = {'X', 'Y', 'Z', 'A', 'B', 'C'};
+  float value;
+
+  coordinate_info_t *info = (coordinate_info_t *)(msg->data + 1);
+
+  for (int i = 0; i < length; i++) {
+    value = (float)(info->value / 1000.0);
+    if (info->axis <= AXIS_KEY_C1) {
+      snprintf(gcode_cmd, 32, "G92 %c%.3f\n", value, axis_cmd[info->axis]);
+      motion->run_gcode(gcode_cmd);
+    }
+    else {
+      LOG_E("invalid axis key[%u]\n", info->axis);
+      ret = E_PARAM;
+    }
+  }
+
+  return host_hmi.send_ack(msg, ret);
+}
+
+
 static void motion_background(void *p) {
   for (;;) {
     loop();
@@ -23,6 +136,12 @@ void MotionService::init() {
   BaseType_t ret;
 
   load_settings();
+
+  host_hmi.register_subscription(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_SUB_COORDINATE,
+            (void *)this, publish_coordinate_info);
+
+  host_hmi.register_callback(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_GET_COORDINATE,
+            (void *)this, get_coordinate_info);
 
   LOG_I("Creating marlin task...");
   ret = xTaskCreate((TaskFunction_t)motion_background, "marin", MOTION_TASK_STACK_SIZE, NULL,

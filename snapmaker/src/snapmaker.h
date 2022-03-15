@@ -35,6 +35,16 @@
 #define POWER_DOMAIN_ADDON    POWER_DOMAIN_2
 #define POWER_DOMAIN_HOTEND   POWER_DOMAIN_1
 
+enum SnapmakerModel {
+  SNAPMAKER_MODEL_A150,
+  SNAPMAKER_MODEL_A250,
+  SNAPMAKER_MODEL_A350,
+  SNAPMAKER_MODEL_A400,
+  SNAPMAKER_MODEL_J1,
+
+  SNAPMAKER_MODEL_UNKNOWN
+};
+
 struct SnapmakerHandle {
   TaskHandle_t marlin;
   TaskHandle_t hmi;
@@ -222,6 +232,10 @@ class SnapmakerPrinter
     enum SystemStatus get_sys_status(void);
     err_code_t set_sys_status(enum SystemStatus req_status, enum SystemStatus *ret_status);
 
+    friend uint16_t publish_system_status(void *obj, uint8_t *buffer);
+    friend err_code_t hmi_cb_get_machine_info(void *obj, sacp_hmi_message_t *msg);
+    friend err_code_t hmi_cb_get_machine_size(void *obj, sacp_hmi_message_t *msg);
+
   private:
     enum SystemStatus sys_status;
     SemaphoreHandle_t status_lock;
@@ -229,6 +243,8 @@ class SnapmakerPrinter
     TaskHandle_t thandle_can_recv;
     TaskHandle_t thandle_can_event;
 
+    uint8_t system_status = 0;
+    SnapmakerModel model = SNAPMAKER_MODEL_UNKNOWN;
 
   public:
     /* ToolHeadFDM *_3dp = NULL; */

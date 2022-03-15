@@ -32,12 +32,38 @@
 #include "../../Marlin/src/module/tool_change.h"
 #include "../../Marlin/src/module/settings.h"
 #include "../common/error.h"
+#include "src/gcode/gcode.h"
 
 
 // X Y Z I J K
 #define AXIS_NUM  6
 #define XYZ 3
 
+enum AxisKey {
+  AXIS_KEY_X1,
+  AXIS_KEY_Y1,
+  AXIS_KEY_Z1,
+  AXIS_KEY_A1,
+  AXIS_KEY_B1,
+  AXIS_KEY_C1,
+  AXIS_KEY_X2,
+  AXIS_KEY_Y2,
+  AXIS_KEY_Z2,
+  AXIS_KEY_A2,
+  AXIS_KEY_B2,
+  AXIS_KEY_C2,
+  AXIS_KEY_X3,
+  AXIS_KEY_Y3,
+  AXIS_KEY_Z3,
+  AXIS_KEY_A3,
+  AXIS_KEY_B3,
+  AXIS_KEY_C3
+  };
+
+  typedef struct CoordinateInformation {
+  uint8_t axis;
+  int32_t value;
+} __packed coordinate_info_t;
 
 // This variable define in G0_G1.cpp
 #if ENABLED(VARIABLE_G0_FEEDRATE)
@@ -86,8 +112,12 @@ class MotionService {
     // position info API
     xyze_pos_t sm_current_position;
     xyze_pos_t sm_destination_position;
+    xyze_pos_t sm_position_shift;
     void  update_position_from_platform() {
       sm_current_position = current_position;
+    }
+    void  update_position_shift_from_platform() {
+      sm_position_shift = position_shift;
     }
     float get_current_position(uint8_t axis) {
       update_position_from_platform();
@@ -139,6 +169,17 @@ class MotionService {
     void save_settings();
 
     void run_gcode(char *gcode) {}
+
+    int8_t get_active_coordinate_system() { return gcode.active_coordinate_system; }
+    bool is_original_position_offset() {
+      bool result = true;
+      LOOP_LINEAR_AXES(i) {
+        if (position_shift[i] != gcode.coordinate_system[i]) {
+          result = false;
+        }
+      }
+      return result;
+    }
 
   private:
 

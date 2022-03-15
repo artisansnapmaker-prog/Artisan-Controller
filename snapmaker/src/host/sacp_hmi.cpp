@@ -744,8 +744,6 @@ void HostSACPHMI::handle_subscript(sacp_hmi_message_t &msg) {
   cmd_id  = msg.data[1];
   period = msg.data[2] | msg.data[3]<<8;
 
-  LOG_V("handle_subscript!\n");
-
   // check firstly if someone has register this node of cmd_set & cmd_id
   for (; node_index < SACP_SUBSCRIPTION_NODE_MAX; node_index++) {
     if (subscription_nodes[node_index].cmd_set == cmd_set &&
@@ -810,6 +808,9 @@ void HostSACPHMI::handle_subscript(sacp_hmi_message_t &msg) {
     subscription_clients[client_index].period = portMAX_DELAY;
     subscription_clients[client_index].node = NULL;
     xSemaphoreGive(subscription_lock);
+  }
+  else {
+    LOG_I("subscribe cmd[%x:%x], period[%u]!\n", cmd_set, cmd_id, period);
   }
 
 out_subscript:

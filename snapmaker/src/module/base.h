@@ -326,7 +326,7 @@ class ModuleBase {
     void set_channel(LinkCANChannel ch) { if (ch < LINK_CAN_CH_INVALID) channel = ch; }
 
     ModuleStatus get_status() { return status; }
-    void set_status(ModuleStatus sta) { if (status < MODULE_STATUS_INVALID) status = sta; }
+    void set_status(ModuleStatus sta) { status = sta; }
 
     uint8_t get_function_nodes(function_node_t **nodes) { if (nodes) *nodes = function_nodes; return func_length; }
     void set_function_nodes(function_node_t *nodes, uint8_t len) { function_nodes = nodes; func_length = len; }
@@ -350,6 +350,8 @@ class ModuleBase {
         }
       }
     }
+
+    uint32_t get_sn() { return MODULE_GET_SN(mac); }
 
   // private methods
   protected:

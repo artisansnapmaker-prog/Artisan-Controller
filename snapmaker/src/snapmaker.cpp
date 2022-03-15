@@ -14,7 +14,7 @@
 #include "host/sacp.h"
 #include "service/client_node.h"
 #include "service/job_ctrl.h"
-
+#include "common/utility.h"
 
 SnapmakerPrinter smprinter;
 
@@ -197,6 +197,13 @@ void SnapmakerPrinter::pre_init(void) {
   OUT_WRITE(Y2_STANDBY_PIN_var, LOW);
   OUT_WRITE(Z_STANDBY_PIN_var, LOW);
   OUT_WRITE(Z2_STANDBY_PIN_var, LOW);
+
+  sys_status = SYSTEM_STATUS_IDLE;
+  status_lock = xSemaphoreCreateMutex();
+  if (!status_lock) {
+    LOG_E("snapmaker: status_lock create failed\r\n");
+    while(1);
+  }
 }
 
 
@@ -406,6 +413,120 @@ toolHeadType SnapmakerPrinter::get_toolhead_type(void) {
 
  LOG_E("toolhead unknow\r\n");
  return TH_TYPE_UNKNOW;
+}
+
+enum SystemStatus SnapmakerPrinter::get_sys_status(void) {
+  return sys_status;
+}
+
+err_code_t SnapmakerPrinter::set_sys_status(enum SystemStatus req_status, enum SystemStatus *ret_status) {
+  err_code_t ret;
+
+  LOCK(status_lock, 0);
+  switch (req_status)
+  {
+  case SYSTEM_STATUS_IDLE:
+    // TODO: Can we just set to idle status?
+    sys_status = req_status;
+    ret = E_SUCCESS;
+    break;
+
+  /*********************************************************************************/
+  // job control start
+  case SYSTEM_STATUS_STARTING:
+    if (SYSTEM_STATUS_IDLE == sys_status) {
+      sys_status = req_status;
+      ret = E_SUCCESS;
+    }
+    else {
+      ret = E_BUSY;
+    }
+    break;
+
+  case SYSTEM_STATUS_PRINTING:
+    if (SYSTEM_STATUS_STARTING == sys_status || SYSTEM_STATUS_RESUMING == sys_status) {
+      sys_status = req_status;
+      ret = E_SUCCESS;
+    }
+    else {
+      ret = E_BUSY;
+    }
+    break;
+
+  case SYSTEM_STATUS_PAUSEING:
+    if (SYSTEM_STATUS_PRINTING == sys_status) {
+      sys_status = req_status;
+      ret = E_SUCCESS;
+    }
+    else {
+      ret = E_BUSY;
+    }
+    break;
+
+  case SYSTEM_STATUS_PAUSED:
+    if (SYSTEM_STATUS_PAUSEING == sys_status) {
+      sys_status = req_status;
+      ret = E_SUCCESS;
+    }
+    else {
+      ret = E_BUSY;
+    }
+    break;
+
+  case SYSTEM_STATUS_STOPING:
+    if (SYSTEM_STATUS_PRINTING == sys_status || SYSTEM_STATUS_PAUSED == sys_status) {
+      sys_status = req_status;
+      ret = E_SUCCESS;
+    }
+    else {
+      ret = E_BUSY;
+    }
+    break;
+
+  case SYSTEM_STATUS_STOPED:
+    if (SYSTEM_STATUS_STOPING == sys_status) {
+      sys_status = req_status;
+      ret = E_SUCCESS;
+    }
+    else {
+      ret = E_BUSY;
+    }
+    break;
+
+  case SYSTEM_STATUS_FINISHING:
+    // TODO: do we need this status?
+    sys_status = req_status;
+    ret = E_SUCCESS;
+    break;
+
+  case SYSTEM_STATUS_COMPLETED:
+    // TODO: do we need this status?
+    sys_status = req_status;
+    ret = E_SUCCESS;
+    break;
+
+  case SYSTEM_STATUS_RESUMING:
+    if (SYSTEM_STATUS_PAUSED == sys_status) {
+      sys_status = req_status;
+      ret = E_SUCCESS;
+    }
+    else {
+      ret = E_BUSY;
+    }
+    break;
+  // job control end
+  /*********************************************************************************/
+  
+  default:
+    ret = E_FAILURE;
+    break;
+  }
+
+  if (ret_status)
+    *ret_status = sys_status;
+  UNLOCK(status_lock);
+
+  return ret;
 }
 
 extern "C" {

@@ -30,8 +30,8 @@
 #include "../common/error.h"
 #include "../common/ring_buffer.h"
 #include "../common/type.h"
+#include "../snapmaker.h"
 #include "client_node.h"
-// TODO: include client node header file
 
 
 #define E_JOB_FAILURE                     SACP_RET_FAILURE
@@ -63,20 +63,6 @@ struct GcodeFileInfo {
   uint8_t name[GCODE_FILE_NAME_SIZE];
 };
 
-enum JobStatus {
-  JOB_STATUE_IDLE,
-  JOB_STATUE_STARTING,
-  JOB_STATUE_PRINTING,
-  JOB_STATUE_PAUSING,
-  JOB_STATUE_PAUSED,
-  JOB_STATUE_STOPPING,
-  JOB_STATUE_STOPPED,
-  JOB_STATUE_FINISHING,
-  JOB_STATUE_COMPLETED,
-  JOB_STATUE_RECOVERING,
-  JOB_STATUE_RESUMING,
-};
-
 enum JobNotiy {
   PAUSE_FILM_RUNOUT,
   PAUSE_POWR_LOSE,
@@ -86,7 +72,6 @@ enum JobNotiy {
 typedef float xyzijk_position_t[AXIS_NUM];
 
 struct JobEnv {
-  JobStatus status;                                           /** job current status                                                    */
   toolHeadType type;                                          /** job type :                                                            */
   struct GcodeFileInfo gcode_file_info;                       /** gcode file information                                                */
   uint32_t req_line_num;                                      /** request line number                                                   */
@@ -111,13 +96,11 @@ class JobCtrl {
     err_code_t start(uint8_t client_id, struct GcodeFileInfo *gcodeInfo, toolHeadType th_type);
     err_code_t pause(void);
     err_code_t resume(uint8_t client_id);
-    err_code_t resume(uint8_t client_id, struct JobEnv &env);
     err_code_t stop(void);
 
     // set & get
     err_code_t set_env(struct JobEnv &env);
     struct JobEnv get_env(void);
-    JobStatus get_status(void) { return _env.status; }
     toolHeadType get_type(void) { return _env.type; }
     struct GcodeFileInfo *get_gcode_info(void) { return &_env.gcode_file_info; }
     uint32_t get_cur_linenum(void) { return _env.cur_line_num; }
@@ -141,7 +124,7 @@ class JobCtrl {
     void issue_nodify(void);
     void get_gcodes_from_client(void);
 
-    SemaphoreHandle_t _lock;                                    /** lock, TODO:should use the snapmaker's API                             */
+    SemaphoreHandle_t _lock;                                    /** lock, TODO:should use the snapmaker's API, not the freeRTOS           */
     RingBuffer<uint8_t> _gcode_rb;                              /** ringbuffer for rx the gcode string                                    */
     uint8_t _client_id;                                         /** A pointer to client node,                                             */
     uint32_t _tick_ms;                                          /** use for periodically main loop                                        */

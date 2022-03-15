@@ -52,16 +52,20 @@ void JobCtrl::init(void) {
 }
 
 void JobCtrl::loop(void) {
-  if (!time_after(system_svc.millis(), _tick_ms)) {
+  if (!time_after(smprinter.millis(), _tick_ms)) {
     return;
   }
 
-  _tick_ms = system_svc.millis();
-  if (JOB_STATUE_PRINTING == _env.status) get_gcodes_from_client();
+  _tick_ms = smprinter.millis();
+  
+  if (SYSTEM_STATUS_PRINTING == smprinter.get_sys_status()) {
+    get_gcodes_from_client();
+  }
+
   if (_statistics_log_interval_ms > 0) {
-    if (!time_after(system_svc.millis(), _statistics_log_last_tick_ms + _statistics_log_interval_ms)) {
+    if (!time_after(smprinter.millis(), _statistics_log_last_tick_ms + _statistics_log_interval_ms)) {
       statistics_output();
-      _statistics_log_last_tick_ms = system_svc.millis();
+      _statistics_log_last_tick_ms = smprinter.millis();
     } 
   }
   
@@ -202,8 +206,8 @@ void JobCtrl::statistics_output(void) {
 
 err_code_t JobCtrl::start(uint8_t client_id, struct GcodeFileInfo *gcodeInfo, toolHeadType th_type) {
   // status check
-  if (JOB_STATUE_IDLE != _env.status) {
-    LOG_E("can not start job as current status is not idle\r\n");
+  if (SYSTEM_STATUS_IDLE != smprinter.get_sys_status() && SYSTEM_STTUS_XY_CALIBRATING != smprinter.get_sys_status()) {
+    LOG_E("can not start job as current status is not idle or calibrating\r\n");
     return E_JOB_NOT_IN_IDLE_STATUS;
   }
 
@@ -212,15 +216,26 @@ err_code_t JobCtrl::start(uint8_t client_id, struct GcodeFileInfo *gcodeInfo, to
     return E_JOB_IVALID_GCODE_FILE;
   }
 
-  LOCK(_lock, JOB_LOCK_WAIT_TICK);
-  _env.status = JOB_STATUE_STARTING;
+  if (SYSTEM_STTUS_XY_CALIBRATING == smprinter.get_sys_status()) {
+    // TODO: calibrating print job
+    LOG_I("Start a calibration's printing job\r\n");
+    return E_SUCCESS;
+  }
+
+  if (E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_STARTING, NULL)) {
+    LOG_E("Can to enter SYS_STARTING status\r\n");
+    return E_JOB_FAILURE;
+  }
+  
   if (motion_svc.sm_homing_needed()) {
     if(E_SUCCESS != motion_svc.home()) {
-      _env.status = JOB_STATUE_IDLE;
-      UNLOCK(_lock);
+      // TODO: do I need to check the result?
+      smprinter.set_sys_status(SYSTEM_STATUS_IDLE, NULL);
       return E_JOB_FAILURE;
     }
   }
+
+  LOCK(_lock, JOB_LOCK_WAIT_TICK);
   _client_id = client_id;
   _env.type = th_type;
   _env.gcode_file_info = *(gcodeInfo);
@@ -228,75 +243,108 @@ err_code_t JobCtrl::start(uint8_t client_id, struct GcodeFileInfo *gcodeInfo, to
   _env.req_line_num = 0;
   _gcode_rb.reset();
   _env.time_elape = 0;
-  _env.status = JOB_STATUE_PRINTING;
   _err_get_batch_gcode_cnt = 0;
   UNLOCK(_lock);
+
+  if (E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_PRINTING, NULL)) {
+    LOG_E("Can not enter SYS_PRINTING status");
+    // TODO: send this exception to system
+    return E_JOB_FAILURE;
+  }
 
   return E_SUCCESS;
 }
 
 err_code_t JobCtrl::pause(void) {
-  // status check
-  if (JOB_STATUE_PRINTING != _env.status) {
+  if (SYSTEM_STATUS_PRINTING != smprinter.get_sys_status()) {
     LOG_E("Can not pause a job as current status is no printing\r\n");
     return E_JOB_NOT_IN_WORKING_STATUS;
   }
 
   err_code_t ret;
+  if (E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_PAUSEING, NULL)) {
+    LOG_E("Can to enter SYS_PAUSEING status\r\n");
+    return E_JOB_FAILURE;
+  }
+
   LOCK(_lock, JOB_LOCK_WAIT_TICK);
-  _env.status = JOB_STATUE_PAUSING;
   if (E_SUCCESS != (ret = save_env())) {
-    _env.status = JOB_STATUE_IDLE;
     UNLOCK(_lock);
+    // TODO: do I need to check the result?
+    smprinter.set_sys_status(SYSTEM_STATUS_IDLE, NULL);
     return ret;
   }
+
   _gcode_rb.reset();
   normal_stop();
   if (E_SUCCESS != (ret = machine_standby())) {
-    _env.status = JOB_STATUE_IDLE;
     UNLOCK(_lock);
+    // TODO: do I need to check the result?
+    smprinter.set_sys_status(SYSTEM_STATUS_IDLE, NULL);
     return ret;
   }
-  _env.status = JOB_STATUE_PAUSED;
   UNLOCK(_lock);
+
+  if (E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_PAUSED, NULL)) {
+    LOG_E("Can not enter SYS_PAUSED status");
+    // TODO: send this exception to system
+    return E_JOB_FAILURE;
+  }
 
   return E_SUCCESS;
 }
 
-
 err_code_t JobCtrl::resume(uint8_t client_id) {
   // status check
-  if (JOB_STATUE_PAUSED != _env.status) {
-    LOG_E("can NOT pause a job as current status is NOT printing\r\n");
+  if (SYSTEM_STATUS_PAUSED != smprinter.get_sys_status()) {
+    LOG_E("Can resume a job as current status is no pause\r\n");
     return E_JOB_NOT_IN_PAUSE_STATUS;
+  }
+
+  if (E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_RESUMING, NULL)) {
+    LOG_E("Can to enter SYS_RESUMING status\r\n");
+    return E_JOB_FAILURE;
   }
 
   LOCK(_lock, JOB_LOCK_WAIT_TICK);
   if (!resum_env()) {
-    LOG_E("resume failed\r\n");
-    _env.status = JOB_STATUE_IDLE;
     UNLOCK(_lock);
+    LOG_E("resume failed\r\n");
+    // TODO: do I need to check the result?
+    smprinter.set_sys_status(SYSTEM_STATUS_IDLE, NULL);
     return E_JOB_RESUME_ENV_FAILURE;
   }
+
   _client_id = client_id;
-  _env.status = JOB_STATUE_PRINTING;
   UNLOCK(_lock);
+
+  if (E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_PRINTING, NULL)) {
+    LOG_E("Can not enter SYS_PRINTING status");
+    // TODO: send this exception to system
+    return E_JOB_FAILURE;
+  }
 
   return E_SUCCESS;
 }
 
-err_code_t JobCtrl::resume(uint8_t client_id, struct JobEnv &env) {
-  // TODO: check env
-  _env = env;
-  return resume(client_id);
-}
-
 err_code_t JobCtrl::stop(void) {
+  // status check
+  if (SYSTEM_STATUS_PRINTING != smprinter.get_sys_status() || SYSTEM_STATUS_PAUSED != smprinter.get_sys_status()) {
+    LOG_E("Can resume a job as current status is no pause\r\n");
+    return E_JOB_NOT_IN_PAUSE_STATUS;
+  }
+
   // Just stop, no matter what the status the machin on
   LOCK(_lock, JOB_LOCK_WAIT_TICK);
   machine_standby();
-  _env.status = JOB_STATUE_IDLE;
   UNLOCK(_lock);
+
+  if (E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_IDLE, NULL)) {
+    LOG_E("Can not enter SYS_IDLE status");
+    // TODO: send this exception to system
+    return E_JOB_FAILURE;
+  }
+
   return E_SUCCESS;
 }
 
@@ -315,8 +363,9 @@ bool JobCtrl::consume_a_gcode(uint8_t *cmd, uint16_t max_len, uint32_t *line) {
   uint8_t c;
   uint32_t cmd_len;
 
-  if (JOB_STATUE_PRINTING != _env.status) {
-    return false;
+  if (SYSTEM_STATUS_PRINTING != smprinter.get_sys_status()) {
+    LOG_E("Can resume a job as current status is no printing\r\n");
+    return E_JOB_NOT_IN_WORKING_STATUS;
   }
 
   ret = false;

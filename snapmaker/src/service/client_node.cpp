@@ -34,27 +34,34 @@ ClientNode* ClientNode::client_node_tab[MAX_CLIENT_NODE_NUM];
 
 
 void ClientNode::class_init(void) {
-  LOG_I("client node: client node class int\r\n");
+  err_code_t ret;
+  LOG_I("Client node: client node class int\r\n");
   for (uint8_t i = 0; i < MAX_CLIENT_NODE_NUM; i++) {
     client_node_tab[i] = NULL;
   }
 
   _lock = xSemaphoreCreateMutex();
   if (!_lock) {
-    LOG_E("client node: _lock create failed\r\n");
+    LOG_E("Client node: _lock create failed\r\n");
     while(1);
   }
 
-  LOG_I("client node: register SACP cmd set and cmd id callback");
-  host_hmi.apply_cmd_set_handle(CMD_SET_JOB_CTRL, CMD_ID_JOB_CTRL_NUM);
-  host_hmi.register_callback(CMD_SET_JOB_CTRL, CMD_ID_JOB_CTRL_START, NULL, sacp_cb);
-  host_hmi.register_callback(CMD_SET_JOB_CTRL, CMD_ID_JOB_CTRL_PAUSE, NULL, sacp_cb);
-  host_hmi.register_callback(CMD_SET_JOB_CTRL, CMD_ID_JOB_CTRL_RESUME, NULL, sacp_cb);
-  host_hmi.register_callback(CMD_SET_JOB_CTRL, CMD_ID_JOB_CTRL_STOP, NULL, sacp_cb);
+  LOG_I("Client node: register SACP cmd set and cmd id callback");
+  ret = E_SUCCESS;
+  ret |= host_hmi.apply_cmd_set_handle(CMD_SET_JOB_CTRL, CMD_ID_JOB_CTRL_NUM);
+  ret |= host_hmi.register_callback(CMD_SET_JOB_CTRL, CMD_ID_JOB_CTRL_START, NULL, sacp_cb);
+  ret |= host_hmi.register_callback(CMD_SET_JOB_CTRL, CMD_ID_JOB_CTRL_PAUSE, NULL, sacp_cb);
+  ret |= host_hmi.register_callback(CMD_SET_JOB_CTRL, CMD_ID_JOB_CTRL_RESUME, NULL, sacp_cb);
+  ret |= host_hmi.register_callback(CMD_SET_JOB_CTRL, CMD_ID_JOB_CTRL_STOP, NULL, sacp_cb);
 
   // register subscribe to SACP
-  LOG_I("client node: register SACP subscription callback");
-  host_hmi.register_subscription(CMD_SET_JOB_CTRL, SUB_ID_JOB_CTRL_CUR_LINE_NUM, (void *)subscribe_cb, subscribe_cb);
+  LOG_I("Client node: register SACP subscription callback");
+  ret |= host_hmi.register_subscription(CMD_SET_JOB_CTRL, SUB_ID_JOB_CTRL_CUR_LINE_NUM, (void *)subscribe_cb, subscribe_cb);
+
+  if (E_SUCCESS != ret) {
+    LOG_E("Can not register sacp callback\r\n");
+    while(1);
+  }
 }
 
 err_code_t ClientNode::sacp_cb(void *obj, sacp_hmi_message_t *msg) {
@@ -188,6 +195,7 @@ err_code_t ClientNode::sacp_handle(sacp_hmi_message_t *msg) {
 }
 
 err_code_t ClientNode::req_start_job(sacp_hmi_message_t *msg) {
+  _peer = msg->peer;
   LOG_I("client %d request start a job\r\n", _peer);
 
   err_code_t ret;

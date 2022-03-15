@@ -80,10 +80,6 @@
 
 //Types of event function callbacks
 typedef std::function<err_code_t(sacp_hmi_message_t&)> evevnt_cb_f;
-typedef struct {
-  uint8_t cmd_id;
-  evevnt_cb_f cb;
-} event_cb_itme_t;
 
 typedef struct {
   uint32_t line_num;

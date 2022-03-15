@@ -135,11 +135,11 @@ void JobCtrl::notify() {
 }
 
 void JobCtrl::quit_stop() {
-
+  motion_svc.quickstop();
 }
 
 void JobCtrl::normal_stop() {
-
+  LOG_I("Normal stop\r\n");
 }
 
 void JobCtrl::get_gcodes_from_client(void) {
@@ -237,8 +237,8 @@ err_code_t JobCtrl::start(uint8_t client_id, struct GcodeFileInfo *gcodeInfo, to
 
 err_code_t JobCtrl::pause(void) {
   // status check
-  if (JOB_STATUE_PRINTING != _env.status || JOB_STATUE_STARTING != _env.status) {
-    LOG_E("can not pause a job as current status is no printing\r\n");
+  if (JOB_STATUE_PRINTING != _env.status) {
+    LOG_E("Can not pause a job as current status is no printing\r\n");
     return E_JOB_NOT_IN_WORKING_STATUS;
   }
 
@@ -246,6 +246,7 @@ err_code_t JobCtrl::pause(void) {
   LOCK(_lock, JOB_LOCK_WAIT_TICK);
   _env.status = JOB_STATUE_PAUSING;
   if (E_SUCCESS != (ret = save_env())) {
+    _env.status = JOB_STATUE_IDLE;
     UNLOCK(_lock);
     return ret;
   }

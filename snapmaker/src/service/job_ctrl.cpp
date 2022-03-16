@@ -48,6 +48,7 @@ void JobCtrl::init(void) {
   _gcode_rb.init(rb_buf, (int32_t)GCODE_RB_SIZE);
   _statistics_log_interval_ms = 0;
   _statistics_log_last_tick_ms = 0;
+  _env.gfi_valid = false;
   _resume_feedrate = RESUME_FEEDRATE;
 }
 
@@ -85,7 +86,6 @@ err_code_t JobCtrl::save_env(void) {
   }
   if (TH_TYPE_3DP == _env.type)
     _env.bed_temp = motion_svc.get_bet_temp();
-
   _env.cur_line_num = smprinter.gcode_file_position;
   _env.print_feadrate = motion_svc.get_feedrate();
   _env.travel_feadrate = motion_svc.get_travl_feedrate();
@@ -107,7 +107,7 @@ err_code_t JobCtrl::resum_env(void) {
   if (smprinter.get_toolhead_type() != _env.type) {
     return E_JOB_UNSUPPORT_PARAM;
   }
-  if (!cur_toolhead->save_env(_env.toolhead_env_buf, _env.toolhead_env_buf_size)) {
+  if (!cur_toolhead->resume_env(_env.toolhead_env_buf, _env.toolhead_env_buf_size)) {
     LOG_E("can not resume toolhead\r\n");
     return E_JOB_RESUME_ENV_FAILURE;
   }
@@ -131,6 +131,34 @@ err_code_t JobCtrl::resum_env(void) {
 err_code_t JobCtrl::machine_standby(void) {
   // TODO:
   LOG_I("machine standby\r\n");
+
+  switch (_env.type)
+  {
+  case TH_TYPE_3DP:
+    /* code */
+    motion_svc.set_relative_mode(true);
+    motion_svc.moveto_e(-10, 600, true);
+    smprinter.fdm->set_fan_speed(0, 0, 0);    // left mode fan
+    smprinter.fdm->set_fan_speed(1, 0, 0);    // right mode fan
+    smprinter.fdm->set_hotend_temp(0, 0);     // set index 0 hotend
+    smprinter.fdm->set_hotend_temp(0, 1);     // set index 1 hotend
+    LOG_I("Z raise to highest");
+    LOG_I("x move to left");
+    LOG_I("x move to from");
+    break;
+  
+  case TH_TYPE_CNC:
+    /* code */
+    break;
+
+  case TH_TYPE_LASER:
+    /* code */
+    break;
+
+  default:
+    break;
+  }
+
   return E_SUCCESS;
 }
 
@@ -139,11 +167,11 @@ void JobCtrl::notify() {
 }
 
 void JobCtrl::quit_stop() {
-  motion_svc.quickstop();
+  // motion_svc.quickstop();
 }
 
 void JobCtrl::normal_stop() {
-  LOG_I("Normal stop\r\n");
+  motion_svc.quickstop();
 }
 
 void JobCtrl::get_gcodes_from_client(void) {
@@ -244,6 +272,7 @@ err_code_t JobCtrl::start(uint8_t client_id, struct GcodeFileInfo *gcodeInfo, to
   _gcode_rb.reset();
   _env.time_elape = 0;
   _err_get_batch_gcode_cnt = 0;
+  _env.gfi_valid = true;
   UNLOCK(_lock);
 
   if (E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_PRINTING, NULL)) {
@@ -274,8 +303,6 @@ err_code_t JobCtrl::pause(void) {
     smprinter.set_sys_status(SYSTEM_STATUS_IDLE, NULL);
     return ret;
   }
-
-  _gcode_rb.reset();
   normal_stop();
   if (E_SUCCESS != (ret = machine_standby())) {
     UNLOCK(_lock);
@@ -283,6 +310,7 @@ err_code_t JobCtrl::pause(void) {
     smprinter.set_sys_status(SYSTEM_STATUS_IDLE, NULL);
     return ret;
   }
+  _gcode_rb.reset();
   UNLOCK(_lock);
 
   if (E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_PAUSED, NULL)) {

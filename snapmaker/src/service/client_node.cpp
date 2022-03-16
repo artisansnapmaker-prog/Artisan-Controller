@@ -35,9 +35,16 @@ ClientNode* ClientNode::client_node_tab[MAX_CLIENT_NODE_NUM];
 
 void ClientNode::class_init(void) {
   err_code_t ret;
+
   LOG_I("Client node: client node class int\r\n");
   for (uint8_t i = 0; i < MAX_CLIENT_NODE_NUM; i++) {
-    client_node_tab[i] = NULL;
+    ClientNode *new_cn = new ClientNode(IVALID_PEER, IVALID_CH);
+    if (new_cn)
+      client_node_tab[i] = new_cn;
+    else {
+      LOG_E("Can not new the clinet node");
+      while(1);
+    }
   }
 
   _lock = xSemaphoreCreateMutex();
@@ -48,15 +55,25 @@ void ClientNode::class_init(void) {
 
   LOG_I("Client node: register SACP cmd set and cmd id callback");
   ret = E_SUCCESS;
-  ret |= host_hmi.apply_cmd_set_handle(CMD_SET_JOB_CTRL, CMD_ID_JOB_CTRL_NUM);
-  ret |= host_hmi.register_callback(CMD_SET_JOB_CTRL, CMD_ID_JOB_CTRL_START, NULL, sacp_cb);
-  ret |= host_hmi.register_callback(CMD_SET_JOB_CTRL, CMD_ID_JOB_CTRL_PAUSE, NULL, sacp_cb);
-  ret |= host_hmi.register_callback(CMD_SET_JOB_CTRL, CMD_ID_JOB_CTRL_RESUME, NULL, sacp_cb);
-  ret |= host_hmi.register_callback(CMD_SET_JOB_CTRL, CMD_ID_JOB_CTRL_STOP, NULL, sacp_cb);
 
-  // register subscribe to SACP
+  // job control
+  ret |= host_hmi.apply_cmd_set_handle(CMD_SET_JOB_CTRL, CMD_ID_JOB_CTRL_NUM);
+  ret |= host_hmi.register_callback(CMD_SET_JOB_CTRL, CMD_ID_JOB_GET_GCODE_FILE_INFO, NULL, sacp_cb);
+  ret |= host_hmi.register_callback(CMD_SET_JOB_CTRL, CMD_ID_JOB_CTRL_START, NULL, sacp_cb, SACP_CB_ATTR_BLOCKED_WITH_MOTION);
+  ret |= host_hmi.register_callback(CMD_SET_JOB_CTRL, CMD_ID_JOB_CTRL_PAUSE, NULL, sacp_cb, SACP_CB_ATTR_BLOCKED_WITH_MOTION);
+  ret |= host_hmi.register_callback(CMD_SET_JOB_CTRL, CMD_ID_JOB_CTRL_RESUME, NULL, sacp_cb, SACP_CB_ATTR_BLOCKED_WITH_MOTION);
+  ret |= host_hmi.register_callback(CMD_SET_JOB_CTRL, CMD_ID_JOB_CTRL_STOP, NULL, sacp_cb, SACP_CB_ATTR_BLOCKED_WITH_MOTION);
+  // register subscibtion
   LOG_I("Client node: register SACP subscription callback");
-  ret |= host_hmi.register_subscription(CMD_SET_JOB_CTRL, SUB_ID_JOB_CTRL_CUR_LINE_NUM, (void *)subscribe_cb, subscribe_cb);
+  ret |= host_hmi.register_subscription(CMD_SET_JOB_CTRL, SUB_ID_JOB_CTRL_CUR_LINE_NUM, (void *)job_ctrl_linenum_sub_cb, job_ctrl_linenum_sub_cb);
+
+  // system
+  ret |= host_hmi.apply_cmd_set_handle(CMD_SET_SYS, CMD_ID_SYS_NUM);
+  ret |= host_hmi.register_callback(CMD_SET_SYS, CMD_ID_SYS_SET_ECHO_LOG, NULL, sacp_cb);
+  ret |= host_hmi.register_callback(CMD_SET_SYS, CMD_ID_SYS_SET_PC_CH_PRO, NULL, sacp_cb);
+  ret |= host_hmi.register_callback(CMD_SET_SYS, CMD_ID_SYS_SET_DEBUG_MODE, NULL, sacp_cb);
+  // register subscibtion
+  ret |= host_hmi.register_subscription(CMD_SET_SYS, SUB_ID_SYS_HARDTICK, (void *)sys_hardtick_sub_cb, sys_hardtick_sub_cb);
 
   if (E_SUCCESS != ret) {
     LOG_E("Can not register sacp callback\r\n");
@@ -72,46 +89,52 @@ err_code_t ClientNode::sacp_cb(void *obj, sacp_hmi_message_t *msg) {
     return cn->sacp_handle(msg);
   }
   else {
-    ClientNode *new_cn = new ClientNode(msg->peer, msg->ch);
+    ClientNode *new_cn = malloc_client_node(msg->peer, msg->ch);
     if (!new_cn) {
-      LOG_E("can not new this client node\r\n");
+      LOG_E("can not malloc a client node\r\n");
       host_hmi.send_ack(msg, SACP_RET_NO_MEM);
       return E_FAILURE;
     }
-    else {
-      if (E_SUCCESS == add_client_node(new_cn)) {
-        return new_cn->sacp_handle(msg);
-      }
-      else {
-        LOG_E("can not add this client node to list\r\n");
-        delete new_cn;
-        host_hmi.send_ack(msg, SACP_RET_NO_MEM);
-        return E_FAILURE;
-      }
-    }
+
+    return new_cn->sacp_handle(msg);
   }
 }
 
 ClientNode *ClientNode::find_client_node(uint32_t peer) {
   for(uint8_t i = 0; i < MAX_CLIENT_NODE_NUM; i++) {
-    if (peer == client_node_tab[i]->_peer) {
+    if (client_node_tab[i] && peer == client_node_tab[i]->_peer) {
       return client_node_tab[i];
     }
   }
   return NULL;
 }
 
-err_code_t ClientNode::add_client_node(ClientNode *cn) {
+ClientNode * ClientNode::malloc_client_node(uint32_t peer, uint8_t ch) {
   LOCK(_lock, 0);
   for(uint8_t i = 0; i < MAX_CLIENT_NODE_NUM; i++) {
-    if (NULL == client_node_tab[i]) {
-      client_node_tab[i] = cn;
+    if (client_node_tab[i] && IVALID_PEER == client_node_tab[i]->_peer) {
+      client_node_tab[i]->_peer = peer;
+      client_node_tab[i]->_ch = ch;
       UNLOCK(_lock);
-      return E_SUCCESS;
+      return client_node_tab[i];
     }
   }
   UNLOCK(_lock);
-  return E_NO_RESRC;
+  return NULL;
+}
+
+err_code_t ClientNode::del_client_node(uint32_t peer) {
+  ClientNode *cn = find_client_node(peer);
+  if (!cn) 
+    return E_FAILURE;
+  return del_client_node(cn);
+}
+
+err_code_t ClientNode::del_client_node(ClientNode *cn) {
+  // TODO: should we need to lock?
+  cn->_peer = IVALID_PEER;
+  cn->_ch = IVALID_CH;
+  return E_SUCCESS;
 }
 
 bool ClientNode::get_batch_gcode(uint8_t client_id, req_batch_gcode_t &req_batch_gcode, res_batch_gcode_t &res_batch_gcode) {
@@ -127,13 +150,22 @@ bool ClientNode::get_batch_gcode(uint8_t client_id, req_batch_gcode_t &req_batch
   }
 }
 
-uint16_t ClientNode::subscribe_cb(void *obj, uint8_t *buffer) {
-  // TODO:
-  return 0;
+uint16_t ClientNode::job_ctrl_linenum_sub_cb(void *obj, uint8_t *buffer) {
+  uint32_t ln;
+  ln = job_ctrl_svc.get_cur_linenum();
+  _32_TO_LITTLE_STREAM(ln, buffer);
+  return 4;
+}
+
+uint16_t ClientNode::sys_hardtick_sub_cb(void *obj, uint8_t *buffer) {
+  buffer[0] = E_SUCCESS;
+  buffer[1] = smprinter.get_sys_status();
+  return 2;
 }
 
 err_code_t ClientNode::init(void) {
-  LOG_I("register softer time to handle hardtick\r\n");
+  // LOG_I("register softer time to handle hardtick\r\n");
+  return E_SUCCESS;
 }
 
 void ClientNode::timer_cb(void *p) {
@@ -171,6 +203,10 @@ bool ClientNode::sacp_get_batch_gcode(req_batch_gcode_t &req_batch_gcode, res_ba
 err_code_t ClientNode::sacp_handle(sacp_hmi_message_t *msg) {
   
   switch (msg->cmd_id) {
+    case CMD_ID_JOB_GET_GCODE_FILE_INFO:
+      return get_gcode_info(msg);
+    break;
+
     case CMD_ID_JOB_CTRL_START:
       return req_start_job(msg);
     break;
@@ -192,6 +228,44 @@ err_code_t ClientNode::sacp_handle(sacp_hmi_message_t *msg) {
       return E_FAILURE;
     break;
   }
+}
+
+err_code_t ClientNode::get_gcode_info(sacp_hmi_message_t* msg) {
+  uint16_t str_len;
+  struct GcodeFileInfo *gfi;
+  uint8_t *p = msg->data;
+
+  gfi = job_ctrl_svc.get_gcode_info();
+  if (gfi) {
+    p[0] = SACP_RET_SUCCESS;
+    
+    _16_TO_LITTLE_STREAM(GCODE_MD5_LENGTH, p);
+    p += 2;
+    memcpy(p, gfi->MD5, GCODE_MD5_LENGTH);
+    p += GCODE_MD5_LENGTH;
+
+    str_len = strlen((char *)gfi->name);
+    _16_TO_LITTLE_STREAM(str_len, p);
+    p += 2;
+    memcpy(p, gfi->name, str_len);
+    p += str_len;
+  }
+  else {
+    p[0] = SACP_RET_JOB_GCODE_FILE_NO_EXIT;
+
+    // dummy data
+    _16_TO_LITTLE_STREAM(GCODE_MD5_LENGTH, p);
+    p += 2;
+    memset(p, GCODE_MD5_LENGTH, 0);
+    p += GCODE_MD5_LENGTH;
+
+    _16_TO_LITTLE_STREAM(GCODE_FILE_NAME_SIZE, p);
+    p += 2;
+    memset(p, GCODE_FILE_NAME_SIZE, 0);
+    p += GCODE_FILE_NAME_SIZE;
+  }
+  msg->length = p - msg->data;
+  return host_hmi.send(msg);
 }
 
 err_code_t ClientNode::req_start_job(sacp_hmi_message_t *msg) {
@@ -234,6 +308,10 @@ err_code_t ClientNode::req_start_job(sacp_hmi_message_t *msg) {
   }
 
   // send starting
+  ret = host_hmi.send_ack(msg, SACP_RET_EXECUTING);
+  // TODO: do we need to check this ret?
+
+  // starting
   ret = job_ctrl_svc.start(_peer, &gfi, type);
 
 _out:

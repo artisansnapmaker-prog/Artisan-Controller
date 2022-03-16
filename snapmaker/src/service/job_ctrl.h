@@ -73,6 +73,7 @@ typedef float xyzijk_position_t[AXIS_NUM];
 
 struct JobEnv {
   toolHeadType type;                                          /** job type :                                                            */
+  bool gfi_valid;                                             /** gcode file information valid                                          */
   struct GcodeFileInfo gcode_file_info;                       /** gcode file information                                                */
   uint32_t req_line_num;                                      /** request line number                                                   */
   uint32_t cur_line_num;                                      /** current linenumber, use with gcode file to save the job point         */
@@ -102,7 +103,7 @@ class JobCtrl {
     err_code_t set_env(struct JobEnv &env);
     struct JobEnv get_env(void);
     toolHeadType get_type(void) { return _env.type; }
-    struct GcodeFileInfo *get_gcode_info(void) { return &_env.gcode_file_info; }
+    struct GcodeFileInfo *get_gcode_info(void) { return _env.gfi_valid? &_env.gcode_file_info : NULL; }
     uint32_t get_cur_linenum(void) { return _env.cur_line_num; }
     uint32_t get_time_elaps(void) { return _env.time_elape; }
     void statistics_log_set(uint32_t interval_ms) { _statistics_log_interval_ms = interval_ms; };

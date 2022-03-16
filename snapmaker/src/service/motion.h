@@ -64,7 +64,7 @@ class MotionService {
     void moveto(float target[AXIS_NUM], float feedrate, bool blocked=true);
     void synchronize_planner() { planner.synchronize(); }
     bool is_all_axes_homed() {return all_axes_homed();}
-    void quickstop(void) {quickstop_stepper();} ;
+    void quickstop(void) {quickstop_stepper();}
 
     // home API
     bool sm_homing_needed() { return homing_needed(); }

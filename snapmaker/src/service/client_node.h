@@ -37,17 +37,27 @@
 
 #define MAX_CLIENT_NODE_NUM                           4
 #define SEND_BUF_SIZE                                 256
+// TODO: this should define in the SACP
+#define IVALID_PEER                                   0xFFFFFFFF
+#define IVALID_CH                                     0xFF
 
 #define CMD_SET_JOB_CTRL                              (0xAC)
+#define CMD_ID_JOB_GET_GCODE_FILE_INFO                (0x00)
 #define CMD_ID_JOB_CTRL_ISSUE                         (0x01)
 #define CMD_ID_JOB_CTRL_REQ_GCODE                     (0x02)
 #define CMD_ID_JOB_CTRL_START                         (0x03)
 #define CMD_ID_JOB_CTRL_PAUSE                         (0x04)
 #define CMD_ID_JOB_CTRL_RESUME                        (0x05)
 #define CMD_ID_JOB_CTRL_STOP                          (0x06)
-#define SUB_ID_JOB_CTRL_CUR_LINE_NUM                  (0xA0)
 #define CMD_ID_JOB_CTRL_NUM                           (10)
-#define SUB_NUM_JOB_CTRL                              (1)
+#define SUB_ID_JOB_CTRL_CUR_LINE_NUM                  (0xA0)
+
+#define CMD_SET_SYS                                   (1)
+#define CMD_ID_SYS_SET_ECHO_LOG                       (10)
+#define CMD_ID_SYS_SET_PC_CH_PRO                      (11)  // TODO: should we need this cmd id?
+#define CMD_ID_SYS_SET_DEBUG_MODE                     (12)  // TODO: should we need this cmd id?
+#define CMD_ID_SYS_NUM                                (3)
+#define SUB_ID_SYS_HARDTICK                           (0xA0)
 
 #define SACP_RET_SUCCESS                              E_SUCCESS
 #define SACP_RET_EXECUTING                            E_EXECUTING
@@ -98,12 +108,14 @@ class ClientNode {
     static void class_init(void);
 
     static ClientNode *find_client_node(uint32_t peer);
-    static err_code_t add_client_node(ClientNode *cn);
-    // TODO: client node delete() and client node?
+    static ClientNode *malloc_client_node(uint32_t peer, uint8_t ch);
+    static err_code_t del_client_node(uint32_t peer);
+    static err_code_t del_client_node(ClientNode *cn);
 
     static err_code_t sacp_cb(void *obj, sacp_hmi_message_t *);
     static bool get_batch_gcode(uint8_t client_id, req_batch_gcode_t &req_batch_gcode, res_batch_gcode_t &res_batch_gcode);
-    static uint16_t subscribe_cb(void *obj, uint8_t *buffer);
+    static uint16_t job_ctrl_linenum_sub_cb(void *obj, uint8_t *buffer);
+    static uint16_t sys_hardtick_sub_cb(void *obj, uint8_t *buffer);
 
   private:
     static SemaphoreHandle_t _lock;
@@ -115,17 +127,17 @@ class ClientNode {
     err_code_t init(void);
     void timer_cb(void *p);
     bool sacp_get_batch_gcode(req_batch_gcode_t &req_batch_gcode, res_batch_gcode_t &res_batch_gcode);
+  
+    uint32_t _peer;
+    uint8_t _ch;
 
   private:
     err_code_t sacp_handle(sacp_hmi_message_t*);
+    err_code_t get_gcode_info(sacp_hmi_message_t*);
     err_code_t req_start_job(sacp_hmi_message_t*);
     err_code_t req_pause_job(sacp_hmi_message_t*);
     err_code_t req_resume_job(sacp_hmi_message_t*);
     err_code_t req_stop_job(sacp_hmi_message_t*);
-
-  private:
-    uint32_t _peer;
-    uint8_t _ch;
 };
 
 

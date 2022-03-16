@@ -143,6 +143,7 @@ class MotionService {
     bool leveling_active() { return planner.leveling_active; }
     void disable_leveling() {set_bed_leveling_enabled(false);}
     void enable_leveling() {set_bed_leveling_enabled(true);}
+    uint8_t get_leveling_grids();
     void set_leveling_grids(uint8_t grids);
     void enable_z_probe() {endstops.enable_z_probe(true);}
     void disable_z_probe() {endstops.enable_z_probe(false);}

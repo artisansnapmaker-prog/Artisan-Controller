@@ -24,13 +24,22 @@
 #include "../config.h"
 #include "motion.h"
 
-#define CALIBRATION_PAPER_THICKNESS   0.0
+#define CALIBRATION_PAPER_THICKNESS   0.1
+
+// level mode
+#define BEDLEVEL_MODE_IDLE                    0
+#define BEDLEVEL_MODE_AUTO                    2
+#define BEDLEVEL_MODE_MANUAL                  3
+#define BEDLEVEL_MODE_AUTO_BED_DETECTION      52
+#define BEDLEVEL_MODE_MANUAL_BED_DETECTION    53
+#define BEDLEVEL_MODE_PROBE_SENSOR_CALIBRATE  54
+
 class BedLevelService {
   public:
     BedLevelService() {
+      bedlevel_mode = BEDLEVEL_MODE_IDLE;
       z_compensation_[0] = 1.5;
       z_compensation_[1] = 1.5;
-      live_z_offset_ = 0;
     }
 
     void init();
@@ -47,16 +56,25 @@ class BedLevelService {
     err_code_t probe_sensor_calibration(float x, float y);
     err_code_t confirm_probe_sensor_calibration(uint8_t e);
     err_code_t work_height_auto_detection();
+    err_code_t set_bedlevel_mode(uint8_t mode);
+    uint8_t get_bedlevel_mode();
+    bool is_bedleveled();
+    void set_end_leveling_process_status(bool status);
+    bool get_end_leveling_process_status();
 
 
     float z_values_[GRID_MAX_NUM][GRID_MAX_NUM];
     float z_compensation_[EXTRUDERS];
-  private:
+    float detected_bed_z_values[EXTRUDERS];
     float hotend_triggered_z_[EXTRUDERS];
     float hotend_touch_bed_z_[EXTRUDERS];
+    float live_z_offset[EXTRUDERS];
+  private:
+    uint8_t bedlevel_mode;
     uint8_t manual_leveling_point_index_;
     float manual_leveling_z_values_[GRID_MAX_NUM*GRID_MAX_NUM];
-    float live_z_offset_;
+    bool is_bed_leveled;
+    bool end_of_leveling_process;
 };
 
 

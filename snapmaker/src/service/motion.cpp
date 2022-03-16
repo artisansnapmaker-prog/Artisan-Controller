@@ -285,6 +285,10 @@ uint16_t MotionService::get_bet_temp(void) {
   return thermalManager.wait_for_bed();
 }
 
+uint8_t MotionService::get_leveling_grids() {
+  return GRID_MAX_POINTS_X;
+}
+
 void MotionService::set_leveling_grids(uint8_t grids) {
   GRID_MAX_POINTS_X = grids;
   GRID_MAX_POINTS_Y = grids;

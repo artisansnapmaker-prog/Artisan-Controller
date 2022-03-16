@@ -9,7 +9,7 @@ BedLevelService bedlevel_svc;
 reference links: https://snapmaker2.atlassian.net/wiki/spaces/SNAP/pages/1984824804/FDM?focusedCommentId=2010743286#comment-2010743286
 *************************************************************************************************************************************/
 typedef enum {
-  BEDLEVEL_REQ_CMD_ID_SET_LEVEL_MODE           = 0x01,
+  BEDLEVEL_REQ_CMD_ID_SET_LEVEL_MODE           = 0x00,
   BEDLEVEL_REQ_CMD_ID_START_LEVEL              = 0x03,
   BEDLEVEL_REQ_CMD_ID_GOTO_PROBE_POINT         = 0x04,
   BEDLEVEL_REQ_CMD_ID_EXIT_LEVEL               = 0x06,
@@ -49,41 +49,349 @@ void BedLevelService::init() {
 
 // hmi request callback
 static err_code_t hmi_req_callback_set_level_mode(void *obj, sacp_hmi_message_t *msg) {
+  BedLevelService &bedlevel = *(BedLevelService *)obj;
+  err_code_t ret;
 
+  ret = bedlevel.set_bedlevel_mode(msg->data[0]);
+  bedlevel.set_end_leveling_process_status(false);
+
+  msg->data[0] = ret;
+  msg->length  = 1;
+  host_hmi.send(msg);
+
+  return ret;
 }
 
 static err_code_t hmi_req_callback_start_level(void *obj, sacp_hmi_message_t *msg) {
+  BedLevelService &bedlevel = *(BedLevelService *)obj;
+  err_code_t ret = E_SUCCESS;
+  uint8_t grid;
 
+  uint8_t mode = bedlevel.get_bedlevel_mode();
+  if ((mode != BEDLEVEL_MODE_AUTO) && (mode != BEDLEVEL_MODE_MANUAL)) {
+    ret = E_BUSY;
+    goto EXIT;
+  }
+
+  // need to determine the current system status
+
+  grid = msg->data[0];
+  if (grid < 2 && grid > 11) {
+    ret = E_PARAM;
+    goto EXIT;
+  }
+
+  if (mode == BEDLEVEL_MODE_AUTO) {
+    ret = bedlevel.start_auto_bed_leveling(grid);
+  } else if (mode == BEDLEVEL_MODE_MANUAL) {
+    ret = bedlevel.start_manual_bed_leveling(grid);
+  }
+
+EXIT:
+  uint8_t index = 0;
+  msg->data[index++] = ret;
+  msg->length = index;
+  host_hmi.send(msg);
+  return ret;
 }
 
 static err_code_t hmi_req_callback_goto_probe_point(void *obj, sacp_hmi_message_t *msg) {
+  BedLevelService &bedlevel = *(BedLevelService *)obj;
+  err_code_t ret;
+  uint8_t point_index;
 
+  uint8_t mode = bedlevel.get_bedlevel_mode();
+  if (mode != BEDLEVEL_MODE_MANUAL) {
+    ret = E_BUSY;
+    goto EXIT;
+  }
+
+  // need to determine the current system status
+
+  point_index = msg->data[0];
+  ret = bedlevel.goto_leveling_point(point_index);
+
+EXIT:
+  uint8_t index = 0;
+  msg->data[index++] = ret;
+  msg->length = index;
+  host_hmi.send(msg);
+  return ret;
 }
 
 static err_code_t hmi_req_callback_exit_level(void *obj, sacp_hmi_message_t *msg) {
+  BedLevelService &bedlevel = *(BedLevelService *)obj;
+  err_code_t ret = E_SUCCESS;
 
+  if (!bedlevel.get_end_leveling_process_status()) {
+    ret = E_FAILURE;
+    goto EXIT;
+  }
+
+  if ((bedlevel.get_bedlevel_mode() == BEDLEVEL_MODE_AUTO_BED_DETECTION) || (bedlevel.get_bedlevel_mode() == BEDLEVEL_MODE_MANUAL_BED_DETECTION)) {
+    if (bedlevel.get_end_leveling_process_status()) {
+      bedlevel.detected_bed_z_values[1] = motion_svc.get_current_position(Z_AXIS);
+      smprinter.fdm->tool_change(0, false);
+      if (bedlevel.get_bedlevel_mode() == BEDLEVEL_MODE_AUTO_BED_DETECTION) {
+        smprinter.fdm->set_hotend_offset((bedlevel.detected_bed_z_values[0] + bedlevel.z_compensation_[0]) - (bedlevel.detected_bed_z_values[1] + bedlevel.z_compensation_[1]), Z_AXIS);
+      } else if (bedlevel.get_bedlevel_mode() == BEDLEVEL_MODE_MANUAL_BED_DETECTION) {
+        smprinter.fdm->set_hotend_offset(bedlevel.detected_bed_z_values[0] - bedlevel.detected_bed_z_values[1], Z_AXIS);
+      }
+
+      float diff = bedlevel.detected_bed_z_values[0] - bedlevel.z_values_[0][0];
+      uint8_t grids = motion_svc.get_leveling_grids();
+      for (uint32_t i = 0; i < grids; i++) {
+        for (uint32_t j = 0; j < grids; j++) {
+          bedlevel.z_values_[i][j] += diff;
+        }
+      }
+
+      motion_svc.sync_z_values_to_platform();
+      motion_svc.extrapolate_unprobed_points();
+      motion_svc.interpolate_virt_points();
+      motion_svc.print_leveling_grid();
+      motion_svc.print_leveling_grid_virt();
+      motion_svc.disable_z_probe();
+      motion_svc.save_settings();
+      motion_svc.enable_leveling();
+      motion_svc.moveto_z(motion_svc.get_current_position(Z_AXIS)+100, 30);
+    }
+
+    goto EXIT;
+  }
+
+  if (bedlevel.get_bedlevel_mode() == BEDLEVEL_MODE_PROBE_SENSOR_CALIBRATE) {
+    if (bedlevel.get_end_leveling_process_status()) {
+      bedlevel.hotend_touch_bed_z_[0] = motion_svc.get_current_position(Z_AXIS);
+      bedlevel.z_compensation_[0] = bedlevel.hotend_touch_bed_z_[0] - CALIBRATION_PAPER_THICKNESS - bedlevel.hotend_triggered_z_[0];
+      bedlevel.z_compensation_[1] = bedlevel.hotend_touch_bed_z_[1] - CALIBRATION_PAPER_THICKNESS - bedlevel.hotend_triggered_z_[1];
+      // save to module
+      // todo
+    }
+  }
+
+
+  bedlevel.set_bedlevel_mode(BEDLEVEL_MODE_IDLE);
+
+EXIT:
+  uint8_t index = 0;
+  msg->data[index++] = ret;
+  msg->length = index;
+  host_hmi.send(msg);
+  return ret;
 }
 
 static err_code_t hmi_req_callback_get_level_state(void *obj, sacp_hmi_message_t *msg) {
+  BedLevelService &bedlevel = *(BedLevelService *)obj;
 
+  msg->data[0] = bedlevel.is_bedleveled();
+  msg->length = 1;
+  host_hmi.send(msg);
+  return E_SUCCESS;
 }
 
 static err_code_t hmi_req_callback_bed_position_detection(void *obj, sacp_hmi_message_t *msg) {
+  BedLevelService &bedlevel = *(BedLevelService *)obj;
+  err_code_t ret = E_SUCCESS;
+  uint8_t extruder_index = msg->data[0];
 
+  if ((bedlevel.get_bedlevel_mode() != BEDLEVEL_MODE_AUTO_BED_DETECTION) && (bedlevel.get_bedlevel_mode() != BEDLEVEL_MODE_MANUAL_BED_DETECTION)) {
+    ret = E_FAILURE;
+    goto EXIT;
+  }
+
+  motion_svc.disable_leveling();
+
+  if (extruder_index == 1) {
+    bedlevel.detected_bed_z_values[0] = motion_svc.get_current_position(Z_AXIS);
+    motion_svc.moveto_z(motion_svc.get_current_position(Z_AXIS) + 5, 10);
+    smprinter.fdm->tool_change(1, false);
+    bedlevel.set_end_leveling_process_status(true);
+  }
+
+  motion_svc.moveto_xy(200, 200, 60);
+  motion_svc.moveto_z(20, 30);
+
+  if (bedlevel.get_bedlevel_mode() == BEDLEVEL_MODE_AUTO_BED_DETECTION) {
+    motion_svc.enable_z_probe();
+    if (extruder_index == 0) {
+      smprinter.fdm->set_probe_sensor(PROBE_SENSOR_LEFT_OPTOCOUPLER);
+    } else if (extruder_index == 1) {
+      smprinter.fdm->set_probe_sensor(PROBE_SENSOR_RIGHT_OPTOCOUPLER);
+    }
+    motion_svc.probe_at_point(200, 200, PROBE_PT_RAISE);
+  }
+
+EXIT:
+  uint8_t index = 0;
+  msg->data[index++] = ret;
+  msg->length = index;
+  host_hmi.send(msg);
+  return ret;
 }
 
 static err_code_t hmi_req_callback_probe_sensor_calibration(void *obj, sacp_hmi_message_t *msg) {
+  BedLevelService &bedlevel = *(BedLevelService *)obj;
+  err_code_t ret = E_SUCCESS;
+  uint8_t action = msg->data[0];
 
+  if (bedlevel.get_bedlevel_mode() != BEDLEVEL_MODE_PROBE_SENSOR_CALIBRATE) {
+    ret = E_FAILURE;
+    goto EXIT;
+  }
+
+  bedlevel.set_end_leveling_process_status(false);
+
+  // need go home
+
+  motion_svc.moveto_xy(200, 200, 60);
+  motion_svc.moveto_z(20, 30);
+
+  motion_svc.disable_leveling();
+  switch (action) {
+    case 0:
+      motion_svc.enable_z_probe();
+      smprinter.fdm->tool_change(0, false);
+      smprinter.fdm->set_probe_sensor(PROBE_SENSOR_LEFT_OPTOCOUPLER);
+      bedlevel.hotend_triggered_z_[0] = motion_svc.probe_at_point(200, 200, PROBE_PT_RAISE);
+      break;
+    case 1:
+      motion_svc.enable_z_probe();
+      smprinter.fdm->tool_change(1, false);
+      smprinter.fdm->set_probe_sensor(PROBE_SENSOR_RIGHT_OPTOCOUPLER);
+      bedlevel.hotend_triggered_z_[1] = motion_svc.probe_at_point(200, 200, PROBE_PT_RAISE);
+      break;
+    case 2:
+      motion_svc.disable_z_probe();
+      smprinter.fdm->tool_change(1, false);
+      break;
+    case 3:
+      bedlevel.hotend_touch_bed_z_[1] = motion_svc.get_current_position(Z_AXIS);
+      motion_svc.disable_z_probe();
+      smprinter.fdm->tool_change(0, false);
+      break;
+    default:
+      ret = E_FAILURE;
+      goto EXIT;
+      break;
+  }
+
+EXIT:
+  uint8_t index = 0;
+  msg->data[index++] = ret;
+  msg->length = index;
+  host_hmi.send(msg);
+  return ret;
 }
 
 static err_code_t hmi_req_callback_set_live_z_offset(void *obj, sacp_hmi_message_t *msg) {
+  BedLevelService &bedlevel = *(BedLevelService *)obj;
+  err_code_t ret = E_SUCCESS;
+  uint8_t e = msg->data[1];
+  float offset = (msg->data[2] << 24) | (msg->data[3] << 16) | (msg->data[4] << 8) | msg->data[5];
+  offset = offset / 1000;
 
+  if (bedlevel.get_bedlevel_mode() != BEDLEVEL_MODE_IDLE) {
+    ret = E_FAILURE;
+    goto EXIT;
+  }
+
+  if (e > smprinter.fdm->get_extruders_count() - 1) {
+    ret = E_PARAM;
+    goto EXIT;
+  }
+
+  if (e == smprinter.fdm->get_active_extruder()) {
+    motion_svc.synchronize_planner();
+    float cur_z = motion_svc.get_current_position(Z_AXIS);
+    motion_svc.moveto_z(cur_z + (offset - bedlevel.live_z_offset[e]), 5);
+    motion_svc.sm_current_position[Z_AXIS] = cur_z;
+    motion_svc.sync_plan_position_to_platform();
+  }
+
+  bedlevel.live_z_offset[e] = offset;
+
+EXIT:
+  uint8_t index = 0;
+  msg->data[index++] = ret;
+  msg->length = index;
+  host_hmi.send(msg);
+  return ret;
 }
 
 static err_code_t hmi_req_callback_get_live_z_offset(void *obj, sacp_hmi_message_t *msg) {
+  BedLevelService &bedlevel = *(BedLevelService *)obj;
+  uint16_t index = 0;
+  uint8_t key = msg->data[0];
 
+  // result
+  msg->data[index++] = E_SUCCESS;
+
+  // key
+  msg->data[index++] = key;
+
+  // array size
+  uint8_t extruders = smprinter.fdm->get_extruders_count();
+  msg->data[index++] = extruders;
+
+  for (uint32_t i = 0; i < extruders; ) {
+    msg->data[index++] = i;
+    float offset = bedlevel.live_z_offset[i] * 1000;
+    msg->data[index++] = ((uint8_t *)(&offset))[0];
+    msg->data[index++] = ((uint8_t *)(&offset))[1];
+    msg->data[index++] = ((uint8_t *)(&offset))[2];
+    msg->data[index++] = ((uint8_t *)(&offset))[3];
+  }
+
+  msg->length = index;
+  host_hmi.send(msg);
+  return E_SUCCESS;
 }
 
+bool BedLevelService::get_end_leveling_process_status() {
+  return end_of_leveling_process;
+}
+
+void BedLevelService::set_end_leveling_process_status(bool status) {
+  end_of_leveling_process = status;
+}
+
+bool BedLevelService::is_bedleveled() {
+  return is_bed_leveled;
+}
+
+uint8_t BedLevelService::get_bedlevel_mode() {
+  return bedlevel_mode;
+}
+
+err_code_t BedLevelService::set_bedlevel_mode(uint8_t mode) {
+  if (mode != BEDLEVEL_MODE_IDLE) {
+    return E_BUSY;
+  }
+
+  switch (mode) {
+    case BEDLEVEL_MODE_AUTO:
+      bedlevel_mode = BEDLEVEL_MODE_AUTO;
+      break;
+    case BEDLEVEL_MODE_MANUAL:
+      bedlevel_mode = BEDLEVEL_MODE_MANUAL;
+      break;
+    case BEDLEVEL_MODE_AUTO_BED_DETECTION:
+      bedlevel_mode = BEDLEVEL_MODE_AUTO_BED_DETECTION;
+      break;
+    case BEDLEVEL_MODE_MANUAL_BED_DETECTION:
+      bedlevel_mode = BEDLEVEL_MODE_MANUAL_BED_DETECTION;
+      break;
+    case BEDLEVEL_MODE_PROBE_SENSOR_CALIBRATE:
+      bedlevel_mode = BEDLEVEL_MODE_PROBE_SENSOR_CALIBRATE;
+      break;
+    default:
+      return E_PARAM;
+      break;
+  }
+
+  return E_SUCCESS;
+}
 
 err_code_t BedLevelService::set_leveling_limit(float x_min, float x_max, float y_min, float y_max) {
   motion_svc.sync_leveling_limit_to_platform(x_min, x_max, y_min, y_max);
@@ -116,16 +424,6 @@ err_code_t BedLevelService::refresh_leveling_data() {
 }
 
 err_code_t BedLevelService::set_live_z_offset(float offset) {
-  float zdiff = live_z_offset_ - offset;
-  LOG_I("zdiff: %f\n", zdiff);
-
-  motion_svc.sm_destination_position[Z_AXIS] = motion_svc.get_current_position(Z_AXIS);
-  LOG_I("destnation_position_z: %f\n", motion_svc.sm_destination_position[Z_AXIS]);
-
-  motion_svc.sm_current_position[Z_AXIS] += zdiff;
-  motion_svc.sync_plan_position_to_platform();
-  motion_svc.moveto_z(motion_svc.sm_destination_position[Z_AXIS], 30);
-  LOG_I("destnation_position_z: %f\n", motion_svc.get_current_position(Z_AXIS));
 
   return E_SUCCESS;
 }
@@ -146,10 +444,12 @@ err_code_t BedLevelService::start_probe_test(uint8_t b, float x, float y) {
 
   for (uint32_t i = 0; i < b; i++) {
     float z_value = motion_svc.probe_at_point(x, y, PROBE_PT_RAISE);
-    LOG_I("\n\n");
+    LOG_I("\n");
     LOG_I("probed_times%d: %f\n", i, z_value);
-    LOG_I("\n\n");
+    LOG_I("\n");
   }
+
+  return E_SUCCESS;
 }
 
 err_code_t BedLevelService::start_manual_bed_leveling(uint8_t grids) {

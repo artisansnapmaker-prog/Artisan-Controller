@@ -179,7 +179,7 @@ static uint16_t hmi_subscript_callback_extruder_info(void *obj, uint8_t *buffer)
   buffer[index++] = fdm.get_key();
 
   // array size
-  uint16_t array_size_index = index++;
+  buffer[index++] = extruders;
 
   for (uint32_t i = 0; i < extruders; i++) {
     // nozzle index
@@ -222,8 +222,6 @@ static uint16_t hmi_subscript_callback_extruder_info(void *obj, uint8_t *buffer)
     buffer[index++] = ((uint8_t *)&target_temp)[3];
   }
 
-  buffer[array_size_index] = index - array_size_index;
-
   return index;
 }
 
@@ -247,8 +245,8 @@ static err_code_t hmi_req_callback_get_toolhead_info(void *obj, sacp_hmi_message
   // extruder info
   uint8_t extruders = fdm.get_extruders_count();
 
-  // array size
-  uint16_t array_size_index = index++;
+  // extruder info array size
+  msg->data[index++] = extruders;
 
   for (uint32_t i = 0; i < extruders; i++) {
     // nozzle index
@@ -290,11 +288,8 @@ static err_code_t hmi_req_callback_get_toolhead_info(void *obj, sacp_hmi_message
     msg->data[index++] = ((uint8_t *)&target_temp)[2];
     msg->data[index++] = ((uint8_t *)&target_temp)[3];
   }
-  
-  msg->data[array_size_index] = index - array_size_index;
 
   // fan info
-  array_size_index = index++;
   uint8_t fan_sum;
   switch (fdm.get_device_id()) {
     case MODULE_DEVICE_ID_FDM_1EXTRUDER_2019:
@@ -308,6 +303,8 @@ static err_code_t hmi_req_callback_get_toolhead_info(void *obj, sacp_hmi_message
       break;
   }
 
+  msg->data[index++] = fan_sum;
+
   for (uint32_t i = 0; i < fan_sum; i++) {
     // fan index
     msg->data[index++] = i;
@@ -319,7 +316,6 @@ static err_code_t hmi_req_callback_get_toolhead_info(void *obj, sacp_hmi_message
     msg->data[index++] = fdm.get_fan_speed(i);
   }
 
-  msg->data[array_size_index] = index - array_size_index;
   msg->length = index;
   host_hmi.send(msg);
 
@@ -459,7 +455,7 @@ static err_code_t hmi_req_callback_set_hotend_offset(void *obj, sacp_hmi_message
 
   axis = msg->data[11];
   offset = ((msg->data[12] << 24) | (msg->data[13] << 16) | (msg->data[14] << 8) | msg->data[15]) / 1000;
-  ret = fdm.set_hotend_offset(offset, axis);    
+  ret = fdm.set_hotend_offset(offset, axis);
 
 EXIT:
   uint16_t index = 0;
@@ -1052,9 +1048,13 @@ err_code_t ToolHeadFDM::set_hotend_offset(float offset, uint8_t axis) {
   if (axis > Z_AXIS) return E_PARAM;
 
   hotend_offset[axis][1] = offset;
-  
+
 
   return E_SUCCESS;
+}
+
+uint8_t ToolHeadFDM::get_active_extruder() {
+  return active_extruder;
 }
 
 err_code_t fdm_callback_routine(void *obj) {

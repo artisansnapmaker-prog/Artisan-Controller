@@ -131,6 +131,7 @@ class ToolHeadFDM: public ModuleBase {
     uint8_t get_extruders_count();
     err_code_t set_extruders_feedrate_percentage(int16_t percentage, uint8_t e);
     err_code_t filament_detect_ctrl(uint8_t state, uint8_t e);
+    uint8_t get_active_extruder();
 
   // private methods
   private:

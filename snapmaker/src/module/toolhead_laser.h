@@ -28,6 +28,32 @@
 #define LASER_POWER_SAFE_LIMIT    (0.5)
 #define LASER_CAMERA_FOCUS_MAX    (65000) // 65mm
 
+enum LAserSACPCommandId {
+  SACP_CMD_ID_LASER_GET_INFO,
+  SACP_CMD_ID_LASER_SET_POWER,
+  SACP_CMD_ID_LASER_SET_FOCUS_ASSIST_LIGHT,
+  SACP_CMD_ID_LASER_SET_FOCAL_LENGTH,
+  SACP_CMD_ID_LASER_SET_TEMP_THRESHOLD,
+  SACP_CMD_ID_LASER_REPORT_BT_MAC,
+
+  SACP_CMD_ID_LASER_MAX
+};
+
+enum LAserSACPSubscriptionCommandId {
+  SACP_CMD_ID_LASER_SUBSCRIBE_SAFETY_STATE,
+  SACP_CMD_ID_LASER_SUBSCRIBE_POWER,
+
+  SACP_CMD_ID_LASER_SUBSCRIBE_MAX
+};
+
+enum LAserSACPCalibrationCommandId {
+  SACP_CMD_ID_LASER_CALI_MANUAL,
+  SACP_CMD_ID_LASER_CALI_AUTO,
+
+  SACP_CMD_ID_LASER_CALI_MAX
+};
+
+
 enum LaserCameraCommand {
   M_REPORT_VERSIONS = 0x1,
   S_REPORT_VERSIONS,
@@ -62,14 +88,21 @@ enum LaserCameraCommand {
   S_RECV_FAIL = 0xff,
 };
 
-enum ToolHeadLaserStatus {
-  LASER_STA_OFFLINE,
-  LASER_STA_ONLINE,
-
-  LASER_STA_OFF,
-  LASER_STA_ON,
+enum ToolHeadLaserTubeStatus {
+  LASER_TUBE_STA_OFF,
+  LASER_TUBE_STA_ON,
 };
 
+enum LaserSafetyState: uint8_t {
+  LASER_SAFETY_STATE_NORMAL,
+  LASER_SAFETY_STATE_TUBE_TEMP_TOO_HIGH,
+  LASER_SAFETY_STATE_TUBE_TEMP_TOO_LOW,
+  LASER_SAFETY_STATE_ROLL_ABNORMAL,
+  LASER_SAFETY_STATE_PITCH_ABNORMAL,
+  LASER_SAFETY_STATE_IMU_TEMP_TOO_HIGH,
+
+  LASER_SAFETY_STATE_MAX
+};
 
 enum ToolheadLaserFanState {
   LASER_FAN_STATE_OPEN,
@@ -99,19 +132,19 @@ class ToolHeadLaser: public ModuleBase {
     err_code_t pre_init();
 
     err_code_t turn_on() {
-      if (status == LASER_STA_OFFLINE)
+      if (get_status() != MODULE_STATUS_NORMAL)
         return E_INVALID_STATE;
       return update_output(power_pwm);
     }
 
     err_code_t turn_off() {
-      if (status == LASER_STA_OFFLINE)
+      if (get_status() != MODULE_STATUS_NORMAL)
         return E_INVALID_STATE;
       return update_output(0);
     }
 
     err_code_t set_output(float power) {
-      if (status == LASER_STA_OFFLINE)
+      if (get_status() != MODULE_STATUS_NORMAL)
         return E_INVALID_STATE;
       if (power > LASER_POWER_MAX)
         power = LASER_POWER_MAX;
@@ -143,32 +176,23 @@ class ToolHeadLaser: public ModuleBase {
     friend err_code_t laser_routine(void *obj);
 
     // callback for HMI
-    friend err_code_t get_fucos(void *obj, sacp_hmi_message_t *message);
-    friend err_code_t set_fucos(void *obj, sacp_hmi_message_t *message);
+    static err_code_t get_info(void *obj, sacp_hmi_message_t *message);
+    static err_code_t set_focal_length(void *obj, sacp_hmi_message_t *message);
+    static err_code_t set_output(void *obj, sacp_hmi_message_t *message);
+    static err_code_t set_focus_assist_light(void *obj, sacp_hmi_message_t *message);
+    static err_code_t set_temp_threshold(void *obj, sacp_hmi_message_t *message);
 
-    friend err_code_t do_auto_focus(void *obj, sacp_hmi_message_t *message);
-    friend err_code_t do_manual_focus(void *obj, sacp_hmi_message_t *message);
+    static err_code_t do_auto_focusing(void *obj, sacp_hmi_message_t *message);
+    static err_code_t do_manual_focusing(void *obj, sacp_hmi_message_t *message);
 
-    friend err_code_t get_bt_name(void *obj, sacp_hmi_message_t *message);
-    friend err_code_t set_bt_name(void *obj, sacp_hmi_message_t *message);
-    friend err_code_t get_bt_mac(void *obj, sacp_hmi_message_t *message);
-
-    // report security status to HMI
-    friend err_code_t report_security_status(void *obj, sacp_hmi_message_t *message);
-
-    // callbacks for HMI
-    friend err_code_t get_security_status(void *obj, sacp_hmi_message_t *message);
-
-    friend err_code_t set_auto_focus_light(void *obj, sacp_hmi_message_t *message);
-
-    friend err_code_t get_online_sync_id(void *obj, sacp_hmi_message_t *message);
-    friend err_code_t set_online_sync_id(void *obj, sacp_hmi_message_t *message);
-
-    friend err_code_t set_temperature_threshold(void *obj, sacp_hmi_message_t *message);
+    static uint16_t publish_safety_state(void *obj, uint8_t *buffer);
+    static uint16_t publish_power(void *obj, uint8_t *buffer);
 
   private:
     err_code_t confirm_pwm_pin_state(uint32_t pin);
     uint8_t get_pwm_pin_state();
+    err_code_t set_focus_assist_light(uint8_t state);
+    err_code_t set_temp_threshold(int8_t protect_temp, int8_t recover_temp);
 
     virtual err_code_t update_output(uint16_t new_power_pwm);
 
@@ -178,7 +202,7 @@ class ToolHeadLaser: public ModuleBase {
 
 
   private:
-    ToolHeadLaserStatus status;
+    ToolHeadLaserTubeStatus tube_status;
 
     float    power_current;
     float    power_limit;
@@ -196,9 +220,9 @@ class ToolHeadLaser: public ModuleBase {
     uint16_t master_switch_tick;
     uint16_t msg_id_ctrl_switch;
 
-    uint16_t focus;
+    uint16_t focal_length;
 
-    uint8_t security_state;
+    LaserSafetyState safety_state;
     int16_t roll;
     int16_t pitch;
     int8_t  laser_temp;

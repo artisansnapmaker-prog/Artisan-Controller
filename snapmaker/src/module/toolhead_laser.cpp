@@ -5,6 +5,7 @@
 #include "../common/debug.h"
 #include "../snapmaker.h"
 #include "../service/module.h"
+#include "../service/motion.h"
 
 #include "Arduino.h"
 
@@ -64,6 +65,321 @@ static __attribute__((section(".data"))) uint8_t power_table_10w[]= {
 };
 
 
+// HMI subscription callbacks
+
+struct __packed LaserSafetyInfo {
+  uint8_t key;
+  LaserSafetyState state;
+  int32_t laser_tmp;
+  int32_t roll;
+  int32_t pitch;
+};
+
+uint16_t ToolHeadLaser::publish_safety_state(void *obj, uint8_t *buffer) {
+  ToolHeadLaser &laser = *(ToolHeadLaser *)obj;
+  LaserSafetyInfo *info = (LaserSafetyInfo *)(buffer + 1);
+
+  if (!obj || !buffer)
+    return 0;
+
+  buffer[0] = E_SUCCESS;
+
+  info->key       = laser.get_key();
+  info->state     = laser.safety_state;
+  info->laser_tmp = laser.laser_temp * 1000;
+  info->pitch     = laser.pitch * 1000;
+  info->roll      = laser.roll * 1000;
+
+  return sizeof(LaserSafetyInfo) + 1;
+}
+
+uint16_t ToolHeadLaser::publish_power(void *obj, uint8_t *buffer) {
+  ToolHeadLaser &laser = *(ToolHeadLaser *)obj;
+
+  int32_t *current_power = (int32_t *)(buffer + 1);
+  int32_t *target_power = (int32_t *)(buffer + 5);
+
+  if (!obj || !buffer)
+    return 0;
+
+  buffer[0] = E_SUCCESS;
+
+  if (laser.power_pwm)
+    *current_power = (int32_t)(laser.power_current * 1000);
+  else
+    *current_power = 0;
+  *target_power = (int32_t)(laser.power_current * 1000);
+
+  return 9;
+}
+
+
+struct __packed FanInfo {
+  uint8_t index;
+  uint8_t type;
+  uint8_t speed_level;
+};
+
+struct __packed LaserToolHeadInfo {
+  uint8_t key;
+  uint8_t status;
+  int32_t focal_length;
+  int32_t current_power;
+  int32_t target_power;
+  uint8_t fan_number;
+  FanInfo fan_info;
+};
+
+err_code_t ToolHeadLaser::get_info(void *obj, sacp_hmi_message_t *message) {
+  ToolHeadLaser &laser = *(ToolHeadLaser *)obj;
+
+  LaserToolHeadInfo *info;
+
+  if (message->data[0] != laser.get_key()) {
+    return host_hmi.send_ack(message, E_INVALID_MODULE_KEY);
+  }
+
+  message->data[0] = E_SUCCESS;
+
+  info = (LaserToolHeadInfo *)(message->data + 1);
+
+  info->key = laser.get_key();
+  info->status = laser.get_status();
+  // TODO: if
+  info->focal_length = (int32_t)(laser.focal_length * 1000);
+  info->target_power = (int32_t)(laser.power_current * 1000);
+  if (laser.power_pwm)
+    info->current_power = (int32_t)(laser.power_current * 1000);
+  else
+    info->current_power = 0;
+  info->fan_number = 1;
+  // TODO: confirm if index starts from 0?
+  info->fan_info.index = 0;
+
+  // TODO: max of speed level is 100 or255?
+  if (laser.fan_state == LASER_FAN_STATE_CLOSED)
+    info->fan_info.speed_level = 0;
+  else
+    info->fan_info.speed_level = 255;
+
+  // fixed type
+  info->fan_info.type = 2;
+
+  message->length = sizeof(LaserToolHeadInfo) + 1;
+
+  return host_hmi.send_ack(message);
+}
+
+err_code_t ToolHeadLaser::set_focal_length(void *obj, sacp_hmi_message_t *message) {
+  ToolHeadLaser &laser = *(ToolHeadLaser *)obj;
+
+  int32_t *length;
+
+  if (message->data[0] != laser.get_key()) {
+    return host_hmi.send_ack(message, E_INVALID_MODULE_KEY);
+  }
+
+  if (laser.get_status() != MODULE_STATUS_NORMAL) {
+    return host_hmi.send_ack(message, E_INVALID_STATE);
+  }
+
+  length = (int32_t *)(message->data + 1);
+
+  laser.focal_length = (uint16_t)(*length / 1000);
+
+  return host_hmi.send_ack(message, E_SUCCESS);
+}
+
+err_code_t ToolHeadLaser::set_output(void *obj, sacp_hmi_message_t *message) {
+  ToolHeadLaser &laser = *(ToolHeadLaser *)obj;
+
+  int32_t *power;
+
+  if (message->data[0] != laser.get_key()) {
+    return host_hmi.send_ack(message, E_INVALID_MODULE_KEY);
+  }
+
+  if (laser.get_status() != MODULE_STATUS_NORMAL) {
+    return host_hmi.send_ack(message, E_INVALID_STATE);
+  }
+
+  power = (int32_t *)(message->data + 1);
+
+  laser.set_output((float)(*power / 1000.0));
+
+  return host_hmi.send_ack(message, E_SUCCESS);
+}
+
+err_code_t ToolHeadLaser::set_focus_assist_light(void *obj, sacp_hmi_message_t *message) {
+  ToolHeadLaser &laser = *(ToolHeadLaser *)obj;
+
+  if (message->data[0] != laser.get_key()) {
+    return host_hmi.send_ack(message, E_INVALID_MODULE_KEY);
+  }
+
+  if (laser.get_status() != MODULE_STATUS_NORMAL) {
+    return host_hmi.send_ack(message, E_INVALID_STATE);
+  }
+
+  message->data[0] = laser.set_focus_assist_light(message->data[1]);
+
+  message->length = 1;
+
+  return host_hmi.send_ack(message);
+}
+
+err_code_t ToolHeadLaser::set_temp_threshold(void *obj, sacp_hmi_message_t *message) {
+  ToolHeadLaser &laser = *(ToolHeadLaser *)obj;
+
+  if (message->data[0] != laser.get_key()) {
+    return host_hmi.send_ack(message, E_INVALID_MODULE_KEY);
+  }
+
+  if (laser.get_status() != MODULE_STATUS_NORMAL) {
+    return host_hmi.send_ack(message, E_INVALID_STATE);
+  }
+
+  message->data[0] = laser.set_temp_threshold((int8_t)(message->data[1]), (int8_t)(message->data[2]));
+
+  message->length = 1;
+
+  return host_hmi.send_ack(message, E_SUCCESS);
+}
+
+
+err_code_t ToolHeadLaser::do_manual_focusing(void *obj, sacp_hmi_message_t *message) {
+  ToolHeadLaser &laser = *(ToolHeadLaser *)obj;
+
+  // if (message->data[0] != laser.get_key()) {
+  //   return host_hmi.send_ack(message, E_INVALID_MODULE_KEY);
+  // }
+
+  if (message->length < 12) {
+    return host_hmi.send_ack(message, E_PARAM);
+  }
+
+  if (laser.get_status() != MODULE_STATUS_NORMAL) {
+    return host_hmi.send_ack(message, E_INVALID_STATE);
+  }
+
+  // TODO: check system status
+
+  int32_t *tmp;
+  float target_pos[3];
+
+  tmp = (int32_t *)(message->data + 1);
+  target_pos[0] = (*tmp / 1000.0);
+
+  tmp = (int32_t *)(message->data + 5);
+  target_pos[1] = (*tmp / 1000.0);
+
+  tmp = (int32_t *)(message->data + 9);
+  target_pos[2] = (*tmp / 1000.0);
+
+  if (!motion_svc.is_all_axes_homed()) {
+    motion_svc.home();
+  }
+
+  motion_svc.synchronize_planner();
+
+  // TODO: speed to be defined
+  motion_svc.moveto_xy(target_pos[0], target_pos[1], 50);
+
+  motion_svc.moveto_z(target_pos[2], 30, true);
+
+  return host_hmi.send_ack(message, E_SUCCESS);
+}
+
+
+err_code_t ToolHeadLaser::do_auto_focusing(void *obj, sacp_hmi_message_t *message) {
+  ToolHeadLaser &laser = *(ToolHeadLaser *)obj;
+
+  // if (message->data[0] != laser.get_key()) {
+  //   return host_hmi.send_ack(message, E_INVALID_MODULE_KEY);
+  // }
+
+  if (message->length < 4) {
+    return host_hmi.send_ack(message, E_PARAM);
+  }
+
+  if (laser.get_status() != MODULE_STATUS_NORMAL) {
+    return host_hmi.send_ack(message, E_INVALID_STATE);
+  }
+
+  // TODO: check system status
+
+  int32_t *tmp;
+  float   z_interval;
+  uint8_t count = 21;
+  float   start_pos[3];
+  float next_x, next_y, next_z;
+  int   i = 0;
+  float line_space = 2;
+  float line_len_short = 5;
+  float line_len_long = 10;
+
+  if (!motion_svc.is_all_axes_homed()) {
+    motion_svc.home();
+  }
+
+  motion_svc.synchronize_planner();
+
+  motion_svc.update_position_from_platform();
+  start_pos[X_AXIS] = motion_svc.sm_current_position[X_AXIS];
+  start_pos[Y_AXIS] = motion_svc.sm_current_position[Y_AXIS];
+  start_pos[Z_AXIS] = motion_svc.sm_current_position[Z_AXIS];
+
+  next_x = start_pos[X_AXIS] - (int)(count / 2) * 2;
+  next_y = start_pos[Y_AXIS];
+  next_z = start_pos[Z_AXIS] - ((float)(count - 1) / 2.0 * z_interval);
+
+  // too low
+  if(next_z <= 10) {
+    LOG_E("start Z height is too low: %.2f\n", next_z);
+    return host_hmi.send_ack(message, E_FAILURE);
+  }
+
+  // Draw 10 Line
+  do {
+    // Move to the start point
+    // TODO: speed to be updated
+    motion_svc.moveto_xy(next_x, next_y, 60);
+    motion_svc.synchronize_planner();
+
+    // Laser on
+    laser.set_output((float)70);
+
+    // Draw Line
+    // TODO: speed to be updated
+    if((i % 5) == 0)
+      motion_svc.moveto_xy(next_x, next_y + line_len_long, 5);
+    else
+      motion_svc.moveto_xy(next_x, next_y + line_len_short, 5);
+
+    motion_svc.synchronize_planner();
+
+    // Laser off
+    laser.set_output((float)0);
+
+    // Move up Z increase
+    if(i != (count - 1))
+      motion_svc.moveto_z(motion_svc.sm_current_position[Z_AXIS] + z_interval, 20.0f);
+
+    next_x = next_x + line_space;
+    i++;
+  } while(i < count);
+
+  motion_svc.synchronize_planner();
+
+  // Move to beginning
+  motion_svc.moveto_z(start_pos[Z_AXIS], 20.0f);
+  motion_svc.moveto_xy(start_pos[X_AXIS], start_pos[Y_AXIS], 20.0f);
+  motion_svc.synchronize_planner();
+
+  return host_hmi.send_ack(message, E_SUCCESS);
+}
+
+
 err_code_t laser_routine(void *obj) {
   ToolHeadLaser &laser = *(ToolHeadLaser *)obj;
 
@@ -89,7 +405,7 @@ void laser_cb_handle_security_status(void *obj, uint8_t *data, uint8_t length) {
 
   ToolHeadLaser &laser = *(ToolHeadLaser *)obj;
 
-  laser.security_state = data[0];
+  laser.safety_state = (LaserSafetyState)data[0];
   laser.pitch = data[1]<<8 | data[2];
   laser.roll  = data[3]<<8 | data[4];
   laser.laser_temp = data[5];
@@ -111,7 +427,7 @@ void ToolHeadLaser::update_power(float new_power) {
   int   integer;
   float decimal;
 
-  if (status == LASER_STA_OFFLINE)
+  if (get_status() != MODULE_STATUS_NORMAL)
     return;
 
   if (new_power > LASER_POWER_MAX)
@@ -146,7 +462,7 @@ void ToolHeadLaser::set_power_limit(float limit) {
   // recover power_current
   power_current = tmp_power;
 
-  if (status == LASER_STA_ON)
+  if (tube_status == LASER_TUBE_STA_ON)
     turn_on();
 }
 
@@ -157,10 +473,10 @@ err_code_t ToolHeadLaser::update_output(uint16_t new_power_pwm) {
   set_pwm_duty(output_pin, new_power_pwm, 255, true);
 
   if (new_power_pwm > 0) {
-    status = LASER_STA_ON;
+    tube_status = LASER_TUBE_STA_ON;
   }
   else {
-    status = LASER_STA_OFF;
+    tube_status = LASER_TUBE_STA_OFF;
   }
 
   return E_SUCCESS;
@@ -256,7 +572,7 @@ err_code_t ToolHeadLaser::post_init() {
     power_table = power_table_1p6w;
   }
 
-  status = LASER_STA_OFF;
+  tube_status = LASER_TUBE_STA_OFF;
 
   power_limit   = LASER_POWER_NORMA_LIMIT;
   power_current = 0;
@@ -271,12 +587,45 @@ err_code_t ToolHeadLaser::post_init() {
   pinMode(output_pin, OUTPUT);
   set_pwm_duty(output_pin, 0, 255, true);
   set_pwm_frequency(output_pin, 250);
-
-  module_svc.register_routine( (void *)this, laser_routine);
-
   set_output(0);
+  tube_status = LASER_TUBE_STA_OFF;
+
+  if (get_device_id() == MODULE_DEVICE_ID_LASER_10W_2021) {
+    host_hmi.apply_cmd_set_handle(SACP_CMD_SET_LASER, SACP_CMD_ID_LASER_MAX);
+
+    host_hmi.register_subscription(SACP_CMD_SET_LASER, SACP_CMD_ID_LASER_SUBSCRIBE_SAFETY_STATE, (void *)this,
+      publish_safety_state);
+    host_hmi.register_callback(SACP_CMD_SET_LASER, SACP_CMD_ID_LASER_SET_FOCUS_ASSIST_LIGHT, (void *)this,
+      set_focus_assist_light);
+    host_hmi.register_callback(SACP_CMD_SET_LASER, SACP_CMD_ID_LASER_SET_TEMP_THRESHOLD, (void *)this,
+      set_temp_threshold);
+  }
+  else {
+    host_hmi.apply_cmd_set_handle(SACP_CMD_SET_LASER, SACP_CMD_ID_LASER_MAX - 2);
+  }
+
+  // common API
+  host_hmi.register_callback(SACP_CMD_SET_LASER, SACP_CMD_ID_LASER_GET_INFO, (void *)this,
+    get_info);
+  host_hmi.register_callback(SACP_CMD_SET_LASER, SACP_CMD_ID_LASER_SET_POWER, (void *)this,
+    set_output);
+  host_hmi.register_callback(SACP_CMD_SET_LASER, SACP_CMD_ID_LASER_SET_FOCAL_LENGTH, (void *)this,
+    set_focal_length);
+
+  // publish power
+  host_hmi.register_subscription(SACP_CMD_SET_LASER, SACP_CMD_ID_LASER_SUBSCRIBE_POWER, (void *)this,
+    publish_power);
+
+  // calibration API
+  host_hmi.register_callback(SACP_CMD_SET_CALIBRATE_LASER, SACP_CMD_ID_LASER_CALI_MANUAL, (void *)this,
+    do_manual_focusing);
+  host_hmi.register_callback(SACP_CMD_SET_CALIBRATE_LASER, SACP_CMD_ID_LASER_CALI_AUTO, (void *)this,
+    do_auto_focusing);
 
   next_ms = millis();
+  module_svc.register_routine((void *)this, laser_routine);
+
+  set_status(MODULE_STATUS_NORMAL);
 
   return E_SUCCESS;
 }
@@ -292,7 +641,7 @@ err_code_t ToolHeadLaser::deinit() {
 
 uint8_t ToolHeadLaser::get_pwm_pin_state() {
   err_code_t ret = E_SUCCESS;
-  smcan_message_t msg;;
+  smcan_message_t msg;
   uint8_t buffer[2] = {0};
 
   uint8_t recv_buffer[2];
@@ -331,7 +680,7 @@ err_code_t ToolHeadLaser::confirm_pwm_pin_state(uint32_t pin) {
   }
 
   err_code_t ret;
-  smcan_message_t msg;;
+  smcan_message_t msg;
   uint8_t buffer[2] = {0};
 
   msg.id     = get_message_id(MODULE_FUNC_CONFIRM_PWN_PIN_STATE);
@@ -349,9 +698,53 @@ err_code_t ToolHeadLaser::confirm_pwm_pin_state(uint32_t pin) {
 }
 
 
+err_code_t ToolHeadLaser::set_temp_threshold(int8_t protect_temp, int8_t recover_temp) {
+  err_code_t ret;
+  smcan_message_t msg;
+  // TODO: check sequence of temp
+  uint8_t buffer[2] = {protect_temp, recover_temp};
+
+  msg.id     = get_message_id(MODULE_FUNC_SET_PROTECT_TEMP);
+  msg.ch     = get_channel();
+  msg.length = 2;
+  msg.data   = buffer;
+
+  ret = host_can_rou.send(&msg);
+  if (ret != E_SUCCESS) {
+    LOG_E("failed to set protect temp! ret: %u\n", ret);
+  }
+
+  return ret;
+}
+
+
+err_code_t ToolHeadLaser::set_focus_assist_light(uint8_t state) {
+  err_code_t ret;
+  smcan_message_t msg;
+  uint8_t buffer[2] = {0};
+  uint8_t recv_buffer[4];
+  uint8_t recv_len = 4;
+
+  msg.id     = get_message_id(MODULE_FUNC_SET_AUTOFOCUS_LIGHT);
+  msg.ch     = get_channel();
+  msg.length = 1;
+  msg.data   = buffer;
+
+  if (state)
+    buffer[0] = 1;
+
+  ret = host_can_rou.send_sync(&msg, recv_buffer, &recv_len, 2000);
+  if (ret != E_SUCCESS) {
+    LOG_E("failed to set  focus assist light! ret: %u\n", ret);
+  }
+
+  return ret;
+}
+
+
 err_code_t ToolHeadLaser::set_master_switch(bool state) {
   err_code_t ret;
-  smcan_message_t msg;;
+  smcan_message_t msg;
   uint8_t buffer[2] = {state};
   uint8_t recv_buffer[4];
   uint8_t recv_len = 4;
@@ -422,7 +815,7 @@ void ToolHeadLaser::if_disable_switch() {
 
 
 void ToolHeadLaser::show_imu_status() {
-  LOG_I("Laser sec: %u\n", security_state);
+  LOG_I("Laser sec: %u\n", safety_state);
   LOG_I("Laser pitch: %u\n", pitch);
   LOG_I("Laser roll: %u\n", roll);
   LOG_I("Laser temp: %d\n", laser_temp);

@@ -247,7 +247,6 @@ class SnapmakerPrinter
 
     ModuleBase *get_cur_toolhead(void);
     toolHeadType get_toolhead_type(void);
-    uint32_t millis(void) { return millis(); }
 
     enum SystemStatus get_sys_status(void);
     err_code_t set_sys_status(enum SystemStatus req_status, enum SystemStatus *ret_status);

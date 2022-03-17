@@ -48,6 +48,7 @@
 #define E_JOB_RESUME_ENV_FAILURE          SACP_RET_JOB_RESUME_ENV_FAILURE
 #define E_JOB_UNKNOW_STOP_TPYE            SACP_RET_JOB_UNKNOW_STOP_TPYE
 #define E_JOB_UNSUPPORT_PARAM             SACP_RET_UNSUPPORT_PARAM
+#define E_JOB_UNMATCHED_TOOLHEAD          SACP_RET_JOB_UNMATCHED_TOOLHEAD
 
 #define GCODE_MD5_LENGTH 32
 #define GCODE_FILE_NAME_SIZE 128
@@ -92,6 +93,7 @@ class JobCtrl {
   public:
     JobCtrl(){};
     void init(void);
+    void background_thread(void);                               /** main loop, to check all the event from system which will change current job status */
 
     // job control
     err_code_t start(uint8_t client_id, struct GcodeFileInfo *gcodeInfo, toolHeadType th_type);
@@ -115,7 +117,6 @@ class JobCtrl {
 
   // private methods
   private:
-    void loop(void);                                            /** main loop, to check all the event from system which will change current job status */
     err_code_t save_env(void);                                  /** save current job enviroment                                           */
     err_code_t resum_env(void);                                 /** resume saved enviroment to job                                        */
     err_code_t machine_standby(void);                           /** set the machine in standby status                                     */

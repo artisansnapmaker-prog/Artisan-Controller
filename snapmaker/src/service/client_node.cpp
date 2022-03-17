@@ -53,9 +53,8 @@ void ClientNode::class_init(void) {
     while(1);
   }
 
-  LOG_I("Client node: register SACP cmd set and cmd id callback");
+  LOG_I("Client node: register SACP cmd set and cmd id callback\r\n");
   ret = E_SUCCESS;
-
   // job control
   ret |= host_hmi.apply_cmd_set_handle(CMD_SET_JOB_CTRL, CMD_ID_JOB_CTRL_NUM);
   ret |= host_hmi.register_callback(CMD_SET_JOB_CTRL, CMD_ID_JOB_GET_GCODE_FILE_INFO, NULL, sacp_cb);
@@ -64,7 +63,7 @@ void ClientNode::class_init(void) {
   ret |= host_hmi.register_callback(CMD_SET_JOB_CTRL, CMD_ID_JOB_CTRL_RESUME, NULL, sacp_cb, SACP_CB_ATTR_BLOCKED_WITH_MOTION);
   ret |= host_hmi.register_callback(CMD_SET_JOB_CTRL, CMD_ID_JOB_CTRL_STOP, NULL, sacp_cb, SACP_CB_ATTR_BLOCKED_WITH_MOTION);
   // register subscibtion
-  LOG_I("Client node: register SACP subscription callback");
+  LOG_I("Client node: register SACP subscription callback\r\n");
   ret |= host_hmi.register_subscription(CMD_SET_JOB_CTRL, SUB_ID_JOB_CTRL_CUR_LINE_NUM, (void *)job_ctrl_linenum_sub_cb, job_ctrl_linenum_sub_cb);
 
   // system
@@ -178,15 +177,18 @@ bool ClientNode::sacp_get_batch_gcode(req_batch_gcode_t &req_batch_gcode, res_ba
   sacp_hmi_message_t s_msg;
   uint16_t out_len;
   uint8_t send_buf[SEND_BUF_SIZE];
+
   // peer id? and send id?
   // seq not change
   s_msg.ch = _ch;
   s_msg.attr = SACP_MESSAGE_ATTR_ACK;
   s_msg.data = send_buf;
+  s_msg.cmd_set = CMD_SET_JOB_CTRL;
+  s_msg.cmd_id = CMD_ID_JOB_CTRL_REQ_GCODE;
   _32_TO_LITTLE_STREAM(req_batch_gcode.line_num, send_buf);
   _16_TO_LITTLE_STREAM(req_batch_gcode.buf_len, send_buf + 4);
   s_msg.length = 6;
-  if (E_SUCCESS != host_hmi.send_sync(&s_msg, send_buf, &out_len)) {
+  if (E_SUCCESS == host_hmi.send_sync(&s_msg, send_buf, &out_len)) {
     if(out_len < 8){
       LOG_E("batch gcode response lenght error, must > 8, but get %d\r\n", out_len);
       return false;
@@ -282,24 +284,26 @@ err_code_t ClientNode::req_start_job(sacp_hmi_message_t *msg) {
 
   // MD5
   str_len = LITTLE_STREAM_TO_16(p);
+  p += 2;
   if (str_len < GCODE_MD5_LENGTH) {
     LOG_E("MD5 length error\r\n");
     ret = SACP_RET_JOB_IVALID_GCODE_FILE;
     goto _out;
   }
-  memcpy(gfi.MD5, p + 2, str_len);
-  p += 2 + str_len;
+  memcpy(gfi.MD5, p, str_len);
+  p += str_len;
 
   // gcode filename
   str_len = LITTLE_STREAM_TO_16(p);
+  p += 2;
   if (str_len > GCODE_FILE_NAME_SIZE-1) {
     LOG_E("file name too long\r\n");
     ret = SACP_RET_JOB_IVALID_GCODE_FILE;
     goto _out;
   }
-  memcpy(gfi.name, p + 2, str_len);
+  memcpy(gfi.name, p, str_len);
   gfi.name[str_len] = '\0';
-  p += 2 + str_len;
+  p += str_len;
 
   // type 
   type = toolHeadType(p[0]);
@@ -317,6 +321,7 @@ err_code_t ClientNode::req_start_job(sacp_hmi_message_t *msg) {
   ret = job_ctrl_svc.start(_peer, &gfi, type);
 
 _out:
+  LOG_I("client node: send ack\r\n");
   return host_hmi.send_ack(msg, ret);
 }
 
@@ -345,7 +350,7 @@ err_code_t ClientNode::req_resume_job(sacp_hmi_message_t* msg) {
 }
 
 err_code_t ClientNode::req_stop_job(sacp_hmi_message_t* msg) {
-  LOG_I("client %d request stop a job\r\n");
+  LOG_I("client %d request stop a job\r\n", msg->peer);
   
   err_code_t ret;
   ret = host_hmi.send_ack(msg, SACP_RET_EXECUTING);

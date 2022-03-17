@@ -52,10 +52,10 @@ void JobCtrl::init(void) {
   _resume_feedrate = RESUME_FEEDRATE;
 }
 
-void JobCtrl::loop(void) {
-  if (!time_after(smprinter.millis(), _tick_ms)) {
-    return;
-  }
+void JobCtrl::background_thread(void) {
+  // if (!time_after(system_svc.millis(), _tick_ms)) {
+  //   return;
+  // }
 
   _tick_ms = smprinter.millis();
 
@@ -64,7 +64,7 @@ void JobCtrl::loop(void) {
   }
 
   if (_statistics_log_interval_ms > 0) {
-    if (!time_after(smprinter.millis(), _statistics_log_last_tick_ms + _statistics_log_interval_ms)) {
+    if (!time_after(system_svc.millis(), _statistics_log_last_tick_ms + _statistics_log_interval_ms)) {
       statistics_output();
       _statistics_log_last_tick_ms = smprinter.millis();
     }
@@ -76,14 +76,21 @@ void JobCtrl::loop(void) {
 err_code_t JobCtrl::save_env(void) {
   ModuleBase *cur_toolhead;
 
-  if (!(cur_toolhead = smprinter.get_cur_toolhead())) {
-    LOG_E("Can not get toolhead\r\n");
-    return E_JOB_SAVE_ENV_FAILURE;
-  }
+  // if (!(cur_toolhead = smprinter.get_cur_toolhead())) {
+  //   LOG_E("Can not get toolhead\r\n");
+  //   return E_JOB_SAVE_ENV_FAILURE;
+  // }
+  LOG_I("TODO: get current_toolhead\r\n");
+
+  /*
   if (!cur_toolhead->save_env(_env.toolhead_env_buf, _env.toolhead_env_buf_size)) {
     LOG_E("Toolhead save env error\r\n");
     return E_JOB_SAVE_ENV_FAILURE;
   }
+  */
+ LOG_I("TODO: current toolhead save env\r\n");
+
+  /*
   if (TH_TYPE_3DP == _env.type)
     _env.bed_temp = motion_svc.get_bet_temp();
   _env.cur_line_num = smprinter.gcode_file_position;
@@ -92,6 +99,13 @@ err_code_t JobCtrl::save_env(void) {
   _env.g0g1_relative_mode = motion_svc.get_relative_mode();
   for(uint32_t i = 0; i < AXIS_NUM; i++)
     _env.current_pos[i] = motion_svc.get_current_position(i);
+  */
+  LOG_I("TODO: if 3DP, save bed tempretrue\r\n");
+  LOG_I("TODO: save current line number\r\n");
+  LOG_I("TODO: save print feedrate\r\n");
+  LOG_I("TODO: save travle feedrate\r\n");
+  LOG_I("TODO: save relative mode\r\n");
+  LOG_I("TODO: save current position\r\n");
 
   return E_SUCCESS;
 }
@@ -99,23 +113,30 @@ err_code_t JobCtrl::save_env(void) {
 err_code_t JobCtrl::resum_env(void) {
   ModuleBase *cur_toolhead;
 
-  if (!(cur_toolhead = smprinter.get_cur_toolhead())) {
-    LOG_E("can not get toolhead\r\n");
-    return E_JOB_RESUME_ENV_FAILURE;
-  }
-  // Check toolhead
-  if (smprinter.get_toolhead_type() != _env.type) {
-    return E_JOB_UNSUPPORT_PARAM;
-  }
-  if (!cur_toolhead->resume_env(_env.toolhead_env_buf, _env.toolhead_env_buf_size)) {
-    LOG_E("can not resume toolhead\r\n");
-    return E_JOB_RESUME_ENV_FAILURE;
-  }
-  if (TH_TYPE_3DP == _env.type) {
-    thermalManager.setTargetBed(_env.bed_temp);
-    thermalManager.wait_for_bed();
-  }
+  // if (!(cur_toolhead = smprinter.get_cur_toolhead())) {
+  //   LOG_E("can not get toolhead\r\n");
+  //   return E_JOB_RESUME_ENV_FAILURE;
+  // }
+  LOG_I("TODO: get current toolhead pointer\r\n");
 
+  // Check toolhead
+  // if (smprinter.get_toolhead_type() != _env.type) {
+  //   return E_JOB_UNSUPPORT_PARAM;
+  // }
+  LOG_I("TODO: check current toolhead type\r\n");
+
+  // if (!cur_toolhead->resume_env(_env.toolhead_env_buf, _env.toolhead_env_buf_size)) {
+  //   LOG_E("can not resume toolhead\r\n");
+  //   return E_JOB_RESUME_ENV_FAILURE;
+  // }
+  LOG_I("TODO: current toolhead resume\r\n");
+  
+
+  // if (TH_TYPE_3DP == _env.type) {
+  //   thermalManager.setTargetBed(_env.bed_temp);
+  //   thermalManager.wait_for_bed();
+  // }
+  /*
   _env.req_line_num = _env.cur_line_num;
   motion_svc.moveto_xyz(  _env.current_pos[0],
                           _env.current_pos[1],
@@ -124,41 +145,78 @@ err_code_t JobCtrl::resum_env(void) {
   motion_svc.set_feedrate(_env.print_feadrate);
   motion_svc.set_travl_feedrate(_env.travel_feadrate);
   motion_svc.set_relative_mode(_env.g0g1_relative_mode);
+  */
+
+  LOG_I("TODO: if 3DP, resume bed tempretrue\r\n");
+  LOG_I("TODO: resume current line number\r\n");
+  LOG_I("TODO: resume print feedrate\r\n");
+  LOG_I("TODO: resume travle feedrate\r\n");
+  LOG_I("TODO: resume relative mode\r\n");
+  LOG_I("TODO: resume current position\r\n");
 
   return E_SUCCESS;
 }
 
 err_code_t JobCtrl::machine_standby(void) {
   // TODO:
-  LOG_I("machine standby\r\n");
+  LOG_I("machine standby begin\r\n");
+
+  // if (!(cur_toolhead = smprinter.get_cur_toolhead())) {
+  //   LOG_E("can not get toolhead\r\n");
+  //   return E_JOB_RESUME_ENV_FAILURE;
+  // }
+  LOG_I("TODO: get current toolhead pointer\r\n");
+
+  // Check toolhead
+  // if (smprinter.get_toolhead_type() != _env.type) {
+  //   return E_JOB_UNSUPPORT_PARAM;
+  // }
+  LOG_I("TODO: check current toolhead type\r\n");
 
   switch (_env.type)
   {
   case TH_TYPE_3DP:
     /* code */
+    LOG_I("TODO: retrace 10mm in 10mm/s\r\n");
+    LOG_I("TODO: hotend set to 0 degree\r\n");
+    LOG_I("TODO: fans set to 0 speed\r\n");
+    LOG_I("TODO: bed temp set to 0 degree\r\n");
+
+    /*
     motion_svc.set_relative_mode(true);
     motion_svc.moveto_e(-10, 600, true);
     smprinter.fdm->set_fan_speed(0, 0, 0);    // left mode fan
     smprinter.fdm->set_fan_speed(1, 0, 0);    // right mode fan
     smprinter.fdm->set_hotend_temp(0, 0);     // set index 0 hotend
     smprinter.fdm->set_hotend_temp(0, 1);     // set index 1 hotend
-    LOG_I("Z raise to highest");
-    LOG_I("x move to left");
-    LOG_I("x move to from");
+    */
     break;
 
   case TH_TYPE_CNC:
     /* code */
+    LOG_I("TODO: retrace 10mm in 10mm/s\r\n");
+    LOG_I("TODO: hotend set to 0 degree\r\n");
+    LOG_I("TODO: fans set to 0 speed\r\n");
+    LOG_I("TODO: bed temp set to 0 degree\r\n");
     break;
 
   case TH_TYPE_LASER:
     /* code */
+    LOG_I("TODO: retrace 10mm in 10mm/s\r\n");
+    LOG_I("TODO: hotend set to 0 degree\r\n");
+    LOG_I("TODO: fans set to 0 speed\r\n");
+    LOG_I("TODO: bed temp set to 0 degree\r\n");
     break;
 
   default:
     break;
   }
 
+  LOG_I("TODO: Z raise to highest\r\n");
+  LOG_I("TODO: x move to left\r\n");
+  LOG_I("TODO: y move to head\r\n");
+
+  LOG_I("machine standby end\r\n");
   return E_SUCCESS;
 }
 
@@ -178,10 +236,10 @@ void JobCtrl::get_gcodes_from_client(void) {
   req_batch_gcode_t req_batch_gcode;
   res_batch_gcode_t res_batch_gcode;
   uint8_t batch_gcode_buf[GCODE_RB_SIZE/4];
-
-  while(_gcode_rb.available()) {
+  
+  while(_gcode_rb.free()) {
     req_batch_gcode.line_num = _env.req_line_num;
-    req_batch_gcode.buf_len = MIN(_gcode_rb.available(), GCODE_RB_SIZE/4);
+    req_batch_gcode.buf_len = MIN(_gcode_rb.free(), GCODE_RB_SIZE/4);
     res_batch_gcode.gcode_str = batch_gcode_buf;
     if(ClientNode::get_batch_gcode(_client_id, req_batch_gcode, res_batch_gcode)) {
       if(res_batch_gcode.start_line_num != req_batch_gcode.line_num) {
@@ -250,11 +308,19 @@ err_code_t JobCtrl::start(uint8_t client_id, struct GcodeFileInfo *gcodeInfo, to
     return E_SUCCESS;
   }
 
+  // if (th_type != smprinter.get_toolhead_type()) {
+  //   LOG_E("Unmatched toolhead\r\n");
+  //   return E_JOB_UNMATCHED_TOOLHEAD;
+  // }
+  LOG_I("TODO: Check toolhead type\r\n");
+
   if (E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_STARTING, NULL)) {
-    LOG_E("Can to enter SYS_STARTING status\r\n");
+    LOG_E("Can not enter to SYS_STARTING status\r\n");
     return E_JOB_FAILURE;
   }
-
+  
+  LOG_I("TODO: homing\r\n");
+  /*
   if (motion_svc.sm_homing_needed()) {
     if(E_SUCCESS != motion_svc.home()) {
       // TODO: do I need to check the result?
@@ -262,6 +328,7 @@ err_code_t JobCtrl::start(uint8_t client_id, struct GcodeFileInfo *gcodeInfo, to
       return E_JOB_FAILURE;
     }
   }
+  */
 
   LOCK(_lock, JOB_LOCK_WAIT_TICK);
   _client_id = client_id;
@@ -335,7 +402,7 @@ err_code_t JobCtrl::resume(uint8_t client_id) {
   }
 
   LOCK(_lock, JOB_LOCK_WAIT_TICK);
-  if (!resum_env()) {
+  if (E_SUCCESS != resum_env()) {
     UNLOCK(_lock);
     LOG_E("resume failed\r\n");
     // TODO: do I need to check the result?
@@ -356,16 +423,22 @@ err_code_t JobCtrl::resume(uint8_t client_id) {
 }
 
 err_code_t JobCtrl::stop(void) {
+  err_code_t ret;
   // status check
-  if (SYSTEM_STATUS_PRINTING != smprinter.get_sys_status() || SYSTEM_STATUS_PAUSED != smprinter.get_sys_status()) {
-    LOG_E("Can resume a job as current status is no pause\r\n");
+  if (SYSTEM_STATUS_PRINTING != smprinter.get_sys_status() && SYSTEM_STATUS_PAUSED != smprinter.get_sys_status()) {
+    LOG_E("Can stop a job as current status is no working or paused\r\n");
     return E_JOB_NOT_IN_PAUSE_STATUS;
   }
 
   // Just stop, no matter what the status the machin on
   LOCK(_lock, JOB_LOCK_WAIT_TICK);
-  machine_standby();
+  ret = machine_standby();
   UNLOCK(_lock);
+
+  if (E_SUCCESS != ret) {
+    LOG_E("machine standby failure\r\n");
+    return ret;
+  }
 
   if (E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_IDLE, NULL)) {
     LOG_E("Can not enter SYS_IDLE status");
@@ -436,7 +509,7 @@ bool JobCtrl::gcode_file_info_check(struct GcodeFileInfo *gfi) {
 
   p = gfi->name;
   uint32_t nl = 0;
-  while(*p != '\0') {
+  while(p[nl] != '\0') {
     nl++;
     if(nl > GCODE_FILE_NAME_SIZE){
       return false;

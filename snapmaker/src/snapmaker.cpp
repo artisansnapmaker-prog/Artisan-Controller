@@ -261,6 +261,7 @@ static void system_thread(void *p) {
   for (;;) {
     module_svc.background_thread();
     system_svc.background_thread();
+    job_ctrl_svc.background_thread();
 
     taskYIELD();
   }
@@ -457,20 +458,19 @@ bool SnapmakerPrinter::get_gcode_from_job(uint8_t *cmd, uint16_t max_len, uint32
   return job_ctrl_svc.consume_a_gcode(cmd, max_len, line);
 }
 
-ModuleBase *SnapmakerPrinter::get_cur_toolhead(void) {
-  /*
-  if (_3dp && !cnc && !laser) {
-    return _3dp;
+ModuleBase *SnapmakerPrinter::get_cur_toolhead(void) { 
+
+  if (fdm && !cnc && !laser) {
+    return fdm;
   }
 
-  if (cnc && !_3dp && !laser) {
+  if (cnc && !fdm && !laser) {
     return cnc;
   }
 
-  if (laser && !_3dp && !cnc) {
+  if (laser && !fdm && !cnc) {
     return laser;
   }
-  */
 
   LOG_E("More than one toohead online or No toolhead\r\n");
   return NULL;
@@ -478,19 +478,18 @@ ModuleBase *SnapmakerPrinter::get_cur_toolhead(void) {
 
 // The toolhead type should get from toolhead
 toolHeadType SnapmakerPrinter::get_toolhead_type(void) {
-  /*
-  if (_3dp && !cnc && !laser) {
+
+  if (fdm && !cnc && !laser) {
     return TH_TYPE_3DP;
   }
 
-  if (cnc && !_3dp && !laser) {
+  if (cnc && !fdm && !laser) {
     return TH_TYPE_CNC;
   }
 
-  if (laser && !_3dp && !cnc) {
+  if (laser && !fdm && !cnc) {
     return TH_TYPE_LASER;
   }
-  */
 
  LOG_E("toolhead unknow\r\n");
  return TH_TYPE_UNKNOW;

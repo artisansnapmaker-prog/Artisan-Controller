@@ -86,6 +86,7 @@
 #define SACP_RET_JOB_RESUME_ENV_FAILURE               (SACP_RET_PRIVATE_BASE + 13)
 #define SACP_RET_JOB_UNKNOW_STOP_TPYE                 (SACP_RET_PRIVATE_BASE + 14)
 #define SACP_RET_JOB_BUSY                             (SACP_RET_PRIVATE_BASE + 15)
+#define SACP_RET_JOB_UNMATCHED_TOOLHEAD               (SACP_RET_PRIVATE_BASE + 16)
 
 
 //Types of event function callbacks

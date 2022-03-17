@@ -83,17 +83,20 @@ void GcodeSuite::M2000() {
       /* start a job */
       uint8_t msg_buf[128];
       uint8_t *p = msg_buf;
-      _16_TO_LITTLE_STREAM(32, p); p += 2;
-      memcpy(p, "0123456789ABCDEF0123456789ABCDEF", 32); p += 32;
-      _16_TO_LITTLE_STREAM(9, p); p += 2;
+      _16_TO_LITTLE_STREAM(32, p); 
+      p += 2;
+      memcpy(p, "0123456789ABCDEF0123456789ABCDEF", 32); 
+      p += 32;
+      _16_TO_LITTLE_STREAM(9, p); 
+      p += 2;
       memcpy(p, "gcodefile", 9);
       p += 9;
       p[0] = TH_TYPE_3DP;
       p++;
 
       sacp_hmi_message_t msg;
-      msg.peer = SACP_HOST_ID_CONTROLLER;
-      msg.ch = SACP_HMI_CH_PC;
+      msg.peer = SACP_HOST_ID_SCREEN;
+      msg.ch = SACP_HMI_CH_SCREEN;
       msg.attr = SACP_MESSAGE_ATTR_SET_SEQ;
       msg.seq = 1;
       msg.cmd_set = CMD_SET_JOB_CTRL;
@@ -108,8 +111,8 @@ void GcodeSuite::M2000() {
     {
       /* pause a job */
       sacp_hmi_message_t msg;
-      msg.peer = SACP_HOST_ID_CONTROLLER;
-      msg.ch = SACP_HMI_CH_PC;
+      msg.peer = SACP_HOST_ID_SCREEN;
+      msg.ch = SACP_HMI_CH_SCREEN;
       msg.attr = SACP_MESSAGE_ATTR_SET_SEQ;
       msg.seq = 1;
       msg.cmd_set = CMD_SET_JOB_CTRL;
@@ -124,8 +127,8 @@ void GcodeSuite::M2000() {
     {
       /* resume a job */
       sacp_hmi_message_t msg;
-      msg.peer = SACP_HOST_ID_CONTROLLER;
-      msg.ch = SACP_HMI_CH_PC;
+      msg.peer = SACP_HOST_ID_SCREEN;
+      msg.ch = SACP_HMI_CH_SCREEN;
       msg.attr = SACP_MESSAGE_ATTR_SET_SEQ;
       msg.seq = 1;
       msg.cmd_set = CMD_SET_JOB_CTRL;
@@ -140,8 +143,8 @@ void GcodeSuite::M2000() {
     {
       /* stop a job */
       sacp_hmi_message_t msg;
-      msg.peer = SACP_HOST_ID_CONTROLLER;
-      msg.ch = SACP_HMI_CH_PC;
+      msg.peer = SACP_HOST_ID_SCREEN;
+      msg.ch = SACP_HMI_CH_SCREEN;
       msg.attr = SACP_MESSAGE_ATTR_SET_SEQ;
       msg.seq = 1;
       msg.cmd_set = CMD_SET_JOB_CTRL;

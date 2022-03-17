@@ -83,9 +83,9 @@ class ModuleService {
     // background thread
     void background_thread();
 
-    friend err_code_t handle_module_inserted(void *obj, uint32_t mac, LinkCANChannel ch);
-    friend err_code_t handle_fw_request(void *obj, sacp_module_message_t &message);
-    friend err_code_t report_module_info(void *obj, sacp_hmi_message_t &message);
+    static err_code_t handle_module_inserted(void *obj, uint32_t mac, LinkCANChannel ch);
+    static err_code_t handle_fw_request(void *obj, sacp_module_message_t &message);
+    static err_code_t report_module_info(void *obj, sacp_hmi_message_t &message);
 
   // private methods
   private:
@@ -99,6 +99,7 @@ class ModuleService {
     err_code_t assign_message_id();
     err_code_t bind_message_id();
     err_code_t bind_message_id(ModuleBase &module);
+    err_code_t get_module_info(ModuleBase &module);
 
     // when controller receiver a whole module FW,
     // will tell us to upgrade modules

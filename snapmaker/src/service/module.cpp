@@ -14,9 +14,9 @@ typedef struct {
   uint8_t   hw_version;
   uint16_t  fw_ver_len;
   char      fw_version[0];
-} module_info_t;
+} __packed module_info_t;
 
-static __unused void handle_can_receive(void *p) {
+static void handle_can_receive(void *p) {
   BaseType_t ret;
   SemaphoreHandle_t recv_signal = (SemaphoreHandle_t)p;
 
@@ -37,7 +37,7 @@ static __unused void handle_can_receive(void *p) {
 }
 
 
-static __unused void handle_can_events(__unused void *p) {
+static void handle_can_events(__unused void *p) {
   BaseType_t ret;
   uint32_t notification;
 
@@ -60,7 +60,7 @@ static __unused void handle_can_events(__unused void *p) {
 }
 
 
-err_code_t handle_module_inserted(void *obj, uint32_t mac, LinkCANChannel ch) {
+err_code_t ModuleService::handle_module_inserted(void *obj, uint32_t mac, LinkCANChannel ch) {
   err_code_t ret = E_SUCCESS;
   ModuleService *ms = (ModuleService *)obj;
 
@@ -163,6 +163,9 @@ err_code_t handle_module_inserted(void *obj, uint32_t mac, LinkCANChannel ch) {
     goto out;
   }
 
+  // get module info, for new will query firmware verison.
+  ms->get_module_info(*module);
+
   // new module is plugged dynamically, bind message id for it
   if (ms->status == MS_STATUS_CONFIG) {
     if (ms->bind_message_id(*module) != E_SUCCESS) {
@@ -185,14 +188,14 @@ out:
 }
 
 
-err_code_t handle_fw_request(void *obj, sacp_module_message_t &message) {
+err_code_t ModuleService::handle_fw_request(void *obj, sacp_module_message_t &message) {
   // TODO: to be implemented
 
   return E_SUCCESS;
 }
 
 
-err_code_t report_module_info(void *obj, sacp_hmi_message_t &message) {
+err_code_t ModuleService::report_module_info(void *obj, sacp_hmi_message_t &message) {
   if (!obj)
     return E_PARAM;
 
@@ -249,7 +252,9 @@ err_code_t report_module_info(void *obj, sacp_hmi_message_t &message) {
     message.data[1]++;
   }
 
-  LOG_I("module info: count[%u], data len[%u]\n", message.data[1], message.length);
+  LOG_V("module info: count[%u], data len[0x%x]\n", message.data[1], message.length);
+
+  message.attr |= SACP_MESSAGE_ATTR_ACK;
 
   return host_hmi.send(&message);
 }
@@ -368,6 +373,7 @@ int ModuleService::init_virtual_modules() {
     LOG_E("failed to create module [0x%x, %u]\n", mac, MODULE_LINEAR_X1);
   }
   else {
+    module->set_fw_version("v1.0.0");
     modules[configured_module++] = module;
   }
 
@@ -376,6 +382,7 @@ int ModuleService::init_virtual_modules() {
     LOG_E("failed to create module [0x%x, %u]\n", mac, MODULE_LINEAR_Y1);
   }
   else {
+    module->set_fw_version("v1.0.0");
     modules[configured_module++] = module;
   }
 
@@ -384,6 +391,7 @@ int ModuleService::init_virtual_modules() {
     LOG_E("failed to create module [0x%x, %u]\n", mac, MODULE_LINEAR_Z1);
   }
   else {
+    module->set_fw_version("v1.0.0");
     modules[configured_module++] = module;
   }
 
@@ -400,6 +408,7 @@ int ModuleService::init_virtual_modules() {
     LOG_E("failed to create module [0x%x, %u]\n", mac, MODULE_LINEAR_Z2);
   }
   else {
+    module->set_fw_version("v1.0.0");
     modules[configured_module++] = module;
   }
 
@@ -409,6 +418,7 @@ int ModuleService::init_virtual_modules() {
     LOG_E("failed to create module [0x%x, %u]\n", mac, 0);
   }
   else {
+    module->set_fw_version("v1.0.0");
     modules[configured_module++] = module;
   }
 
@@ -678,3 +688,28 @@ void ModuleService::background_thread() {
 }
 
 
+// query firmware and HW version
+err_code_t ModuleService::get_module_info(ModuleBase &module) {
+  sacp_module_message_t cmd;
+  err_code_t ret = E_SUCCESS;
+
+  uint8_t  recv_buffer[48] {0};
+  uint16_t recv_length = 48;
+
+  // for CAN link, peer need to be MAC
+  cmd.peer   = module.get_mac();
+  cmd.ch     = module.get_channel();
+  cmd.length = 0;
+  cmd.cmd_id = MODULE_EXT_CMD_VERSION_REQ;
+
+  ret = host_can_cfg.send_sync(&cmd, recv_buffer, &recv_length, 500, 3);
+  if (ret != E_SUCCESS) {
+    LOG_E("failed to get fw version: 0x%x\n", cmd.peer);
+    return ret;
+  }
+
+  LOG_I("fw ver:%s, len: %d\n", recv_buffer + 1, recv_length);
+
+  module.set_fw_version((char *)recv_buffer);
+  return ret;
+}

@@ -392,8 +392,7 @@ bool JobCtrl::consume_a_gcode(uint8_t *cmd, uint16_t max_len, uint32_t *line) {
   uint32_t cmd_len;
 
   if (SYSTEM_STATUS_PRINTING != smprinter.get_sys_status()) {
-    LOG_E("Can resume a job as current status is no printing\r\n");
-    return E_JOB_NOT_IN_WORKING_STATUS;
+    return false;
   }
 
   ret = false;

@@ -68,12 +68,14 @@ void ClientNode::class_init(void) {
   ret |= host_hmi.register_subscription(CMD_SET_JOB_CTRL, SUB_ID_JOB_CTRL_CUR_LINE_NUM, (void *)job_ctrl_linenum_sub_cb, job_ctrl_linenum_sub_cb);
 
   // system
+  /*
   ret |= host_hmi.apply_cmd_set_handle(CMD_SET_SYS, CMD_ID_SYS_NUM);
   ret |= host_hmi.register_callback(CMD_SET_SYS, CMD_ID_SYS_SET_ECHO_LOG, NULL, sacp_cb);
   ret |= host_hmi.register_callback(CMD_SET_SYS, CMD_ID_SYS_SET_PC_CH_PRO, NULL, sacp_cb);
   ret |= host_hmi.register_callback(CMD_SET_SYS, CMD_ID_SYS_SET_DEBUG_MODE, NULL, sacp_cb);
   // register subscibtion
   ret |= host_hmi.register_subscription(CMD_SET_SYS, SUB_ID_SYS_HARDTICK, (void *)sys_hardtick_sub_cb, sys_hardtick_sub_cb);
+  */
 
   if (E_SUCCESS != ret) {
     LOG_E("Can not register sacp callback\r\n");

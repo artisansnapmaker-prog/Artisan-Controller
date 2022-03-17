@@ -197,13 +197,6 @@ void SnapmakerPrinter::pre_init(void) {
   OUT_WRITE(Y2_STANDBY_PIN_var, LOW);
   OUT_WRITE(Z_STANDBY_PIN_var, LOW);
   OUT_WRITE(Z2_STANDBY_PIN_var, LOW);
-
-  sys_status = SYSTEM_STATUS_IDLE;
-  status_lock = xSemaphoreCreateMutex();
-  if (!status_lock) {
-    LOG_E("snapmaker: status_lock create failed\r\n");
-    while(1);
-  }
 }
 
 
@@ -227,6 +220,13 @@ void SnapmakerPrinter::post_init() {
   }
   else {
     // LOG_I(LOG_RESULT_OK);
+  }
+
+  sys_status = SYSTEM_STATUS_IDLE;
+  status_lock = xSemaphoreCreateMutex();
+  if (!status_lock) {
+    // LOG_E("snapmaker: status_lock create failed\r\n");
+    while(1);
   }
 
   vTaskStartScheduler();

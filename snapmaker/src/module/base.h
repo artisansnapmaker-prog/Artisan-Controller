@@ -298,7 +298,9 @@ class ModuleBase {
   // public methods
   public:
     ModuleBase(uint32_t mac, uint8_t key, uint8_t i):
-      mac(mac), key(key), index(i) {}
+      mac(mac), key(key), index(i) {
+        hw_ver = 0xFF;
+      }
 
     virtual err_code_t pre_init() = 0;
     virtual err_code_t post_init() = 0;

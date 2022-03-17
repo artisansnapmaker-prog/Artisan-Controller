@@ -118,7 +118,7 @@ enum PortIndex {
 uint16_t SnapmakerPrinter::publish_system_status(void *obj, uint8_t *buffer) {
   SnapmakerPrinter *printer = (SnapmakerPrinter *)obj;
   buffer[0] = E_SUCCESS;
-  buffer[1] = printer->system_status;
+  buffer[1] = printer->sys_status;
   return 2;
 }
 

@@ -245,7 +245,6 @@ class SnapmakerPrinter
     TaskHandle_t thandle_can_recv;
     TaskHandle_t thandle_can_event;
 
-    uint8_t system_status = 0;
     SnapmakerModel model = SNAPMAKER_MODEL_UNKNOWN;
 
   public:

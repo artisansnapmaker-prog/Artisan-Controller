@@ -53,6 +53,7 @@ void JobCtrl::init(void) {
 }
 
 void JobCtrl::background_thread(void) {
+  static uint32_t keep_printing_cnt = 0;
   // if (!time_after(system_svc.millis(), _tick_ms)) {
   //   return;
   // }
@@ -60,7 +61,14 @@ void JobCtrl::background_thread(void) {
   _tick_ms = smprinter.millis();
 
   if (SYSTEM_STATUS_PRINTING == smprinter.get_sys_status()) {
-    get_gcodes_from_client();
+    keep_printing_cnt++;
+    if (keep_printing_cnt >= 3) {
+      get_gcodes_from_client();
+      keep_printing_cnt = 3;
+    }
+  }
+  else {
+    keep_printing_cnt = 0;
   }
 
   if (_statistics_log_interval_ms > 0) {
@@ -265,10 +273,12 @@ void JobCtrl::get_gcodes_from_client(void) {
         // gcode ringbuffer guarantee to hold all the gcode string.
         _gcode_rb.insert_multi(res_batch_gcode.gcode_str, p - res_batch_gcode.gcode_str);
         _env.req_line_num = res_batch_gcode.end_line_num;
+        _err_get_batch_gcode_cnt = 0;
       }
     }
     else {
       _err_get_batch_gcode_cnt++;
+      break;
     }
   }
 

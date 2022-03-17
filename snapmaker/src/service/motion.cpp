@@ -22,7 +22,7 @@ struct __packed CoordinateSystemInformation {
   coordinate_info_t origin_offset[5];
 };
 
-uint16_t publish_coordinate_info(void *obj, uint8_t *buffer) {
+uint16_t MotionService::publish_coordinate_info(void *obj, uint8_t *buffer) {
   MotionService *motion = (MotionService *)obj;
 
   CoordinateSystemInformation *info = (CoordinateSystemInformation *)(buffer + 1);
@@ -46,7 +46,7 @@ uint16_t publish_coordinate_info(void *obj, uint8_t *buffer) {
   info->current_pos[4].axis  = AXIS_KEY_B1;
   info->current_pos[4].value = (int32_t)(motion->sm_current_position[B_AXIS] * 1000);
   info->current_pos_num      = 5;
-  LOG_I("coor: X: %d, Y:%d, Z:%d, A: %d, B:%d\n", info->current_pos[0].value, info->current_pos[1].value,
+  LOG_V("coor: X: %d, Y:%d, Z:%d, A: %d, B:%d\n", info->current_pos[0].value, info->current_pos[1].value,
     info->current_pos[2].value, info->current_pos[3].value, info->current_pos[4].value);
 
   motion->update_position_shift_from_platform();
@@ -62,14 +62,14 @@ uint16_t publish_coordinate_info(void *obj, uint8_t *buffer) {
   info->origin_offset[4].value = (int32_t)(motion->sm_position_shift[B_AXIS] * 1000);
   info->origin_offset_num      = 5;
 
-  LOG_I("pos offset: X: %d, Y:%d, Z:%d, A: %d, B:%d\n", info->current_pos[0].value, info->current_pos[1].value,
+  LOG_V("pos offset: X: %d, Y:%d, Z:%d, A: %d, B:%d\n", info->current_pos[0].value, info->current_pos[1].value,
     info->current_pos[2].value, info->current_pos[3].value, info->current_pos[4].value);
 
   return sizeof(CoordinateSystemInformation) + 1;
 }
 
 // HMI event callback
-err_code_t get_coordinate_info(void *obj, sacp_hmi_message_t *msg) {
+err_code_t MotionService::get_coordinate_info(void *obj, sacp_hmi_message_t *msg) {
   msg->length = publish_coordinate_info(obj, msg->data);
 
   msg->attr |= SACP_MESSAGE_ATTR_ACK;
@@ -77,7 +77,7 @@ err_code_t get_coordinate_info(void *obj, sacp_hmi_message_t *msg) {
   return host_hmi.send(msg);
 }
 
-err_code_t set_active_coordinate_system(void *obj, sacp_hmi_message_t *msg) {
+err_code_t MotionService::set_active_coordinate_system(void *obj, sacp_hmi_message_t *msg) {
   uint8_t id = msg->data[0];
   MotionService *motion = (MotionService *)obj;
 
@@ -97,7 +97,7 @@ err_code_t set_active_coordinate_system(void *obj, sacp_hmi_message_t *msg) {
   return host_hmi.send_ack(msg, E_SUCCESS);
 }
 
-err_code_t set_origin(void *obj, sacp_hmi_message_t *msg) {
+err_code_t MotionService::set_origin(void *obj, sacp_hmi_message_t *msg) {
   err_code_t ret = E_SUCCESS;
   MotionService *motion = (MotionService *)obj;
   uint8_t length = msg->data[0];
@@ -124,11 +124,25 @@ err_code_t set_origin(void *obj, sacp_hmi_message_t *msg) {
 }
 
 
-static void motion_background(void *p) {
+void MotionService::motion_background(void *p) {
+  MotionService &motion = *(MotionService *)p;
+  char gcode_cmd[MAX_CMD_SIZE + 4];
+  size_t gcode_len = 0;
   for (;;) {
     loop();
 
-    vTaskDelay(pdMS_TO_TICKS(1));
+    while (!queue.ring_buffer.full()) {
+      gcode_len = xMessageBufferReceive(motion.gcode_queue, gcode_cmd, MAX_CMD_SIZE + 4, 0);
+      if (gcode_len > 2 && gcode_len < MAX_CMD_SIZE) {
+        queue.ring_buffer.enqueue(gcode_cmd, true);
+        queue.ring_buffer.advance_pos(queue.ring_buffer.index_w, 1);
+      }
+      else {
+        break;
+      }
+    }
+
+    taskYIELD();
   }
 }
 
@@ -137,6 +151,9 @@ void MotionService::init() {
 
   load_settings();
 
+  gcode_queue = xMessageBufferCreate(MOTION_PLATFORM_QUEUE_SIZE);
+  configASSERT(gcode_queue);
+
   host_hmi.register_subscription(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_SUB_COORDINATE,
             (void *)this, publish_coordinate_info);
 
@@ -144,7 +161,7 @@ void MotionService::init() {
             (void *)this, get_coordinate_info);
 
   LOG_I("Creating marlin task...");
-  ret = xTaskCreate((TaskFunction_t)motion_background, "marin", MOTION_TASK_STACK_SIZE, NULL,
+  ret = xTaskCreate((TaskFunction_t)motion_background, "marin", MOTION_TASK_STACK_SIZE, (void *)this,
         MOTION_TASK_PRIORITY, NULL);
   if (ret != pdPASS) {
     LOG_E(LOG_RESULT_FAIL);
@@ -318,4 +335,37 @@ void MotionService::save_settings() {
   sync_z_compensation_to_platform();
   sync_z_values_to_platform();
   settings.save();
+}
+
+
+err_code_t MotionService::run_gcode(char *gcode, bool blocked /* = false*/,
+    uint32_t blocked_timeout/*= 180 * 1000 ms*/) {
+  BaseType_t ret = pdPASS;
+  int length = strlen(gcode);
+
+  if (length > MAX_CMD_SIZE) {
+    LOG_E("length of gcode is out of range: %d\n", MAX_CMD_SIZE);
+    return E_PARAM;
+  }
+
+  ret = xMessageBufferSend(gcode_queue, gcode, length + 1, pdMS_TO_TICKS(100));
+  if (ret != pdPASS) {
+    LOG_E("fail to submit gcode: %s\n", gcode);
+    return E_TIMEOUT;
+  }
+
+  // for now just blocked with moving
+  if (blocked) {
+    while (planner.busy()) {
+      vTaskDelay(pdMS_TO_TICKS(10));
+      if (blocked_timeout > 10) {
+        blocked_timeout -= 10;
+      }
+      else {
+        break;
+      }
+    }
+  }
+
+  return E_SUCCESS;
 }

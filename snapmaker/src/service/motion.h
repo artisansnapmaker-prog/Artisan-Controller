@@ -39,6 +39,8 @@
 #define AXIS_NUM  6
 #define XYZ 3
 
+#define MOTION_PLATFORM_QUEUE_SIZE  (512)
+
 enum AxisKey {
   AXIS_KEY_X1,
   AXIS_KEY_Y1,
@@ -88,7 +90,11 @@ class MotionService {
     void moveto_e(float e, float feedrate, bool blocked=true) {}
     void moveto_e(float e, uint8_t extruder, float feedrate, bool blocked=true) {}
     void moveto(float target[AXIS_NUM], float feedrate, bool blocked=true);
-    void synchronize_planner() { planner.synchronize(); }
+    void synchronize_planner() {
+      while (planner.busy()) {
+        vTaskDelay(pdMS_TO_TICKS(10));
+      }
+    }
     bool is_all_axes_homed() {return all_axes_homed();}
     void quickstop(void) {quickstop_stepper();}
 
@@ -168,7 +174,7 @@ class MotionService {
     void load_settings();
     void save_settings();
 
-    void run_gcode(char *gcode) {}
+    err_code_t run_gcode(char *gcode, bool blocked = false, uint32_t blocked_timeout=180000);
 
     int8_t get_active_coordinate_system() { return gcode.active_coordinate_system; }
     bool is_original_position_offset() {
@@ -181,7 +187,14 @@ class MotionService {
       return result;
     }
 
+    static void motion_background(void *p);
+    static uint16_t publish_coordinate_info(void *obj, uint8_t *buffer);
+    static err_code_t get_coordinate_info(void *obj, sacp_hmi_message_t *msg);
+    static err_code_t set_active_coordinate_system(void *obj, sacp_hmi_message_t *msg);
+    static err_code_t set_origin(void *obj, sacp_hmi_message_t *msg);
+
   private:
+    MessageBufferHandle_t gcode_queue;
 
 };
 

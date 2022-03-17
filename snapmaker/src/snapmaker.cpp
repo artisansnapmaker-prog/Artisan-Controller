@@ -261,6 +261,7 @@ static void system_thread(void *p) {
   for (;;) {
     module_svc.background_thread();
     system_svc.background_thread();
+    job_ctrl_svc.background_thread();
 
     taskYIELD();
   }

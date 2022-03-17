@@ -254,7 +254,7 @@ err_code_t HostSACPHMI::send_sync(sacp_hmi_message_t *message, uint8_t *out, uin
 }
 
 
-err_code_t HostSACPHMI::send_ack(sacp_hmi_message_t *message, uint8_t result /*= E_SUCCESS */) {
+err_code_t HostSACPHMI::send_ack(sacp_hmi_message_t *message, uint8_t result) {
   message->data = &result;
   message->length = 1;
   message->attr   = SACP_MESSAGE_ATTR_ACK;
@@ -586,7 +586,7 @@ void HostSACPHMI::handle_events() {
     return;
   }
 
-  msg.peer    = buffer[SACP_V1_FRAME_INDEX_RECV_ID];
+  msg.peer    = buffer[SACP_V1_FRAME_INDEX_SENDER_ID];
   msg.attr    = buffer[SACP_V1_FRAME_INDEX_ATTR];
   msg.length  = pdu_length - SACP_V1_PDU_MIN_SIZE + 2;
   msg.cmd_set = buffer[SACP_V1_FRAME_INDEX_CMD_SET];
@@ -716,7 +716,7 @@ static void subscription_timer_cb(TimerHandle_t timer) {
   msg.ch   = client->ch;
   msg.cmd_set = node->cmd_set;
   msg.cmd_id  = node->cmd_id;
-  msg.attr    = 0;
+  msg.attr    = SACP_MESSAGE_ATTR_ACK;
   msg.data    = buffer;
   msg.length  = index;
 

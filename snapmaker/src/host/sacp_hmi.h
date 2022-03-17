@@ -102,7 +102,11 @@ class HostSACPHMI: public HostSACP {
 
     err_code_t send_sync(sacp_hmi_message_t *message, uint8_t *out, uint16_t *out_len, uint32_t timeout=100, uint8_t retry=1);
     err_code_t send(sacp_hmi_message_t *message);
-    err_code_t send_ack(sacp_hmi_message_t *message, uint8_t result = E_SUCCESS);
+    err_code_t send_ack(sacp_hmi_message_t *message) {
+      message->attr |= SACP_MESSAGE_ATTR_ACK;
+      return send(message);
+    }
+    err_code_t send_ack(sacp_hmi_message_t *message, uint8_t result);
     err_code_t send_ack(sacp_hmi_message_t *message, uint8_t *data, uint16_t length);
 
     void handle_receive();

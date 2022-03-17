@@ -115,7 +115,7 @@ enum PortIndex {
 
 
 // HMI subscription callbacks
-uint16_t publish_system_status(void *obj, uint8_t *buffer) {
+uint16_t SnapmakerPrinter::publish_system_status(void *obj, uint8_t *buffer) {
   SnapmakerPrinter *printer = (SnapmakerPrinter *)obj;
   buffer[0] = E_SUCCESS;
   buffer[1] = printer->system_status;
@@ -132,7 +132,7 @@ typedef struct __packed MachineInfo {
   char     fw_ver[0];
 } machine_info_t;
 
-err_code_t hmi_cb_get_machine_info(void *obj, sacp_hmi_message_t *msg) {
+err_code_t SnapmakerPrinter::get_machine_info(void *obj, sacp_hmi_message_t *msg) {
   SnapmakerPrinter *printerr = (SnapmakerPrinter *)obj;
   char ver[] = "A400_V1.4.2";
   int i = 0;
@@ -157,6 +157,8 @@ err_code_t hmi_cb_get_machine_info(void *obj, sacp_hmi_message_t *msg) {
   msg->length = sizeof(machine_info_t) + i + 1;
   msg->attr |= SACP_MESSAGE_ATTR_ACK;
 
+  LOG_I("report machine info, len[0x%x]\n", msg->length);
+
   return host_hmi.send(msg);
 }
 
@@ -165,7 +167,7 @@ struct __packed MachineSize {
   coordinate_info_t home_offset[3];
 };
 
-err_code_t hmi_cb_get_machine_size(void *obj, sacp_hmi_message_t *msg) {
+err_code_t SnapmakerPrinter::get_machine_size(void *obj, sacp_hmi_message_t *msg) {
   SnapmakerPrinter *printerr = (SnapmakerPrinter *)obj;
   MachineSize *msize;
 
@@ -188,6 +190,8 @@ err_code_t hmi_cb_get_machine_size(void *obj, sacp_hmi_message_t *msg) {
 
   msg->length = sizeof(MachineSize) + 1;
   msg->attr |= SACP_MESSAGE_ATTR_ACK;
+
+  LOG_I("report machine size, len[0x%x]\n", msg->length);
 
   return host_hmi.send(msg);
 }
@@ -256,12 +260,12 @@ static void system_thread(void *p) {
   ClientNode::class_init();
 
   host_hmi.register_subscription(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_HEARTBEAT,
-      (void *)&smprinter, publish_system_status);
+      (void *)&smprinter, SnapmakerPrinter::publish_system_status);
 
   host_hmi.register_callback(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_GET_MACHINE_INFO,
-      (void *)&smprinter, hmi_cb_get_machine_info);
+      (void *)&smprinter, SnapmakerPrinter::get_machine_info);
   host_hmi.register_callback(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_GET_MACHINE_SIZE,
-      (void *)&smprinter, hmi_cb_get_machine_size);
+      (void *)&smprinter, SnapmakerPrinter::get_machine_size);
 
 
   // loop

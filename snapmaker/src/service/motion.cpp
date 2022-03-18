@@ -229,21 +229,9 @@ err_code_t MotionService::hmi_cb_request_home(void *obj, sacp_hmi_message_t *msg
 
 void MotionService::motion_background(void *p) {
   MotionService &motion = *(MotionService *)p;
-  char gcode_cmd[MAX_CMD_SIZE + 4];
-  size_t gcode_len = 0;
+  
   for (;;) {
     loop();
-
-    while (!queue.ring_buffer.full()) {
-      gcode_len = xMessageBufferReceive(motion.gcode_queue, gcode_cmd, MAX_CMD_SIZE + 4, 0);
-      if (gcode_len > 2 && gcode_len < MAX_CMD_SIZE) {
-        queue.ring_buffer.enqueue(gcode_cmd, true);
-      }
-      else {
-        break;
-      }
-    }
-
     taskYIELD();
   }
 }

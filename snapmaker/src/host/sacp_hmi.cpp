@@ -111,11 +111,11 @@ err_code_t HostSACPHMI::apply_cmd_set_handle(uint8_t cmd_set, uint8_t length) {
   sacp_hmi_handle_t *handles = NULL;
 
   if (cmd_set_handle[cmd_set]) {
-    LOG_W("register cmd set [%u] repeatly\n", cmd_set);
+    LOG_W("register cmd set [%x] repeatly\n", cmd_set);
     return E_INVALID_STATE;
   }
 
-  LOG_I("apply new handle, cmd set[%u], length[%u]\n", cmd_set, length);
+  LOG_I("apply new handle, cmd set[%x], length[%u]\n", cmd_set, length);
 
   handles = (sacp_hmi_handle_t *)pvPortMalloc(sizeof(sacp_hmi_handle_t) * length);
   if (!handles) {
@@ -197,7 +197,22 @@ err_code_t HostSACPHMI::send_sync(sacp_hmi_message_t *message, uint8_t *out, uin
     return E_PARAM;
   }
 
-  // TODO: check if need set seq
+  if (message->attr & SACP_MESSAGE_ATTR_ACK) {
+    LOG_I("cannot send ACK by this API!\n");
+    return E_FAILURE;
+  }
+
+  sacp_channel_t &channel = channels[message->ch];
+
+  // won't update sequence when it is ACK or USERs want to set sequence by themself
+  if (!(message->attr & SACP_MESSAGE_ATTR_SET_SEQ)) {
+    xSemaphoreTake(channel.lock, portMAX_DELAY);
+    message->seq = channel.seq++;
+    xSemaphoreGive(channel.lock);
+  }
+
+  // set the flag, then API send() won't update the seq
+  message->attr |= SACP_MESSAGE_ATTR_SET_SEQ;
 
   if (xSemaphoreTake(waiting_lock, pdMS_TO_TICKS(timeout)) != pdPASS) {
     LOG_E("no avail waiting node for cmd[%x:%x]!\n", message->cmd_set, message->cmd_id);
@@ -208,8 +223,10 @@ err_code_t HostSACPHMI::send_sync(sacp_hmi_message_t *message, uint8_t *out, uin
     if (waiting_nodes[node_index].status == SACP_WAITING_NODE_STA_IDLE) {
       waiting_nodes[node_index].status = SACP_WAITING_NODE_STA_INUSE;
       waiting_nodes[node_index].cmd_set = message->cmd_set;
-      waiting_nodes[node_index].cmd_id = message->cmd_id;
-      waiting_nodes[node_index].seq = message->seq;
+      waiting_nodes[node_index].cmd_id  = message->cmd_id;
+      waiting_nodes[node_index].seq     = message->seq;
+      waiting_nodes[node_index].ch      = message->ch;
+      waiting_nodes[node_index].peer    = message->peer;
       break;
     }
   }
@@ -473,17 +490,29 @@ void HostSACPHMI::handle_receive() {
 
     parser_buff = channels[i].parser.buffer;
     buffer_len  = channels[i].parser.length;
+
+    if (parser_buff[SACP_V1_FRAME_INDEX_VER] == SACP_VER_1) {
+      if (parser_buff[SACP_V1_FRAME_INDEX_RECV_ID] != host_id) {
+        LOG_E("recv id of msg[%x, %x] isn't me!\n", parser_buff[SACP_V1_FRAME_INDEX_CMD_SET],
+            parser_buff[SACP_V1_FRAME_INDEX_CMD_ID]);
+
+        // TODO: forward message
+      }
+    }
+
     tmp_queue   = NULL;
     seq = parser_buff[SACP_V1_FRAME_INDEX_SEQ_H]<<8 | parser_buff[SACP_V1_FRAME_INDEX_SEQ_L];
     if (xSemaphoreTake(waiting_lock, 0) == pdPASS) {
-      for (int i = 0; i < SACP_HMI_WAITING_NODE_MAX; i++) {
-        if (waiting_nodes[i].status != SACP_WAITING_NODE_STA_INUSE)
+      for (int j = 0; j < SACP_HMI_WAITING_NODE_MAX; j++) {
+        if (waiting_nodes[j].status != SACP_WAITING_NODE_STA_INUSE)
           continue;
 
-        if (waiting_nodes[i].cmd_set == parser_buff[SACP_V1_FRAME_INDEX_CMD_SET] &&
-            waiting_nodes[i].cmd_id == parser_buff[SACP_V1_FRAME_INDEX_CMD_ID] &&
-            waiting_nodes[i].seq == seq) {
-          tmp_queue = waiting_nodes[i].queue;
+        if (waiting_nodes[j].cmd_set == parser_buff[SACP_V1_FRAME_INDEX_CMD_SET] &&
+            waiting_nodes[j].cmd_id == parser_buff[SACP_V1_FRAME_INDEX_CMD_ID] &&
+            waiting_nodes[j].peer == parser_buff[SACP_V1_FRAME_INDEX_SENDER_ID] &&
+            waiting_nodes[j].ch == i &&
+            waiting_nodes[j].seq == seq) {
+          tmp_queue = waiting_nodes[j].queue;
           break;
         }
       }

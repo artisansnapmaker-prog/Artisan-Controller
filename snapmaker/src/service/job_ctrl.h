@@ -34,21 +34,29 @@
 #include "client_node.h"
 
 
-#define E_JOB_FAILURE                     SACP_RET_FAILURE
-#define E_JOB_LAST_GCODE_PACK             SACP_RET_JOB_LAST_GCODE_PACK
-#define E_JOB_NOT_IN_IDLE_STATUS          SACP_RET_JOB_NOT_IN_IDLE_STATUS
-#define E_JOB_NO_HOME                     SACP_RET_JOB_NO_HOME
-#define E_JOB_IVALID_GCODE_FILE           SACP_RET_JOB_IVALID_GCODE_FILE
-#define E_JOB_NOT_IN_WORKING_STATUS       SACP_RET_JOB_NOT_IN_WORKING_STATUS
-#define E_JOB_NOT_IN_PAUSE_STATUS         SACP_RET_JOB_NOT_IN_PAUSE_STATUS
-#define E_JOB_IVALID_POWER_LOSE_DATA      SACP_RET_JOB_IVALID_POWER_LOSE_DATA
-#define E_JOB_POWER_LOSE_CHECK_FAILURE    SACP_RET_JOB_POWER_LOSE_CHECK_FAILURE
-#define E_JOB_GCODE_FILE_NO_EXIT          SACP_RET_JOB_GCODE_FILE_NO_EXIT
-#define E_JOB_SAVE_ENV_FAILURE            SACP_RET_JOB_SAVE_ENV_FAILURE
-#define E_JOB_RESUME_ENV_FAILURE          SACP_RET_JOB_RESUME_ENV_FAILURE
-#define E_JOB_UNKNOW_STOP_TPYE            SACP_RET_JOB_UNKNOW_STOP_TPYE
-#define E_JOB_UNSUPPORT_PARAM             SACP_RET_UNSUPPORT_PARAM
-#define E_JOB_UNMATCHED_TOOLHEAD          SACP_RET_JOB_UNMATCHED_TOOLHEAD
+#define E_JOB_FAILURE                                   SACP_RET_FAILURE
+#define E_JOB_LAST_GCODE_PACK                           SACP_RET_JOB_LAST_GCODE_PACK
+#define E_JOB_NOT_IN_IDLE_STATUS                        SACP_RET_JOB_NOT_IN_IDLE_STATUS
+#define E_JOB_NO_HOME                                   SACP_RET_JOB_NO_HOME
+#define E_JOB_IVALID_GCODE_FILE                         SACP_RET_JOB_IVALID_GCODE_FILE
+#define E_JOB_NOT_IN_WORKING_STATUS                     SACP_RET_JOB_NOT_IN_WORKING_STATUS
+#define E_JOB_NOT_IN_PAUSE_STATUS                       SACP_RET_JOB_NOT_IN_PAUSE_STATUS
+#define E_JOB_IVALID_POWER_LOSE_DATA                    SACP_RET_JOB_IVALID_POWER_LOSE_DATA
+#define E_JOB_POWER_LOSE_CHECK_FAILURE                  SACP_RET_JOB_POWER_LOSE_CHECK_FAILURE
+#define E_JOB_GCODE_FILE_NO_EXIT                        SACP_RET_JOB_GCODE_FILE_NO_EXIT
+#define E_JOB_SAVE_ENV_FAILURE                          SACP_RET_JOB_SAVE_ENV_FAILURE
+#define E_JOB_RESUME_ENV_FAILURE                        SACP_RET_JOB_RESUME_ENV_FAILURE
+#define E_JOB_UNKNOW_STOP_TPYE                          SACP_RET_JOB_UNKNOW_STOP_TPYE
+#define E_JOB_UNSUPPORT_PARAM                           SACP_RET_UNSUPPORT_PARAM
+#define E_JOB_UNMATCHED_TOOLHEAD                        SACP_RET_JOB_UNMATCHED_TOOLHEAD
+
+#define E_JOB_ISSUE_RET_FINISH                          SACP_JOB_PAUSE_ISSUE_RET_FINISH                   
+#define E_JOB_ISSUE_RET_GCODE_PAUSE                     SACP_JOB_PAUSE_ISSUE_RET_GCODE_PAUSE              
+#define E_JOB_ISSUE_RET_GCODE_FILAMENT_RUNOUT           SACP_JOB_PAUSE_ISSUE_RET_GCODE_FILAMENT_RUNOUT    
+#define E_JOB_ISSUE_RET_FILAMENT_RUNOUT                 SACP_JOB_PAUSE_ISSUE_RET_FILAMENT_RUNOUT          
+#define E_JOB_ISSUE_RET_STALL_PROTECTION                SACP_JOB_PAUSE_ISSUE_RET_STALL_PROTECTION         
+#define E_JOB_ISSUE_RET_ABNORMAL_TEMP_PROTECTION        SACP_JOB_PAUSE_ISSUE_RET_ABNORMAL_TEMP_PROTECTION 
+#define E_JOB_ISSUE_RET_IVALID_GCODE_LINE_NUMBER        SACP_JOB_PAUSE_ISSUE_RET_IVALID_GCODE_LINE_NUMBER 
 
 #define GCODE_MD5_LENGTH 32
 #define GCODE_FILE_NAME_SIZE 128
@@ -121,9 +129,7 @@ class JobCtrl {
     err_code_t resum_env(void);                                 /** resume saved enviroment to job                                        */
     err_code_t machine_standby(void);                           /** set the machine in standby status                                     */
     void notify();                                              /** notify the client about job status                                    */
-    void quit_stop();                                           /** stop right now, when in emergency situation                           */
-    void normal_stop();                                         /** stop when current block finish                                        */
-    void issue_nodify(void);
+    void issue_nodify(uint8_t issue_ret);
     void get_gcodes_from_client(void);
 
     SemaphoreHandle_t _lock;                                    /** lock, TODO:should use the snapmaker's API, not the freeRTOS           */
@@ -132,6 +138,7 @@ class JobCtrl {
     uint32_t _tick_ms;                                          /** use for periodically main loop                                        */
     uint32_t _resume_feedrate;                                  /** set the resume move feedrate                                          */
     struct JobEnv _env;                                         /** environment of this job, used to job resume                           */
+    RingBuffer<uint8_t> _issue_ret_rb;                          /** ringbuffer for issue code                                             */
 
     // use for state of self-inspection
     uint32_t _err_get_batch_gcode_cnt;

@@ -131,8 +131,10 @@ class MotionService {
       endstops.enable_globally(status);
       soft_endstop._enabled = status;
     }
-    void quickstop(void) {quickstop_stepper();}
     void sync_feedrate_percentage_to_platform(int16_t percentage) { feedrate_percentage = percentage; }
+    
+    void quickstop(void);
+    void normalstop(void);
 
     // home API
     bool is_all_axes_homed() {return all_axes_homed();}

@@ -858,6 +858,9 @@ class Planner {
     // a Full Shutdown is required, or when endstops are hit)
     static void quick_stop();
 
+    // Add by snapmaker 747
+    static void normal_stop();
+
     #if ENABLED(REALTIME_REPORTING_COMMANDS)
       // Force a quick pause of the machine (e.g., when a pause is required in the middle of move).
       // NOTE: Hard-stops will lose steps so encoders are highly recommended if using these!

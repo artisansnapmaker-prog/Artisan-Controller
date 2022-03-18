@@ -32,7 +32,8 @@
 JobCtrl job_ctrl_svc;
 
 
-void JobCtrl::init(void) {
+void JobCtrl::init(void) { 
+  uint8_t *rb_buf;
   _lock = xSemaphoreCreateMutex();
   if (!_lock) {
     LOG_E("job ctrl: _lock create failed\r\n");
@@ -40,12 +41,20 @@ void JobCtrl::init(void) {
   }
 
   // TODO: should we malloc this buffer use static memory?
-  uint8_t *rb_buf = (uint8_t *)pvPortMalloc(GCODE_RB_SIZE);
+  rb_buf = (uint8_t *)pvPortMalloc(GCODE_RB_SIZE);
   if (!rb_buf) {
     LOG_E("can NOT alloc memory for gcode ringbuffer\r\n");
     while(1);
   }
   _gcode_rb.init(rb_buf, (int32_t)GCODE_RB_SIZE);
+
+  rb_buf = (uint8_t *)pvPortMalloc(4);
+  if (!rb_buf) {
+    LOG_E("can NOT alloc memory for issue ringbuffer\r\n");
+    while(1);
+  }
+  _issue_ret_rb.init(rb_buf, 4);
+
   _statistics_log_interval_ms = 0;
   _statistics_log_last_tick_ms = 0;
   _env.gfi_valid = false;
@@ -57,9 +66,7 @@ void JobCtrl::background_thread(void) {
   // if (!time_after(system_svc.millis(), _tick_ms)) {
   //   return;
   // }
-
-  _tick_ms = smprinter.millis();
-
+  
   if (SYSTEM_STATUS_PRINTING == smprinter.get_sys_status()) {
     keep_printing_cnt++;
     if (keep_printing_cnt >= 3) {
@@ -67,9 +74,7 @@ void JobCtrl::background_thread(void) {
       keep_printing_cnt = 3;
     }
   }
-  else {
-    keep_printing_cnt = 0;
-  }
+  keep_printing_cnt = 0;
 
   if (_statistics_log_interval_ms > 0) {
     if (!time_after(system_svc.millis(), _statistics_log_last_tick_ms + _statistics_log_interval_ms)) {
@@ -77,8 +82,20 @@ void JobCtrl::background_thread(void) {
       _statistics_log_last_tick_ms = smprinter.millis();
     }
   }
+  
+  // TODO: check other event such as temperature protetion, stall protection
+  
+  if (SYSTEM_STATUS_FINISHING == smprinter.get_sys_status() && 
+      _gcode_rb.is_empty() ){
+    LOG_I("push all gcodes to marlin or other 3D printer\r\n");
+    issue_nodify(E_JOB_ISSUE_RET_FINISH);
+  }
 
-  LOG_I("Check other event which effect the job\r\n");
+  while (_issue_ret_rb.available()) {
+    uint8_t issue_ret;
+    _issue_ret_rb.peek_one(issue_ret);
+    issue_nodify(issue_ret);
+  }
 }
 
 err_code_t JobCtrl::save_env(void) {
@@ -232,14 +249,6 @@ void JobCtrl::notify() {
 
 }
 
-void JobCtrl::quit_stop() {
-  // motion_svc.quickstop();
-}
-
-void JobCtrl::normal_stop() {
-  motion_svc.quickstop();
-}
-
 void JobCtrl::get_gcodes_from_client(void) {
   req_batch_gcode_t req_batch_gcode;
   res_batch_gcode_t res_batch_gcode;
@@ -253,6 +262,7 @@ void JobCtrl::get_gcodes_from_client(void) {
       if(res_batch_gcode.start_line_num != req_batch_gcode.line_num) {
         LOG_E("start line number not match, drop this batch gcode\r\n");
         _err_get_batch_gcode_cnt++;
+        _issue_ret_rb.insert_one(E_JOB_ISSUE_RET_IVALID_GCODE_LINE_NUMBER);
         break;
       }
       // shoule we check the line number?
@@ -268,16 +278,26 @@ void JobCtrl::get_gcodes_from_client(void) {
         if(rx_line_num != (res_batch_gcode.end_line_num - res_batch_gcode.start_line_num)) {
           LOG_E("line number not match, drop this batch gcode\r\n");
           _err_get_batch_gcode_cnt++;
+          _issue_ret_rb.insert_one(E_JOB_ISSUE_RET_IVALID_GCODE_LINE_NUMBER);
           break;
         }
         // gcode ringbuffer guarantee to hold all the gcode string.
         _gcode_rb.insert_multi(res_batch_gcode.gcode_str, p - res_batch_gcode.gcode_str);
         _env.req_line_num = res_batch_gcode.end_line_num;
         _err_get_batch_gcode_cnt = 0;
+
+        if (E_JOB_LAST_GCODE_PACK == res_batch_gcode.result) {
+          LOG_I("Job control get last gcode packe\r\n");
+          if (E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_FINISHING, NULL)) {
+            // we will continue to request the client to send gcodes
+            LOG_E("Can to enter SYS_FINISHING status\r\n");
+          }
+        }
       }
     }
     else {
       _err_get_batch_gcode_cnt++;
+      _issue_ret_rb.insert_one(E_JOB_ISSUE_RET_IVALID_GCODE_LINE_NUMBER);
       break;
     }
   }
@@ -288,8 +308,9 @@ void JobCtrl::get_gcodes_from_client(void) {
   }
 }
 
-void JobCtrl::issue_nodify(void) {
+void JobCtrl::issue_nodify(uint8_t issue_ret) {
   // report status change reasone
+  ClientNode::issue_client(_client_id, issue_ret);
 }
 
 void JobCtrl::statistics_output(void) {
@@ -374,13 +395,13 @@ err_code_t JobCtrl::pause(void) {
   }
 
   LOCK(_lock, JOB_LOCK_WAIT_TICK);
+  motion_svc.normalstop();
   if (E_SUCCESS != (ret = save_env())) {
     UNLOCK(_lock);
     // TODO: do I need to check the result?
     smprinter.set_sys_status(SYSTEM_STATUS_IDLE, NULL);
     return ret;
   }
-  normal_stop();
   if (E_SUCCESS != (ret = machine_standby())) {
     UNLOCK(_lock);
     // TODO: do I need to check the result?
@@ -474,7 +495,8 @@ bool JobCtrl::consume_a_gcode(uint8_t *cmd, uint16_t max_len, uint32_t *line) {
   uint8_t c;
   uint32_t cmd_len;
 
-  if (SYSTEM_STATUS_PRINTING != smprinter.get_sys_status()) {
+  if (SYSTEM_STATUS_PRINTING != smprinter.get_sys_status() && 
+      SYSTEM_STATUS_FINISHING != smprinter.get_sys_status()) {
     return false;
   }
 

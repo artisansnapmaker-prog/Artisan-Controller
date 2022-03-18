@@ -7,6 +7,7 @@
 #include "../Marlin/src/gcode/parser.h"
 #include "../Marlin/src/gcode/gcode.h"
 #include "../../Marlin/src/module/motion.h"
+#include "../Marlin/src/module/stepper.h"
 
 
 MotionService motion_svc;
@@ -324,6 +325,33 @@ void MotionService::sync_leveling_limit_to_platform(float x_start, float x_end, 
   endy   = y_end;
 }
 
+void MotionService::quickstop(void) {
+  // There is a race condition that must be handled: the marlin thread and the caller thread
+  // stop Scheduling?
+  vTaskSuspendAll();
+  planner.quick_stop();
+  planner.synchronize();
+  set_current_from_steppers_for_axis(ALL_AXES_ENUM);
+  sync_plan_position();
+  if (!xTaskResumeAll())
+      taskYIELD ();
+}
+
+void MotionService::normalstop(void) {
+  // There is a race condition that must be handled: the marlin thread and the caller thread
+  // stop Scheduling?
+  // vTaskSuspendAll();
+  // planner.normal_stop();
+  // planner.synchronize();
+  // set_current_from_steppers_for_axis(ALL_AXES_ENUM);
+  // sync_plan_position();
+  // if (!xTaskResumeAll())
+  //     taskYIELD ();
+
+  // just wait for all the block in planner has been runout
+  while(planner.busy()) vTaskDelay(1);
+}
+
 float MotionService::get_feedrate(void) {
   return feedrate_mm_s;
 }
@@ -472,7 +500,7 @@ bool MotionService::consume_a_gcode(uint8_t *cmd, uint16_t max_len, uint32_t *li
   gcode_len = xMessageBufferReceive(gcode_queue, gcode_cmd, MAX_CMD_SIZE + 4, 0);
   if (gcode_len > max_len)
     return false;
-  if (gcode_len < 2 || gcode_len > MAX_CMD_SIZE) {
+  if (gcode_len < 2 || gcode_len > MAX_CMD_SIZE)
     return false;
   
   memcpy(cmd, gcode_cmd, gcode_len);

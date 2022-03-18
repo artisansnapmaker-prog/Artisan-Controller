@@ -88,6 +88,13 @@
 #define SACP_RET_JOB_BUSY                             (SACP_RET_PRIVATE_BASE + 15)
 #define SACP_RET_JOB_UNMATCHED_TOOLHEAD               (SACP_RET_PRIVATE_BASE + 16)
 
+#define SACP_JOB_PAUSE_ISSUE_RET_FINISH                         (0)
+#define SACP_JOB_PAUSE_ISSUE_RET_GCODE_PAUSE                    (1)
+#define SACP_JOB_PAUSE_ISSUE_RET_GCODE_FILAMENT_RUNOUT          (2)
+#define SACP_JOB_PAUSE_ISSUE_RET_FILAMENT_RUNOUT                (3)
+#define SACP_JOB_PAUSE_ISSUE_RET_STALL_PROTECTION               (4)
+#define SACP_JOB_PAUSE_ISSUE_RET_ABNORMAL_TEMP_PROTECTION       (5)
+#define SACP_JOB_PAUSE_ISSUE_RET_IVALID_GCODE_LINE_NUMBER       (6)
 
 //Types of event function callbacks
 typedef std::function<err_code_t(sacp_hmi_message_t&)> evevnt_cb_f;
@@ -98,6 +105,7 @@ typedef struct {
 } req_batch_gcode_t;
 
 typedef struct {
+  err_code_t result;
   uint32_t start_line_num;
   uint32_t end_line_num;
   uint8_t *gcode_str;
@@ -117,6 +125,7 @@ class ClientNode {
     static bool get_batch_gcode(uint8_t client_id, req_batch_gcode_t &req_batch_gcode, res_batch_gcode_t &res_batch_gcode);
     static uint16_t job_ctrl_linenum_sub_cb(void *obj, uint8_t *buffer);
     static uint16_t sys_hardtick_sub_cb(void *obj, uint8_t *buffer);
+    static err_code_t issue_client(uint8_t peer, uint8_t issue_ret);
 
   private:
     static SemaphoreHandle_t _lock;

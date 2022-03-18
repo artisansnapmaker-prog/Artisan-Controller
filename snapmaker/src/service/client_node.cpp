@@ -164,6 +164,35 @@ uint16_t ClientNode::sys_hardtick_sub_cb(void *obj, uint8_t *buffer) {
   return 2;
 }
 
+err_code_t ClientNode::issue_client(uint8_t peer, uint8_t issue_ret) {
+  // report status change reasone
+  ClientNode *cn = find_client_node(peer);
+  if (!cn) {
+    return E_FAILURE;
+  }
+
+  sacp_hmi_message_t msg;
+  uint8_t tx_buf[1];
+  uint8_t rx_buf[1];
+  uint16_t rx_len;
+  msg.cmd_set = CMD_SET_JOB_CTRL;
+  msg.cmd_id = CMD_ID_JOB_CTRL_ISSUE;
+  msg.ch = cn->_ch;
+  msg.peer = cn->_peer;
+  msg.data = tx_buf;
+  msg.length = 1;
+  tx_buf[0] = issue_ret;
+  if (E_SUCCESS != host_hmi.send_sync(&msg, rx_buf, &rx_len, 100, 3)) {
+    LOG_E("Issue failure\r\n");
+    return E_FAILURE;
+  }
+  if (E_SUCCESS != rx_buf[0]) {
+    LOG_E("Issue failure\r\n");
+    return E_FAILURE;
+  }
+  return E_SUCCESS;
+}
+
 err_code_t ClientNode::init(void) {
   // LOG_I("register softer time to handle hardtick\r\n");
   return E_SUCCESS;
@@ -176,26 +205,27 @@ void ClientNode::timer_cb(void *p) {
 bool ClientNode::sacp_get_batch_gcode(req_batch_gcode_t &req_batch_gcode, res_batch_gcode_t &res_batch_gcode) {
   sacp_hmi_message_t s_msg;
   uint16_t out_len;
-  uint8_t send_buf[SEND_BUF_SIZE];
+  uint8_t buf[SEND_BUF_SIZE];
 
   // peer id? and send id?
   // seq not change
   s_msg.ch = _ch;
   s_msg.attr = SACP_MESSAGE_ATTR_ACK;
-  s_msg.data = send_buf;
+  s_msg.data = buf;
   s_msg.cmd_set = CMD_SET_JOB_CTRL;
   s_msg.cmd_id = CMD_ID_JOB_CTRL_REQ_GCODE;
-  _32_TO_LITTLE_STREAM(req_batch_gcode.line_num, send_buf);
-  _16_TO_LITTLE_STREAM(req_batch_gcode.buf_len, send_buf + 4);
+  _32_TO_LITTLE_STREAM(req_batch_gcode.line_num, buf);
+  _16_TO_LITTLE_STREAM(req_batch_gcode.buf_len, buf + 4);
   s_msg.length = 6;
-  if (E_SUCCESS == host_hmi.send_sync(&s_msg, send_buf, &out_len)) {
+  if (E_SUCCESS == host_hmi.send_sync(&s_msg, buf, &out_len)) {
     if(out_len < 8){
       LOG_E("batch gcode response lenght error, must > 8, but get %d\r\n", out_len);
       return false;
     }
-    res_batch_gcode.start_line_num = LITTLE_STREAM_TO_32(send_buf);
-    res_batch_gcode.end_line_num = LITTLE_STREAM_TO_32(send_buf + 4);
-    memcpy(res_batch_gcode.gcode_str, send_buf + 8, out_len - 8);
+    res_batch_gcode.result = buf[0];
+    res_batch_gcode.start_line_num = LITTLE_STREAM_TO_32(buf + 1);
+    res_batch_gcode.end_line_num = LITTLE_STREAM_TO_32(buf + 1 + 4);
+    memcpy(res_batch_gcode.gcode_str, buf + 9, out_len - 9);
     return true;
   }
   else {

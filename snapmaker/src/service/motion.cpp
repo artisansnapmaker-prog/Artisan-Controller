@@ -425,7 +425,7 @@ void MotionService::set_leveling_grids(uint8_t grids) {
 }
 
 float MotionService::probe_at_point(float x, float y, ProbePtRaise raise_after) {
-  probe.probe_at_point(x, y, raise_after);
+  return probe.probe_at_point(x, y, raise_after);
 }
 
 void MotionService::sync_z_values_to_platform() {

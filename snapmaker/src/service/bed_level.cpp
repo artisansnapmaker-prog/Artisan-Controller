@@ -685,3 +685,23 @@ err_code_t BedLevelService::work_height_auto_detection() {
 
   return E_SUCCESS;
 }
+
+err_code_t BedLevelService::apply_live_z_offset(uint8_t e) {
+  motion_svc.synchronize_planner();
+  float cur_z = motion_svc.get_current_position(Z_AXIS);
+  motion_svc.moveto_z(cur_z + live_z_offset[e], 5);
+  motion_svc.sm_current_position[Z_AXIS] = cur_z;
+  motion_svc.sync_plan_position_to_platform();
+  LOG_I("Apply Z offset: %.2f\n", live_z_offset[e]);
+  return E_SUCCESS;
+}
+
+err_code_t BedLevelService::unapply_live_z_offset(uint8_t e) {
+  motion_svc.synchronize_planner();
+  float cur_z = motion_svc.get_current_position(Z_AXIS);
+  motion_svc.moveto_z(cur_z - live_z_offset[e], 5);
+  motion_svc.sm_current_position[Z_AXIS] = cur_z;
+  motion_svc.sync_plan_position_to_platform();
+  LOG_I("Unapply Z offset: %.2f\n", live_z_offset[e]);
+  return E_SUCCESS;
+}

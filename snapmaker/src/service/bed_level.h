@@ -61,6 +61,8 @@ class BedLevelService {
     bool is_bedleveled();
     void set_end_leveling_process_status(bool status);
     bool get_end_leveling_process_status();
+    err_code_t apply_live_z_offset(uint8_t e);
+    err_code_t unapply_live_z_offset(uint8_t e);
 
 
     float z_values_[GRID_MAX_NUM][GRID_MAX_NUM];

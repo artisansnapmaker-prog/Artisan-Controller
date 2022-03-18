@@ -448,7 +448,7 @@ void GcodeSuite::process_parsed_command(const bool no_ok/*=false*/) {
       #endif
 
       #if MB_SNAPMAKER
-        case 1029: G1029();
+        case 1029: G1029(); break;
       #endif
 
       #if ENABLED(DEBUG_GCODE_PARSER)

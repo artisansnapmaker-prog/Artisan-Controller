@@ -194,10 +194,23 @@ void GcodeSuite::M2000() {
   {
   case 0:
     // show status of laser
+    {
+      ToolHeadLaser *laser = (ToolHeadLaser *)module_svc.get_module(MODULE_DEVICE_ID_LASER_10W_2021, 0);
+      if (laser)
+        laser->show_status();
+    }
     break;
 
   case 1:
     // clear security error
+    break;
+
+  case 2:
+    { // report bt mac
+      ToolHeadLaser *laser = (ToolHeadLaser *)module_svc.get_module(MODULE_DEVICE_ID_LASER_10W_2021, 0);
+      if (laser)
+        laser->report_bt_mac();
+    }
     break;
 
   default:

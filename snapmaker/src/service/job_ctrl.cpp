@@ -437,6 +437,7 @@ void JobCtrl::get_gcodes_from_client(void) {
     }
     else {
       _err_get_batch_gcode_cnt++;
+      _issue_ret_rb.insert_one(E_JOB_ISSUE_RET_IVALID_GCODE_LINE_NUMBER);
       break;
     }
   }

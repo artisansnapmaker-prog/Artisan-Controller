@@ -348,7 +348,10 @@ void MotionService::normalstop(void) {
   // if (!xTaskResumeAll())
   //     taskYIELD ();
 
-  // just wait for all the block in planner has been runout
+  // Just wait for all the block in planner has been runout
+  // Now the system status is PAUSING, marlin or other platform
+  // will not get gcode from job control's ringbuffer. So marlin 
+  // or other platform will runout the planed block.
   while(planner.busy()) vTaskDelay(1);
 }
 

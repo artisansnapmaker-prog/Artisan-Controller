@@ -191,10 +191,12 @@ class MotionService {
     }
 
     static void motion_background(void *p);
-    static uint16_t publish_coordinate_info(void *obj, uint8_t *buffer);
-    static err_code_t get_coordinate_info(void *obj, sacp_hmi_message_t *msg);
-    static err_code_t set_active_coordinate_system(void *obj, sacp_hmi_message_t *msg);
-    static err_code_t set_origin(void *obj, sacp_hmi_message_t *msg);
+    static uint16_t hmi_cb_publish_coordinate_info(void *obj, uint8_t *buffer);
+    static err_code_t hmi_cb_get_coordinate_info(void *obj, sacp_hmi_message_t *msg);
+    static err_code_t hmi_cb_set_active_coordinate_system(void *obj, sacp_hmi_message_t *msg);
+    static err_code_t hmi_cb_set_origin(void *obj, sacp_hmi_message_t *msg);
+    static err_code_t hmi_cb_move_absoluty(void *obj, sacp_hmi_message_t *msg);
+    static err_code_t hmi_cb_request_home(void *obj, sacp_hmi_message_t *msg);
 
   private:
     MessageBufferHandle_t gcode_queue;

@@ -22,7 +22,7 @@ struct __packed CoordinateSystemInformation {
   coordinate_info_t origin_offset[5];
 };
 
-uint16_t MotionService::publish_coordinate_info(void *obj, uint8_t *buffer) {
+uint16_t MotionService::hmi_cb_publish_coordinate_info(void *obj, uint8_t *buffer) {
   MotionService *motion = (MotionService *)obj;
 
   CoordinateSystemInformation *info = (CoordinateSystemInformation *)(buffer + 1);
@@ -69,25 +69,25 @@ uint16_t MotionService::publish_coordinate_info(void *obj, uint8_t *buffer) {
 }
 
 // HMI event callback
-err_code_t MotionService::get_coordinate_info(void *obj, sacp_hmi_message_t *msg) {
-  msg->length = publish_coordinate_info(obj, msg->data);
+err_code_t MotionService::hmi_cb_get_coordinate_info(void *obj, sacp_hmi_message_t *msg) {
+  msg->length = hmi_cb_publish_coordinate_info(obj, msg->data);
 
-  msg->attr |= SACP_MESSAGE_ATTR_ACK;
-
-  return host_hmi.send(msg);
+  return host_hmi.send_ack(msg);
 }
 
-err_code_t MotionService::set_active_coordinate_system(void *obj, sacp_hmi_message_t *msg) {
+err_code_t MotionService::hmi_cb_set_active_coordinate_system(void *obj, sacp_hmi_message_t *msg) {
   uint8_t id = msg->data[0];
   MotionService *motion = (MotionService *)obj;
 
+  LOG_I("set active coordinate[%u]\n", id);
+
   switch (id) {
   case 0:
-    motion->run_gcode("G53\n");
+    motion->run_gcode("G53");
     break;
 
   case 1:
-    motion->run_gcode("G54\n");
+    motion->run_gcode("G54");
     break;
 
   default:
@@ -97,7 +97,7 @@ err_code_t MotionService::set_active_coordinate_system(void *obj, sacp_hmi_messa
   return host_hmi.send_ack(msg, E_SUCCESS);
 }
 
-err_code_t MotionService::set_origin(void *obj, sacp_hmi_message_t *msg) {
+err_code_t MotionService::hmi_cb_set_origin(void *obj, sacp_hmi_message_t *msg) {
   err_code_t ret = E_SUCCESS;
   MotionService *motion = (MotionService *)obj;
   uint8_t length = msg->data[0];
@@ -108,19 +108,131 @@ err_code_t MotionService::set_origin(void *obj, sacp_hmi_message_t *msg) {
 
   coordinate_info_t *info = (coordinate_info_t *)(msg->data + 1);
 
+  LOG_I("set origin, len[%u]\n", length);
+
   for (int i = 0; i < length; i++) {
-    value = (float)(info->value / 1000.0);
-    if (info->axis <= AXIS_KEY_C1) {
-      snprintf(gcode_cmd, 32, "G92 %c%.3f\n", value, axis_cmd[info->axis]);
+    value = (float)(info[i].value / 1000.0);
+    if (info[i].axis <= AXIS_KEY_C1) {
+      snprintf(gcode_cmd, 32, "G92 %c%.3f", axis_cmd[info[i].axis], value);
       motion->run_gcode(gcode_cmd);
     }
     else {
-      LOG_E("invalid axis key[%u]\n", info->axis);
+      LOG_E("invalid axis key[%u]\n", info[i].axis);
       ret = E_PARAM;
     }
   }
 
   return host_hmi.send_ack(msg, ret);
+}
+
+struct __packed MovingCommand {
+  uint8_t  axis;
+  int32_t  position;
+  uint16_t feedrate;
+};
+err_code_t MotionService::hmi_cb_move_absoluty(void *obj, sacp_hmi_message_t *msg) {
+  MotionService *motion = (MotionService *)obj;
+  err_code_t ret;
+
+  uint8_t number = msg->data[0];
+  MovingCommand *move_cmd = (MovingCommand *)(msg->data + 1);
+
+  xyze_float_t dest;
+  uint16_t feedrate;
+  char gcode_cmd[64];
+
+  LOG_I("hmi_cb_move_absoluty\n");
+
+  motion->update_position_from_platform();
+  dest = motion->sm_current_position;
+
+  for (int i = 0; i < number; i++) {
+    switch (move_cmd[i].axis) {
+    case AXIS_KEY_X1:
+      dest[X_AXIS] = move_cmd[i].position / 1000.0;
+      break;
+
+    case AXIS_KEY_Y1:
+      dest[Y_AXIS] = move_cmd[i].position / 1000.0;
+      break;
+
+    case AXIS_KEY_Z1:
+      dest[Z_AXIS] = move_cmd[i].position / 1000.0;
+      break;
+
+    case AXIS_KEY_A1:
+      dest[A_AXIS] = move_cmd[i].position / 1000.0;
+      break;
+
+    case AXIS_KEY_B1:
+      dest[B_AXIS] = move_cmd[i].position / 1000.0;
+      break;
+
+    // case AXIS_KEY_C1:
+    //   dest[C_AXIS] = move_cmd[i].position;
+    //   break;
+
+    default:
+      LOG_E("unsupported axis: %d\n", move_cmd[i].axis);
+      break;
+    }
+  }
+
+  if (move_cmd[0].feedrate) {
+    feedrate = (uint16_t)(move_cmd[0].feedrate);
+  }
+  else {
+    feedrate = feedrate_mm_s * 60;
+  }
+
+  snprintf(gcode_cmd, 64, "G0 F%u X%.3f Y%.3f Z%.3f A%.3f B %.3f", feedrate, dest[X_AXIS], dest[Y_AXIS],
+    dest[Z_AXIS], dest[A_AXIS], dest[B_AXIS]);
+
+  motion->run_gcode("G90");
+
+  // for now waiting for 100s
+  ret = motion->run_gcode(gcode_cmd, true, 100 * 1000);
+  if (ret != E_SUCCESS) {
+    return host_hmi.send_ack(msg, ret);
+  }
+  else {
+    return host_hmi.send_ack(msg, E_SUCCESS);
+  }
+}
+
+enum MotionSACPHomeAxis {
+  SACP_HOME_ALL,
+  SACP_HOME_X,
+  SACP_HOME_Y,
+  SACP_HOME_Z,
+};
+err_code_t MotionService::hmi_cb_request_home(void *obj, sacp_hmi_message_t *msg) {
+  MotionService *motion = (MotionService *)obj;
+  err_code_t ret;
+  char axis[4] = {' ', 'X', 'Y', 'Z'};
+  char gcode_cmd[8];
+
+  LOG_I("hmi_cb_request_home\n");
+
+  if (msg->data[0] > SACP_HOME_Z) {
+    LOG_I("invalid home axis\n");
+    return host_hmi.send_ack(msg, E_PARAM);
+  }
+  else {
+    host_hmi.send_ack(msg, E_SUCCESS);
+  }
+
+  msg->cmd_id = SACP_CMD_ID_GLOABL_REQ_REPORT_HOME_RESULT;
+
+  snprintf(gcode_cmd, 8, "G28 %c", axis[msg->data[0]]);
+  // for now waiting for 100s
+  ret = motion->run_gcode(gcode_cmd, true, 100 * 1000);
+  if (ret != E_SUCCESS) {
+    return host_hmi.send_ack(msg, E_TIMEOUT);
+  }
+  else {
+    return host_hmi.send_ack(msg, E_SUCCESS);
+  }
 }
 
 
@@ -135,7 +247,6 @@ void MotionService::motion_background(void *p) {
       gcode_len = xMessageBufferReceive(motion.gcode_queue, gcode_cmd, MAX_CMD_SIZE + 4, 0);
       if (gcode_len > 2 && gcode_len < MAX_CMD_SIZE) {
         queue.ring_buffer.enqueue(gcode_cmd, true);
-        queue.ring_buffer.advance_pos(queue.ring_buffer.index_w, 1);
       }
       else {
         break;
@@ -155,10 +266,22 @@ void MotionService::init() {
   configASSERT(gcode_queue);
 
   host_hmi.register_subscription(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_SUB_COORDINATE,
-            (void *)this, publish_coordinate_info);
+            (void *)this, hmi_cb_publish_coordinate_info);
 
   host_hmi.register_callback(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_GET_COORDINATE,
-            (void *)this, get_coordinate_info);
+            (void *)this, hmi_cb_get_coordinate_info);
+
+  host_hmi.register_callback(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_SET_ACTIVE_COORDINATE,
+            (void *)this, hmi_cb_set_active_coordinate_system);
+
+  host_hmi.register_callback(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_SET_ORIGIN,
+            (void *)this, hmi_cb_set_origin);
+
+  host_hmi.register_callback(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_MOVE_ABSOLUTELY,
+            (void *)this, hmi_cb_move_absoluty);
+
+  host_hmi.register_callback(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_HOME,
+            (void *)this, hmi_cb_request_home);
 
   LOG_I("Creating marlin task...");
   ret = xTaskCreate((TaskFunction_t)motion_background, "marin", MOTION_TASK_STACK_SIZE, (void *)this,
@@ -348,21 +471,23 @@ void MotionService::save_settings() {
 }
 
 
-err_code_t MotionService::run_gcode(char *gcode, bool blocked /* = false*/,
-    uint32_t blocked_timeout/*= 180 * 1000 ms*/) {
-  BaseType_t ret = pdPASS;
-  int length = strlen(gcode);
+err_code_t MotionService::run_gcode(char *gcode_cmd, bool blocked /* = false*/,
+  uint32_t blocked_timeout/*= 180 * 1000 ms*/) {
+  size_t ret = 0;
+  int length = strlen(gcode_cmd);
 
   if (length > MAX_CMD_SIZE) {
     LOG_E("length of gcode is out of range: %d\n", MAX_CMD_SIZE);
     return E_PARAM;
   }
 
-  ret = xMessageBufferSend(gcode_queue, gcode, length + 1, pdMS_TO_TICKS(100));
-  if (ret != pdPASS) {
-    LOG_E("fail to submit gcode: %s\n", gcode);
+  ret = xMessageBufferSend(gcode_queue, gcode_cmd, length + 1, pdMS_TO_TICKS(100));
+  if (ret != length + 1) {
+    LOG_E("fail to submit gcode: %s, ret[%u]\n", gcode_cmd);
     return E_TIMEOUT;
   }
+
+  LOG_I("submitted gocde: %s\n", gcode_cmd);
 
   // for now just blocked with moving
   if (blocked) {

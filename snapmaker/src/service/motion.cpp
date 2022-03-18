@@ -335,30 +335,6 @@ void MotionService::sync_leveling_limit_to_platform(float x_start, float x_end, 
   starty = y_start;
   endy   = y_end;
 }
-err_code_t MotionService::home() {
-  parser.parse((char *)"G28");
-  gcode.process_parsed_command();
-  return E_SUCCESS;
-}
-
-err_code_t MotionService::home_x() {
-  parser.parse((char *)"G28 X");
-  gcode.process_parsed_command();
-  return E_SUCCESS;
-}
-
-err_code_t MotionService::home_y() {
-  parser.parse((char *)"G28 Y");
-  gcode.process_parsed_command();
-  return E_SUCCESS;
-}
-
-err_code_t MotionService::home_z() {
-  parser.parse((char *)"G28 Z");
-  gcode.process_parsed_command();
-  return E_SUCCESS;
-}
-
 
 float MotionService::get_feedrate(void) {
   return feedrate_mm_s;
@@ -499,4 +475,19 @@ err_code_t MotionService::run_gcode(char *gcode_cmd, bool blocked /* = false*/,
   }
 
   return E_SUCCESS;
+}
+
+bool MotionService::consume_a_gcode(uint8_t *cmd, uint16_t max_len, uint32_t *line) {
+  char gcode_cmd[MAX_CMD_SIZE + 4];
+  size_t gcode_len = 0;
+
+  gcode_len = xMessageBufferReceive(gcode_queue, gcode_cmd, MAX_CMD_SIZE + 4, 0);
+  if (gcode_len > max_len)
+    return false;
+  if (gcode_len < 2 || gcode_len > MAX_CMD_SIZE) {
+    return false;
+  
+  memcpy(cmd, gcode_cmd, gcode_len);
+  *line = 0;
+  return true;
 }

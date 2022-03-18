@@ -331,7 +331,7 @@ err_code_t JobCtrl::start(uint8_t client_id, struct GcodeFileInfo *gcodeInfo, to
   
   LOG_I("TODO: homing\r\n");
   /*
-  if (motion_svc.sm_homing_needed()) {
+  if (motion_svc.is_all_axes_homed()) {
     if(E_SUCCESS != motion_svc.home()) {
       // TODO: do I need to check the result?
       smprinter.set_sys_status(SYSTEM_STATUS_IDLE, NULL);

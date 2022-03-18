@@ -458,6 +458,10 @@ bool SnapmakerPrinter::get_gcode_from_job(uint8_t *cmd, uint16_t max_len, uint32
   return job_ctrl_svc.consume_a_gcode(cmd, max_len, line);
 }
 
+bool SnapmakerPrinter::get_gcode_from_run_gcode_buffer(uint8_t *cmd, uint16_t max_len, uint32_t *line) {
+  return motion_svc.consume_a_gcode(cmd, max_len, line);
+}
+
 ModuleBase *SnapmakerPrinter::get_cur_toolhead(void) { 
 
   if (fdm && !cnc && !laser) {

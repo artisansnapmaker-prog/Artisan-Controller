@@ -135,21 +135,20 @@ class MotionService {
     void sync_feedrate_percentage_to_platform(int16_t percentage) { feedrate_percentage = percentage; }
 
     // home API
-    bool sm_homing_needed() { return homing_needed(); }
-    err_code_t home();
-    err_code_t home_x();
-    err_code_t home_y();
-    err_code_t home_z();
+    bool is_all_axes_homed() {return all_axes_homed();}
+    err_code_t home(bool block = true) { return run_gcode("G28", block); }
+    err_code_t home_x(bool block = true) { return run_gcode("G28 X", block); }
+    err_code_t home_y(bool block = true) { return run_gcode("G28 Y", block); }
+    err_code_t home_z(bool block = true) { return run_gcode("G28 Z", block); }
 
-    // API for printer body
+    // speed control API
     float get_feedrate(void);
     void set_feedrate(float);
     float get_travl_feedrate(void);
     void set_travl_feedrate(float);
     bool get_relative_mode(void);
     void set_relative_mode(bool);
-    uint16_t get_bet_temp(void);
-    bool set_bet_temp(uint16_t);
+    void set_feedrate_percentage(int16_t percentage) {}
 
     // position info API
     xyze_pos_t sm_current_position;
@@ -169,10 +168,6 @@ class MotionService {
       current_position = sm_current_position;
       sync_plan_position();
     }
-
-    // speed control API
-    float get_current_feedrate() { return 0.0; }
-    void set_feedrate_percentage(int16_t percentage) {}
 
     // bed leveling API for internal app
     bool leveling_active() { return planner.leveling_active; }
@@ -204,6 +199,8 @@ class MotionService {
     int16_t target_hotend_temp(uint8_t heater_id = 0) { return 0.0; }
     float current_bed_temp(uint8_t area_id = 0) { return 0.0; }
     int16_t target_bed_temp(uint8_t area_id = 0) { return 0.0; }
+    uint16_t get_bet_temp(void);
+    bool set_bet_temp(uint16_t);
 
     // fdm API
     bool runout_state(uint8_t extruder = 0) { return false; }
@@ -215,6 +212,7 @@ class MotionService {
     void save_settings();
 
     err_code_t run_gcode(char *gcode, bool blocked = false, uint32_t blocked_timeout=180000);
+    bool consume_a_gcode(uint8_t *cmd, uint16_t max_len, uint32_t *line);
 
     int8_t get_active_coordinate_system() { return gcode.active_coordinate_system; }
     bool is_original_position_offset() {

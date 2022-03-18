@@ -357,7 +357,7 @@ void BedLevelService::set_end_leveling_process_status(bool status) {
 }
 
 bool BedLevelService::is_bedleveled() {
-  return is_bed_leveled;
+  return motion_svc.get_leveling_state();
 }
 
 uint8_t BedLevelService::get_bedlevel_mode() {

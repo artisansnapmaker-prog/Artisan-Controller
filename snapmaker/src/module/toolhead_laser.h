@@ -28,8 +28,8 @@
 #define LASER_POWER_SAFE_LIMIT    (0.5)
 #define LASER_CAMERA_FOCUS_MAX    (65000) // 65mm
 
-enum LAserSACPCommandId {
-  SACP_CMD_ID_LASER_GET_INFO,
+enum LaserSACPCommandId {
+  SACP_CMD_ID_LASER_GET_INFO = 1,
   SACP_CMD_ID_LASER_SET_POWER,
   SACP_CMD_ID_LASER_SET_FOCUS_ASSIST_LIGHT,
   SACP_CMD_ID_LASER_SET_FOCAL_LENGTH,
@@ -39,16 +39,18 @@ enum LAserSACPCommandId {
   SACP_CMD_ID_LASER_MAX
 };
 
-enum LAserSACPSubscriptionCommandId {
-  SACP_CMD_ID_LASER_SUBSCRIBE_SAFETY_STATE,
+enum LaserSACPSubscriptionCommandId {
+  SACP_CMD_ID_LASER_SUBSCRIBE_SAFETY_STATE = 0xa0,
   SACP_CMD_ID_LASER_SUBSCRIBE_POWER,
 
   SACP_CMD_ID_LASER_SUBSCRIBE_MAX
 };
 
-enum LAserSACPCalibrationCommandId {
-  SACP_CMD_ID_LASER_CALI_MANUAL,
+enum LaserSACPCalibrationCommandId {
+  SACP_CMD_ID_LASER_CALI_MANUAL = 1,
   SACP_CMD_ID_LASER_CALI_AUTO,
+  SACP_CMD_ID_LASER_CALI_SET_MODE,
+  SACP_CMD_ID_LASER_CALI_REQ_EXIT,
 
   SACP_CMD_ID_LASER_CALI_MAX
 };
@@ -156,7 +158,9 @@ class ToolHeadLaser: public ModuleBase {
 
     void update_power(float power);
 
-    void show_imu_status();
+    void show_status();
+
+    err_code_t report_bt_mac();
 
     err_code_t post_init();
     err_code_t deinit();
@@ -176,17 +180,19 @@ class ToolHeadLaser: public ModuleBase {
     friend err_code_t laser_routine(void *obj);
 
     // callback for HMI
-    static err_code_t get_info(void *obj, sacp_hmi_message_t *message);
-    static err_code_t set_focal_length(void *obj, sacp_hmi_message_t *message);
-    static err_code_t set_output(void *obj, sacp_hmi_message_t *message);
-    static err_code_t set_focus_assist_light(void *obj, sacp_hmi_message_t *message);
-    static err_code_t set_temp_threshold(void *obj, sacp_hmi_message_t *message);
+    static err_code_t hmi_cb_get_info(void *obj, sacp_hmi_message_t *message);
+    static err_code_t hmi_cb_set_focal_length(void *obj, sacp_hmi_message_t *message);
+    static err_code_t hmi_cb_set_output(void *obj, sacp_hmi_message_t *message);
+    static err_code_t hmi_cb_set_focus_assist_light(void *obj, sacp_hmi_message_t *message);
+    static err_code_t hmi_cb_set_temp_threshold(void *obj, sacp_hmi_message_t *message);
 
-    static err_code_t do_auto_focusing(void *obj, sacp_hmi_message_t *message);
-    static err_code_t do_manual_focusing(void *obj, sacp_hmi_message_t *message);
+    static err_code_t hmi_cb_do_auto_focusing(void *obj, sacp_hmi_message_t *message);
+    static err_code_t hmi_cb_do_manual_focusing(void *obj, sacp_hmi_message_t *message);
+    static err_code_t hmi_cb_set_cali_mode(void *obj, sacp_hmi_message_t *message);
+    static err_code_t hmi_cb_exit_calibraion(void *obj, sacp_hmi_message_t *message);
 
-    static uint16_t publish_safety_state(void *obj, uint8_t *buffer);
-    static uint16_t publish_power(void *obj, uint8_t *buffer);
+    static uint16_t hmi_cb_publish_safety_state(void *obj, uint8_t *buffer);
+    static uint16_t hmi_cb_publish_power(void *obj, uint8_t *buffer);
 
   private:
     err_code_t confirm_pwm_pin_state(uint32_t pin);
@@ -196,7 +202,9 @@ class ToolHeadLaser: public ModuleBase {
 
     virtual err_code_t update_output(uint16_t new_power_pwm);
 
-    err_code_t load_focus();
+    err_code_t write_focal_length(uint16_t len);
+    err_code_t read_focal_length();
+
     err_code_t read_bt_info();
     err_code_t set_bt_info();
 
@@ -220,7 +228,7 @@ class ToolHeadLaser: public ModuleBase {
     uint16_t master_switch_tick;
     uint16_t msg_id_ctrl_switch;
 
-    uint16_t focal_length;
+    uint16_t focal_length = LASER_CAMERA_FOCUS_MAX / 1000;
 
     LaserSafetyState safety_state;
     int16_t roll;
@@ -228,6 +236,8 @@ class ToolHeadLaser: public ModuleBase {
     int8_t  laser_temp;
     int8_t  imu_temp;
     bool pwm_normal;
+
+    uint8_t bt_mac[6] {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 };
 
 #endif

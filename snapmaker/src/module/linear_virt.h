@@ -23,14 +23,25 @@
 
 #include "base.h"
 
+enum LinearSACPCommandId {
+  SACP_CMD_ID_LINEAR_GET_INFO = 1,
+  SACP_CMD_ID_LINEAR_SET_ENDSTOP,
+
+  SACP_CMD_ID_LINEAR_MAX = SACP_CMD_ID_LINEAR_SET_ENDSTOP
+};
+
 class LinearVirtual: public ModuleBase {
   // public methods
   public:
     LinearVirtual(uint32_t mac, uint8_t key, uint8_t sub_index): ModuleBase(mac, key, sub_index) {}
     bool check_online() { return true; }
     err_code_t pre_init() { return E_SUCCESS; }
-    err_code_t post_init() { return E_SUCCESS; }
+    err_code_t post_init();
     err_code_t deinit() { return E_SUCCESS; }
+
+    static err_code_t hmi_cb_get_info(void *obj, sacp_hmi_message_t *message);
+    static err_code_t hmi_cb_set_endstop(void *obj, sacp_hmi_message_t *message);
+
   // private methods
   private:
 

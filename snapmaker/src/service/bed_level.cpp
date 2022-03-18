@@ -19,7 +19,10 @@ typedef enum {
   BEDLEVEL_REQ_CMD_ID_SET_LIVE_Z_OFFSET        = 0x15,
   BEDLEVEL_REQ_CMD_ID_GET_LIVE_Z_OFFSET        = 0x16,
 
-  BEDLEVEL_REQ_CMD_ID_SUM                      = 9,               // Adding or deleting IDs requires changing this value
+  BEDLEVEL_REQ_CMD_ID_SUM                      = 10,               // Adding or deleting IDs requires changing this value
+
+  BEDLEVEL_CMD_ID_REPORT_BEDLEVEL_POINT        = 0xa1,
+
 }bedlevel_req_cmd_id_e;
 
 // hmi request callback
@@ -553,6 +556,16 @@ err_code_t BedLevelService::start_auto_bed_leveling(uint8_t grids) {
   float z;
   int dir_idx = 0;
 
+  sacp_hmi_message_t msg;
+  uint8_t buffer[3];
+  msg.ch      = SACP_HMI_CH_SCREEN;
+  msg.cmd_set = SACP_CMD_SET_CALIBRATE_FDM;
+  msg.cmd_id  = BEDLEVEL_CMD_ID_REPORT_BEDLEVEL_POINT;
+  msg.data    = buffer;
+  msg.peer    = SACP_HOST_ID_SCREEN;
+  msg.attr    = 0;
+  msg.length  = 3;
+
   LOG_I("GRID_MAX_POINTS_X: %d, GRID_MAX_POINTS_Y: %d\n", GRID_MAX_POINTS_X, GRID_MAX_POINTS_Y);
   for (int k = 0; k < GRID_MAX_POINTS_X * GRID_MAX_POINTS_Y; ++k) {
     LOG_I("Probing No. %d\n", k);
@@ -570,9 +583,11 @@ err_code_t BedLevelService::start_auto_bed_leveling(uint8_t grids) {
       return E_FAILURE;
     }
 
-    // if (reply_screen) {
-    //     levelservice.SyncPointIndex((uint8_t)(cur_y * GRID_MAX_POINTS_X + cur_x + 1));
-    // }
+    buffer[0] = E_SUCCESS;
+    buffer[1] = (uint8_t)(cur_y * GRID_MAX_POINTS_X + cur_x + 1);
+    buffer[2] = 0;
+
+    host_hmi.send(&msg);
 
     int new_x = cur_x + direction[dir_idx][0];
     int new_y = cur_y + direction[dir_idx][1];

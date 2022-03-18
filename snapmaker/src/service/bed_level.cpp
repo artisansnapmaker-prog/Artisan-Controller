@@ -246,6 +246,7 @@ static err_code_t hmi_req_callback_probe_sensor_calibration(void *obj, sacp_hmi_
   bedlevel.set_end_leveling_process_status(false);
 
   // need go home
+  motion_svc.run_gcode((char *)"G28\n", true);
 
   motion_svc.get_leveling_first_point_position(x, y);
   motion_svc.moveto_xy(x, y, 60);
@@ -532,7 +533,7 @@ err_code_t BedLevelService::start_auto_bed_leveling(uint8_t grids) {
   // save grids
 
   // go home
-  // todo
+  motion_svc.run_gcode((char *)"G28\n", true);
 
   motion_svc.disable_leveling();
   motion_svc.enable_z_probe();

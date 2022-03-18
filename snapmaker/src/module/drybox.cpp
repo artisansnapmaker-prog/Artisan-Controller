@@ -200,11 +200,11 @@ err_code_t DryBox::set_pid(float p, float i, float d) {
 }
 
 err_code_t DryBox::get_pid() {
-
+  return E_SUCCESS;
 }
 
 err_code_t drybox_callback_routine(void *obj) {
-  DryBox &drybox = *(DryBox *)obj;
+  // DryBox &drybox = *(DryBox *)obj;
 
   return E_SUCCESS;
 }

@@ -158,7 +158,7 @@ class MotionService {
     void interpolate_virt_points() {refresh_bed_level();}
     void print_leveling_grid() { print_bilinear_leveling_grid();}
     void print_leveling_grid_virt() { print_bilinear_leveling_grid_virt();}
-    bool get_leveling_state() { leveling_is_valid(); }
+    bool get_leveling_state() { return leveling_is_valid(); }
 
     // extruder control API
     // uint8_t active_extruder() { return 0; }

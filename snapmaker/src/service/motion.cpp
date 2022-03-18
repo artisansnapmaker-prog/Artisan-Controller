@@ -424,6 +424,11 @@ void MotionService::set_leveling_grids(uint8_t grids) {
   bilinear_start[Y_AXIS] = RAW_Y_POSITION(starty);
 }
 
+void MotionService::get_leveling_first_point_position(float &x, float &y) {
+  x = RAW_X_POSITION(startx);
+  y = RAW_Y_POSITION(starty);
+}
+
 float MotionService::probe_at_point(float x, float y, ProbePtRaise raise_after) {
   return probe.probe_at_point(x, y, raise_after);
 }

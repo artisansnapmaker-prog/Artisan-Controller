@@ -194,6 +194,7 @@ static err_code_t hmi_req_callback_bed_position_detection(void *obj, sacp_hmi_me
   BedLevelService &bedlevel = *(BedLevelService *)obj;
   err_code_t ret = E_SUCCESS;
   uint8_t extruder_index = msg->data[0];
+  float x, y;
 
   if ((bedlevel.get_bedlevel_mode() != BEDLEVEL_MODE_AUTO_BED_DETECTION) && (bedlevel.get_bedlevel_mode() != BEDLEVEL_MODE_MANUAL_BED_DETECTION)) {
     ret = E_FAILURE;
@@ -209,7 +210,8 @@ static err_code_t hmi_req_callback_bed_position_detection(void *obj, sacp_hmi_me
     bedlevel.set_end_leveling_process_status(true);
   }
 
-  motion_svc.moveto_xy(200, 200, 60);
+  motion_svc.get_leveling_first_point_position(x, y);
+  motion_svc.moveto_xy(x, y, 60);
   motion_svc.moveto_z(20, 30);
 
   if (bedlevel.get_bedlevel_mode() == BEDLEVEL_MODE_AUTO_BED_DETECTION) {
@@ -219,7 +221,7 @@ static err_code_t hmi_req_callback_bed_position_detection(void *obj, sacp_hmi_me
     } else if (extruder_index == 1) {
       smprinter.fdm->set_probe_sensor(PROBE_SENSOR_RIGHT_OPTOCOUPLER);
     }
-    motion_svc.probe_at_point(200, 200, PROBE_PT_RAISE);
+    motion_svc.probe_at_point(x, y, PROBE_PT_RAISE);
   }
 
 EXIT:
@@ -234,6 +236,7 @@ static err_code_t hmi_req_callback_probe_sensor_calibration(void *obj, sacp_hmi_
   BedLevelService &bedlevel = *(BedLevelService *)obj;
   err_code_t ret = E_SUCCESS;
   uint8_t action = msg->data[0];
+  float x, y;
 
   if (bedlevel.get_bedlevel_mode() != BEDLEVEL_MODE_PROBE_SENSOR_CALIBRATE) {
     ret = E_FAILURE;
@@ -244,7 +247,8 @@ static err_code_t hmi_req_callback_probe_sensor_calibration(void *obj, sacp_hmi_
 
   // need go home
 
-  motion_svc.moveto_xy(200, 200, 60);
+  motion_svc.get_leveling_first_point_position(x, y);
+  motion_svc.moveto_xy(x, y, 60);
   motion_svc.moveto_z(20, 30);
 
   motion_svc.disable_leveling();
@@ -253,13 +257,13 @@ static err_code_t hmi_req_callback_probe_sensor_calibration(void *obj, sacp_hmi_
       motion_svc.enable_z_probe();
       smprinter.fdm->tool_change(0, false);
       smprinter.fdm->set_probe_sensor(PROBE_SENSOR_LEFT_OPTOCOUPLER);
-      bedlevel.hotend_triggered_z_[0] = motion_svc.probe_at_point(200, 200, PROBE_PT_RAISE);
+      bedlevel.hotend_triggered_z_[0] = motion_svc.probe_at_point(x, y, PROBE_PT_RAISE);
       break;
     case 1:
       motion_svc.enable_z_probe();
       smprinter.fdm->tool_change(1, false);
       smprinter.fdm->set_probe_sensor(PROBE_SENSOR_RIGHT_OPTOCOUPLER);
-      bedlevel.hotend_triggered_z_[1] = motion_svc.probe_at_point(200, 200, PROBE_PT_RAISE);
+      bedlevel.hotend_triggered_z_[1] = motion_svc.probe_at_point(x, y, PROBE_PT_RAISE);
       break;
     case 2:
       motion_svc.disable_z_probe();

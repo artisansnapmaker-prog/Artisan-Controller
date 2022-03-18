@@ -70,7 +70,7 @@ class ModuleService {
     void unregister_routine(void *obj);
 
     ModuleBase *get_module(uint16_t device_id, uint8_t sub_index) {
-      for (int i = 0; i < MODULE_ACCESSIBLE_MAX; i++) {
+      for (int i = 0; i < configured_module; i++) {
         if (!modules[i])
           continue;
 
@@ -78,6 +78,8 @@ class ModuleService {
           modules[i]->get_sub_index() == sub_index)
           return modules[i];
       }
+
+      return NULL;
     }
 
     // background thread

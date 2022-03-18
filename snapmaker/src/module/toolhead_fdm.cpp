@@ -761,11 +761,23 @@ void ToolHeadFDM::update_filament_state(uint8_t *data) {
       filament_state |= 0x02;
     else
       filament_state &= ~0x02;
+
+    if (filament_detect_state[0]) {
+      filament_state = filament_state &= ~0x01;
+    }
+
+    if (filament_detect_state[1]) {
+      filament_state = filament_state &= ~0x01;
+    }
   } else if (get_device_id() == MODULE_DEVICE_ID_FDM_1EXTRUDER_2019) {
     if (data[0])
       filament_state |= 0x01;
     else
       filament_state &= ~0x01;
+
+    if (filament_detect_state[0]) {
+      filament_state = filament_state &= ~0x01;
+    }
   }
 }
 

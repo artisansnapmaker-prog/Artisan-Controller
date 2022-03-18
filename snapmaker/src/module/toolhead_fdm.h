@@ -103,6 +103,8 @@ class ToolHeadFDM: public ModuleBase {
     err_code_t probe_state_sync();
     err_code_t hotend_type_sync();
     err_code_t filament_state_sync();
+    err_code_t hotend_offset_sync();
+    err_code_t z_compensation_sync();
     void set_probe_state(uint8_t state[]);
     void set_hotend_type(uint8_t *data);
     hotend_type_t get_hotend_type(uint8_t e);
@@ -132,6 +134,8 @@ class ToolHeadFDM: public ModuleBase {
     err_code_t set_extruders_feedrate_percentage(int16_t percentage, uint8_t e);
     err_code_t filament_detect_ctrl(uint8_t state, uint8_t e);
     uint8_t get_active_extruder();
+    err_code_t save_hotend_offset_to_module(float offset, uint8_t axis);
+    err_code_t save_z_compensation_to_module(float *compensation);
 
   // private methods
   private:
@@ -139,6 +143,7 @@ class ToolHeadFDM: public ModuleBase {
 
   // public properties
   public:
+    float hotend_offset[3][EXTRUDERS];
 
 
   // private properties
@@ -151,7 +156,6 @@ class ToolHeadFDM: public ModuleBase {
     uint8_t filament_state;
     uint8_t active_extruder;
     probe_sensor_t active_probe_sensor;
-    float hotend_offset[3][EXTRUDERS];
     uint8_t filament_detect_mask;
     uint8_t extruder_status[EXTRUDERS];
     float hotend_diameter[EXTRUDERS];

@@ -5,6 +5,7 @@
 #include "../common/debug.h"
 #include "../service/module.h"
 #include "../service/motion.h"
+#include "../service/bed_level.h"
 
 #include "../../../Marlin/src/core/serial.h"
 
@@ -61,6 +62,10 @@ static module_func_prio_t prio_map[] = {
   {MODULE_FUNC_SET_FAN3,            MODULE_FUNC_PRIORITY_LOW},
   {MODULE_REPORT_EXTRUDER_INFO,     MODULE_FUNC_PRIORITY_MEDIUM},
   {MODULE_SET_EXTRUDER_CHECK,       MODULE_FUNC_PRIORITY_MEDIUM},
+  {MODULE_FUNC_SET_HOTEND_OFFSET,   MODULE_FUNC_PRIORITY_LOW},
+  {MODULE_FUNC_REPORT_HOTEND_OFFSET, MODULE_FUNC_PRIORITY_HIGH},
+  {MODULE_FUNC_SET_PROBE_SENSOR_COMPENSATION, MODULE_FUNC_PRIORITY_LOW},
+  {MODULE_FUNC_REPORT_PROBE_SENSOR_COMPENSATION, MODULE_FUNC_PRIORITY_HIGH},
 
   // must set the last element as below !!!!
   {MODULE_FUNCTION_ID_INVALID, MODULE_FUNCTION_PRIORITY_INVALID}
@@ -73,6 +78,8 @@ static void fdm_callback_hotend_temp(void *obj, uint8_t *data, uint8_t length);
 static void fdm_callback_hotend_pid(void *obj, uint8_t *data, uint8_t length);
 static void fdm_callback_hotend_type(void *obj, uint8_t *data, uint8_t length);
 static void fdm_callback_extruder_info(void *obj, uint8_t *data, uint8_t length);
+static void fdm_callback_report_hotend_offset(void *obj, uint8_t *data, uint8_t length);
+static void fdm_callback_report_probe_sensor_compensation(void *obj, uint8_t *data, uint8_t length);
 
 err_code_t ToolHeadFDM::pre_init() {
   // must set the function priority map in pre_init() !!!!!
@@ -148,6 +155,22 @@ err_code_t ToolHeadFDM::post_init() {
     return E_FAILURE;
   }
 
+  msg_id = get_message_id(MODULE_FUNC_REPORT_HOTEND_OFFSET);
+  if (msg_id == MODULE_MESSAGE_ID_INVALID) {
+    return E_FAILURE;
+  }
+  if (host_can_rou.register_callback(msg_id, (void *)this, fdm_callback_report_hotend_offset) != E_SUCCESS) {
+    return E_FAILURE;
+  }
+
+  msg_id = get_message_id(MODULE_FUNC_REPORT_PROBE_SENSOR_COMPENSATION);
+  if (msg_id == MODULE_MESSAGE_ID_INVALID) {
+    return E_FAILURE;
+  }
+  if (host_can_rou.register_callback(msg_id, (void *)this, fdm_callback_report_probe_sensor_compensation) != E_SUCCESS) {
+    return E_FAILURE;
+  }
+
   if (MODULE_DEVICE_ID_INVALID == get_device_id()) {
     return E_FAILURE;
   }
@@ -162,6 +185,8 @@ err_code_t ToolHeadFDM::post_init() {
   probe_state_sync();
   hotend_type_sync();
   filament_state_sync();
+  hotend_offset_sync();
+  z_compensation_sync();
 
   return E_SUCCESS;
 }
@@ -563,6 +588,25 @@ static void fdm_callback_extruder_info(void *obj, uint8_t *data, uint8_t length)
 
 }
 
+static void fdm_callback_report_hotend_offset(void *obj, uint8_t *data, uint8_t length) {
+  ToolHeadFDM &fdm = *(ToolHeadFDM *)obj;
+
+  uint8_t axis = data[0];
+  float offset = (float)((data[1] << 24) | (data[2] << 16) | (data[3] << 8) | data[4]) / 1000;
+
+  fdm.hotend_offset[axis][1] = offset;
+  motion_svc.sync_hotend_offset_to_platform(fdm.hotend_offset[X_AXIS][1], fdm.hotend_offset[Y_AXIS][1], fdm.hotend_offset[Z_AXIS][1]);
+}
+
+static void fdm_callback_report_probe_sensor_compensation(void *obj, uint8_t *data, uint8_t length) {
+  // ToolHeadFDM &fdm = *(ToolHeadFDM *)obj;
+
+  uint8_t e = data[0];
+  float compensation = (float)((data[1] << 24) | (data[2] << 16) | (data[3] << 8) | data[4]) / 1000;
+
+  bedlevel_svc.z_compensation_[e] = compensation;
+}
+
 err_code_t ToolHeadFDM::probe_state_sync() {
   err_code_t ret;
   smcan_message_t msg;
@@ -626,6 +670,52 @@ err_code_t ToolHeadFDM::filament_state_sync() {
 
   if (ret != E_SUCCESS) {
     LOG_E("failed to sync filament state, ret: %u\n", ret);
+    return ret;
+  }
+
+  return E_SUCCESS;
+}
+
+err_code_t ToolHeadFDM::hotend_offset_sync() {
+  err_code_t ret;
+  smcan_message_t msg;
+
+  msg.id = get_message_id(MODULE_FUNC_REPORT_HOTEND_OFFSET);
+    if (msg.id == MODULE_MESSAGE_ID_INVALID) {
+    LOG_E("invalid message to get hotend offset\n");
+    return E_FAILURE;
+  }
+
+  msg.ch     = get_channel();
+  msg.data   = NULL;
+  msg.length = 0;
+  ret = host_can_rou.send(&msg);
+
+  if (ret != E_SUCCESS) {
+    LOG_E("failed to sync hotend offset, ret: %u\n", ret);
+    return ret;
+  }
+
+  return E_SUCCESS;
+}
+
+err_code_t ToolHeadFDM::z_compensation_sync() {
+  err_code_t ret;
+  smcan_message_t msg;
+
+  msg.id = get_message_id(MODULE_FUNC_REPORT_PROBE_SENSOR_COMPENSATION);
+    if (msg.id == MODULE_MESSAGE_ID_INVALID) {
+    LOG_E("invalid message to get z compensation\n");
+    return E_FAILURE;
+  }
+
+  msg.ch     = get_channel();
+  msg.data   = NULL;
+  msg.length = 0;
+  ret = host_can_rou.send(&msg);
+
+  if (ret != E_SUCCESS) {
+    LOG_E("failed to sync z compensation, ret: %u\n", ret);
     return ret;
   }
 
@@ -1048,9 +1138,69 @@ err_code_t ToolHeadFDM::set_hotend_offset(float offset, uint8_t axis) {
   if (axis > Z_AXIS) return E_PARAM;
 
   hotend_offset[axis][1] = offset;
+  motion_svc.sync_hotend_offset_to_platform(hotend_offset[X_AXIS][1], hotend_offset[X_AXIS][1], hotend_offset[Z_AXIS][1]);
+  return save_hotend_offset_to_module(offset, axis);
+}
 
+err_code_t ToolHeadFDM::save_hotend_offset_to_module(float offset, uint8_t axis) {
+  err_code_t ret = E_SUCCESS;
+  smcan_message_t msg;
+  uint8_t buffer[5];
+  int32_t scaled_offset = (int32_t)(offset*1000);
 
-  return E_SUCCESS;
+  msg.id = get_message_id(MODULE_FUNC_SET_HOTEND_OFFSET);
+    if (msg.id == MODULE_MESSAGE_ID_INVALID) {
+    LOG_E("invalid message to set hotend offset\n");
+    return E_FAILURE;
+  }
+
+  buffer[0]  = axis;
+  buffer[1]  = ((uint8_t *)&scaled_offset)[0];
+  buffer[2]  = ((uint8_t *)&scaled_offset)[1];
+  buffer[3]  = ((uint8_t *)&scaled_offset)[2];
+  buffer[4]  = ((uint8_t *)&scaled_offset)[3];
+  msg.ch     = get_channel();
+  msg.data   = buffer;
+  msg.length = 5;
+  ret = host_can_rou.send(&msg);
+
+  if (ret != E_SUCCESS) {
+    LOG_E("failed to set hotend offset, ret: %u\n", ret);
+    return ret;
+  }
+}
+
+err_code_t ToolHeadFDM::save_z_compensation_to_module(float *compensation) {
+  err_code_t ret = E_SUCCESS;
+  smcan_message_t msg;
+  uint8_t buffer[5];
+  uint32_t scaled_compensation;
+
+  msg.id = get_message_id(MODULE_FUNC_SET_HOTEND_OFFSET);
+    if (msg.id == MODULE_MESSAGE_ID_INVALID) {
+    LOG_E("invalid message to set z compensation\n");
+    return E_FAILURE;
+  }
+
+  for (uint32_t i = 0; i < EXTRUDERS; i++) {
+    buffer[0]  = i;
+    scaled_compensation = (int32_t)compensation[i];
+    buffer[1]  = ((uint8_t *)&scaled_compensation)[0];
+    buffer[2]  = ((uint8_t *)&scaled_compensation)[1];
+    buffer[3]  = ((uint8_t *)&scaled_compensation)[2];
+    buffer[4]  = ((uint8_t *)&scaled_compensation)[3];
+    msg.ch     = get_channel();
+    msg.data   = buffer;
+    msg.length = 5;
+    ret = host_can_rou.send(&msg);
+
+    if (ret != E_SUCCESS) {
+      LOG_E("failed to set hotend offset, ret: %u\n", ret);
+      return ret;
+    }
+  }
+
+  return ret;
 }
 
 uint8_t ToolHeadFDM::get_active_extruder() {

@@ -187,6 +187,10 @@ enum ModuleFunctionID {
   MODULE_FUNC_REPORT_SPINDLE_RUN_INFO     ,  // 39
   MODULE_FUNC_REPORT_SPINDLE_SENSOR_INFO  ,  // 40
   MODULE_FUNC_REPORT_TEMP_HUMIDITY        ,  // 41
+  MODULE_FUNC_SET_HOTEND_OFFSET           ,  // 42
+  MODULE_FUNC_REPORT_HOTEND_OFFSET        ,  // 43
+  MODULE_FUNC_SET_PROBE_SENSOR_COMPENSATION, // 44
+  MODULE_FUNC_REPORT_PROBE_SENSOR_COMPENSATION,  // 45
 
   MODULE_FUNC_MAX
 };
@@ -318,7 +322,7 @@ class ModuleBase {
 
     int get_function_priority(uint16_t function_id);
 
-    // get device id 
+    // get device id
     uint16_t get_device_id() { return MODULE_GET_DEVICE_ID(mac); }
 
     uint32_t get_mac() { return mac; }

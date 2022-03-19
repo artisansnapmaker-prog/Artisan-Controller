@@ -9,28 +9,6 @@
 
 #include "../../../Marlin/src/core/serial.h"
 
-/****************************************************************************************
-reference links: https://snapmaker2.atlassian.net/wiki/spaces/SNAP/pages/1984987369/FDM
-****************************************************************************************/
-typedef enum {
-  FDM_REQ_CMD_ID_GET_TOOLHEAD_INFO     = 1,
-  FDM_REQ_CMD_ID_SET_HOTEND_TEMP       = 2,
-  FDM_REQ_CMD_ID_SET_PRINT_SPEED_RATE  = 3,
-  FDM_REQ_CMD_ID_FILAMENT_DETECT_CTRL  = 4,
-  FDM_REQ_CMD_ID_SWITCH_EXTRUDER       = 5,
-  FDM_REQ_CMD_ID_SET_FAN_SPEED         = 6,
-  FDM_REQ_CMD_ID_SET_HOTEND_OFFSET     = 7,
-  FDM_REQ_CMD_ID_GET_HOTEND_OFFSET     = 8,
-  FDM_REQ_CMD_ID_EXTRUDER_MOTION       = 9,
-  FDM_REQ_CMD_ID_CHANGE_NOZZLE_CTRL    = 10,
-
-  FDM_REQ_CMD_ID_SUM                   = 10,      // Adding or deleting IDs requires changing this value
-}fdm_req_cmd_id_e;
-
-typedef enum {
-  FDM_SUBSCRIPT_CMD_ID_EXTRUDER_INFO = 0xa0,
-}fdm_subscript_cmd_id_e;
-
 // hmi subscribe callback
 static uint16_t hmi_subscript_callback_extruder_info(void *obj, uint8_t *buffer);
 // hmi request callback

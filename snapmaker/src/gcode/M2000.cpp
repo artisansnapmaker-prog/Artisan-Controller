@@ -9,25 +9,6 @@
 
 #if MB_SNAPMAKER
 
-// publish callback
-static uint16_t publish(void *obj, uint8_t *buffer) {
-  buffer[0] = 0x11;
-  buffer[1] = 0x22;
-  buffer[2] = 0x33;
-  buffer[3] = 0x44;
-  return 4;
-}
-
-static err_code_t test_req_cb(void *obj, sacp_hmi_message_t *msg) {
-  LOG_I("got req: [%x:%x], data len=%u\n", msg->cmd_set, msg->cmd_id, msg->length);
-  return host_hmi.send_ack(msg, E_SUCCESS);
-}
-
-static err_code_t test_ack_cb(void *obj, sacp_hmi_message_t *msg) {
-  LOG_I("got ack: [%x:%x], data len=%u\n", msg->cmd_set, msg->cmd_id, msg->length);
-  return E_SUCCESS;
-}
-
 void GcodeSuite::M2000() {
   // system debug options
   __unused uint8_t s = (uint8_t)parser.byteval('S', (uint8_t)0xFF);
@@ -43,9 +24,19 @@ void GcodeSuite::M2000() {
 
   // bedlevel debug options
   __unused uint8_t b = (uint8_t)parser.byteval('B', (uint8_t)0xFF);
+  // motion platform debug options
+  __unused uint8_t m = (uint8_t)parser.byteval('M', (uint8_t)0xFF);
 
   // common info
   __unused uint32_t p = (uint32_t)parser.ulongval('P', (uint32_t)0);
+  __unused int32_t q = (int32_t)parser.longval('Q', (int32_t)0);
+  // coordinates
+  __unused float x = (float)parser.floatval('X', (float)0);
+  __unused float y = (float)parser.floatval('Y', (float)0);
+  __unused float z = (float)parser.floatval('Z', (float)0);
+  __unused float e = (float)parser.floatval('E', (float)0); // for E axis
+  __unused float i = (float)parser.floatval('I', (float)0); // for A axis
+  __unused float j = (float)parser.floatval('J', (float)0); // for B axis
 
   switch (s)
   {
@@ -161,31 +152,51 @@ void GcodeSuite::M2000() {
       break;
     }
 
-  // test subscribe
   case 6:
-    {
-      host_hmi.register_subscription(0x10, 0xa0, (void *)0x12345678, publish);
+    { // get module info
+      sacp_hmi_message_t msg;
+      uint8_t buffer[256];
+      msg.peer = SACP_HOST_ID_SCREEN;
+      msg.ch = SACP_HMI_CH_SCREEN;
+      msg.attr = 0;
+      msg.seq = 0;
+      msg.cmd_set = SACP_CMD_SET_GLOBAL_REQ;
+      msg.data = buffer;
+      msg.cmd_id = SACP_CMD_ID_GLOABL_REQ_GET_MODULE_INFO;
+      msg.length = 0;
+      module_svc.report_module_info(&module_svc, &msg);
     }
     break;
 
-  // apply system handle
   case 7:
-    {
-      host_hmi.apply_cmd_set_handle(SACP_CMD_SET_GLOBAL_REQ, 10);
+    { // get machine info
+      sacp_hmi_message_t msg;
+      uint8_t buffer[256];
+      msg.peer = SACP_HOST_ID_SCREEN;
+      msg.ch = SACP_HMI_CH_SCREEN;
+      msg.attr = 0;
+      msg.seq = 0;
+      msg.cmd_set = SACP_CMD_SET_GLOBAL_REQ;
+      msg.data = buffer;
+      msg.cmd_id = SACP_CMD_ID_GLOABL_REQ_GET_MACHINE_INFO;
+      msg.length = 0;
+      smprinter.get_machine_info(&smprinter, &msg);
     }
     break;
 
-  // register REQ cb
   case 8:
-    {
-      host_hmi.register_callback(0x01, 0x10, NULL, test_req_cb);
-    }
-    break;
-
-  // register ACK cb
-  case 9:
-    {
-      host_hmi.register_callback(0x01, 0x11, NULL, test_ack_cb, SACP_CB_ATTR_ACK);
+    { // get machine size
+      sacp_hmi_message_t msg;
+      uint8_t buffer[256];
+      msg.peer = SACP_HOST_ID_SCREEN;
+      msg.ch = SACP_HMI_CH_SCREEN;
+      msg.attr = 0;
+      msg.seq = 0;
+      msg.cmd_set = SACP_CMD_SET_GLOBAL_REQ;
+      msg.data = buffer;
+      msg.cmd_id = SACP_CMD_ID_GLOABL_REQ_GET_MACHINE_SIZE;
+      msg.length = 0;
+      smprinter.get_machine_size(&smprinter, &msg);
     }
     break;
 
@@ -193,31 +204,119 @@ void GcodeSuite::M2000() {
     break;
   }
 
-  switch (l)
   {
-  case 0:
-    // show status of laser
+    ToolHeadLaser *laser = NULL;
+    sacp_hmi_message_t laser_msg;
+    uint8_t buffer[32];
+    if (l < 0xff) {
+      laser = (ToolHeadLaser *)module_svc.get_module(MODULE_DEVICE_ID_LASER_10W_2021, 0);
+      laser_msg.ch = SACP_HMI_CH_SCREEN;
+      laser_msg.attr = 0;
+      laser_msg.cmd_set = SACP_CMD_SET_LASER;
+      laser_msg.peer = SACP_HOST_ID_SCREEN;
+      laser_msg.seq = 0;
+      laser_msg.ver = SACP_VER_1;
+      laser_msg.data = buffer;
+      buffer[0] = laser->get_key();
+    }
+    switch (l)
     {
-      ToolHeadLaser *laser = (ToolHeadLaser *)module_svc.get_module(MODULE_DEVICE_ID_LASER_10W_2021, 0);
-      if (laser)
-        laser->show_status();
+    case 0:
+      // show status of laser
+      {
+        if (laser)
+          laser->show_status();
+      }
+      break;
+
+    case 1:
+      // clear security error
+      break;
+
+    case 2:
+      { // report bt mac
+        if (laser)
+          laser->report_bt_mac();
+      }
+      break;
+
+    case 3:
+      { // set power
+        if (laser) {
+          int32_t *power = (int32_t *)(buffer + 1);
+          if (p)
+            *power = 500;
+          else
+            *power = 0;
+          laser_msg.length = 5;
+          laser->hmi_cb_set_output((void *)laser, &laser_msg);
+        }
+      }
+      break;
+
+    case 4:
+      { // set assist light
+        if (laser) {
+          if (p)
+            buffer[1] = 100;
+          else
+            buffer[1] = 0;
+          laser_msg.length = 2;
+          laser->hmi_cb_set_focus_assist_light((void *)laser, &laser_msg);
+        }
+      }
+      break;
+
+    case 5:
+      { // set focal length
+        if (laser) {
+          int32_t *focal_len = (int32_t *)(buffer + 1);
+          if (p)
+            *focal_len = p;
+          else {
+            LOG_I("please set focal len by option 'P'");
+            break;
+          }
+          laser_msg.length = 5;
+          laser->hmi_cb_set_focal_length((void *)laser, &laser_msg);
+        }
+      }
+      break;
+
+    case 6:
+      { // set protect temp
+        if (laser) {
+          buffer[1] = (int8_t)(p);
+          buffer[2] = (int8_t)(q);
+          laser_msg.length = 3;
+          laser->hmi_cb_set_temp_threshold((void *)laser, &laser_msg);
+        }
+      }
+      break;
+
+    case 7:
+      { // set calibration mode
+        if (laser) {
+          buffer[0] = (int8_t)(p);
+          laser_msg.length = 1;
+          laser->hmi_cb_set_cali_mode((void *)laser, &laser_msg);
+        }
+      }
+      break;
+
+    case 8:
+      { // exit calibration mode
+        if (laser) {
+          buffer[0] = (int8_t)(p);
+          laser_msg.length = 1;
+          laser->hmi_cb_exit_calibraion((void *)laser, &laser_msg);
+        }
+      }
+      break;
+
+    default:
+      break;
     }
-    break;
-
-  case 1:
-    // clear security error
-    break;
-
-  case 2:
-    { // report bt mac
-      ToolHeadLaser *laser = (ToolHeadLaser *)module_svc.get_module(MODULE_DEVICE_ID_LASER_10W_2021, 0);
-      if (laser)
-        laser->report_bt_mac();
-    }
-    break;
-
-  default:
-    break;
   }
 
   switch (c)
@@ -628,6 +727,79 @@ void GcodeSuite::M2000() {
     default:
       break;
   }
+  {
+    sacp_hmi_message_t motion_msg;
+    uint8_t buffer[128];
+    if (m < 0xff) {
+      motion_msg.ch = SACP_HMI_CH_SCREEN;
+      motion_msg.attr = 0;
+      motion_msg.cmd_set = SACP_CMD_SET_GLOBAL_REQ;
+      motion_msg.peer = SACP_HOST_ID_SCREEN;
+      motion_msg.seq = 0;
+      motion_msg.ver = SACP_VER_1;
+      motion_msg.data = buffer;
+    }
+
+    switch (m) {
+    case 0:
+      { // get coordinate info
+        motion_msg.length = 0;
+        motion_msg.cmd_id = SACP_CMD_ID_GLOABL_REQ_GET_COORDINATE;
+        motion_svc.hmi_cb_get_coordinate_info(&motion_svc, &motion_msg);
+      }
+      break;
+
+    case 1:
+      { // set active coordinate
+        motion_msg.cmd_id = SACP_CMD_ID_GLOABL_REQ_SET_ACTIVE_COORDINATE;
+        motion_msg.length = 1;
+        buffer[0] = (uint8_t)p;
+        motion_svc.hmi_cb_set_active_coordinate_system(&motion_svc, &motion_msg);
+      }
+      break;
+
+    case 2:
+      { // set original
+        coordinate_info_t *info = (coordinate_info_t *)(buffer + 1);
+        motion_msg.cmd_id = SACP_CMD_ID_GLOABL_REQ_SET_ACTIVE_COORDINATE;
+        motion_msg.length = sizeof(coordinate_info_t) * 3 + 1;
+        buffer[0] = 3;
+        info[0].axis = AXIS_KEY_X1;
+        info[0].value = x * 1000;
+        info[1].axis = AXIS_KEY_Y1;
+        info[1].value = y * 1000;
+        info[2].axis = AXIS_KEY_Z1;
+        info[2].value = z * 1000;
+        motion_svc.hmi_cb_set_origin(&motion_svc, &motion_msg);
+      }
+      break;
+
+
+    case 3:
+      { // move absolutely
+        moving_command_t *info = (moving_command_t *)(buffer + 1);
+        motion_msg.cmd_id = SACP_CMD_ID_GLOABL_REQ_SET_ACTIVE_COORDINATE;
+        motion_msg.length = sizeof(moving_command_t) * 3 + 1;
+
+        buffer[0] = 3;
+        info[0].axis = AXIS_KEY_X1;
+        info[0].position = x * 1000;
+        info[0].feedrate = p * 60;
+        info[1].axis = AXIS_KEY_Y1;
+        info[1].position = y * 1000;
+        info[1].feedrate = p * 60;
+        info[2].axis = AXIS_KEY_Z1;
+        info[2].position = z * 1000;
+        info[2].feedrate = p * 60;
+        motion_svc.hmi_cb_move_absoluty(&motion_svc, &motion_msg);
+      }
+      break;
+
+    default:
+      break;
+    }
+  }
+
 }
 
 #endif

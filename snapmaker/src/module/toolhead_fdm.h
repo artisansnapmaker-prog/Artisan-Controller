@@ -81,7 +81,6 @@ typedef struct {
   float feedrate_percentage[EXTRUDERS];
   float live_z_offset[EXTRUDERS];
   uint8_t fan_speed[3];
-  float current_temp[EXTRUDERS];
   float target_temp[EXTRUDERS];
 } __attribute__((packed)) fdm_recovery_data_t;
 

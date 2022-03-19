@@ -1242,8 +1242,6 @@ err_code_t ToolHeadFDM::save_env(uint8_t *env_buf, uint32_t &len) {
   recovery_data.fan_speed[0] = fan_speed[0];
   recovery_data.fan_speed[1] = fan_speed[1];
   recovery_data.fan_speed[2] = fan_speed[2];
-  recovery_data.current_temp[0] = hotend_temp[0].current;
-  recovery_data.current_temp[1] = hotend_temp[1].current;
   recovery_data.target_temp[0] = hotend_temp[0].target;
   recovery_data.target_temp[1] = hotend_temp[1].target;
 
@@ -1254,6 +1252,30 @@ err_code_t ToolHeadFDM::save_env(uint8_t *env_buf, uint32_t &len) {
 }
 
 err_code_t ToolHeadFDM::resume_env(uint8_t *env_buf, uint32_t &len) {
+  fdm_recovery_data_t recovery_data;
 
+  if (len != sizeof(fdm_recovery_data_t)) {
+    return E_PARAM;
+  }
+
+  memcpy((uint8_t *)&recovery_data, env_buf, sizeof(fdm_recovery_data_t));
+
+  active_extruder = recovery_data.active_extruder;
+  set_fan_speed(0, recovery_data.fan_speed[0]);
+  set_fan_speed(1, recovery_data.fan_speed[1]);
+  set_fan_speed(2, recovery_data.fan_speed[2]);
+  set_hotend_temp(recovery_data.target_temp[0], 0);
+  set_hotend_temp(recovery_data.target_temp[1], 1);
+  extruders_feedrate_percentage[0] = recovery_data.feedrate_percentage[0];
+  extruders_feedrate_percentage[1] = recovery_data.feedrate_percentage[1];
+  motion_svc.sync_feedrate_percentage_to_platform(extruders_feedrate_percentage[active_extruder]);
+  bedlevel_svc.live_z_offset[0] = recovery_data.live_z_offset[0];
+  bedlevel_svc.live_z_offset[1] = recovery_data.live_z_offset[1];
+  motion_svc.synchronize_planner();
+  float cur_z = motion_svc.get_current_position(Z_AXIS);
+  motion_svc.moveto_z(cur_z + bedlevel_svc.live_z_offset[active_extruder], 5);
+  motion_svc.sm_current_position[Z_AXIS] = cur_z;
+  motion_svc.sync_plan_position_to_platform();
+  return E_SUCCESS;
 }
 

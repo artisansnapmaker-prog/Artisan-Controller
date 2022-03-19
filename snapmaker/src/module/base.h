@@ -81,11 +81,11 @@ enum ModuleStatus: uint8_t {
 
   MODULE_STATUS_OFFLINE,
 
-  MODULE_STATUS_INVALID
+  MODULE_STATUS_COMMON_LIMIT = 100
 };
 
 enum ModuleLinearIndex {
-  MODULE_LINEAR_X1 = 1,
+  MODULE_LINEAR_X1 = 0,
   MODULE_LINEAR_Y1,
   MODULE_LINEAR_Z1,
   MODULE_LINEAR_X2,
@@ -331,8 +331,8 @@ class ModuleBase {
     LinkCANChannel get_channel() { return channel; }
     void set_channel(LinkCANChannel ch) { if (ch < LINK_CAN_CH_INVALID) channel = ch; }
 
-    ModuleStatus get_status() { return status; }
-    void set_status(ModuleStatus sta) { status = sta; }
+    uint8_t get_status() { return status; }
+    void set_status(uint8_t sta) { status = sta; }
 
     uint8_t get_function_nodes(function_node_t **nodes) { if (nodes) *nodes = function_nodes; return func_length; }
     void set_function_nodes(function_node_t *nodes, uint8_t len) { function_nodes = nodes; func_length = len; }
@@ -378,7 +378,7 @@ class ModuleBase {
     uint8_t  key;
     uint8_t  index;
 
-    ModuleStatus status = MODULE_STATUS_UNCONFIGURE;
+    uint8_t status = MODULE_STATUS_UNCONFIGURE;
     uint8_t  hw_ver;
     char     fw_ver[MODULE_FW_VER_SIZE];
 

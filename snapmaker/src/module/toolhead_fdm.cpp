@@ -858,6 +858,7 @@ err_code_t ToolHeadFDM::set_fan_speed(uint8_t fan_index, uint16_t speed, uint8_t
   return E_SUCCESS;
 }
 
+// TODO: The parameter of 'e', should use enum type.
 err_code_t ToolHeadFDM::set_hotend_temp(uint16_t temp, uint8_t e) {
   if (e > EXTRUDERS) {
     return E_PARAM;

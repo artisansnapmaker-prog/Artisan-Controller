@@ -36,6 +36,7 @@
 
 
 #define MAX_CLIENT_NODE_NUM                           4
+#define MAX_SACP_MSG_COPY                             2
 #define SEND_BUF_SIZE                                 256
 // TODO: this should define in the SACP
 #define IVALID_PEER                                   0xFFFFFFFF
@@ -95,6 +96,7 @@
 #define SACP_JOB_PAUSE_ISSUE_RET_STALL_PROTECTION               (4)
 #define SACP_JOB_PAUSE_ISSUE_RET_ABNORMAL_TEMP_PROTECTION       (5)
 #define SACP_JOB_PAUSE_ISSUE_RET_IVALID_GCODE_LINE_NUMBER       (6)
+#define SACP_JOB_PAUSE_ISSUE_RET_GET_GCODE_FAILURE              (7)
 
 //Types of event function callbacks
 typedef std::function<err_code_t(sacp_hmi_message_t&)> evevnt_cb_f;
@@ -133,7 +135,7 @@ class ClientNode {
 
   // Instance define
   public:
-    ClientNode(uint32_t peer, uint8_t ch): _peer(peer), _ch(ch) {}
+    ClientNode(uint32_t peer, uint8_t ch);
     err_code_t init(void);
     void timer_cb(void *p);
     bool sacp_get_batch_gcode(req_batch_gcode_t &req_batch_gcode, res_batch_gcode_t &res_batch_gcode);
@@ -142,12 +144,29 @@ class ClientNode {
     uint8_t _ch;
 
   private:
+    typedef std::function<void(int)> job_req_notify_cb_t;
+    job_req_notify_cb_t req_start_cb;
+    job_req_notify_cb_t req_pause_cb;
+    job_req_notify_cb_t req_resume_cb;
+    job_req_notify_cb_t req_stop_cb;
+
+    SemaphoreHandle_t sacp_msg_copy_lock;
+    sacp_hmi_message_t sacp_msg_copy[MAX_SACP_MSG_COPY];
+    bool sacp_msg_copy_occupy[MAX_SACP_MSG_COPY];
+
+    sacp_hmi_message_t *malloc_sacp_msg_node(void);
+    err_code_t free_sacp_msg_node(sacp_hmi_message_t*);
+
     err_code_t sacp_handle(sacp_hmi_message_t*);
     err_code_t get_gcode_info(sacp_hmi_message_t*);
     err_code_t req_start_job(sacp_hmi_message_t*);
     err_code_t req_pause_job(sacp_hmi_message_t*);
     err_code_t req_resume_job(sacp_hmi_message_t*);
     err_code_t req_stop_job(sacp_hmi_message_t*);
+    void job_req_start_cb(sacp_hmi_message_t *copy_msg, uint8_t result);
+    void job_req_pause_cb(sacp_hmi_message_t *copy_msg, uint8_t result);
+    void job_req_resume_cb(sacp_hmi_message_t *copy_msg, uint8_t result);
+    void job_req_stop_cb(sacp_hmi_message_t *copy_msg, uint8_t result);
 };
 
 

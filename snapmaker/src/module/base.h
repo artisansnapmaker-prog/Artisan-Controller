@@ -317,6 +317,9 @@ class ModuleBase {
     virtual err_code_t resume_env(uint8_t *env_buf, uint32_t &len) {
       return E_SUCCESS;
     }
+    virtual err_code_t standby(void) {
+      return E_SUCCESS;
+    }
 
     virtual bool check_online() = 0;
 

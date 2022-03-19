@@ -261,7 +261,6 @@ static void system_thread(void *p) {
   for (;;) {
     module_svc.background_thread();
     system_svc.background_thread();
-    job_ctrl_svc.background_thread();
 
     taskYIELD();
   }
@@ -537,7 +536,7 @@ err_code_t SnapmakerPrinter::set_sys_status(enum SystemStatus req_status, enum S
     }
     break;
 
-  case SYSTEM_STATUS_PAUSEING:
+  case SYSTEM_STATUS_PAUSING:
     if (SYSTEM_STATUS_PRINTING == sys_status) {
       sys_status = req_status;
       ret = E_SUCCESS;
@@ -548,7 +547,7 @@ err_code_t SnapmakerPrinter::set_sys_status(enum SystemStatus req_status, enum S
     break;
 
   case SYSTEM_STATUS_PAUSED:
-    if (SYSTEM_STATUS_PAUSEING == sys_status) {
+    if (SYSTEM_STATUS_PAUSING == sys_status) {
       sys_status = req_status;
       ret = E_SUCCESS;
     }

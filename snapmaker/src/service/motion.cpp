@@ -462,23 +462,22 @@ void MotionService::save_settings() {
 }
 
 
-err_code_t MotionService::run_gcode(char *gcode_cmd, bool blocked /* = false*/,
-  uint32_t blocked_timeout/*= 180 * 1000 ms*/) {
-  size_t ret = 0;
-  int length = strlen(gcode_cmd);
+err_code_t MotionService::run_gcode(char *gcode, bool blocked /* = false*/,
+    uint32_t blocked_timeout/*= 180 * 1000 ms*/) {
+  int length = strlen(gcode);
 
   if (length > MAX_CMD_SIZE) {
     LOG_E("length of gcode is out of range: %d\n", MAX_CMD_SIZE);
     return E_PARAM;
   }
 
-  ret = xMessageBufferSend(gcode_queue, gcode_cmd, length + 1, pdMS_TO_TICKS(100));
-  if (ret != length + 1) {
-    LOG_E("fail to submit gcode: %s, ret[%u]\n", gcode_cmd);
+  int wl = xMessageBufferSend(gcode_queue, gcode, length + 1, pdMS_TO_TICKS(100));
+  if (wl == (length + 1)) {
+    LOG_E("fail to submit gcode: %s\n", gcode);
     return E_TIMEOUT;
   }
 
-  LOG_I("submitted gocde: %s\n", gcode_cmd);
+  LOG_I("submitted gocde: %s\n", gcode);
 
   // for now just blocked with moving
   if (blocked) {

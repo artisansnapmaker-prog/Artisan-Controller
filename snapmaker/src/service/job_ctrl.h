@@ -22,6 +22,7 @@
 #define SNAPMAKER_JOB_CTRL_SERVICE_H_
 
 
+#include <functional>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -57,6 +58,7 @@
 #define E_JOB_ISSUE_RET_STALL_PROTECTION                SACP_JOB_PAUSE_ISSUE_RET_STALL_PROTECTION         
 #define E_JOB_ISSUE_RET_ABNORMAL_TEMP_PROTECTION        SACP_JOB_PAUSE_ISSUE_RET_ABNORMAL_TEMP_PROTECTION 
 #define E_JOB_ISSUE_RET_IVALID_GCODE_LINE_NUMBER        SACP_JOB_PAUSE_ISSUE_RET_IVALID_GCODE_LINE_NUMBER 
+#define E_JOB_ISSUE_RET_GET_GCODE_FAILURE               SACP_JOB_PAUSE_ISSUE_RET_GET_GCODE_FAILURE        
 
 #define GCODE_MD5_LENGTH 32
 #define GCODE_FILE_NAME_SIZE 128
@@ -64,6 +66,10 @@
 #define TOOLHEAD_ENV_MAX_SIZE 128
 #define GCODE_RB_SIZE 1024
 #define RESUME_FEEDRATE 3000
+#define JOB_CTRL_LOOP_TIME_MS (100)
+#define JOB_CTRL_REQ_INFO_BUF ((sizeof(struct JobCtrlReqInfo) + 8) * 4)
+
+#define DO_JOB_REQ_NOTIFY_CB(cb, ret)                   do{ if(cb) (cb)(ret); } while(0)
 
 
 // TODO: this type should define other
@@ -96,18 +102,51 @@ struct JobEnv {
   uint8_t toolhead_env_buf[TOOLHEAD_ENV_MAX_SIZE];
 };
 
+enum JobReqAction {
+  REQ_START,
+  REQ_PAUSE,
+  REQ_RESUME,
+  REQ_STOP,
+};
+
+// typedef void (*job_req_notify_cb)(uint8_t result);
+typedef std::function<void(int)> job_req_notify_cb_t;
+
+struct JobCtrlReqInfo {
+  JobReqAction req_action;
+  union
+  {
+    struct {
+      uint8_t client_id;
+      struct GcodeFileInfo gcodeInfo; 
+      toolHeadType th_type;
+    } req_start_data;
+
+    struct {
+    } req_pause_data;
+
+    struct {
+      uint8_t client_id;
+    } req_resume_data;
+
+    struct {
+    } req_stop_data;
+  } req_data;
+  job_req_notify_cb_t cb;
+};
+
 class JobCtrl {
   // public methods
   public:
     JobCtrl(){};
     void init(void);
-    void background_thread(void);                               /** main loop, to check all the event from system which will change current job status */
+    void background_thread(void *p);                               /** main loop, to check all the event from system which will change current job status */
 
     // job control
-    err_code_t start(uint8_t client_id, struct GcodeFileInfo *gcodeInfo, toolHeadType th_type);
-    err_code_t pause(void);
-    err_code_t resume(uint8_t client_id);
-    err_code_t stop(void);
+    err_code_t req_start(uint8_t client_id, struct GcodeFileInfo *gcodeInfo, toolHeadType th_type, job_req_notify_cb_t cb = NULL);
+    err_code_t req_pause(job_req_notify_cb_t cb = NULL);
+    err_code_t req_resume(uint8_t client_id, job_req_notify_cb_t cb = NULL);
+    err_code_t req_stop(job_req_notify_cb_t cb = NULL);
 
     // set & get
     err_code_t set_env(struct JobEnv &env);
@@ -125,6 +164,10 @@ class JobCtrl {
 
   // private methods
   private:
+    void do_start(struct JobCtrlReqInfo &jri);
+    void do_pause(struct JobCtrlReqInfo &jri);
+    void do_resume(struct JobCtrlReqInfo &jri);
+    void do_stop(struct JobCtrlReqInfo &jri);
     err_code_t save_env(void);                                  /** save current job enviroment                                           */
     err_code_t resum_env(void);                                 /** resume saved enviroment to job                                        */
     err_code_t machine_standby(void);                           /** set the machine in standby status                                     */
@@ -133,6 +176,7 @@ class JobCtrl {
     void get_gcodes_from_client(void);
 
     SemaphoreHandle_t _lock;                                    /** lock, TODO:should use the snapmaker's API, not the freeRTOS           */
+    MessageBufferHandle_t _req_queue;                           /** job control request enqueue this queue, the background thread outqueue requst and do it            */
     RingBuffer<uint8_t> _gcode_rb;                              /** ringbuffer for rx the gcode string                                    */
     uint8_t _client_id;                                         /** A pointer to client node,                                             */
     uint32_t _tick_ms;                                          /** use for periodically main loop                                        */

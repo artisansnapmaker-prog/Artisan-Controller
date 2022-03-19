@@ -35,6 +35,7 @@ enum LaserSACPCommandId {
   SACP_CMD_ID_LASER_SET_FOCAL_LENGTH,
   SACP_CMD_ID_LASER_SET_TEMP_THRESHOLD,
   SACP_CMD_ID_LASER_REPORT_BT_MAC,
+  SACP_CMD_ID_LASER_SET_SAFETY_LOCK,
 
   SACP_CMD_ID_LASER_MAX
 };
@@ -126,12 +127,25 @@ enum ToolheadLaserSwitchState {
 };
 
 
+enum ToolHeadLaserCalibrationStatus {
+  LASER_CALI_STATUS_DETECT_THICKNESS_AUTO,
+  LASER_CALI_STATUS_DETECT_PLATFORM_POSITION,
+  LASER_CALI_STATUS_CAMERA_CAPTURE,
+  LASER_CALI_STATUS_DETECT_FOCAL_LENGTH,
+  LASER_CALI_STATUS_DETECT_4AXIS_CENTER_POSITION,
+
+  LASER_CALI_STATUS_INVALID
+};
 
 class ToolHeadLaser: public ModuleBase {
   public:
     ToolHeadLaser(uint32_t mac, uint8_t key, uint8_t sub_index): ModuleBase(mac, key, sub_index) {}
 
     err_code_t pre_init();
+    err_code_t post_init();
+    err_code_t deinit();
+
+    bool check_online() { return true; }
 
     err_code_t turn_on() {
       if (get_status() != MODULE_STATUS_NORMAL)
@@ -158,14 +172,9 @@ class ToolHeadLaser: public ModuleBase {
 
     void update_power(float power);
 
-    void show_status();
-
     err_code_t report_bt_mac();
 
-    err_code_t post_init();
-    err_code_t deinit();
-
-    bool check_online() { return true; }
+    void show_status();
 
     // speed level: 0 - 255
     err_code_t set_fan(uint8_t speed);
@@ -176,8 +185,14 @@ class ToolHeadLaser: public ModuleBase {
     void check_master_switch(uint16_t new_power_pwm);
     void if_disable_switch();
 
+    // callback for module event and routine
     friend void laser_cb_handle_security_status(void *obj, uint8_t *data, uint8_t length);
     friend err_code_t laser_routine(void *obj);
+
+    // callback for working flow
+    err_code_t save_env(uint8_t *env_buf, uint32_t &len);
+    err_code_t resume_env(uint8_t *env_buf, uint32_t &len);
+    err_code_t standby(void);
 
     // callback for HMI
     static err_code_t hmi_cb_get_info(void *obj, sacp_hmi_message_t *message);
@@ -190,7 +205,9 @@ class ToolHeadLaser: public ModuleBase {
     static err_code_t hmi_cb_do_manual_focusing(void *obj, sacp_hmi_message_t *message);
     static err_code_t hmi_cb_set_cali_mode(void *obj, sacp_hmi_message_t *message);
     static err_code_t hmi_cb_exit_calibraion(void *obj, sacp_hmi_message_t *message);
+    static err_code_t hmi_cb_set_safety_lock(void *obj, sacp_hmi_message_t *message);
 
+    // callback for HMI publish
     static uint16_t hmi_cb_publish_safety_state(void *obj, uint8_t *buffer);
     static uint16_t hmi_cb_publish_power(void *obj, uint8_t *buffer);
 
@@ -208,6 +225,7 @@ class ToolHeadLaser: public ModuleBase {
     err_code_t read_bt_info();
     err_code_t set_bt_info();
 
+    void setup_camera_port(uint8_t port);
 
   private:
     ToolHeadLaserTubeStatus tube_status;
@@ -238,6 +256,8 @@ class ToolHeadLaser: public ModuleBase {
     bool pwm_normal;
 
     uint8_t bt_mac[6] {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
+
+    ToolHeadLaserCalibrationStatus cali_status = LASER_CALI_STATUS_INVALID;
 };
 
 #endif

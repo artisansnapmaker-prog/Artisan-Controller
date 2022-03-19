@@ -39,6 +39,13 @@ static module_func_prio_t prio_map[] = {
   { MODULE_FUNCTION_ID_INVALID, MODULE_FUNCTION_PRIORITY_INVALID }
 };
 
+
+enum ToolHeadLaserPrivateStatus {
+  MODULE_STATUS_LASER_LOCKED = MODULE_STATUS_COMMON_LIMIT,
+  MODULE_STATUS_LASER_CHECKING_PWM,
+};
+
+
 extern void set_pwm_frequency(const pin_t pin, int f_desired);
 extern void set_pwm_duty(const pin_t pin, const uint16_t v, const uint16_t v_size, const bool invert);
 
@@ -113,7 +120,7 @@ uint16_t ToolHeadLaser::hmi_cb_publish_power(void *obj, uint8_t *buffer) {
     *current_power = 0;
   *target_power = (int32_t)(laser.power_current * 1000);
 
-  LOG_I("power cur[%d], target[%d]\n", *current_power, *target_power);
+  LOG_V("power cur[%d], target[%d]\n", *current_power, *target_power);
 
   return 10;
 }
@@ -196,7 +203,11 @@ err_code_t ToolHeadLaser::hmi_cb_set_focal_length(void *obj, sacp_hmi_message_t 
 
   LOG_I("set focal len[%u]\n", *length);
 
-  uint16_t focal_length = (uint16_t)(*length / 1000);
+  if (*length > 65535) {
+    return host_hmi.send_ack(message, E_PARAM);
+  }
+
+  uint16_t focal_length = (uint16_t)(*length);
 
   // TODO: set length to module
   laser.write_focal_length(focal_length);
@@ -406,18 +417,24 @@ err_code_t ToolHeadLaser::hmi_cb_do_auto_focusing(void *obj, sacp_hmi_message_t 
 err_code_t ToolHeadLaser::hmi_cb_set_cali_mode(void *obj, sacp_hmi_message_t *message) {
   ToolHeadLaser &laser = *(ToolHeadLaser *)obj;
 
-  // if (message->data[0] != laser.get_key()) {
-  //   LOG_E("invalid module key[%u] in cmd[%x:%x]\n", message->data[0], message->cmd_set, message->cmd_id);
-  //   return host_hmi.send_ack(message, E_INVALID_MODULE_KEY);
-  // }
-
   if (laser.get_status() != MODULE_STATUS_NORMAL) {
+    LOG_E("invalid module state[%u] in calibration\n", laser.get_status());
     return host_hmi.send_ack(message, E_INVALID_STATE);
   }
 
   LOG_I("hmi_cb_set_cali_mode [%u]\n", message->data[0]);
 
+  if (message->data[0] >= LASER_CALI_STATUS_INVALID) {
+    LOG_E("invalid laser cali mode [%u]\n", message->data[0]);
+    return host_hmi.send_ack(message, E_PARAM);
+  }
 
+  if (E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_LASER_CALIBRATING, NULL)) {
+    LOG_E("failed to enter SYSTEM_STATUS_LASER_CALIBRATING status\r\n");
+    return host_hmi.send_ack(message, E_INVALID_STATE);
+  }
+
+  laser.cali_status = (ToolHeadLaserCalibrationStatus)message->data[0];
 
   return host_hmi.send_ack(message, E_SUCCESS);
 }
@@ -426,16 +443,56 @@ err_code_t ToolHeadLaser::hmi_cb_set_cali_mode(void *obj, sacp_hmi_message_t *me
 err_code_t ToolHeadLaser::hmi_cb_exit_calibraion(void *obj, sacp_hmi_message_t *message) {
   ToolHeadLaser &laser = *(ToolHeadLaser *)obj;
 
-  // if (message->data[0] != laser.get_key()) {
-  //   LOG_E("invalid module key[%u] in cmd[%x:%x]\n", message->data[0], message->cmd_set, message->cmd_id);
-  //   return host_hmi.send_ack(message, E_INVALID_MODULE_KEY);
-  // }
-
   if (laser.get_status() != MODULE_STATUS_NORMAL) {
+    LOG_E("invalid module state[%u] in calibration\n", laser.get_status());
     return host_hmi.send_ack(message, E_INVALID_STATE);
   }
 
+  if (laser.cali_status >= LASER_CALI_STATUS_INVALID) {
+    LOG_E("didn't in cali mode\n");
+    return host_hmi.send_ack(message, E_INVALID_STATE);
+  }
+
+  if (smprinter.get_sys_status() == SYSTEM_STATUS_LASER_CALIBRATING) {
+    smprinter.set_sys_status(SYSTEM_STATUS_IDLE, NULL);
+  }
+
   LOG_I("hmi_cb_exit_calibraion [%u]\n", message->data[0]);
+
+  laser.cali_status = LASER_CALI_STATUS_INVALID;
+
+  return host_hmi.send_ack(message, E_SUCCESS);
+}
+
+
+#define UNLOCK_LASER  (0)
+#define LOCK_LASER    (1)
+err_code_t ToolHeadLaser::hmi_cb_set_safety_lock(void *obj, sacp_hmi_message_t *message) {
+  ToolHeadLaser &laser = *(ToolHeadLaser *)obj;
+
+  if (message->data[0] != laser.get_key()) {
+    LOG_E("invalid module key[%u] in cmd[%x:%x]\n", message->data[0], message->cmd_set, message->cmd_id);
+    return host_hmi.send_ack(message, E_INVALID_MODULE_KEY);
+  }
+
+  if (message->data[1] == UNLOCK_LASER) {
+    if (laser.get_status() != MODULE_STATUS_LASER_LOCKED) {
+      LOG_E("cannot unlock laser in state[&u]\n", laser.get_status());
+      return host_hmi.send_ack(message, E_INVALID_STATE);
+    }
+
+    laser.set_status(MODULE_STATUS_NORMAL);
+  }
+  else {
+    if (laser.get_status() != MODULE_STATUS_NORMAL) {
+      LOG_E("cannot lock laser in state[&u]\n", laser.get_status());
+      return host_hmi.send_ack(message, E_INVALID_STATE);
+    }
+
+    // will turn off laser when it is locked for safety
+    laser.set_output((float)0);
+    laser.set_status(MODULE_STATUS_LASER_LOCKED);
+  }
 
   return host_hmi.send_ack(message, E_SUCCESS);
 }
@@ -457,6 +514,7 @@ err_code_t laser_routine(void *obj) {
       set_pwm_duty(laser.output_pin, 0, 255, true);
       set_pwm_frequency(laser.output_pin, 250);
       laser.set_output(0);
+      laser.set_status(MODULE_STATUS_NORMAL);
     }
 
     laser.next_ms = millis() + 500;
@@ -544,6 +602,9 @@ void ToolHeadLaser::set_power_limit(float limit) {
 
 
 err_code_t ToolHeadLaser::update_output(uint16_t new_power_pwm) {
+  if (get_status() != MODULE_STATUS_NORMAL)
+    return E_INVALID_STATE;
+
   check_fan(new_power_pwm);
   check_master_switch(new_power_pwm);
   set_pwm_duty(output_pin, new_power_pwm, 255, true);
@@ -700,27 +761,77 @@ err_code_t ToolHeadLaser::post_init() {
   host_hmi.register_callback(SACP_CMD_SET_CALIBRATE_LASER, SACP_CMD_ID_LASER_CALI_AUTO, (void *)this,
     hmi_cb_do_auto_focusing);
 
-  pwm_normal = true;
-
-  if (pwm_normal) {
-    pinMode(output_pin, OUTPUT);
-    set_pwm_duty(output_pin, 0, 255, true);
-    set_pwm_frequency(output_pin, 250);
-    set_output(0);
-  }
-
   read_focal_length();
 
   tube_status = LASER_TUBE_STA_OFF;
 
   module_svc.register_routine( (void *)this, laser_routine);
 
-  next_ms = millis();
-  module_svc.register_routine((void *)this, laser_routine);
+  setup_camera_port(PORT_INDEX_P1);
 
-  set_status(MODULE_STATUS_NORMAL);
+  if (pwm_normal) {
+    pinMode(output_pin, OUTPUT);
+    set_pwm_duty(output_pin, 0, 255, true);
+    set_pwm_frequency(output_pin, 250);
+    set_output(0);
+    // for now default value is normal
+    set_status(MODULE_STATUS_NORMAL);
+  }
+  else {
+    set_status(MODULE_STATUS_LASER_CHECKING_PWM);
+  }
+
+  next_ms = millis();
 
   return E_SUCCESS;
+}
+
+
+void ToolHeadLaser::setup_camera_port(uint8_t port) {
+  sacp_channel_t *ch = host_hmi.get_channel(SACP_HMI_CH_CAMERA);
+  MSerialT *serial = NULL;
+
+  switch (port) {
+  case PORT_INDEX_P1:
+    serial = &MSerial3;
+    break;
+
+  case PORT_INDEX_P2:
+    serial = &MSerial4;
+    break;
+
+  case PORT_INDEX_P3:
+    serial = &MSerial5;
+    break;
+
+  default:
+    break;
+  }
+
+  if (!ch->link) {
+    serial->begin(115200);
+    link_camera.set_serial(serial);
+    // setup RX
+    uint8_t *buffer = (uint8_t *)pvPortMalloc(SACP_PDU_MAX_SIZE);
+    configASSERT(buffer);
+    link_camera.set_sec_rx_buffer(buffer, SACP_PDU_MAX_SIZE);
+    link_camera.set_sec_rx_waiting(SACP_V1_PDU_MIN_SIZE);
+    // setup TX
+    buffer = (uint8_t *)pvPortMalloc(SACP_PDU_MAX_SIZE);
+    configASSERT(buffer);
+    link_camera.set_sec_tx_buffer(buffer, SACP_PDU_MAX_SIZE);
+
+    // active second channel
+    link_camera.set_active_channel(MARLIN_SERIAL_CHANNEL_SECOND);
+    host_hmi.add_channel(SACP_HMI_CH_CAMERA, &link_camera);
+  }
+  else {
+    if (serial != link_camera.get_serial()) {
+      serial->begin(115200);
+      link_camera.update_serial(serial);
+      link_camera.set_active_channel(MARLIN_SERIAL_CHANNEL_SECOND);
+    }
+  }
 }
 
 
@@ -1018,4 +1129,39 @@ void ToolHeadLaser::show_status() {
   LOG_I("roll: %u\n", roll);
   LOG_I("tube temp: %d\n", laser_temp);
   LOG_I("imu temp: %d\n", imu_temp);
+}
+
+typedef struct __packed LaserEnv {
+  float power_current;
+  uint16_t power_pwm;
+} laser_env_t;
+
+err_code_t ToolHeadLaser::save_env(uint8_t *env_buf, uint32_t &len) {
+  if (!env_buf) {
+    return E_PARAM;
+  }
+
+  laser_env_t *env = (laser_env_t *)env_buf;
+
+  env->power_current = power_current;
+  env->power_pwm = power_pwm;
+
+  return E_SUCCESS;
+}
+
+err_code_t ToolHeadLaser::resume_env(uint8_t *env_buf, uint32_t &len) {
+  if (!env_buf) {
+    return E_PARAM;
+  }
+
+  laser_env_t *env = (laser_env_t *)env_buf;
+
+  power_current = env->power_current;
+  power_pwm = env->power_pwm;
+
+  return E_SUCCESS;
+}
+
+err_code_t ToolHeadLaser::standby(void) {
+  update_output(0);
 }

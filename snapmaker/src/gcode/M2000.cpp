@@ -456,7 +456,174 @@ void GcodeSuite::M2000() {
 
   switch (b) {
     case 0:
+      {
+        sacp_hmi_message_t msg;
+        uint8_t msg_buf[1];
+        uint16_t index = 0;
+        uint8_t m = (uint8_t)parser.byteval('M', (uint8_t)2);
+        msg.peer = SACP_HOST_ID_SCREEN;
+        msg.ch = SACP_HMI_CH_SCREEN;
+        msg.attr = SACP_MESSAGE_ATTR_SET_SEQ;
+        msg.seq = 1;
+        msg.cmd_set = SACP_CMD_SET_CALIBRATE_FDM;
+        msg.cmd_id = BEDLEVEL_REQ_CMD_ID_SET_LEVEL_MODE;
 
+        msg_buf[index++] = m;
+        msg.data = msg_buf;
+        msg.length = index;
+        ClientNode::sacp_cb(&bedlevel_svc, &msg);
+      }
+      break;
+    case 1:
+      {
+        sacp_hmi_message_t msg;
+        uint8_t msg_buf[1];
+        uint16_t index = 0;
+        uint8_t g = (uint8_t)parser.byteval('G', (uint8_t)3);
+        msg.peer = SACP_HOST_ID_SCREEN;
+        msg.ch = SACP_HMI_CH_SCREEN;
+        msg.attr = SACP_MESSAGE_ATTR_SET_SEQ;
+        msg.seq = 1;
+        msg.cmd_set = SACP_CMD_SET_CALIBRATE_FDM;
+        msg.cmd_id = BEDLEVEL_REQ_CMD_ID_START_LEVEL;
+
+        msg_buf[index++] = g;
+        msg.data = msg_buf;
+        msg.length = index;
+        ClientNode::sacp_cb(&bedlevel_svc, &msg);
+      }
+      break;
+    case 2:
+      {
+        sacp_hmi_message_t msg;
+        uint8_t msg_buf[1];
+        uint16_t index = 0;
+        uint8_t p = (uint8_t)parser.byteval('P', (uint8_t)1);
+        msg.peer = SACP_HOST_ID_SCREEN;
+        msg.ch = SACP_HMI_CH_SCREEN;
+        msg.attr = SACP_MESSAGE_ATTR_SET_SEQ;
+        msg.seq = 1;
+        msg.cmd_set = SACP_CMD_SET_CALIBRATE_FDM;
+        msg.cmd_id = BEDLEVEL_REQ_CMD_ID_GOTO_PROBE_POINT;
+
+        msg_buf[index++] = p;
+        msg.data = msg_buf;
+        msg.length = index;
+        ClientNode::sacp_cb(&bedlevel_svc, &msg);
+      }
+      break;
+    case 3:
+      {
+        sacp_hmi_message_t msg;
+        uint8_t msg_buf[1];
+        uint16_t index = 0;
+        msg.peer = SACP_HOST_ID_SCREEN;
+        msg.ch = SACP_HMI_CH_SCREEN;
+        msg.attr = SACP_MESSAGE_ATTR_SET_SEQ;
+        msg.seq = 1;
+        msg.cmd_set = SACP_CMD_SET_CALIBRATE_FDM;
+        msg.cmd_id = BEDLEVEL_REQ_CMD_ID_EXIT_LEVEL;
+
+        msg.data = msg_buf;
+        msg.length = index;
+        ClientNode::sacp_cb(&bedlevel_svc, &msg);
+      }
+      break;
+    case 4:
+      {
+        sacp_hmi_message_t msg;
+        uint8_t msg_buf[1];
+        uint16_t index = 0;
+        msg.peer = SACP_HOST_ID_SCREEN;
+        msg.ch = SACP_HMI_CH_SCREEN;
+        msg.attr = SACP_MESSAGE_ATTR_SET_SEQ;
+        msg.seq = 1;
+        msg.cmd_set = SACP_CMD_SET_CALIBRATE_FDM;
+        msg.cmd_id = BEDLEVEL_REQ_CMD_ID_GET_LEVEL_STATE;
+
+        msg.data = msg_buf;
+        msg.length = index;
+        ClientNode::sacp_cb(&bedlevel_svc, &msg);
+      }
+      break;
+    case 5:
+      {
+        sacp_hmi_message_t msg;
+        uint8_t msg_buf[1];
+        uint16_t index = 0;
+        msg.peer = SACP_HOST_ID_SCREEN;
+        msg.ch = SACP_HMI_CH_SCREEN;
+        msg.attr = SACP_MESSAGE_ATTR_SET_SEQ;
+        msg.seq = 1;
+        msg.cmd_set = SACP_CMD_SET_CALIBRATE_FDM;
+        msg.cmd_id = BEDLEVEL_REQ_CMD_ID_BED_POSITION_DETECTION;
+
+        msg.data = msg_buf;
+        msg.length = index;
+        ClientNode::sacp_cb(&bedlevel_svc, &msg);
+      }
+      break;
+    case 6:
+      {
+        sacp_hmi_message_t msg;
+        uint8_t msg_buf[1];
+        uint16_t index = 0;
+        uint8_t p = (uint8_t)parser.byteval('P', (uint8_t)1);
+        msg.peer = SACP_HOST_ID_SCREEN;
+        msg.ch = SACP_HMI_CH_SCREEN;
+        msg.attr = SACP_MESSAGE_ATTR_SET_SEQ;
+        msg.seq = 1;
+        msg.cmd_set = SACP_CMD_SET_CALIBRATE_FDM;
+        msg.cmd_id = BEDLEVEL_REQ_CMD_ID_PROBE_SENSOR_CALIBRATION;
+
+        msg_buf[index++] = p;
+        msg.data = msg_buf;
+        msg.length = index;
+        ClientNode::sacp_cb(&bedlevel_svc, &msg);
+      }
+      break;
+    case 7:
+      {
+        sacp_hmi_message_t msg;
+        uint8_t msg_buf[1];
+        uint16_t index = 0;
+        uint8_t e = (uint8_t)parser.byteval('E', (uint8_t)0);
+        float z = (float)parser.floatval('Z', (float)0);
+        z = z * 1000;
+        msg.peer = SACP_HOST_ID_SCREEN;
+        msg.ch = SACP_HMI_CH_SCREEN;
+        msg.attr = SACP_MESSAGE_ATTR_SET_SEQ;
+        msg.seq = 1;
+        msg.cmd_set = SACP_CMD_SET_CALIBRATE_FDM;
+        msg.cmd_id = BEDLEVEL_REQ_CMD_ID_SET_LIVE_Z_OFFSET;
+
+        msg_buf[index++] = smprinter.fdm->get_key();
+        msg_buf[index++] = e;
+        msg_buf[index++] = ((uint8_t *)&z)[0];
+        msg_buf[index++] = ((uint8_t *)&z)[1];
+        msg_buf[index++] = ((uint8_t *)&z)[2];
+        msg_buf[index++] = ((uint8_t *)&z)[3];
+        msg.data = msg_buf;
+        msg.length = index;
+        ClientNode::sacp_cb(&bedlevel_svc, &msg);
+      }
+      break;
+    case 8:
+      {
+        sacp_hmi_message_t msg;
+        uint8_t msg_buf[1];
+        uint16_t index = 0;
+        msg.peer = SACP_HOST_ID_SCREEN;
+        msg.ch = SACP_HMI_CH_SCREEN;
+        msg.attr = SACP_MESSAGE_ATTR_SET_SEQ;
+        msg.seq = 1;
+        msg.cmd_set = SACP_CMD_SET_CALIBRATE_FDM;
+        msg.cmd_id = BEDLEVEL_REQ_CMD_ID_GET_LIVE_Z_OFFSET;
+
+        msg.data = msg_buf;
+        msg.length = index;
+        ClientNode::sacp_cb(&bedlevel_svc, &msg);
+      }
       break;
     default:
       break;

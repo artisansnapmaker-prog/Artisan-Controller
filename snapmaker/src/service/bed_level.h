@@ -26,6 +26,26 @@
 
 #define CALIBRATION_PAPER_THICKNESS   0.1
 
+/*************************************************************************************************************************************
+reference links: https://snapmaker2.atlassian.net/wiki/spaces/SNAP/pages/1984824804/FDM?focusedCommentId=2010743286#comment-2010743286
+*************************************************************************************************************************************/
+typedef enum {
+  BEDLEVEL_REQ_CMD_ID_SET_LEVEL_MODE           = 0x00,
+  BEDLEVEL_REQ_CMD_ID_START_LEVEL              = 0x03,
+  BEDLEVEL_REQ_CMD_ID_GOTO_PROBE_POINT         = 0x04,
+  BEDLEVEL_REQ_CMD_ID_EXIT_LEVEL               = 0x06,
+  BEDLEVEL_REQ_CMD_ID_GET_LEVEL_STATE          = 0x07,
+  BEDLEVEL_REQ_CMD_ID_BED_POSITION_DETECTION   = 0x12,
+  BEDLEVEL_REQ_CMD_ID_PROBE_SENSOR_CALIBRATION = 0x13,
+  BEDLEVEL_REQ_CMD_ID_SET_LIVE_Z_OFFSET        = 0x15,
+  BEDLEVEL_REQ_CMD_ID_GET_LIVE_Z_OFFSET        = 0x16,
+
+  BEDLEVEL_REQ_CMD_ID_SUM                      = 10,               // Adding or deleting IDs requires changing this value
+
+  BEDLEVEL_CMD_ID_REPORT_BEDLEVEL_POINT        = 0xa1,
+
+}bedlevel_req_cmd_id_e;
+
 // level mode
 #define BEDLEVEL_MODE_IDLE                    0
 #define BEDLEVEL_MODE_AUTO                    2

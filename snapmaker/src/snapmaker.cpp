@@ -102,17 +102,6 @@ L4_DETECT_PIN,
 L5_DETECT_PIN
 };
 
-enum PortIndex {
-  PORT_INDEX_L1,
-  PORT_INDEX_L2,
-  PORT_INDEX_L3,
-  PORT_INDEX_L4,
-  PORT_INDEX_L5,
-  PORT_INDEX_P1,
-  PORT_INDEX_P2,
-  PORT_INDEX_P3
-};
-
 
 // HMI subscription callbacks
 uint16_t SnapmakerPrinter::publish_system_status(void *obj, uint8_t *buffer) {
@@ -157,7 +146,7 @@ err_code_t SnapmakerPrinter::get_machine_info(void *obj, sacp_hmi_message_t *msg
   msg->length = sizeof(machine_info_t) + i + 1;
   msg->attr |= SACP_MESSAGE_ATTR_ACK;
 
-  LOG_I("report machine info, len[0x%x]\n", msg->length);
+  LOG_V("report machine info, len[0x%x]\n", msg->length);
 
   return host_hmi.send(msg);
 }
@@ -608,7 +597,14 @@ err_code_t SnapmakerPrinter::set_sys_status(enum SystemStatus req_status, enum S
     break;
   // job control end
   /*********************************************************************************/
-  
+
+  case SYSTEM_STATUS_LASER_CALIBRATING:
+    if (sys_status != SYSTEM_STATUS_IDLE) {
+      ret = E_FAILURE;
+    }
+    sys_status = req_status;
+    break;
+
   default:
     ret = E_FAILURE;
     break;

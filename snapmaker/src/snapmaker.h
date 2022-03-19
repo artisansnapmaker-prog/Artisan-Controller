@@ -85,12 +85,25 @@ enum SystemStatus {
   SYSTEM_STATUS_AUTO_BED_DETECTION,
   SYSTEM_STATUS_MANUAL_BED_DETECTION,
   SYSTEM_STATUS_PROBE_SENSOR_CALIBRATION,
+
+  // Laser calibraiton
+  SYSTEM_STATUS_LASER_CALIBRATING,
 };
 
 extern uint8_t action_ban;
 void enable_action_ban(uint8_t ab);
 void disable_action_ban(uint8_t ab);
 
+enum SMBoardPortIndex {
+  PORT_INDEX_L1,
+  PORT_INDEX_L2,
+  PORT_INDEX_L3,
+  PORT_INDEX_L4,
+  PORT_INDEX_L5,
+  PORT_INDEX_P1,
+  PORT_INDEX_P2,
+  PORT_INDEX_P3
+};
 
 // wrapper of snapmaker for marlin
 class SnapmakerPrinter

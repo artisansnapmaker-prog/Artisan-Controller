@@ -195,7 +195,7 @@ err_code_t ModuleService::handle_fw_request(void *obj, sacp_module_message_t &me
 }
 
 
-err_code_t ModuleService::report_module_info(void *obj, sacp_hmi_message_t &message) {
+err_code_t ModuleService::report_module_info(void *obj, sacp_hmi_message_t *message) {
   if (!obj)
     return E_PARAM;
 
@@ -206,7 +206,7 @@ err_code_t ModuleService::report_module_info(void *obj, sacp_hmi_message_t &mess
   char *fw_ver;
 
   if (ms.status != MS_STATUS_CONFIG) {
-    return host_hmi.send_ack(&message, E_INVALID_STATE);
+    return host_hmi.send_ack(message, E_INVALID_STATE);
   }
 
   taskENTER_CRITICAL();
@@ -214,18 +214,18 @@ err_code_t ModuleService::report_module_info(void *obj, sacp_hmi_message_t &mess
   taskEXIT_CRITICAL();
 
   // save result
-  message.data[0] = E_SUCCESS;
+  message->data[0] = E_SUCCESS;
 
   // second byte is array length
-  message.data[1] = 0;
+  message->data[1] = 0;
 
   // start of second byte to save module information
-  message.length = 2;
+  message->length = 2;
 
   int i, l;
   for (i = 0; i < avail_modules; i++) {
     // point to new area
-    info = (module_info_t *)(message.data + message.length);
+    info = (module_info_t *)(message->data + message->length);
 
     module = ms.modules[i];
     info->key = module->get_key();
@@ -248,15 +248,15 @@ err_code_t ModuleService::report_module_info(void *obj, sacp_hmi_message_t &mess
     }
 
     // update length
-    message.length += (sizeof(module_info_t) + l);
-    message.data[1]++;
+    message->length += (sizeof(module_info_t) + l);
+    message->data[1]++;
   }
 
-  LOG_V("module info: count[%u], data len[0x%x]\n", message.data[1], message.length);
+  LOG_V("module info: count[%u], data len[0x%x]\n", message->data[1], message->length);
 
-  message.attr |= SACP_MESSAGE_ATTR_ACK;
+  message->attr |= SACP_MESSAGE_ATTR_ACK;
 
-  return host_hmi.send(&message);
+  return host_hmi.send(message);
 }
 
 
@@ -708,8 +708,9 @@ err_code_t ModuleService::get_module_info(ModuleBase &module) {
     return ret;
   }
 
-  LOG_I("fw ver:%s, len: %d\n", recv_buffer + 1, recv_length);
+  recv_buffer[recv_length] = 0;
+  LOG_V("fw ver:%s, len: %d\n", recv_buffer + 2, recv_length);
 
-  module.set_fw_version((char *)recv_buffer);
+  module.set_fw_version((char *)(recv_buffer + 2));
   return ret;
 }

@@ -52,13 +52,13 @@ err_code_t HostSACPHMI::init(TaskHandle_t event_task, SemaphoreHandle_t recv_sig
   }
 
   // setup links
+  ch_recv_signal = recv_signal;
   link_pc.set_serial(&MSerial1);
 
   // setup RX
   buffer = (uint8_t *)pvPortMalloc(SACP_PDU_MAX_SIZE);
   configASSERT(buffer);
   link_pc.set_sec_rx_buffer(buffer, SACP_PDU_MAX_SIZE);
-  link_pc.set_sec_rx_signal(recv_signal);
   link_pc.set_sec_rx_waiting(SACP_V1_PDU_MIN_SIZE);
   // setup TX
   buffer = (uint8_t *)pvPortMalloc(SACP_PDU_MAX_SIZE);
@@ -73,7 +73,6 @@ err_code_t HostSACPHMI::init(TaskHandle_t event_task, SemaphoreHandle_t recv_sig
   configASSERT(buffer);
   link_screen.set_sec_rx_buffer(buffer, SACP_PDU_MAX_SIZE);
   link_screen.set_sec_rx_waiting(SACP_V1_PDU_MIN_SIZE);
-  link_screen.set_sec_rx_signal(recv_signal);
   // setup TX
   buffer = (uint8_t *)pvPortMalloc(SACP_PDU_MAX_SIZE);
   configASSERT(buffer);
@@ -82,8 +81,8 @@ err_code_t HostSACPHMI::init(TaskHandle_t event_task, SemaphoreHandle_t recv_sig
   // active second channel
   link_screen.set_active_channel(MARLIN_SERIAL_CHANNEL_SECOND);
 
-  add_link(SACP_HMI_CH_PC, &link_pc);
-  add_link(SACP_HMI_CH_SCREEN, &link_screen);
+  add_channel(SACP_HMI_CH_PC, &link_pc);
+  add_channel(SACP_HMI_CH_SCREEN, &link_screen);
 
   event_queue = xMessageBufferCreate(SACP_PDU_MAX_SIZE);
   configASSERT(event_queue);
@@ -92,7 +91,7 @@ err_code_t HostSACPHMI::init(TaskHandle_t event_task, SemaphoreHandle_t recv_sig
 }
 
 
-err_code_t HostSACPHMI::add_link(SACPHMIChannel ch, LinkUART *link) {
+err_code_t HostSACPHMI::add_channel(SACPHMIChannel ch, LinkUART *link) {
   if (ch >= SACP_HMI_CH_MAX) {
     return E_PARAM;
   }
@@ -101,7 +100,11 @@ err_code_t HostSACPHMI::add_link(SACPHMIChannel ch, LinkUART *link) {
     return E_NO_RESRC;
   }
 
+  xSemaphoreTake(channels[ch].lock, portMAX_DELAY);
   channels[ch].link = link;
+  xSemaphoreGive(channels[ch].lock);
+
+  link->set_sec_rx_signal(ch_recv_signal);
 
   return E_SUCCESS;
 }
@@ -187,6 +190,81 @@ err_code_t HostSACPHMI::register_callback(uint8_t cmd_set, uint8_t cmd_id, void 
   return E_SUCCESS;
 }
 
+
+err_code_t HostSACPHMI::send_sync_legacy(sacp_hmi_message_t *message, uint8_t *out, uint16_t *out_len, uint32_t timeout, uint8_t retry) {
+  int node_index  = 0;
+  size_t recv_len = 0;
+  err_code_t ret  = E_SUCCESS;
+
+  if (!message || !out || !out_len) {
+    LOG_I("invalid param!\n");
+    return E_PARAM;
+  }
+
+  if (message->ch > SACP_HMI_CH_MAX || !channels[message->ch].link) {
+    LOG_E("invalid sacp hmi channel[%u]\n", message->ch);
+    return E_PARAM;
+  }
+
+  if (xSemaphoreTake(waiting_lock, pdMS_TO_TICKS(timeout)) != pdPASS) {
+    LOG_E("no avail waiting node for cmd[%x]!\n", message->cmd_set, message->cmd_id);
+    return E_NO_RESRC;
+  }
+
+  for (; node_index < SACP_HMI_WAITING_NODE_MAX; node_index++) {
+    if (waiting_nodes[node_index].status == SACP_WAITING_NODE_STA_IDLE) {
+      waiting_nodes[node_index].status  = SACP_WAITING_NODE_STA_INUSE_V0_LEGACY;
+      waiting_nodes[node_index].cmd_set = message->cmd_set + 1;
+      waiting_nodes[node_index].ch      = message->ch;
+      break;
+    }
+  }
+  xSemaphoreGive(waiting_lock);
+
+  if (node_index >= SACP_HMI_WAITING_NODE_MAX) {
+    // node waiting for us
+    LOG_E("no avail waiting node for cmd[%x]!\n", message->cmd_set);
+    return E_NO_RESRC;
+  }
+
+  sacp_channel_t &channel = channels[message->ch];
+  // legacy API is only available for V0
+  message->ver = SACP_VER_0;
+  message->attr |= (SACP_MESSAGE_ATTR_SET_VER | SACP_MESSAGE_ATTR_SET_SEQ);
+
+  for (; retry > 0; retry--) {
+    if ((ret = send(message)) != E_SUCCESS) {
+      LOG_I("send sync failed\n");
+      vTaskDelay(pdMS_TO_TICKS(timeout>>1));
+      continue;
+    }
+
+    recv_len = xMessageBufferReceive(waiting_nodes[node_index].queue, out, *out_len, pdMS_TO_TICKS(timeout));
+    if (recv_len < 1) {
+      ret = E_EXE_TIMEOUT;
+      continue;
+    }
+
+    *out_len = recv_len;
+    ret = E_SUCCESS;
+    break;
+  }
+
+  // release node of wait queue
+  if (xSemaphoreTake(waiting_lock, pdMS_TO_TICKS(timeout)) == pdPASS) {
+    waiting_nodes[node_index].status = SACP_WAITING_NODE_STA_IDLE;
+    xSemaphoreGive(waiting_lock);
+  }
+  else {
+    LOG_E("cannot get lock for sacp module sync, cmd[%x]!\n", message->cmd_set);
+    waiting_nodes[node_index].status = SACP_WAITING_NODE_STA_IDLE;
+    return E_NO_RESRC;
+  }
+
+  return ret;
+}
+
+
 err_code_t HostSACPHMI::send_sync(sacp_hmi_message_t *message, uint8_t *out, uint16_t *out_len, uint32_t timeout, uint8_t retry) {
   int node_index  = 0;
   size_t recv_len = 0;
@@ -221,7 +299,7 @@ err_code_t HostSACPHMI::send_sync(sacp_hmi_message_t *message, uint8_t *out, uin
 
   for (; node_index < SACP_HMI_WAITING_NODE_MAX; node_index++) {
     if (waiting_nodes[node_index].status == SACP_WAITING_NODE_STA_IDLE) {
-      waiting_nodes[node_index].status = SACP_WAITING_NODE_STA_INUSE;
+      waiting_nodes[node_index].status  = SACP_WAITING_NODE_STA_INUSE_V1;
       waiting_nodes[node_index].cmd_set = message->cmd_set;
       waiting_nodes[node_index].cmd_id  = message->cmd_id;
       waiting_nodes[node_index].seq     = message->seq;
@@ -360,7 +438,7 @@ err_code_t HostSACPHMI::parse_packets(sacp_channel_t &channel) {
   LinkUART *link = channel.link;
   err_code_t ret = E_FAILURE;
   int avail_bytes = 0;
-  uint8_t crc8;
+  uint8_t header_checksum;
   uint16_t calc_checksum, recv_checksum;
 
   if (!link) {
@@ -371,7 +449,7 @@ err_code_t HostSACPHMI::parse_packets(sacp_channel_t &channel) {
 
   switch (parser.status) {
   case SACP_PARSER_STA_IDLE:
-    if (avail_bytes < SACP_V1_PDU_MIN_SIZE)
+    if (avail_bytes < SACP_FRONT_HEADER_MIN_SIZE)
       return E_NO_RESRC;
 
     for (int i = 0; i < avail_bytes; i++) {
@@ -398,7 +476,8 @@ err_code_t HostSACPHMI::parse_packets(sacp_channel_t &channel) {
     }
 
   case SACP_PARSER_STA_GOT_SOF:
-    if (avail_bytes < (SACP_V1_PDU_MIN_SIZE - 2)) {
+
+    if (avail_bytes < SACP_FRONT_HEADER_MIN_SIZE) {
       // if we have waited it for enough time, reset the parser
       if (ELAPSED(millis(), parser.next_timeout)) {
         parser.status = SACP_PARSER_STA_IDLE;
@@ -410,21 +489,52 @@ err_code_t HostSACPHMI::parse_packets(sacp_channel_t &channel) {
       }
     }
 
-    for (int i = 2; i < SACP_V1_FRONT_HEADER_SIZE; i++) {
+    for (int i = 2; i < SACP_FRONT_HEADER_MIN_SIZE; i++) {
       parser.buffer[i] = link->read();
     }
 
-    crc8 = calc_crc8(parser.buffer, SACP_V1_FRONT_HEADER_SIZE - 1);
-    if (crc8 != parser.buffer[SACP_V1_FRAME_INDEX_CRC8]) {
-      LOG_I("invalid crc8: recv[%x], calc[%x]\n", parser.buffer[SACP_V1_FRAME_INDEX_CRC8], crc8);
-      parser.status = SACP_PARSER_STA_IDLE;
-      break;
+    if (parser.buffer[SACP_FRAME_INDEX_VER] == SACP_VER_1) {
+      // parse header of V1
+      header_checksum = calc_crc8(parser.buffer, SACP_V1_FRONT_HEADER_SIZE - 1);
+      if (header_checksum != parser.buffer[SACP_V1_FRAME_INDEX_CRC8]) {
+        LOG_E("V1: invalid crc8: recv[%x], calc[%x]\n", parser.buffer[SACP_V1_FRAME_INDEX_CRC8], header_checksum);
+        parser.status = SACP_PARSER_STA_IDLE;
+        break;
+      }
+      else {
+        parser.status = SACP_PARSER_STA_GOT_HEAD;
+        parser.next_timeout = millis() + 100;
+        avail_bytes   = link->available();
+        parser.length = parser.buffer[SACP_V1_FRAME_INDEX_LEN_H]<<8 | parser.buffer[SACP_V1_FRAME_INDEX_LEN_L];
+        parser.ver    = SACP_VER_1;
+      }
+    }
+    else if (parser.buffer[SACP_FRAME_INDEX_VER] == SACP_VER_0) {
+      // parse header of V0
+      header_checksum = parser.buffer[SACP_V0_FRAME_INDEX_LEN_H]^parser.buffer[SACP_V0_FRAME_INDEX_LEN_L];
+      if (header_checksum != parser.buffer[SACP_V0_FRAME_INDEX_LEN_CHK]) {
+        LOG_E("V0: invalid length check: recv[%x], calc[%x]\n", parser.buffer[SACP_V0_FRAME_INDEX_LEN_CHK],
+            header_checksum);
+        parser.status = SACP_PARSER_STA_IDLE;
+        break;
+      }
+      else {
+        parser.status = SACP_PARSER_STA_GOT_HEAD;
+        parser.next_timeout = millis() + 100;
+        avail_bytes   = link->available();
+        // SACP_FRONT_HEADER_MIN_SIZE is 7
+        // parser.length is total length of whole packet - 8
+        // so we are waiting for (parser.length + (8 - 7)) bytes
+        parser.length = parser.buffer[SACP_V0_FRAME_INDEX_LEN_H]<<8 | parser.buffer[SACP_V0_FRAME_INDEX_LEN_L] + 1;
+        parser.ver    = SACP_VER_0;
+      }
+
     }
     else {
-      parser.status = SACP_PARSER_STA_GOT_HEAD;
-      parser.next_timeout = millis() + 100;
-      avail_bytes   = link->available();
-      parser.length = parser.buffer[SACP_V1_FRAME_INDEX_LEN_H]<<8 | parser.buffer[SACP_V1_FRAME_INDEX_LEN_L];
+      // unsupported version
+      LOG_E("Unsupported SACP Ver[%u]\n", parser.buffer[SACP_FRAME_INDEX_VER]);
+      parser.status = SACP_PARSER_STA_IDLE;
+      break;
     }
 
   case SACP_PARSER_STA_GOT_HEAD:
@@ -440,28 +550,52 @@ err_code_t HostSACPHMI::parse_packets(sacp_channel_t &channel) {
       }
     }
 
-    // read all data payload except the checksum
-    if (link->read_multi(parser.buffer + SACP_V1_FRONT_HEADER_SIZE,
-      parser.length - 2) != (parser.length - 2)) {
-      LOG_E("cannot read enough sacp hmi message!\n");
-      parser.status = SACP_PARSER_STA_IDLE;
-      break;
+    if (parser.ver == SACP_VER_1) {
+      // read all data payload except the checksum
+      if (link->read_multi(parser.buffer + SACP_FRONT_HEADER_MIN_SIZE,
+        parser.length - 2) != (parser.length - 2)) {
+        LOG_E("cannot read enough sacp hmi message!\n");
+        parser.status = SACP_PARSER_STA_IDLE;
+        break;
+      }
+    }
+    else {
+      if (link->read_multi(parser.buffer + SACP_FRONT_HEADER_MIN_SIZE,
+        parser.length) != parser.length) {
+        LOG_E("cannot read enough sacp hmi message!\n");
+        parser.status = SACP_PARSER_STA_IDLE;
+        break;
+      }
     }
 
-    recv_checksum = (uint16_t)(link->read() | link->read()<<8);
-    calc_checksum = calculate_checksum(parser.buffer + SACP_V1_FRONT_HEADER_SIZE, parser.length - 2);
+    if (parser.ver == SACP_VER_1) {
+      recv_checksum = (uint16_t)(link->read() | link->read()<<8);
+      calc_checksum = calculate_checksum(parser.buffer + SACP_V1_FRONT_HEADER_SIZE, parser.length - 2);
+    }
+    else {
+      recv_checksum = (uint16_t)(parser.buffer[SACP_V0_FRAME_INDEX_CHK_H]<<8 |
+                                  parser.buffer[SACP_V0_FRAME_INDEX_CHK_L]);
+      parser.length -= 1;
+      calc_checksum = calculate_checksum(parser.buffer + SACP_V0_NON_PAYPLOAD_SIZE, parser.length);
+    }
 
     if (recv_checksum != calc_checksum) {
       LOG_I("invalid checksum: recv[%x], calc[%x]\n", recv_checksum, calc_checksum);
       parser.status = SACP_PARSER_STA_IDLE;
+      break;
     }
-    else {
-      ret = E_SUCCESS;
+
+    ret = E_SUCCESS;
+
+    if (parser.ver == SACP_VER_1) {
       // length doesn't include the two bytes checksum
       parser.length += SACP_V1_FRONT_HEADER_SIZE;
       parser.status = SACP_PARSER_STA_GOT_MESSAGE;
     }
-
+    else {
+      parser.length += SACP_V0_NON_PAYPLOAD_SIZE;
+      parser.status = SACP_PARSER_STA_GOT_MESSAGE;
+    }
     break;
 
   case SACP_PARSER_STA_GOT_MESSAGE:
@@ -480,6 +614,7 @@ void HostSACPHMI::handle_receive() {
   uint32_t seq;
   uint8_t *parser_buff = NULL;
   uint16_t buffer_len = 0;
+  uint8_t version;
 
   if (!event_queue)
     return;
@@ -490,6 +625,7 @@ void HostSACPHMI::handle_receive() {
 
     parser_buff = channels[i].parser.buffer;
     buffer_len  = channels[i].parser.length;
+    version     = channels[i].parser.ver;
 
     if (parser_buff[SACP_V1_FRAME_INDEX_VER] == SACP_VER_1) {
       if (parser_buff[SACP_V1_FRAME_INDEX_RECV_ID] != host_id) {
@@ -501,39 +637,78 @@ void HostSACPHMI::handle_receive() {
     }
 
     tmp_queue   = NULL;
-    seq = parser_buff[SACP_V1_FRAME_INDEX_SEQ_H]<<8 | parser_buff[SACP_V1_FRAME_INDEX_SEQ_L];
-    if (xSemaphoreTake(waiting_lock, 0) == pdPASS) {
-      for (int j = 0; j < SACP_HMI_WAITING_NODE_MAX; j++) {
-        if (waiting_nodes[j].status != SACP_WAITING_NODE_STA_INUSE)
-          continue;
+    if (version == SACP_VER_1) {
+      seq = parser_buff[SACP_V1_FRAME_INDEX_SEQ_H]<<8 | parser_buff[SACP_V1_FRAME_INDEX_SEQ_L];
+      if (xSemaphoreTake(waiting_lock, 0) == pdPASS) {
+        for (int j = 0; j < SACP_HMI_WAITING_NODE_MAX; j++) {
+          if (waiting_nodes[j].status != SACP_WAITING_NODE_STA_INUSE_V1)
+            continue;
 
-        if (waiting_nodes[j].cmd_set == parser_buff[SACP_V1_FRAME_INDEX_CMD_SET] &&
-            waiting_nodes[j].cmd_id == parser_buff[SACP_V1_FRAME_INDEX_CMD_ID] &&
-            waiting_nodes[j].peer == parser_buff[SACP_V1_FRAME_INDEX_SENDER_ID] &&
-            waiting_nodes[j].ch == i &&
-            waiting_nodes[j].seq == seq) {
-          tmp_queue = waiting_nodes[j].queue;
-          break;
+          if (waiting_nodes[j].cmd_set == parser_buff[SACP_V1_FRAME_INDEX_CMD_SET] &&
+              waiting_nodes[j].cmd_id == parser_buff[SACP_V1_FRAME_INDEX_CMD_ID] &&
+              waiting_nodes[j].peer == parser_buff[SACP_V1_FRAME_INDEX_SENDER_ID] &&
+              waiting_nodes[j].ch == i &&
+              waiting_nodes[j].seq == seq) {
+            tmp_queue = waiting_nodes[j].queue;
+            break;
+          }
         }
+        xSemaphoreGive(waiting_lock);
       }
-      xSemaphoreGive(waiting_lock);
+    }
+    else {
+      if (xSemaphoreTake(waiting_lock, 0) == pdPASS) {
+        for (int j = 0; j < SACP_HMI_WAITING_NODE_MAX; j++) {
+          if (waiting_nodes[j].status == SACP_WAITING_NODE_STA_INUSE_V0) {
+            if (waiting_nodes[j].cmd_set == parser_buff[SACP_V0_FRAME_INDEX_EVENT_ID] &&
+                waiting_nodes[j].cmd_id == parser_buff[SACP_V0_FRAME_INDEX_OPCODE] &&
+                waiting_nodes[j].ch == i) {
+              tmp_queue = waiting_nodes[j].queue;
+              break;
+            }
+          }
+          if (waiting_nodes[j].status == SACP_WAITING_NODE_STA_INUSE_V0_LEGACY) {
+            if (waiting_nodes[j].cmd_set == parser_buff[SACP_V0_FRAME_INDEX_EVENT_ID] &&
+                waiting_nodes[j].ch == i) {
+              tmp_queue = waiting_nodes[j].queue;
+              break;
+            }
+          }
+        }
+        xSemaphoreGive(waiting_lock);
+      }
     }
 
     LOG_I("recv new msg[%x:%x]\n", parser_buff[SACP_V1_FRAME_INDEX_CMD_SET], parser_buff[SACP_V1_FRAME_INDEX_CMD_ID]);
 
-    // if someone is waiting this message, send to it
-    if (tmp_queue) {
-      // just send the payload part except cmd set and cmd id
-      xMessageBufferSend(tmp_queue, parser_buff + SACP_V1_FRAME_INDEX_CMD_ID + 1,
-        buffer_len - SACP_V1_PDU_MIN_SIZE, pdMS_TO_TICKS(100));
+    if (version == SACP_VER_1) {
+      // if someone is waiting this message, send to it
+      if (tmp_queue) {
+        // just send the payload part except cmd set and cmd id
+        xMessageBufferSend(tmp_queue, parser_buff + SACP_V1_FRAME_INDEX_PAYLOAD,
+          buffer_len - SACP_V1_PDU_MIN_SIZE, pdMS_TO_TICKS(100));
 
+      }
+      else {
+        // check if we have callback for this message, if yes, send it to event thread
+        // data send to event thread doesn't include the 2 bytes checksum
+
+        parser_buff[SACP_V1_FRAME_INDEX_CRC8] = i; // use CRC8 position to transmit the receive channel
+        xMessageBufferSend(event_queue, parser_buff, buffer_len - 2, pdMS_TO_TICKS(100));
+      }
     }
     else {
-      // check if we have callback for this message, if yes, send it to event thread
-      // data send to event thread doesn't include the 2 bytes checksum
+      // if someone is waiting this message, send to it
+      if (tmp_queue) {
+        // just send the payload part except cmd set and cmd id
+        xMessageBufferSend(tmp_queue, &parser_buff[SACP_V0_FRAME_INDEX_EVENT_ID],
+          buffer_len - SACP_V0_NON_PAYPLOAD_SIZE, pdMS_TO_TICKS(100));
 
-      parser_buff[SACP_V1_FRAME_INDEX_CRC8] = i; // use CRC8 position to transmit the receive channel
-      xMessageBufferSend(event_queue, parser_buff, buffer_len - 2, pdMS_TO_TICKS(100));
+      }
+      else {
+        LOG_E("Unsupported V0 event[%x][%x]\n", parser_buff[SACP_V0_FRAME_INDEX_EVENT_ID],
+          parser_buff[SACP_V0_FRAME_INDEX_OPCODE]);
+      }
     }
 
     // reset the parser to tell it we have toke message

@@ -54,6 +54,7 @@ typedef struct {
 enum SACPHMIChannel {
   SACP_HMI_CH_SCREEN,
   SACP_HMI_CH_PC,
+  SACP_HMI_CH_CAMERA,
 
   SACP_HMI_CH_MAX
 };
@@ -100,6 +101,8 @@ class HostSACPHMI: public HostSACP {
 
     err_code_t register_subscription(uint8_t cmd_set, uint8_t cmd_id, void *obj, sacp_hmi_subscribe_callback cb);
 
+    err_code_t send_sync_legacy(sacp_hmi_message_t *message, uint8_t *out, uint16_t *out_len, uint32_t timeout=100, uint8_t retry=1);
+
     err_code_t send_sync(sacp_hmi_message_t *message, uint8_t *out, uint16_t *out_len, uint32_t timeout=100, uint8_t retry=1);
     err_code_t send(sacp_hmi_message_t *message);
     err_code_t send_ack(sacp_hmi_message_t *message) {
@@ -112,14 +115,18 @@ class HostSACPHMI: public HostSACP {
     void handle_receive();
     void handle_events();
 
+    err_code_t add_channel(SACPHMIChannel ch, LinkUART *link);
+    sacp_channel_t *get_channel(SACPHMIChannel ch) {
+      return &channels[ch];
+    }
+
   // private methods
   private:
-  err_code_t add_link(SACPHMIChannel ch, LinkUART *link);
-  err_code_t parse_packets(sacp_channel_t &channel);
-  void handle_message(sacp_hmi_message_t &msg);
+    err_code_t parse_packets(sacp_channel_t &channel);
+    void handle_message(sacp_hmi_message_t &msg);
 
-  void handle_subscript(sacp_hmi_message_t &msg);
-  void handle_unsubscript(sacp_hmi_message_t &msg);
+    void handle_subscript(sacp_hmi_message_t &msg);
+    void handle_unsubscript(sacp_hmi_message_t &msg);
 
   // public properties
   public:
@@ -130,6 +137,7 @@ class HostSACPHMI: public HostSACP {
     // LinkUART *links[SACP_HMI_CH_MAX];
     // sacp_parser_t parsers[SACP_HMI_CH_MAX];
     sacp_channel_t channels[SACP_HMI_CH_MAX];
+    SemaphoreHandle_t ch_recv_signal;
 
     MessageBufferHandle_t event_queue;
 

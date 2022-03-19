@@ -52,7 +52,7 @@ err_code_t HostSACPModule::send_sync(sacp_module_message_t *message, uint8_t *ou
 
   for (; node_index < SACP_MODULE_WAITING_NODE_MAX; node_index++) {
     if (waiting_nodes[node_index].status == SACP_WAITING_NODE_STA_IDLE) {
-      waiting_nodes[node_index].status = SACP_WAITING_NODE_STA_INUSE;
+      waiting_nodes[node_index].status = SACP_WAITING_NODE_STA_INUSE_V0_LEGACY;
       waiting_nodes[node_index].cmd_id = message->cmd_id + 1;
       break;
     }
@@ -202,6 +202,8 @@ void HostSACPModule::handle_receive() {
 
       if (xSemaphoreTake(waiting_lock, 0) == pdPASS) {
         for (int i = 0; i < SACP_MODULE_WAITING_NODE_MAX; i++) {
+          if (waiting_nodes[i].status != SACP_WAITING_NODE_STA_INUSE_V0_LEGACY)
+            continue;
           if (waiting_nodes[i].cmd_id == command_id) {
             tmp_queue = waiting_nodes[i].queue;
             break;

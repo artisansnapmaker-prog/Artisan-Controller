@@ -30,44 +30,44 @@ class LinkUART {
 
     LinkUART(MSerialT *ser): serial(ser) {}
 
-    int peek() { 
+    int peek() {
       if (serial)
-        return serial->peek_sec(); 
+        return serial->peek_sec();
       else
         return -1;
     }
 
     int read() {
       if (serial)
-        return serial->read_sec(); 
+        return serial->read_sec();
       else
         return -1;
     }
 
     size_t write(uint8_t c) {
       if (serial)
-        return serial->write_sec(c); 
+        return serial->write_sec(c);
       else
         return 0;
     }
 
     int available() {
       if (serial)
-        return serial->available_sec(); 
+        return serial->available_sec();
       else
         return 0;
     }
 
     int set_active_channel(uint8_t new_ch) {
         if (serial)
-          return serial->set_active_channel(new_ch); 
+          return serial->set_active_channel(new_ch);
         else
           return -1;
     }
 
     int set_sec_rx_signal(void *signal) {
         if (serial) {
-          serial->set_sec_rx_signal(signal); 
+          serial->set_sec_rx_signal(signal);
           return 0;
         }
         else
@@ -76,7 +76,7 @@ class LinkUART {
 
     int set_sec_rx_waiting(uint16_t bytes_num) {
       if (serial) {
-        serial->set_sec_rx_waiting(bytes_num); 
+        serial->set_sec_rx_waiting(bytes_num);
         return 0;
       }
       else
@@ -84,42 +84,58 @@ class LinkUART {
     }
 
     int set_sec_rx_buffer(uint8_t *buffer, uint16_t size) {
-    if (serial) {
-      serial->set_sec_rx_buffer(buffer, size);
-      return 0;
-    }
-    else
-      return -1;
+      rx_buffer = buffer;
+      rx_size = size;
+      if (serial) {
+        serial->set_sec_rx_buffer(buffer, size);
+        return 0;
+      }
+      else
+        return -1;
     }
 
     int set_sec_tx_buffer(uint8_t *buffer, uint16_t size) {
-    if (serial) {
-      serial->set_sec_tx_buffer(buffer, size);
-      return 0;
-    }
-    else
-      return -1;
+      tx_buffer = buffer;
+      tx_size = size;
+      if (serial) {
+        serial->set_sec_tx_buffer(buffer, size);
+        return 0;
+      }
+      else
+        return -1;
     }
 
     int read_multi(uint8_t *buffer, uint16_t length) {
         if (serial)
-          return serial->read_multi(MARLIN_SERIAL_CHANNEL_SECOND, buffer, length); 
+          return serial->read_multi(MARLIN_SERIAL_CHANNEL_SECOND, buffer, length);
         else
           return -1;
     }
 
     int write_multi(uint8_t *buffer, uint16_t length) {
         if (serial)
-          return serial->write_multi(MARLIN_SERIAL_CHANNEL_SECOND, buffer, length); 
+          return serial->write_multi(MARLIN_SERIAL_CHANNEL_SECOND, buffer, length);
         else
           return -1;
     }
 
-
-  void set_serial(MSerialT *ser) {
-    if (ser)
+    void update_serial(MSerialT *ser) {
+      if (!ser)
+        return;
       serial = ser;
-  }
+      serial->set_sec_rx_buffer(rx_buffer, rx_size);
+      serial->set_sec_tx_buffer(tx_buffer, tx_size);
+    }
+
+    void set_serial(MSerialT *ser) {
+      if (ser)
+        serial = ser;
+    }
+
+    MSerialT *get_serial() {
+      return  serial;
+    }
+
   // private methods
   private:
 
@@ -131,6 +147,11 @@ class LinkUART {
   // private properties
   private:
     MSerialT *serial = NULL;
+
+    uint8_t *tx_buffer;
+    uint16_t tx_size;
+    uint8_t *rx_buffer;
+    uint16_t rx_size;
 };
 
 extern LinkUART link_screen;

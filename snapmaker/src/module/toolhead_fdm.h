@@ -76,6 +76,15 @@ typedef enum {
 
 }toolhead_status_e;
 
+typedef struct {
+  uint8_t active_extruder;
+  float feedrate_percentage[EXTRUDERS];
+  float live_z_offset[EXTRUDERS];
+  uint8_t fan_speed[3];
+  float current_temp[EXTRUDERS];
+  float target_temp[EXTRUDERS];
+} __attribute__((packed)) fdm_recovery_data_t;
+
 class ToolHeadFDM: public ModuleBase {
   // public methods
   public:
@@ -99,6 +108,8 @@ class ToolHeadFDM: public ModuleBase {
     err_code_t pre_init();
     err_code_t post_init();
     err_code_t deinit() { return E_SUCCESS; }
+    err_code_t save_env(uint8_t *env_buf, uint32_t &len);
+    err_code_t resume_env(uint8_t *env_buf, uint32_t &len);
 
     err_code_t probe_state_sync();
     err_code_t hotend_type_sync();

@@ -1230,3 +1230,30 @@ err_code_t fdm_callback_routine(void *obj) {
   // ToolHeadFDM &fdm = *(ToolHeadFDM *)obj;
   return E_SUCCESS;
 }
+
+err_code_t ToolHeadFDM::save_env(uint8_t *env_buf, uint32_t &len) {
+  fdm_recovery_data_t recovery_data;
+
+  recovery_data.active_extruder = active_extruder;
+  recovery_data.feedrate_percentage[0] = extruders_feedrate_percentage[0];
+  recovery_data.feedrate_percentage[1] = extruders_feedrate_percentage[1];
+  recovery_data.live_z_offset[0] = bedlevel_svc.live_z_offset[0];
+  recovery_data.live_z_offset[1] = bedlevel_svc.live_z_offset[1];
+  recovery_data.fan_speed[0] = fan_speed[0];
+  recovery_data.fan_speed[1] = fan_speed[1];
+  recovery_data.fan_speed[2] = fan_speed[2];
+  recovery_data.current_temp[0] = hotend_temp[0].current;
+  recovery_data.current_temp[1] = hotend_temp[1].current;
+  recovery_data.target_temp[0] = hotend_temp[0].target;
+  recovery_data.target_temp[1] = hotend_temp[1].target;
+
+  len = sizeof(fdm_recovery_data_t);
+  memcpy(env_buf, (uint8_t *)&recovery_data, len);
+
+  return E_SUCCESS;
+}
+
+err_code_t ToolHeadFDM::resume_env(uint8_t *env_buf, uint32_t &len) {
+
+}
+

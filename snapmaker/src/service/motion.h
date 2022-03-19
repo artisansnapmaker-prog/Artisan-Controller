@@ -62,10 +62,16 @@ enum AxisKey {
   AXIS_KEY_C3
   };
 
-  typedef struct CoordinateInformation {
+  typedef struct __packed CoordinateInformation {
   uint8_t axis;
   int32_t value;
-} __packed coordinate_info_t;
+} coordinate_info_t;
+
+typedef struct __packed MovingCommand {
+  uint8_t  axis;
+  int32_t  position;
+  uint16_t feedrate;
+} moving_command_t;
 
 // This variable define in G0_G1.cpp
 #if ENABLED(VARIABLE_G0_FEEDRATE)
@@ -96,6 +102,35 @@ class MotionService {
       }
     }
     bool is_all_axes_homed() {return all_axes_homed();}
+    bool is_axis_homed(ModuleLinearIndex axis) {
+      switch (axis) {
+      case MODULE_LINEAR_X1:
+        return axis_was_homed(X_AXIS);
+
+      case MODULE_LINEAR_Y1:
+        return axis_was_homed(Y_AXIS);
+
+      case MODULE_LINEAR_Z1:
+        return axis_was_homed(Z_AXIS);
+
+      case MODULE_LINEAR_Z2:
+        return axis_was_homed(Z_AXIS);
+
+      case MODULE_LINEAR_Y2:
+        return axis_was_homed(Y_AXIS);
+
+      case MODULE_LINEAR_X2:
+        return axis_was_homed(X_AXIS);
+
+      default:
+        return false;
+      }
+    }
+    bool endstop_status() { return endstops.global_enabled(); }
+    void set_endstop(bool status) {
+      endstops.enable_globally(status);
+      soft_endstop._enabled = status;
+    }
     void quickstop(void) {quickstop_stepper();}
     void sync_feedrate_percentage_to_platform(int16_t percentage) { feedrate_percentage = percentage; }
 

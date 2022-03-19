@@ -125,11 +125,6 @@ err_code_t MotionService::hmi_cb_set_origin(void *obj, sacp_hmi_message_t *msg) 
   return host_hmi.send_ack(msg, ret);
 }
 
-struct __packed MovingCommand {
-  uint8_t  axis;
-  int32_t  position;
-  uint16_t feedrate;
-};
 err_code_t MotionService::hmi_cb_move_absoluty(void *obj, sacp_hmi_message_t *msg) {
   MotionService *motion = (MotionService *)obj;
   err_code_t ret;
@@ -167,10 +162,6 @@ err_code_t MotionService::hmi_cb_move_absoluty(void *obj, sacp_hmi_message_t *ms
     case AXIS_KEY_B1:
       dest[B_AXIS] = move_cmd[i].position / 1000.0;
       break;
-
-    // case AXIS_KEY_C1:
-    //   dest[C_AXIS] = move_cmd[i].position;
-    //   break;
 
     default:
       LOG_E("unsupported axis: %d\n", move_cmd[i].axis);

@@ -32,7 +32,7 @@
 JobCtrl job_ctrl_svc;
 
 
-void JobCtrl::init(void) { 
+void JobCtrl::init(void) {
   _lock = xSemaphoreCreateMutex();
   if (!_lock) {
     LOG_E("job ctrl: _lock create failed\r\n");
@@ -58,7 +58,7 @@ void JobCtrl::loop(void) {
   }
 
   _tick_ms = smprinter.millis();
-  
+
   if (SYSTEM_STATUS_PRINTING == smprinter.get_sys_status()) {
     get_gcodes_from_client();
   }
@@ -67,9 +67,9 @@ void JobCtrl::loop(void) {
     if (!time_after(smprinter.millis(), _statistics_log_last_tick_ms + _statistics_log_interval_ms)) {
       statistics_output();
       _statistics_log_last_tick_ms = smprinter.millis();
-    } 
+    }
   }
-  
+
   LOG_I("Check other event which effect the job\r\n");
 }
 
@@ -117,7 +117,7 @@ err_code_t JobCtrl::resum_env(void) {
   }
 
   _env.req_line_num = _env.cur_line_num;
-  motion_svc.moveto_xyz(  _env.current_pos[0], 
+  motion_svc.moveto_xyz(  _env.current_pos[0],
                           _env.current_pos[1],
                           _env.current_pos[2],
                           _resume_feedrate);
@@ -146,7 +146,7 @@ err_code_t JobCtrl::machine_standby(void) {
     LOG_I("x move to left");
     LOG_I("x move to from");
     break;
-  
+
   case TH_TYPE_CNC:
     /* code */
     break;
@@ -178,7 +178,7 @@ void JobCtrl::get_gcodes_from_client(void) {
   req_batch_gcode_t req_batch_gcode;
   res_batch_gcode_t res_batch_gcode;
   uint8_t batch_gcode_buf[GCODE_RB_SIZE/4];
-  
+
   while(_gcode_rb.available()) {
     req_batch_gcode.line_num = _env.req_line_num;
     req_batch_gcode.buf_len = MIN(_gcode_rb.available(), GCODE_RB_SIZE/4);
@@ -234,7 +234,7 @@ void JobCtrl::statistics_output(void) {
 
 err_code_t JobCtrl::start(uint8_t client_id, struct GcodeFileInfo *gcodeInfo, toolHeadType th_type) {
   // status check
-  if (SYSTEM_STATUS_IDLE != smprinter.get_sys_status() && SYSTEM_STTUS_XY_CALIBRATING != smprinter.get_sys_status()) {
+  if (SYSTEM_STATUS_IDLE != smprinter.get_sys_status() && SYSTEM_STATUS_XY_CALIBRATING != smprinter.get_sys_status()) {
     LOG_E("can not start job as current status is not idle or calibrating\r\n");
     return E_JOB_NOT_IN_IDLE_STATUS;
   }
@@ -244,7 +244,7 @@ err_code_t JobCtrl::start(uint8_t client_id, struct GcodeFileInfo *gcodeInfo, to
     return E_JOB_IVALID_GCODE_FILE;
   }
 
-  if (SYSTEM_STTUS_XY_CALIBRATING == smprinter.get_sys_status()) {
+  if (SYSTEM_STATUS_XY_CALIBRATING == smprinter.get_sys_status()) {
     // TODO: calibrating print job
     LOG_I("Start a calibration's printing job\r\n");
     return E_SUCCESS;
@@ -254,7 +254,7 @@ err_code_t JobCtrl::start(uint8_t client_id, struct GcodeFileInfo *gcodeInfo, to
     LOG_E("Can to enter SYS_STARTING status\r\n");
     return E_JOB_FAILURE;
   }
-  
+
   if (motion_svc.sm_homing_needed()) {
     if(E_SUCCESS != motion_svc.home()) {
       // TODO: do I need to check the result?
@@ -398,7 +398,7 @@ bool JobCtrl::consume_a_gcode(uint8_t *cmd, uint16_t max_len, uint32_t *line) {
   ret = false;
   cmd_len = 0;
   LOCK(_lock, JOB_LOCK_WAIT_TICK);
-  while(_gcode_rb.remove_one(c)) {    
+  while(_gcode_rb.remove_one(c)) {
     if(cmd_len >= max_len) {
       LOG_W("gcode too long for the command buffer");
       ret = false;

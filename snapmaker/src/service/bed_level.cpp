@@ -54,14 +54,49 @@ void BedLevelService::init() {
 static err_code_t hmi_req_callback_set_level_mode(void *obj, sacp_hmi_message_t *msg) {
   BedLevelService &bedlevel = *(BedLevelService *)obj;
   err_code_t ret;
+  enum SystemStatus req_status, ret_status;
+
+  if (smprinter.get_sys_status() != SYSTEM_STATUS_IDLE) {
+    ret = E_BUSY;
+    goto EXIT;
+  }
+
+  switch (msg->data[0]) {
+    case BEDLEVEL_MODE_AUTO:
+      req_status = SYSTEM_STATUS_AUTO_BEDLEVEL;
+      break;
+    case BEDLEVEL_MODE_MANUAL:
+      req_status = SYSTEM_STATUS_MANUAL_BEDLEVEL;
+      break;
+    case BEDLEVEL_MODE_AUTO_BED_DETECTION:
+      req_status = SYSTEM_STATUS_AUTO_BED_DETECTION;
+      break;
+    case BEDLEVEL_MODE_MANUAL_BED_DETECTION:
+      req_status = SYSTEM_STATUS_MANUAL_BED_DETECTION;
+      break;
+    case BEDLEVEL_MODE_PROBE_SENSOR_CALIBRATE:
+      req_status = SYSTEM_STATUS_PROBE_SENSOR_CALIBRATION;
+      break;
+    case BEDLEVEL_MODE_XY_CALIBRATION:
+      req_status = SYSTEM_STATUS_XY_CALIBRATING;
+    default:
+      ret = E_PARAM;
+      goto EXIT;
+      break;
+  }
+
+  ret = smprinter.set_sys_status(req_status, &ret_status);
+  if ((ret != E_SUCCESS) || (req_status != ret_status)) {
+    goto EXIT;
+  }
 
   ret = bedlevel.set_bedlevel_mode(msg->data[0]);
   bedlevel.set_end_leveling_process_status(false);
 
+EXIT:
   msg->data[0] = ret;
   msg->length  = 1;
   host_hmi.send(msg);
-
   return ret;
 }
 
@@ -125,6 +160,14 @@ EXIT:
 static err_code_t hmi_req_callback_exit_level(void *obj, sacp_hmi_message_t *msg) {
   BedLevelService &bedlevel = *(BedLevelService *)obj;
   err_code_t ret = E_SUCCESS;
+  enum SystemStatus ret_status;
+
+  if (smprinter.get_sys_status() == SYSTEM_STATUS_IDLE) {
+    ret = E_SUCCESS;
+    goto EXIT;
+  }
+
+  ret = smprinter.set_sys_status(SYSTEM_STATUS_IDLE, &ret_status);
 
   if (!bedlevel.get_end_leveling_process_status()) {
     ret = E_FAILURE;
@@ -159,8 +202,6 @@ static err_code_t hmi_req_callback_exit_level(void *obj, sacp_hmi_message_t *msg
       motion_svc.enable_leveling();
       motion_svc.moveto_z(motion_svc.get_current_position(Z_AXIS)+100, 30);
     }
-
-    goto EXIT;
   }
 
   if (bedlevel.get_bedlevel_mode() == BEDLEVEL_MODE_PROBE_SENSOR_CALIBRATE) {
@@ -172,7 +213,6 @@ static err_code_t hmi_req_callback_exit_level(void *obj, sacp_hmi_message_t *msg
       smprinter.fdm->save_z_compensation_to_module(bedlevel.z_compensation_);
     }
   }
-
 
   bedlevel.set_bedlevel_mode(BEDLEVEL_MODE_IDLE);
 

@@ -58,6 +58,8 @@ void ClientNode::class_init(void) {
   ret |= host_hmi.register_callback(CMD_SET_JOB_CTRL, CMD_ID_JOB_CTRL_PAUSE, NULL, sacp_cb, SACP_CB_ATTR_BLOCKED_WITH_MOTION);
   ret |= host_hmi.register_callback(CMD_SET_JOB_CTRL, CMD_ID_JOB_CTRL_RESUME, NULL, sacp_cb, SACP_CB_ATTR_BLOCKED_WITH_MOTION);
   ret |= host_hmi.register_callback(CMD_SET_JOB_CTRL, CMD_ID_JOB_CTRL_STOP, NULL, sacp_cb, SACP_CB_ATTR_BLOCKED_WITH_MOTION);
+  ret |= host_hmi.register_callback(CMD_SET_JOB_CTRL, CMD_ID_JOB_SET_FEEDRATE_PERCENTAGE, NULL, sacp_cb, SACP_CB_ATTR_BLOCKED_WITH_MOTION);
+
   // register subscibtion
   LOG_I("Client node: register SACP subscription callback\r\n");
   ret |= host_hmi.register_subscription(CMD_SET_JOB_CTRL, SUB_ID_JOB_CTRL_CUR_LINE_NUM, (void *)job_ctrl_linenum_sub_cb, job_ctrl_linenum_sub_cb);
@@ -80,7 +82,7 @@ void ClientNode::class_init(void) {
 
 err_code_t ClientNode::sacp_cb(void *obj, sacp_hmi_message_t *msg) {
   ClientNode *cn;
-  
+
   cn = find_client_node(msg->peer);
   if (cn) {
     return cn->sacp_handle(msg);
@@ -108,7 +110,7 @@ ClientNode *ClientNode::find_client_node(uint32_t peer) {
 
 ClientNode * ClientNode::malloc_client_node(uint32_t peer, uint8_t ch) {
   ClientNode *ret = NULL;
-  
+
   LOCK(_lock, 0);
   for(uint8_t i = 0; i < MAX_CLIENT_NODE_NUM; i++) {
     if (client_node_tab[i] && IVALID_PEER == client_node_tab[i]->_peer) {
@@ -124,7 +126,7 @@ ClientNode * ClientNode::malloc_client_node(uint32_t peer, uint8_t ch) {
 
 err_code_t ClientNode::del_client_node(uint32_t peer) {
   ClientNode *cn = find_client_node(peer);
-  if (!cn) 
+  if (!cn)
     return E_FAILURE;
   return del_client_node(cn);
 }
@@ -138,7 +140,7 @@ err_code_t ClientNode::del_client_node(ClientNode *cn) {
 
 bool ClientNode::get_batch_gcode(uint8_t client_id, req_batch_gcode_t &req_batch_gcode, res_batch_gcode_t &res_batch_gcode) {
   ClientNode *cn;
-  
+
   cn = find_client_node(client_id);
   if (cn) {
     return cn->sacp_get_batch_gcode(req_batch_gcode, res_batch_gcode);
@@ -201,7 +203,7 @@ ClientNode::ClientNode(uint32_t peer, uint8_t ch): _peer(peer), _ch(ch) {
 }
 
 err_code_t ClientNode::init(void) {
-  
+
   sacp_msg_copy_lock = xSemaphoreCreateMutex();
   configASSERT(sacp_msg_copy_lock);
   for (uint32_t i = 0; i < MAX_SACP_MSG_COPY; i++) {
@@ -213,7 +215,7 @@ err_code_t ClientNode::init(void) {
 
 sacp_hmi_message_t *ClientNode::malloc_sacp_msg_node(void) {
   sacp_hmi_message_t *node = NULL;
-  
+
   LOCK(sacp_msg_copy_lock, 0);
   for (uint32_t i = 0; i < MAX_SACP_MSG_COPY; i++) {
     if (!sacp_msg_copy_occupy[i]) {
@@ -280,7 +282,7 @@ bool ClientNode::sacp_get_batch_gcode(req_batch_gcode_t &req_batch_gcode, res_ba
 }
 
 err_code_t ClientNode::sacp_handle(sacp_hmi_message_t *msg) {
-  
+
   switch (msg->cmd_id) {
     case CMD_ID_JOB_GET_GCODE_FILE_INFO:
       return get_gcode_info(msg);
@@ -302,6 +304,10 @@ err_code_t ClientNode::sacp_handle(sacp_hmi_message_t *msg) {
       return req_stop_job(msg);
     break;
 
+    case CMD_ID_JOB_SET_FEEDRATE_PERCENTAGE:
+      return req_set_feedrate_percentage(msg);
+    break;
+
     default:
       LOG_E("Client node: Unkonw command id %d in command set %d\r\n", msg->cmd_id, msg->cmd_set);
       return E_FAILURE;
@@ -317,7 +323,7 @@ err_code_t ClientNode::get_gcode_info(sacp_hmi_message_t* msg) {
   gfi = job_ctrl_svc.get_gcode_info();
   if (gfi) {
     p[0] = SACP_RET_SUCCESS;
-    
+
     _16_TO_LITTLE_STREAM(GCODE_MD5_LENGTH, p);
     p += 2;
     memcpy(p, gfi->MD5, GCODE_MD5_LENGTH);
@@ -403,7 +409,7 @@ err_code_t ClientNode::req_start_job(sacp_hmi_message_t *msg) {
   return E_SUCCESS;
 }
 
-err_code_t ClientNode::req_pause_job(sacp_hmi_message_t* msg) {  
+err_code_t ClientNode::req_pause_job(sacp_hmi_message_t* msg) {
   err_code_t ret;
   sacp_hmi_message_t *msg_cp;
 
@@ -424,7 +430,7 @@ err_code_t ClientNode::req_pause_job(sacp_hmi_message_t* msg) {
   return E_SUCCESS;
 }
 
-err_code_t ClientNode::req_resume_job(sacp_hmi_message_t* msg) {  
+err_code_t ClientNode::req_resume_job(sacp_hmi_message_t* msg) {
   err_code_t ret;
   sacp_hmi_message_t *msg_cp;
 
@@ -441,29 +447,26 @@ err_code_t ClientNode::req_resume_job(sacp_hmi_message_t* msg) {
     free_sacp_msg_node(msg_cp);
     return host_hmi.send_ack(msg, ret);
   }
-  
+
   return E_SUCCESS;
 }
 
-err_code_t ClientNode::req_stop_job(sacp_hmi_message_t* msg) {  
+err_code_t ClientNode::req_stop_job(sacp_hmi_message_t* msg) {
   err_code_t ret;
-  sacp_hmi_message_t *msg_cp;
 
-  LOG_I("Client node: client %d request stop a job\r\n", msg->peer);
-  msg_cp = malloc_sacp_msg_node();
-  if (!msg_cp) {
-    LOG_E("client_node: can not malloc sacp msg copy\r\n");
-    return host_hmi.send_ack(msg, SACP_RET_NO_RESC);
+  if (smprinter.fdm != NULL) {
+    uint8_t e = msg->data[1];
+    float feedrate_percentage = (msg->data[2] << 24 | msg->data[3] << 16 | msg->data[4] << 8 | msg->data[5]) / 1000;
+    ret = smprinter.fdm->set_extruders_feedrate_percentage(feedrate_percentage, e);
   }
-  *msg_cp = *msg;
-  req_stop_cb = std::bind(&ClientNode::job_req_stop_cb, this, msg_cp, std::placeholders::_1);
-  ret = job_ctrl_svc.req_stop(req_stop_cb);
-  if (E_SUCCESS != ret) {
-    free_sacp_msg_node(msg_cp);
-    return host_hmi.send_ack(msg, ret);
-  }
-  
+
+  host_hmi.send_ack(msg, ret);
+
   return E_SUCCESS;
+}
+
+err_code_t ClientNode::req_set_feedrate_percentage(sacp_hmi_message_t* msg) {
+
 }
 
 void ClientNode::job_req_start_cb(sacp_hmi_message_t *copy_msg, uint8_t result) {

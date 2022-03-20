@@ -35,7 +35,6 @@ reference links: https://snapmaker2.atlassian.net/wiki/spaces/SNAP/pages/1984987
 typedef enum {
   FDM_REQ_CMD_ID_GET_TOOLHEAD_INFO     = 1,
   FDM_REQ_CMD_ID_SET_HOTEND_TEMP       = 2,
-  FDM_REQ_CMD_ID_SET_PRINT_SPEED_RATE  = 3,
   FDM_REQ_CMD_ID_FILAMENT_DETECT_CTRL  = 4,
   FDM_REQ_CMD_ID_SWITCH_EXTRUDER       = 5,
   FDM_REQ_CMD_ID_SET_FAN_SPEED         = 6,
@@ -44,7 +43,7 @@ typedef enum {
   FDM_REQ_CMD_ID_EXTRUDER_MOTION       = 9,
   FDM_REQ_CMD_ID_CHANGE_NOZZLE_CTRL    = 10,
 
-  FDM_REQ_CMD_ID_SUM                   = 10,      // Adding or deleting IDs requires changing this value
+  FDM_REQ_CMD_ID_SUM                   = 9,      // Adding or deleting IDs requires changing this value
 }fdm_req_cmd_id_e;
 
 typedef enum {

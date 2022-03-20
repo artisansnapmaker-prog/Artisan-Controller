@@ -14,7 +14,6 @@ static uint16_t hmi_subscript_callback_extruder_info(void *obj, uint8_t *buffer)
 // hmi request callback
 static err_code_t hmi_req_callback_get_toolhead_info(void *obj, sacp_hmi_message_t *msg);
 static err_code_t hmi_req_callback_set_hotend_temp(void *obj, sacp_hmi_message_t *msg);
-static err_code_t hmi_req_callback_set_print_speed_rate(void *obj, sacp_hmi_message_t *msg);
 static err_code_t hmi_req_callback_set_filament_detect_ctrl(void *obj, sacp_hmi_message_t *msg);
 static err_code_t hmi_req_callback_switch_extruder(void *obj, sacp_hmi_message_t *msg);
 static err_code_t hmi_req_callback_set_fan_speed(void *obj, sacp_hmi_message_t *msg);
@@ -74,7 +73,6 @@ err_code_t ToolHeadFDM::post_init() {
   host_hmi.apply_cmd_set_handle(SACP_CMD_SET_FDM, FDM_REQ_CMD_ID_SUM);
   host_hmi.register_callback(SACP_CMD_SET_FDM, FDM_REQ_CMD_ID_GET_TOOLHEAD_INFO, this, hmi_req_callback_get_toolhead_info, SACP_CB_ATTR_BLOCKED_WITHOUT_MOTION);
   host_hmi.register_callback(SACP_CMD_SET_FDM, FDM_REQ_CMD_ID_SET_HOTEND_TEMP, this, hmi_req_callback_set_hotend_temp, SACP_CB_ATTR_BLOCKED_WITHOUT_MOTION);
-  host_hmi.register_callback(SACP_CMD_SET_FDM, FDM_REQ_CMD_ID_SET_PRINT_SPEED_RATE, this, hmi_req_callback_set_print_speed_rate, SACP_CB_ATTR_BLOCKED_WITHOUT_MOTION);
   host_hmi.register_callback(SACP_CMD_SET_FDM, FDM_REQ_CMD_ID_FILAMENT_DETECT_CTRL, this, hmi_req_callback_set_filament_detect_ctrl, SACP_CB_ATTR_BLOCKED_WITHOUT_MOTION);
   host_hmi.register_callback(SACP_CMD_SET_FDM, FDM_REQ_CMD_ID_SWITCH_EXTRUDER, this, hmi_req_callback_switch_extruder, SACP_CB_ATTR_BLOCKED_WITH_MOTION);
   host_hmi.register_callback(SACP_CMD_SET_FDM, FDM_REQ_CMD_ID_SET_FAN_SPEED, this, hmi_req_callback_set_fan_speed, SACP_CB_ATTR_BLOCKED_WITHOUT_MOTION);
@@ -340,27 +338,6 @@ static err_code_t hmi_req_callback_set_hotend_temp(void *obj, sacp_hmi_message_t
 
 EXIT:
   // response
-  uint16_t index = 0;
-  msg->data[index++] = ret;
-  msg->length = index;
-  host_hmi.send(msg);
-  return ret;
-}
-
-static err_code_t hmi_req_callback_set_print_speed_rate(void *obj, sacp_hmi_message_t *msg) {
-  ToolHeadFDM &fdm = *(ToolHeadFDM *)obj;
-  err_code_t ret = E_SUCCESS;
-  int16_t percentage;
-
-  if (msg->data[1] > fdm.get_extruders_count()) {
-    ret = E_PARAM;
-    goto EXIT;
-  }
-
-  percentage = (int16_t)((msg->data[2] << 24 | msg->data[3] << 16 | msg->data[4] << 8 | msg->data[5])/1000);
-  fdm.set_extruders_feedrate_percentage(percentage, msg->data[1]);
-
-EXIT:
   uint16_t index = 0;
   msg->data[index++] = ret;
   msg->length = index;

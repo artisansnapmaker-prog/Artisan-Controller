@@ -50,7 +50,8 @@
 #define CMD_ID_JOB_CTRL_PAUSE                         (0x04)
 #define CMD_ID_JOB_CTRL_RESUME                        (0x05)
 #define CMD_ID_JOB_CTRL_STOP                          (0x06)
-#define CMD_ID_JOB_CTRL_NUM                           (10)
+#define CMD_ID_JOB_SET_FEEDRATE_PERCENTAGE            (0x0e)
+#define CMD_ID_JOB_CTRL_NUM                           (11)
 #define SUB_ID_JOB_CTRL_CUR_LINE_NUM                  (0xA0)
 
 #define CMD_SET_SYS                                   (1)
@@ -139,7 +140,7 @@ class ClientNode {
     err_code_t init(void);
     void timer_cb(void *p);
     bool sacp_get_batch_gcode(req_batch_gcode_t &req_batch_gcode, res_batch_gcode_t &res_batch_gcode);
-  
+
     uint32_t _peer;
     uint8_t _ch;
 
@@ -163,6 +164,7 @@ class ClientNode {
     err_code_t req_pause_job(sacp_hmi_message_t*);
     err_code_t req_resume_job(sacp_hmi_message_t*);
     err_code_t req_stop_job(sacp_hmi_message_t*);
+    err_code_t req_set_feedrate_percentage(sacp_hmi_message_t* msg);
     void job_req_start_cb(sacp_hmi_message_t *copy_msg, uint8_t result);
     void job_req_pause_cb(sacp_hmi_message_t *copy_msg, uint8_t result);
     void job_req_resume_cb(sacp_hmi_message_t *copy_msg, uint8_t result);

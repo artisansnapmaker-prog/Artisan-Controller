@@ -59,10 +59,14 @@ class LinkUART {
     }
 
     int set_active_channel(uint8_t new_ch) {
-        if (serial)
-          return serial->set_active_channel(new_ch);
-        else
-          return -1;
+        if (serial) {
+          if (serial->set_active_channel(new_ch) == 0) {
+            active_ch = new_ch;
+            return 0;
+          }
+        }
+
+      return -1;
     }
 
     int set_sec_rx_signal(void *signal) {
@@ -136,6 +140,8 @@ class LinkUART {
       return  serial;
     }
 
+    uint8_t get_active_ch() { return active_ch; }
+
   // private methods
   private:
 
@@ -152,6 +158,8 @@ class LinkUART {
     uint16_t tx_size;
     uint8_t *rx_buffer;
     uint16_t rx_size;
+
+    uint8_t active_ch = MARLIN_SERIAL_CHANNEL_ORIGINAL;
 };
 
 extern LinkUART link_screen;

@@ -175,7 +175,7 @@ size_t MarlinSerial::write(uint8_t c) {
 
     // If the output buffer is full, there's nothing for it other than to
     // wait for the interrupt handler to empty it a bit
-    if (i == sec_tx_tail) {
+    if (i == orig_tx_tail) {
       // nop, the interrupt handler will free up space for us
       return -1;
     }
@@ -375,7 +375,7 @@ int MarlinSerial::set_active_channel(uint8_t new_ch) {
     // clear orignal buffer index
     orig_rx_head = 0;
     orig_rx_tail = 0;
-    orig_tx_head = 0;
+    orig_tx_head = 1;
     orig_tx_tail = 0;
 
     // update current buffer to original
@@ -396,7 +396,7 @@ int MarlinSerial::set_active_channel(uint8_t new_ch) {
     // clear orignal buffer index
     sec_rx_head = 0;
     sec_rx_tail = 0;
-    sec_tx_head = 0;
+    sec_tx_head = 1;
     sec_tx_tail = 0;
 
     // buffer for second channel

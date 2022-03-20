@@ -64,22 +64,21 @@ void GcodeSuite::M2000() {
     break;
 
   case 5:
-    {
+    { // set pc protocol
       sacp_hmi_message_t msg;
-      uint8_t buffer[4] = {0x10, 0xa, 0xaa, 0x01};
+      uint8_t buffer[256];
+      msg.peer = SACP_HOST_ID_SCREEN;
+      msg.ch = SACP_HMI_CH_SCREEN;
       msg.attr = 0;
-      msg.ch   = SACP_HMI_CH_SCREEN;
-      msg.cmd_set = 1;
-      msg.cmd_id  = 0;
-      msg.data = buffer;
-      msg.length = 4;
-      msg.peer = 1;
-      msg.ver = 1;
       msg.seq = 0;
-
-      host_hmi.send(&msg);
+      msg.cmd_set = SACP_CMD_SET_GLOBAL_REQ;
+      msg.data = buffer;
+      msg.cmd_id = SACP_CMD_ID_GLOABL_REQ_SET_PC_PROTOCOL;
+      msg.length = 1;
+      buffer[0] = (uint8_t)p;
+      smprinter.hmi_cb_set_protocol_for_PC(&smprinter, &msg);
     }
-    return;
+    break;
 
   case 200:
     {

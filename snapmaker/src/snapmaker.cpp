@@ -122,7 +122,7 @@ typedef struct __packed MachineInfo {
 } machine_info_t;
 
 err_code_t SnapmakerPrinter::hmi_cb_get_machine_info(void *obj, sacp_hmi_message_t *msg) {
-  SnapmakerPrinter *printerr = (SnapmakerPrinter *)obj;
+  SnapmakerPrinter *printer = (SnapmakerPrinter *)obj;
   char ver[] = "A400_V1.4.2";
   int i = 0;
 
@@ -130,7 +130,7 @@ err_code_t SnapmakerPrinter::hmi_cb_get_machine_info(void *obj, sacp_hmi_message
 
   msg->data[0] = E_SUCCESS;
 
-  info->model      = (uint8_t)printerr->model;
+  info->model      = (uint8_t)printer->model;
   info->hw_ver     = 0;
   info->sn         = 0;
   info->fw_ver_len = 30;
@@ -157,7 +157,7 @@ struct __packed MachineSize {
 };
 
 err_code_t SnapmakerPrinter::hmi_cb_get_machine_size(void *obj, sacp_hmi_message_t *msg) {
-  SnapmakerPrinter *printerr = (SnapmakerPrinter *)obj;
+  SnapmakerPrinter *printer = (SnapmakerPrinter *)obj;
   MachineSize *msize;
 
   msg->data[0] = E_SUCCESS;
@@ -184,6 +184,46 @@ err_code_t SnapmakerPrinter::hmi_cb_get_machine_size(void *obj, sacp_hmi_message
 
   return host_hmi.send(msg);
 }
+
+
+#define PC_PORT_PROTOCOL_GCODE  (0)
+#define PC_PORT_PROTOCOL_SACP   (1)
+#define PC_PORT_PROTOCOL_MAX    (PC_PORT_PROTOCOL_SACP)
+err_code_t SnapmakerPrinter::hmi_cb_set_protocol_for_PC(void *obj, sacp_hmi_message_t *msg) {
+  SnapmakerPrinter *printer = (SnapmakerPrinter *)obj;
+
+  if (printer->get_sys_status() != SYSTEM_STATUS_IDLE) {
+    LOG_E("Can change protocol in only idle status\n");
+    return host_hmi.send_ack(msg, E_INVALID_STATE);
+  }
+
+  if (msg->data[0] > PC_PORT_PROTOCOL_MAX) {
+    LOG_E("unsupport protocol[] for PC\n", msg->data[0]);
+    return host_hmi.send_ack(msg, E_PARAM);
+  }
+
+  LOG_I("set protocol[%u] for PC port\n", msg->data[0]);
+
+  sacp_channel_t *ch = host_hmi.get_channel(SACP_HMI_CH_PC);
+  // check if the active channel in link is same with
+  // the one host want to set
+  if (msg->data[0] == PC_PORT_PROTOCOL_GCODE) {
+    if (ch->link->get_active_ch() != MARLIN_SERIAL_CHANNEL_ORIGINAL) {
+      // send ack firstly
+      host_hmi.send_ack(msg, E_SUCCESS);
+      // then change the protocol of PC to Gcode
+      ch->link->set_active_channel(MARLIN_SERIAL_CHANNEL_ORIGINAL);
+    }
+  }
+  else {
+    if (ch->link->get_active_ch() != MARLIN_SERIAL_CHANNEL_SECOND) {
+      ch->link->set_active_channel(MARLIN_SERIAL_CHANNEL_SECOND);
+    }
+  }
+
+  return E_SUCCESS;
+}
+
 
 // can recv handler
 static void hmi_recv_handler(void *param) {
@@ -255,7 +295,8 @@ static void system_thread(void *p) {
       (void *)&smprinter, SnapmakerPrinter::hmi_cb_get_machine_info);
   host_hmi.register_callback(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_GET_MACHINE_SIZE,
       (void *)&smprinter, SnapmakerPrinter::hmi_cb_get_machine_size);
-
+  host_hmi.register_callback(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_SET_PC_PROTOCOL,
+      (void *)&smprinter, SnapmakerPrinter::hmi_cb_set_protocol_for_PC);
 
   // loop
   for (;;) {

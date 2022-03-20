@@ -553,8 +553,8 @@ static void fdm_callback_hotend_temp(void *obj, uint8_t *data, uint8_t length) {
 }
 
 static void fdm_callback_hotend_pid(void *obj, uint8_t *data, uint8_t length) {
-  // ToolHeadFDM &fdm = *(ToolHeadFDM *)obj;
-
+  ToolHeadFDM &fdm = *(ToolHeadFDM *)obj;
+  fdm.report_pid(data);
 }
 
 static void fdm_callback_hotend_type(void *obj, uint8_t *data, uint8_t length) {
@@ -760,6 +760,22 @@ void ToolHeadFDM::update_filament_state(uint8_t *data) {
   }
 }
 
+void ToolHeadFDM::report_pid(uint8_t *data) {
+  uint8_t param = data[0];
+  float val = (float)((data[1] << 24) | (data[2] << 16) | (data[3] << 8) | data[4]) / 1000;
+  switch (param) {
+    case 0:
+      LOG_I("P: %f\n", val);
+      break;
+    case 1:
+      LOG_I("I: %f\n", val);
+      break;
+    case 2:
+      LOG_I("D: %f\n", val);
+      break;
+  }
+}
+
 void ToolHeadFDM::set_hotend_type(uint8_t *data) {
   for (uint32_t i = 0; i < EXTRUDERS; i++) {
     if (hotend_type[i] != (hotend_type_t)data[i]) {
@@ -811,6 +827,44 @@ float ToolHeadFDM::get_hotend_target_temp(uint8_t e) {
 
 uint8_t ToolHeadFDM::get_fan_speed(uint8_t fan_index) {
   return fan_speed[fan_index];
+}
+
+err_code_t ToolHeadFDM::set_pid(float p, float i, float d) {
+  err_code_t ret;
+  smcan_message_t msg;
+  uint8_t buffer[4];
+  uint32_t val[3];
+
+  val[0] = (uint32_t)(p*1000);
+  val[1] = (uint32_t)(i*1000);
+  val[2] = (uint32_t)(d*1000);
+
+  msg.id = get_message_id(MODULE_FUNC_SET_NOZZLE_TEMP);
+    if (msg.id == MODULE_MESSAGE_ID_INVALID) {
+    LOG_E("invalid message to set drybox temp\n");
+    return E_FAILURE;
+  }
+
+  msg.ch     = get_channel();
+  msg.data   = buffer;
+  msg.length = 4;
+
+
+  for (int32_t i = 0; i < 3; i++) {
+    buffer[0] = i;
+    buffer[1] = (uint8_t)(val[i]>>24);
+    buffer[2] = (uint8_t)(val[i]>>16);
+    buffer[3] = (uint8_t)(val[i]>>8);
+    buffer[4] = (uint8_t)(val[i]);
+    ret = host_can_rou.send(&msg);
+
+    if (ret != E_SUCCESS) {
+      LOG_E("failed to set drybox temp, ret: %u\n", ret);
+      return ret;
+    }
+  }
+
+  return E_SUCCESS;
 }
 
 err_code_t ToolHeadFDM::set_fan_speed(uint8_t fan_index, uint16_t speed, uint8_t delay_time) {

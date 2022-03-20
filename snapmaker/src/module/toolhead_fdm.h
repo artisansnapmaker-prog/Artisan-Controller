@@ -138,12 +138,14 @@ class ToolHeadFDM: public ModuleBase {
     err_code_t hotend_offset_sync();
     err_code_t z_compensation_sync();
     void set_probe_state(uint8_t state[]);
+    void report_pid(uint8_t *data);
     void set_hotend_type(uint8_t *data);
     hotend_type_t get_hotend_type(uint8_t e);
     float get_hotend_diameter(uint8_t e);
     void set_probe_sensor(probe_sensor_t sensor);
     bool get_probe_state();
     bool get_probe_state(probe_sensor_t sensor);
+    err_code_t set_pid(float p, float i, float d);
     void update_hotend_temp(uint8_t *data);
     err_code_t set_hotend_temp(uint16_t temp, uint8_t e);
     float get_hotend_temp(uint8_t e);

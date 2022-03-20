@@ -186,7 +186,7 @@ void GcodeSuite::M2000() {
       msg.data = buffer;
       msg.cmd_id = SACP_CMD_ID_GLOABL_REQ_GET_MACHINE_INFO;
       msg.length = 0;
-      smprinter.get_machine_info(&smprinter, &msg);
+      smprinter.hmi_cb_get_machine_info(&smprinter, &msg);
     }
     break;
 
@@ -202,7 +202,7 @@ void GcodeSuite::M2000() {
       msg.data = buffer;
       msg.cmd_id = SACP_CMD_ID_GLOABL_REQ_GET_MACHINE_SIZE;
       msg.length = 0;
-      smprinter.get_machine_size(&smprinter, &msg);
+      smprinter.hmi_cb_get_machine_size(&smprinter, &msg);
     }
     break;
 

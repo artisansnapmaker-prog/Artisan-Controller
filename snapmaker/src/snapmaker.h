@@ -261,9 +261,9 @@ class SnapmakerPrinter
     enum SystemStatus get_sys_status(void);
     err_code_t set_sys_status(enum SystemStatus req_status, enum SystemStatus *ret_status);
 
-    static uint16_t publish_system_status(void *obj, uint8_t *buffer);
-    static err_code_t get_machine_info(void *obj, sacp_hmi_message_t *msg);
-    static err_code_t get_machine_size(void *obj, sacp_hmi_message_t *msg);
+    static uint16_t hmi_cb_publish_system_status(void *obj, uint8_t *buffer);
+    static err_code_t hmi_cb_get_machine_info(void *obj, sacp_hmi_message_t *msg);
+    static err_code_t hmi_cb_get_machine_size(void *obj, sacp_hmi_message_t *msg);
 
   private:
     enum SystemStatus sys_status;

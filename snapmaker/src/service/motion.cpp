@@ -214,17 +214,28 @@ err_code_t MotionService::hmi_cb_request_home(void *obj, sacp_hmi_message_t *msg
     host_hmi.send_ack(msg, E_SUCCESS);
   }
 
+  uint8_t recv_buff[4];
+  uint16_t recv_len = sizeof(recv_buff);
   msg->cmd_id = SACP_CMD_ID_GLOABL_REQ_REPORT_HOME_RESULT;
+  msg->attr   = 0;
+  msg->length = 1;
 
   snprintf(gcode_cmd, 8, "G28 %c", axis[msg->data[0]]);
   // for now waiting for 100s
   ret = motion->run_gcode(gcode_cmd, true, 100 * 1000);
+
   if (ret != E_SUCCESS) {
-    return host_hmi.send_ack(msg, E_TIMEOUT);
+    msg->data[0] = 1;
   }
   else {
-    return host_hmi.send_ack(msg, E_SUCCESS);
+    msg->data[0] = 0;
   }
+
+  if ((ret = host_hmi.send_sync(msg, recv_buff, &recv_len)) != E_SUCCESS) {
+    LOG_E("failed to tell screen the home state, ret[%u]\n", ret);
+  }
+
+  return ret;
 }
 
 

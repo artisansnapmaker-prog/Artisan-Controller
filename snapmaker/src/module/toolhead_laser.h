@@ -186,7 +186,7 @@ class ToolHeadLaser: public ModuleBase {
     void if_disable_switch();
 
     // callback for module event and routine
-    friend void laser_cb_handle_security_status(void *obj, uint8_t *data, uint8_t length);
+    static void can_cb_handle_security_status(void *obj, uint8_t *data, uint8_t length);
     friend err_code_t laser_routine(void *obj);
 
     // callback for working flow
@@ -226,6 +226,7 @@ class ToolHeadLaser: public ModuleBase {
     err_code_t set_bt_info();
 
     void setup_camera_port(uint8_t port);
+    err_code_t get_bt_mac();
 
   private:
     ToolHeadLaserTubeStatus tube_status;

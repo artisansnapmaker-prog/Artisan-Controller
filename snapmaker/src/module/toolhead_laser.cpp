@@ -94,8 +94,8 @@ uint16_t ToolHeadLaser::hmi_cb_publish_safety_state(void *obj, uint8_t *buffer) 
   info->key       = laser.get_key();
   info->state     = laser.safety_state;
   info->laser_tmp = laser.laser_temp * 1000;
-  info->pitch     = laser.pitch * 1000;
-  info->roll      = laser.roll * 1000;
+  info->pitch     = laser.pitch;
+  info->roll      = laser.roll;
 
   LOG_I("safety state: len[%u]\n", sizeof(LaserSafetyInfo) + 1);
 
@@ -531,7 +531,7 @@ err_code_t laser_routine(void *obj) {
 }
 
 
-void laser_cb_handle_security_status(void *obj, uint8_t *data, uint8_t length) {
+void ToolHeadLaser::can_cb_handle_security_status(void *obj, uint8_t *data, uint8_t length) {
   if (length < 7) {
     LOG_W("invlaid laser security data, len=%u\n", length);
     return;
@@ -544,6 +544,9 @@ void laser_cb_handle_security_status(void *obj, uint8_t *data, uint8_t length) {
   laser.roll  = data[3]<<8 | data[4];
   laser.laser_temp = data[5];
   laser.imu_temp   = data[6];
+
+  LOG_V("laser sta[%u], pitch[%d], roll[%d], tube temp[%d], imu temp[%d]\n", laser.safety_state, 
+        laser.pitch, laser.roll, laser.laser_temp, laser.imu_temp);
 }
 
 err_code_t ToolHeadLaser::pre_init() {
@@ -699,6 +702,9 @@ err_code_t ToolHeadLaser::post_init() {
     }
     power_table = power_table_10w;
 
+    host_can_rou.register_callback(get_message_id(MODULE_FUNC_REPORT_SECURITY_STATUS),
+      (void *)this, can_cb_handle_security_status);
+
     ret = confirm_pwm_pin_state(output_pin);
     if (ret != E_SUCCESS) {
       pwm_normal = false;
@@ -769,6 +775,8 @@ err_code_t ToolHeadLaser::post_init() {
 
   setup_camera_port(PORT_INDEX_P1);
 
+  get_bt_mac();
+
   if (pwm_normal) {
     pinMode(output_pin, OUTPUT);
     set_pwm_duty(output_pin, 0, 255, true);
@@ -834,6 +842,25 @@ void ToolHeadLaser::setup_camera_port(uint8_t port) {
   }
 }
 
+err_code_t ToolHeadLaser::get_bt_mac() {
+  err_code_t ret;
+  sacp_hmi_message_t msg;
+  uint8_t  recv_buff[12];
+  uint16_t recv_len = sizeof(recv_buff);
+
+  msg.attr = 0;
+  msg.ch = SACP_HMI_CH_CAMERA;
+  msg.cmd_set = M_REPORT_BT_MAC;
+  msg.cmd_id = 0xFFFF;
+  msg.peer = 4;
+  msg.ver = SACP_VER_0;
+
+  if ((ret = host_hmi.send_sync_legacy(&msg, recv_buff, &recv_len, 1000, 3)) != E_SUCCESS) {
+    LOG_E("failed to get BT MAC, ret[%u]\n", ret);
+  }
+
+  return E_SUCCESS;
+}
 
 err_code_t ToolHeadLaser::deinit() {
   update_power(0);
@@ -1015,7 +1042,7 @@ err_code_t ToolHeadLaser::set_master_switch(bool state) {
   uint8_t recv_buffer[4];
   uint8_t recv_len = 4;
 
-  msg.id     = get_message_id(MODULE_FUNC_SET_LASER_SWITCH);
+  msg.id     = msg_id_ctrl_switch;
   msg.ch     = get_channel();
   msg.length = 1;
   msg.data   = buffer;
@@ -1125,8 +1152,8 @@ void ToolHeadLaser::show_status() {
   LOG_I("fan state: %u\n", fan_state);
   LOG_I("focal length: %u\n", focal_length);
   LOG_I("safety state: %u\n", safety_state);
-  LOG_I("pitch: %u\n", pitch);
-  LOG_I("roll: %u\n", roll);
+  LOG_I("pitch: %d\n", pitch);
+  LOG_I("roll: %d\n", roll);
   LOG_I("tube temp: %d\n", laser_temp);
   LOG_I("imu temp: %d\n", imu_temp);
 }

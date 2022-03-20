@@ -70,20 +70,6 @@ void JobCtrl::init(void) {
 
 void JobCtrl::background_thread(void *p) {
   static uint32_t keep_printing_cnt = 0;
-  // if (!time_after(system_svc.millis(), _tick_ms)) {
-  //   return;
-  // }
-  
-  if (SYSTEM_STATUS_PRINTING == smprinter.get_sys_status()) {
-    keep_printing_cnt++;
-    if (keep_printing_cnt >= 3) {
-      get_gcodes_from_client();
-      keep_printing_cnt = 3;
-    }
-  }
-  else {
-    keep_printing_cnt = 0;
-  }
   JobCtrlReqInfo jri;
   size_t len;
 

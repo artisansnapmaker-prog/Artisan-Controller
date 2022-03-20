@@ -101,7 +101,7 @@ class MotionService {
         vTaskDelay(pdMS_TO_TICKS(10));
       }
     }
-    bool is_all_axes_homed() {return all_axes_homed();}
+
     bool is_axis_homed(ModuleLinearIndex axis) {
       switch (axis) {
       case MODULE_LINEAR_X1:
@@ -135,7 +135,6 @@ class MotionService {
     
     void quickstop(void);
     void normalstop(void);
-    void sync_feedrate_percentage_to_platform(int16_t percentage) { feedrate_percentage = percentage; }
 
     // home API
     bool is_all_axes_homed() {return all_axes_homed();}

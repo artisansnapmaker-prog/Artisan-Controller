@@ -70,17 +70,6 @@ void JobCtrl::init(void) {
 
 void JobCtrl::background_thread(void *p) {
   static uint32_t keep_printing_cnt = 0;
-<<<<<<< HEAD
-  // if (!time_after(system_svc.millis(), _tick_ms)) {
-  //   return;
-  // }
-  
-  if (SYSTEM_STATUS_PRINTING == smprinter.get_sys_status()) {
-    keep_printing_cnt++;
-    if (keep_printing_cnt >= 3) {
-      get_gcodes_from_client();
-      keep_printing_cnt = 3;
-=======
   JobCtrlReqInfo jri;
   size_t len;
 
@@ -106,7 +95,6 @@ void JobCtrl::background_thread(void *p) {
     
     default:
       break;
->>>>>>> ceb6eb258e (Improve: job ctrl add thread that do the actualy start, pause, resume, stop. Other module will just submit the job control request)
     }
   }
   
@@ -126,7 +114,7 @@ void JobCtrl::background_thread(void *p) {
   if (_statistics_log_interval_ms > 0) {
     if (!time_after(system_svc.millis(), _statistics_log_last_tick_ms + _statistics_log_interval_ms)) {
       statistics_output();
-      _statistics_log_last_tick_ms = smprinter.millis();
+      _statistics_log_last_tick_ms = system_svc.millis();
     }
   }
   
@@ -153,7 +141,7 @@ err_code_t JobCtrl::req_start(  uint8_t client_id,
   
     // status check
   if (SYSTEM_STATUS_IDLE != smprinter.get_sys_status() && 
-      SYSTEM_STTUS_XY_CALIBRATING != smprinter.get_sys_status()) {
+      SYSTEM_STATUS_XY_CALIBRATING != smprinter.get_sys_status()) {
     LOG_E("can not start job as current status is not idle or calibrating\r\n");
     return E_JOB_NOT_IN_IDLE_STATUS;
   }
@@ -163,7 +151,7 @@ err_code_t JobCtrl::req_start(  uint8_t client_id,
     return E_JOB_IVALID_GCODE_FILE;
   }
 
-  if (SYSTEM_STTUS_XY_CALIBRATING == smprinter.get_sys_status()) {
+  if (SYSTEM_STATUS_XY_CALIBRATING == smprinter.get_sys_status()) {
     // TODO: calibrating print job
     LOG_I("Start a calibration's printing job\r\n");
     return E_SUCCESS;
@@ -474,35 +462,6 @@ void JobCtrl::statistics_output(void) {
   LOG_I("================ job control end ================\r\n");
 }
 
-<<<<<<< HEAD
-err_code_t JobCtrl::start(uint8_t client_id, struct GcodeFileInfo *gcodeInfo, toolHeadType th_type) {
-  // status check
-  if (SYSTEM_STATUS_IDLE != smprinter.get_sys_status() && SYSTEM_STATUS_XY_CALIBRATING != smprinter.get_sys_status()) {
-    LOG_E("can not start job as current status is not idle or calibrating\r\n");
-    return E_JOB_NOT_IN_IDLE_STATUS;
-  }
-
-  if (!gcode_file_info_check(gcodeInfo)) {
-    LOG_E("Ivalid gcode file information\r\n");
-    return E_JOB_IVALID_GCODE_FILE;
-  }
-
-  if (SYSTEM_STATUS_XY_CALIBRATING == smprinter.get_sys_status()) {
-    // TODO: calibrating print job
-    LOG_I("Start a calibration's printing job\r\n");
-    return E_SUCCESS;
-  }
-
-  // if (th_type != smprinter.get_toolhead_type()) {
-  //   LOG_E("Unmatched toolhead\r\n");
-  //   return E_JOB_UNMATCHED_TOOLHEAD;
-  // }
-  LOG_I("TODO: Check toolhead type\r\n");
-
-  if (E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_STARTING, NULL)) {
-    LOG_E("Can not enter to SYS_STARTING status\r\n");
-    return E_JOB_FAILURE;
-=======
 void JobCtrl::do_start(struct JobCtrlReqInfo &jri) {
   enum SystemStatus ret_sys_status;
 
@@ -510,7 +469,6 @@ void JobCtrl::do_start(struct JobCtrlReqInfo &jri) {
     LOG_E("job_ctrl: Can not enter to SYS_STARTING status\r\n");
     DO_JOB_REQ_NOTIFY_CB(jri.cb, ret_sys_status);
     return;
->>>>>>> ceb6eb258e (Improve: job ctrl add thread that do the actualy start, pause, resume, stop. Other module will just submit the job control request)
   }
   DO_JOB_REQ_NOTIFY_CB(jri.cb, SYSTEM_STATUS_STARTING);
   

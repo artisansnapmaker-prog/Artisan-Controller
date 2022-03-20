@@ -333,6 +333,7 @@ void SnapmakerPrinter::register_module(uint16_t type, ModuleBase *module) {
     break;
 
   case MODULE_DEVICE_ID_ENCLOSURE_2020:
+    enclosure = (Enclosure *)module;
     break;
 
   case MODULE_DEVICE_ID_ROTARY_2020:
@@ -369,6 +370,7 @@ void SnapmakerPrinter::register_module(uint16_t type, ModuleBase *module) {
     break;
 
   case MODULE_DEVICE_ID_ENCLOSURE_A400_2022:
+  	enclosure = (EnclosureA400 *)module;
     break;
 
   case MODULE_DEVICE_ID_DRYBOX:
@@ -390,23 +392,23 @@ void SnapmakerPrinter::register_module(uint16_t type, ModuleBase *module) {
 }
 
 // CNC related function interface
-void SnapmakerPrinter::set_spindle_power(uint8_t new_power) {
+void SnapmakerPrinter::set_spindle_power(uint8_t new_power, bool is_update_power) {
   if (cnc_online_check()) {
-    cnc->set_output_power(new_power);
+    cnc->set_output_power(new_power, is_update_power);
   }
   else {
-    LOG_I("CNC not recognised or CNC offline\n");
+    LOG_I("%s\n",!cnc ? "CNC not recognised" : "CNC offline");
   }
 }
 
-void SnapmakerPrinter::set_spindle_rpm(uint16_t rpm) {
+void SnapmakerPrinter::set_spindle_rpm(uint16_t rpm, bool is_update_rpm) {
   if (cnc_online_check()) {
-    if (cnc->set_output_rpm(rpm) == E_INVALID_CMD) {
+    if (cnc->set_output_rpm(rpm, is_update_rpm) == E_INVALID_CMD) {
        LOG_I("The current module does not support setting rpm\n");
     }
   }
   else {
-    LOG_I("CNC not recognised or CNC offline\n");
+    LOG_I("%s\n",!cnc ? "CNC not recognised" : "CNC offline");
   }
 }
 
@@ -416,7 +418,7 @@ uint16_t SnapmakerPrinter::get_spindle_rpm(void) {
     spindle_rpm = cnc->get_rpm();
   }
   else {
-    LOG_I("CNC not recognised or CNC offline\n");
+    LOG_I("%s\n",!cnc ? "CNC not recognised" : "CNC offline");
   }
   return spindle_rpm;
 }
@@ -426,7 +428,7 @@ void SnapmakerPrinter::get_spindle_status(void) {
     cnc->report_cnc_status_info();
   }
   else {
-    LOG_I("CNC not recognised or CNC offline\n");
+    LOG_I("%s\n",!cnc ? "CNC not recognised" : "CNC offline");
   }
 }
 
@@ -437,20 +439,59 @@ void SnapmakerPrinter::set_spindle_run_mode(CNCSpeedControlMode mode) {
     }
   }
   else {
-    LOG_I("CNC not recognised or CNC offline\n");
+    LOG_I("%s\n",!cnc ? "CNC not recognised" : "CNC offline");
   }
 }
 
 void SnapmakerPrinter::spindle_debug_config(uint8_t cmd, uint32_t param) {
   if (cnc_online_check()) {
-    if (cnc->cnc_debug_function(cmd, param) == E_INVALID_CMD) {
-      LOG_I("The current module does not support debug config\n");
+    if (cnc->debug_function(cmd, param) == E_INVALID_CMD) {
+      LOG_I("The current module does not know this operation\n");
     }
   }
   else {
-    LOG_I("CNC not recognised or CNC offline\n");
+    LOG_I("%s\n",!cnc ? "CNC not recognised" : "CNC offline");
   }
 }
+
+void SnapmakerPrinter::spindle_hmi_self_test_interface(uint8_t test_type, uint32_t param) {
+  if (cnc)
+    cnc->cnc_hmi_self_test_interface(test_type, param);
+}
+
+// ENCLOSURE related function interface
+void SnapmakerPrinter::set_enclosure_light_bar(uint8_t new_level) {
+  if (enclosure_online_check()) {
+    enclosure->set_light_bar(new_level);
+  }
+  else {
+    LOG_I("%s\n",!enclosure ? "ENCLOSURE not recognised" : "ENCLOSURE offline");
+  }
+}
+
+void SnapmakerPrinter::set_enclosure_fan_speed(uint8_t new_speed) {
+  if (enclosure_online_check()) {
+    enclosure->set_fan_speed(new_speed);
+  }
+  else {
+    LOG_I("%s\n",!enclosure ? "ENCLOSURE not recognised" : "ENCLOSURE offline");
+  }
+}
+
+void SnapmakerPrinter::get_enclosure_status() {
+  if (enclosure_online_check()) {
+    enclosure->report_enclosure_status();
+  }
+  else {
+    LOG_I("%s\n",!enclosure ? "ENCLOSURE not recognised" : "ENCLOSURE offline");
+  }
+}
+
+void SnapmakerPrinter::enclosure_hmi_self_test_interface(uint8_t test_type, uint32_t param) {
+  if (enclosure)
+    enclosure->enclosure_hmi_self_test_interface(test_type, param);
+}
+
 
 // API for gcode
 bool SnapmakerPrinter::get_gcode_from_job(uint8_t *cmd, uint16_t max_len, uint32_t *line) {
@@ -610,6 +651,17 @@ err_code_t SnapmakerPrinter::set_sys_status(enum SystemStatus req_status, enum S
     }
     sys_status = req_status;
     break;
+
+  case SYSTEM_STATUS_CNC_CALIBRATING:
+    // TODO: more situations to consider
+    if (SYSTEM_STATUS_CNC_CALIBRATING == sys_status || sys_status == SYSTEM_STATUS_IDLE) {
+      sys_status = req_status;
+      ret = E_SUCCESS;
+    }
+    else {
+      ret = E_BUSY;
+    }
+  break;
 
   default:
     ret = E_FAILURE;

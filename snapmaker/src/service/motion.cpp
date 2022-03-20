@@ -461,7 +461,31 @@ void MotionService::save_settings() {
   settings.save();
 }
 
+float current_bed_temp(uint8_t area_id = 0) {
+  float cur_temp = 0;
+  #if ENABLED(SNAPMAKER_DOUBLE_ZONE_BED) 
+    if (area_id == 0)
+      cur_temp = thermalManager.degBed();
+    else 
+      cur_temp = thermalManager.degChamber();
+  #else
+    cur_temp = thermalManager.degBed();
+  #endif
+  return cur_temp;
+}
 
+int16_t target_bed_temp(uint8_t area_id = 0) {
+  int16_t target_temp = 0;
+  #if ENABLED(SNAPMAKER_DOUBLE_ZONE_BED) 
+    if (area_id == 0)
+      target_temp = thermalManager.degTargetBed();
+    else 
+      target_temp = thermalManager.degTargetChamber();
+  #else
+    target_temp = thermalManager.degTargetBed();
+  #endif
+  return target_temp;  
+}
 err_code_t MotionService::run_gcode(char *gcode, bool blocked /* = false*/,
     uint32_t blocked_timeout/*= 180 * 1000 ms*/) {
   int length = strlen(gcode);

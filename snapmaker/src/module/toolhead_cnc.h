@@ -33,9 +33,24 @@
 #define CNC_MOTOR_TEMP_ERROR_MASK      (1 << 4)
 #define CNC_VOLTAGE_ERROR_MASK         (1 << 5)
 
+// #define SACP_GET_HEAD_INFO_COMMANDID               0x01
+// #define SACP_CNC_SET_POWER_COMMANDID               0x02
+// #define SACP_CNC_SET_RPM_COMMANDID                 0x03
+// #define SACP_CNC_SET_CTR_MODE_COMMANDID            0x04
+// #define SACP_CNC_SET_ENABLE_COMMANDID              0x05
+// #define SACP_CNC_COMMANDID_NUM                     5
+
+// #define SACP_CNC_ENTER_CALIBRATE_COMMANDID         0x05
+// #define SACP_CNC_EXIT_CALIBRATE_COMMANDID          0x05
+
+#define SACP_CNC_SUBSCRIBE_COMMANDID               0xa0
+
+#define E_CNC_NO_SUPPORT        (PRIVATE_ERROR_BASE + 0)
+
 enum CNCOutputStatus {
   CNC_OUTPUT_OFF = 0,
   CNC_OUTPUT_ON = 1,
+  CNC_OUTPUT_OFF_ING = 2,
   CNC_OUTPUT_INVALID
 };
 
@@ -49,6 +64,57 @@ enum CNCSpeedControlMode {
   CNC_CONSTANT_RPM_MODE,
 };
 
+enum CNCCalibrationMode {
+  CNC_KNIFE_PAIRING = 0,
+  CNC_CHANGE_KNIFE,
+  CNC_CUSTOM_KNIFE_PAIRING,
+  CNC_MANUAL_KNIFE_PAIRING,
+  CNC_CALIBRATION_IDLE
+};
+
+enum CNCSacpRequestCommandId {
+  SACP_CMD_ID_CNC_GET_HEAD_INFO = 1,
+  SACP_CMD_ID_CNC_SET_POWER,
+  SACP_CMD_ID_CNC_SET_RPM,
+  SACP_CMD_ID_CNC_SET_CTR_MODE,
+  SACP_CMD_ID_CNC_SET_ENABLE,
+
+  // Fixed parameters, not modifiable
+  SACP_CMD_ID_CNC_END_INDEX,
+  SACP_CMD_ID_CNC_MAX_NUM = SACP_CMD_ID_CNC_END_INDEX - 1,
+};
+
+enum CNCSacpCalibrationCommandId {
+  SACP_CMD_ID_CNC_ENTER_CALIBRATE = 0,
+  SACP_CMD_ID_CNC_EXIT_CALIBRATE,
+  
+  SACP_CMD_ID_CNC_CALIBRATE_NUM_MAX
+};
+
+#pragma pack(1)
+typedef struct {
+  uint8_t key;
+  uint8_t head_status;
+  bool head_active;    // cnc currently only has this false state
+  uint8_t run_state; 
+  uint8_t control_mode;
+  uint8_t cur_power;   
+  uint8_t target_power;   
+  uint32_t cur_rpm; 
+  uint32_t target_rpm; 
+}CNCToolHeadInfo;
+
+typedef struct {
+  uint8_t key;
+  uint8_t run_state; 
+  uint8_t cur_power;   
+  uint8_t target_power;   
+  uint32_t cur_rpm; 
+  uint32_t target_rpm;
+}CNCSpeedState; 
+
+#pragma pack()
+
 class ToolHeadCNC: public ModuleBase {
   public:
 		ToolHeadCNC(uint32_t mac, uint8_t key, uint8_t sub_index): ModuleBase(mac, key, sub_index) {
@@ -60,61 +126,60 @@ class ToolHeadCNC: public ModuleBase {
     virtual err_code_t post_init();
     virtual err_code_t deinit();
 
-    virtual bool check_online() { return online; }
-    virtual void update_online(bool new_online) { online = new_online; }
+    bool check_online() { return online; }
+    uint16_t get_rpm() { return rpm; };
+    err_code_t save_env(uint8_t *env_buf, uint32_t &len);
+    err_code_t resume_env(uint8_t *env_buf, uint32_t &len);
 
-    virtual uint8_t get_lost_counter() { return lost_counter; }
-    virtual void set_lost_counter(uint8_t new_lost_counter) { lost_counter = new_lost_counter; }
-    virtual void lost_counter_routine(uint32_t time_out=CNC_LOST_TIME_OUT);
-
-    virtual uint16_t get_rpm() { return rpm; }
-    virtual void set_rpm(uint16_t new_rpm) { rpm = new_rpm; }
-
-    virtual uint16_t get_error_state() { return error_state; }
-    virtual void set_error_state(uint16_t new_error_state) { error_state = new_error_state; }
-
-    virtual CNCSpeedControlMode get_ctr_mode() { return (CNCSpeedControlMode)ctr_mode; }
-    virtual void set_ctr_mode(CNCSpeedControlMode new_ctr_mode) { ctr_mode = new_ctr_mode; }
-
-    virtual uint16_t get_target_rpm() { return target_rpm; }
-    virtual void set_target_rpm(uint16_t new_target_rpm) { target_rpm = new_target_rpm; }
-
-    virtual uint8_t get_power() { return power; }
-    virtual void set_power(uint8_t new_power);
-
-    virtual CNCOutputStatus get_output_sta() { return output_sta; }
-    virtual void set_output_sta(CNCOutputStatus new_output_sta) { output_sta = new_output_sta; }
-
-    virtual err_code_t set_output_power(uint8_t new_power);
-    virtual err_code_t set_output_rpm(uint16_t new_rpm) { return E_INVALID_CMD; } 
+    virtual err_code_t set_output_power(uint8_t new_power, bool is_update_power=true);
+    virtual err_code_t set_output_rpm(uint16_t new_rpm, bool is_update_rpm=true) { return E_INVALID_CMD; } 
     virtual err_code_t set_run_mode(CNCSpeedControlMode new_mode) { return E_INVALID_CMD; }
 
-    virtual void turn_on();
-    virtual void turn_off();
-
-    virtual void keep_alive() { lost_counter = xTaskGetTickCount(); }
     virtual void report_cnc_status_info();
-
-    virtual err_code_t cnc_debug_function(uint8_t cmd, uint32_t param) { return E_INVALID_CMD; }
-    virtual void cnc_debug_emergency_stop();
+    virtual err_code_t debug_function(uint8_t cmd, uint32_t param) { return E_INVALID_CMD; }
+    virtual void debug_emergency_stop();
+    virtual void cnc_hmi_self_test_interface(uint8_t test_type, uint32_t param);
 
     friend err_code_t cnc_callback_routine(void *obj);
     friend void cnc_callback_update_rpm(void *obj, uint8_t *data, uint8_t length);
 
+    // register handler functions for handling screen commands
+    friend err_code_t send_cnc_head_info_to_hmi(void *obj, sacp_hmi_message_t *msg);
+    friend err_code_t hmi_set_cnc_power(void *obj, sacp_hmi_message_t *msg);
+    friend err_code_t hmi_set_cnc_rpm(void *obj, sacp_hmi_message_t *msg);
+    friend err_code_t hmi_set_cnc_ctr_mode(void *obj, sacp_hmi_message_t *msg);
+    friend err_code_t hmi_set_cnc_enable(void *obj, sacp_hmi_message_t *msg);
+    friend err_code_t hmi_set_cnc_enter_calibrate(void *obj, sacp_hmi_message_t *msg);
+    friend err_code_t hmi_set_cnc_exit_calibrate(void *obj, sacp_hmi_message_t *msg);
+    friend uint16_t hmi_subscribe_cnc_func(void *obj, uint8_t *buff);
+
+  protected:  
+    bool create_public_mutex_lock(); 
+    bool public_mutex_lock(uint8_t retry=2, uint32_t timeout=100);
+    void public_mutex_unlock();
+    void lost_counter_routine(uint32_t time_out=CNC_LOST_TIME_OUT);
+    bool set_power(uint8_t new_power);
+    bool set_calibrate_mode(CNCCalibrationMode mode);
+    virtual bool set_target_rpm(uint16_t new_rpm) { return false; };
+    virtual bool is_support_rpm_mode() { return false; }
+    virtual bool is_support_change_ctr_mode() { return false; }
+    virtual err_code_t register_hmi_command_func(void *obj);
+
   private:
     virtual err_code_t sync_cnc_output(uint16_t value, CNCSpeedControlType type=CNC_PWM_SET_SPEED);
 
-  private:
+  protected:
     CNCOutputStatus output_sta;
+    CNCCalibrationMode calibrate_mode;
     uint8_t power;
+    uint8_t real_power;
     uint8_t ctr_mode;
     uint16_t error_state;
     uint16_t rpm;
     uint16_t target_rpm;
     uint32_t lost_counter;
-    
     bool  online = false;
+    SemaphoreHandle_t public_mutex = NULL;
 };
+#endif  // #ifndef SNAPMAKER_TOOLHEAD_CNC_H_
 
-
-#endif  // #ifndef TOOLHEAD_LASER_H_

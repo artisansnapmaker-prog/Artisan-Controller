@@ -10,7 +10,9 @@
 #include "module/toolhead_cnc_200w.h"
 #include "module/toolhead_fdm.h"
 #include "module/drybox.h"
-
+#include "module/enclosure.h"
+#include "module/enclosure_a400.h"
+#include "module/bed_virt.h"
 
 #define EVENT_GROUP_MODULE_READY      (0x00000001)
 #define EVENT_GROUP_WAIT_FOR_HEATING  (0X00000002)
@@ -88,6 +90,9 @@ enum SystemStatus {
 
   // Laser calibraiton
   SYSTEM_STATUS_LASER_CALIBRATING,
+  
+  // CNC calibration
+  SYSTEM_STATUS_CNC_CALIBRATING,
 };
 
 extern uint8_t action_ban;
@@ -129,12 +134,13 @@ class SnapmakerPrinter
     // API for marlin
     // CNC
     bool cnc_online_check(void) { return (cnc && cnc->check_online()); }
-    void set_spindle_power(uint8_t new_power);
-    void set_spindle_rpm(uint16_t rpm);
+    void set_spindle_power(uint8_t new_power, bool is_update_power=true);
+    void set_spindle_rpm(uint16_t rpm, bool is_update_rpm=true);
     uint16_t get_spindle_rpm(void);
     void get_spindle_status(void);
     void set_spindle_run_mode(CNCSpeedControlMode mode);
     void spindle_debug_config(uint8_t cmd, uint32_t param);   // CNC debug
+    void spindle_hmi_self_test_interface(uint8_t test_type, uint32_t param);
 
     // Laser APIs for marlin
     void set_laser_output(float power) {
@@ -234,9 +240,6 @@ class SnapmakerPrinter
     // LASER
     void set_laser_fan_speed(uint16_t speed) {}
 
-    // ENCLOSURE
-    void set_enclosure_fan_speed(uint16_t speed) {}
-
     // DryBox
     void set_drybox_temp(int16_t heater_temp, int16_t chamber_temp) {
       if (drybox) {
@@ -244,6 +247,12 @@ class SnapmakerPrinter
       }
     }
 
+    // ENCLOSURE
+    bool enclosure_online_check(void) { return (enclosure && enclosure->check_online()); }
+    void set_enclosure_light_bar(uint8_t new_level); 
+    void set_enclosure_fan_speed(uint8_t new_speed);
+    void get_enclosure_status(void);
+    void enclosure_hmi_self_test_interface(uint8_t test_type, uint32_t param);
     void register_module(uint16_t type, ModuleBase *new_module);
 
     ModuleBase *get_cur_toolhead(void);
@@ -271,6 +280,7 @@ class SnapmakerPrinter
     ToolHeadLaser *laser = NULL;
     ToolHeadFDM *fdm = NULL;
     DryBox *drybox = NULL;
+	Enclosure *enclosure = NULL;
     // toolhead fdm 1e
     // toolhead laser 1.6w
     // toolhead laser 10w

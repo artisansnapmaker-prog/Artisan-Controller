@@ -23,49 +23,64 @@
 
 #include "toolhead_cnc.h"
 
+#define CNC_200W_DEFAULT_MAX_RPM   18000
+#define CNC_200W_DEFAULT_MIN_RPM   1000
+
 enum CNCConfigCmdType {
   CMD_SET_MOTOR_POWER = 0,
   CMD_SET_MOTOR_RPM,
   CMD_SET_MOTOR_RUN_MODE,
   CMD_SET_MOTOR_RUN_DIR,
+  CMD_GET_MOTOR_PID_KP,
+  CMD_GET_MOTOR_PID_KI,
+  CMD_GET_MOTOR_PID_KD,
   CMD_SET_MOTOR_PID_KP,
   CMD_SET_MOTOR_PID_KI,
   CMD_SET_MOTOR_PID_KD,
-  CMD_GET_MOTOR_PID_VALUE,
 };
 
 class ToolHeadCNC200W: public ToolHeadCNC {
   public:
     ToolHeadCNC200W(uint32_t mac, uint8_t key, uint8_t sub_index): ToolHeadCNC(mac, key, sub_index) {}
+
     err_code_t pre_init();
     err_code_t post_init();
-    err_code_t param_init();
-    // err_code_t deinit();   // TODO 
+    err_code_t deinit();   // TODO 
 
-    err_code_t set_output_rpm(uint16_t new_rpm);
+    err_code_t set_output_power(uint8_t new_power, bool is_update_power=true);
+    err_code_t set_output_rpm(uint16_t new_rpm, bool is_update_rpm=true);
     err_code_t set_run_mode(CNCSpeedControlMode mode);
-    err_code_t send_cnc_cmd_config(uint8_t cmd_type, uint32_t param);
-    // err_code_t set_output_power(uint8_t new_power);
 
-    
-    // void turn_on();    // TODO 
-    // void turn_off();   // TODO 
     void report_cnc_status_info();
-
-    virtual err_code_t cnc_debug_function(uint8_t cmd, uint32_t param);
+    err_code_t debug_function(uint8_t cmd, uint32_t param);
 
     friend err_code_t hp_cnc_callback_routine(void *obj);
     friend void hp_cnc_callback_update_info(void *obj, uint8_t *data, uint8_t length);
     friend void hp_cnc_callback_update_sensor_info(void *obj, uint8_t *data, uint8_t length);
     friend void hp_cnc_callback_config_result(void *obj, uint8_t *data, uint8_t length);
 
+    // register handler functions for handling screen commands
+    friend err_code_t send_hp_cnc_head_info_to_hmi(void *obj, sacp_hmi_message_t *msg);
+    friend err_code_t hmi_set_hp_cnc_power(void *obj, sacp_hmi_message_t *msg);
+    friend err_code_t hmi_set_hp_cnc_rpm(void *obj, sacp_hmi_message_t *msg);
+    friend err_code_t hmi_set_hp_cnc_ctr_mode(void *obj, sacp_hmi_message_t *msg);
+    friend err_code_t hmi_set_hp_cnc_enable(void *obj, sacp_hmi_message_t *msg);
+    friend uint16_t hmi_subscribe_hp_cnc_func(void *obj, uint8_t *buff);
+  
+  private:
+    bool set_target_rpm(uint16_t new_rpm);
+    bool is_support_rpm_mode() { return true; }
+    bool is_support_change_ctr_mode() { return true; }
+    virtual err_code_t sync_cnc_output(uint16_t power, CNCSpeedControlType type=CNC_PWM_SET_SPEED);
+    bool get_enclosure_hw_verion(uint8_t *version);
+    err_code_t set_cnc_run_dir(uint8_t dir); 
+    err_code_t set_cnc_pid(uint8_t index, uint8_t mode, uint32_t param);
+
   private:
     float pcb_temp = 0;
     float motor_temp = 0;
     float motor_voltage = 0;
     uint16_t motor_current = 0;
-    uint16_t error_state_bak = 0;
-    virtual err_code_t sync_cnc_output(uint16_t power, CNCSpeedControlType type=CNC_PWM_SET_SPEED);
 };
 
-#endif
+#endif  // #ifndef SNAPMAKER_TOOLHEAD_CNC_200W_H_

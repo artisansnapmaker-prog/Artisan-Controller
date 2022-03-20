@@ -35,7 +35,7 @@ void GcodeSuite::M5() {
   planner.synchronize();
   smprinter.turn_off_laser();
   if (smprinter.cnc_online_check()) {
-    smprinter.set_spindle_power(0);
+    smprinter.set_spindle_power(0,false);
   }
 }
 

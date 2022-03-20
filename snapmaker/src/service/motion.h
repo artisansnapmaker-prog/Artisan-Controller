@@ -199,8 +199,8 @@ class MotionService {
     // temperature API
     float current_hotend_temp(uint8_t heater_id = 0) { return 0.0; }
     int16_t target_hotend_temp(uint8_t heater_id = 0) { return 0.0; }
-    float current_bed_temp(uint8_t area_id = 0) { return 0.0; }
-    int16_t target_bed_temp(uint8_t area_id = 0) { return 0.0; }
+    float current_bed_temp(uint8_t area_id = 0);
+    int16_t target_bed_temp(uint8_t area_id = 0);
     uint16_t get_bet_temp(void);
     bool set_bet_temp(uint16_t);
 

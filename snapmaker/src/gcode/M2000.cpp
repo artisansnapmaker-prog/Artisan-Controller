@@ -27,6 +27,9 @@ void GcodeSuite::M2000() {
   // motion platform debug options
   __unused uint8_t m = (uint8_t)parser.byteval('M', (uint8_t)0xFF);
 
+  // enclosure and bed debug options
+  __unused uint8_t w = (uint8_t)parser.byteval('W', (uint8_t)0xFF);
+
   // common info
   __unused uint32_t p = (uint32_t)parser.ulongval('P', (uint32_t)0);
   __unused int32_t q = (int32_t)parser.longval('Q', (int32_t)0);
@@ -326,7 +329,7 @@ void GcodeSuite::M2000() {
   {
   case 0:
     // set cnc control mode, 0:constant power, 1:constant rpm
-    smprinter.set_spindle_run_mode((CNCSpeedControlMode)(!!p));
+    smprinter.spindle_debug_config(CMD_SET_MOTOR_RUN_MODE, (CNCSpeedControlMode)(!!p));
     break;
 
   case 1:
@@ -355,7 +358,10 @@ void GcodeSuite::M2000() {
       LOG_I("set cnc Kd: %f\n",tmp);
       smprinter.spindle_debug_config(CMD_SET_MOTOR_PID_KD, (uint32_t)(tmp * 1000));
     }
-    smprinter.spindle_debug_config(CMD_GET_MOTOR_PID_VALUE, 0);
+    
+    smprinter.spindle_debug_config(CMD_GET_MOTOR_PID_KP, 0);
+    smprinter.spindle_debug_config(CMD_GET_MOTOR_PID_KI, 0);
+    smprinter.spindle_debug_config(CMD_GET_MOTOR_PID_KD, 0);
     break;
 
   case 3:
@@ -367,6 +373,58 @@ void GcodeSuite::M2000() {
   case 4:
     // get cnc status
     smprinter.get_spindle_status();
+    break;
+  
+  case 5:
+    // send cnc head info to hmi 0x11 0x1
+    smprinter.spindle_hmi_self_test_interface(0, 0);
+    break;
+
+  case 6:
+    // hmi set cnc power 0x11 0x2
+    p = parser.byteval('P', 0);
+    smprinter.spindle_hmi_self_test_interface(1, (uint8_t)p);
+    break;
+
+  case 7:
+    // hmi set cnc rpm 0x11 0x3
+    p = parser.ulongval('P', 0);
+    smprinter.spindle_hmi_self_test_interface(2, p);
+    break;
+
+  case 8:
+    // hmi set cnc ctr mode 0x11 0x4
+    p = parser.boolval('P');
+    smprinter.spindle_hmi_self_test_interface(3, !!p);
+    break;
+
+  case 9:
+    // hmi set cnc enable 0x11 0x5
+    p = parser.boolval('P');
+    smprinter.spindle_hmi_self_test_interface(4, !!p);
+    break;
+
+  case 10:
+    // hmi cnc subscription 0x11 0xa0
+    smprinter.spindle_hmi_self_test_interface(5, 0);
+    break;
+  
+  case 11:
+    p = parser.byteval('P', 0);
+    if (p > 3) p = 3;
+    smprinter.spindle_hmi_self_test_interface(6, p);
+    break;
+
+  case 12:
+    smprinter.spindle_hmi_self_test_interface(7, 0);
+    break;
+
+  case 13:
+    smprinter.spindle_hmi_self_test_interface(8, 0);
+    break;
+
+  case 14:
+    smprinter.spindle_hmi_self_test_interface(9, 0);
     break;
 
   default:
@@ -554,6 +612,67 @@ void GcodeSuite::M2000() {
       break;
     default:
       break;
+  }
+
+  switch (w) 
+  {
+  case 0:
+    // get enclosure status
+    smprinter.get_enclosure_status();
+    break;
+
+  case 1:
+    // set enclosure light bar
+    p = p > 100 ? 100 : p;
+    smprinter.set_enclosure_light_bar((uint8_t)p);
+    break;
+
+  case 2:
+    // set enclosure fan
+    p = p > 100 ? 100 : p;
+    smprinter.set_enclosure_fan_speed((uint8_t)p);
+    break;
+  
+  case 3:
+    // send enclosure head info to hmi 0x15 0x1
+    smprinter.enclosure_hmi_self_test_interface(0, 0);
+    break;
+
+  case 4:
+    // set light level 0x15 0x2
+    p = parser.byteval('P', 0);
+    smprinter.enclosure_hmi_self_test_interface(1, (uint8_t)p);
+    break;
+
+  case 5:
+    // set enclosure check 0x15 0x3
+    p = parser.boolval('P');
+    smprinter.enclosure_hmi_self_test_interface(2, !!p);
+    break;
+
+  case 6:
+    // set enclosure fan speed 0x15 0x4
+    p = parser.byteval('P', 0);
+    smprinter.enclosure_hmi_self_test_interface(3, (uint8_t)p);
+    break;
+
+  case 7:
+    // set enclosure fan speed 0x15 0x5
+    smprinter.enclosure_hmi_self_test_interface(4, 0);
+    break;
+
+  // bed 
+  case 20:
+  case 21:
+  case 22:
+  case 23:
+    BedVirtual *bed;
+    bed = (BedVirtual *)module_svc.get_module(MODULE_DEVICE_ID_A400_BED, 0);
+    bed->bed_hmi_self_test_interface(w - 20, parser.intval('P', (int16_t)0));
+  break;
+
+  default:
+    break;
   }
 
   switch (b) {

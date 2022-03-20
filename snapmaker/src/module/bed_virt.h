@@ -23,17 +23,43 @@
 
 #include "base.h"
 
+enum BedSacpRequestCommandId {
+  SACP_CMD_ID_BED_GET_HEAD_INFO = 1,
+  SACP_CMD_ID_BED_SET_TARGET_TEMP,
+
+  // Fixed parameters, not modifiable
+  SACP_CMD_ID_BED_END_INDEX,
+  SACP_CMD_ID_BED_MAX_NUM = SACP_CMD_ID_BED_END_INDEX - 1,
+};
+
+#define SACP_BED_SUBSCRIBE_COMMANDID              0xa0
+
+#pragma pack(1)
+typedef struct {
+  uint8_t bed_index; 
+  int32_t cur_temp;
+  uint16_t target_temp;
+}ZoneInfo;
+
+#pragma pack()
+
+
 class BedVirtual: public ModuleBase {
   // public methods
   public:
     BedVirtual(uint8_t zone_number, uint32_t mac, uint8_t key, uint8_t sub_index): ModuleBase(mac, key, sub_index) {}
     bool check_online() { return true; }
     err_code_t pre_init() { return E_SUCCESS; }
-    err_code_t post_init() { return E_SUCCESS; }
+    err_code_t post_init();
     err_code_t deinit() { return E_SUCCESS; }
+
+    friend err_code_t send_bed_info_to_hmi(void *obj, sacp_hmi_message_t *msg);
+    friend err_code_t hmi_set_bed_target_temp(void *obj, sacp_hmi_message_t *msg);
+    friend uint16_t hmi_subscribe_bed_func(void *obj, uint8_t *buff);
+
+    void bed_hmi_self_test_interface(uint8_t test_type, uint32_t param);
   // private methods
   private:
-
 
   // public properties
   public:
@@ -46,3 +72,4 @@ class BedVirtual: public ModuleBase {
 
 
 #endif  // #ifndef SNAPMAKER_MODULE_BED_MULTI_ZONE_H_
+

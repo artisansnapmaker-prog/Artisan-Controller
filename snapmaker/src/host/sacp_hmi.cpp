@@ -509,7 +509,8 @@ err_code_t HostSACPHMI::parse_packets(sacp_channel_t &channel) {
         parser.ver    = SACP_VER_1;
       }
     }
-    else if (parser.buffer[SACP_FRAME_INDEX_VER] == SACP_VER_0) {
+    else {
+    // if (parser.buffer[SACP_FRAME_INDEX_VER] == SACP_VER_0) {
       // parse header of V0
       header_checksum = parser.buffer[SACP_V0_FRAME_INDEX_LEN_H]^parser.buffer[SACP_V0_FRAME_INDEX_LEN_L];
       if (header_checksum != parser.buffer[SACP_V0_FRAME_INDEX_LEN_CHK]) {
@@ -530,12 +531,12 @@ err_code_t HostSACPHMI::parse_packets(sacp_channel_t &channel) {
       }
 
     }
-    else {
-      // unsupported version
-      LOG_E("Unsupported SACP Ver[%u]\n", parser.buffer[SACP_FRAME_INDEX_VER]);
-      parser.status = SACP_PARSER_STA_IDLE;
-      break;
-    }
+    // else {
+    //   // unsupported version
+    //   LOG_E("Unsupported SACP Ver[%u]\n", parser.buffer[SACP_FRAME_INDEX_VER]);
+    //   parser.status = SACP_PARSER_STA_IDLE;
+    //   break;
+    // }
 
   case SACP_PARSER_STA_GOT_HEAD:
     if (avail_bytes < parser.length) {
@@ -679,7 +680,10 @@ void HostSACPHMI::handle_receive() {
       }
     }
 
-    LOG_I("recv new msg[%x:%x]\n", parser_buff[SACP_V1_FRAME_INDEX_CMD_SET], parser_buff[SACP_V1_FRAME_INDEX_CMD_ID]);
+    if (version == SACP_VER_1)
+      LOG_I("recv ch[%u] v1 msg[%x:%x]\n", i, parser_buff[SACP_V1_FRAME_INDEX_CMD_SET], parser_buff[SACP_V1_FRAME_INDEX_CMD_ID]);
+    else 
+      LOG_I("recv ch[%u] v0 msg[%x]\n", i, parser_buff[SACP_V0_FRAME_INDEX_EVENT_ID]);
 
     if (version == SACP_VER_1) {
       // if someone is waiting this message, send to it

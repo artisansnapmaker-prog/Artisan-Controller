@@ -104,8 +104,8 @@ typedef struct {
   uint32_t  attr;
   uint32_t seq;
 
-  uint8_t cmd_set;
-  uint8_t cmd_id;
+  uint16_t cmd_set;
+  uint16_t cmd_id;
 
   uint16_t length;
   uint8_t  *data;

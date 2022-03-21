@@ -58,7 +58,7 @@ err_code_t ToolHeadCNC200W::pre_init() {
     rpm = 0;
     target_rpm = 0;
     error_state = 0;
-    ctr_mode = CNC_CONSTANT_POWER_MODE;
+    ctr_mode = CNC_CONSTANT_RPM_MODE;
     output_sta = CNC_OUTPUT_OFF;
     calibrate_mode = CNC_CALIBRATION_IDLE;
     online = false;

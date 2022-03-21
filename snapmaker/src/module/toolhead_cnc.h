@@ -111,6 +111,7 @@ typedef struct {
   uint8_t target_power;   
   uint32_t cur_rpm; 
   uint32_t target_rpm;
+  uint8_t control_mode;
 }CNCSpeedState; 
 
 #pragma pack()

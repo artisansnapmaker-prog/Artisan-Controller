@@ -732,6 +732,7 @@ uint16_t hmi_subscribe_cnc_func(void *obj, uint8_t *buffer) {
   speed_sta->target_power = cnc.power;
   speed_sta->cur_rpm = cnc.rpm;
   speed_sta->target_rpm = cnc.target_rpm;
+  speed_sta->control_mode = cnc.ctr_mode;
   return sizeof(CNCSpeedState) + 1;
 }
 
@@ -808,6 +809,7 @@ void ToolHeadCNC::cnc_hmi_self_test_interface(uint8_t test_type, uint32_t param)
             tmp_state->run_state == 1 ? "RUN" : "STOPING");
         LOG_I("CNC cur_power: %d target_power: %d\n",  tmp_state->cur_power, tmp_state->target_power);
         LOG_I("CNC cur_rpm: %d target_rpm: %d\n",  tmp_state->cur_rpm, tmp_state->target_rpm);
+        LOG_I("CNC control_mode: %s\n",  tmp_state->control_mode ? "CONSTANT_RPM_MODE" : "CONSTANT_POWER_MODE");
       }
     break;
 

@@ -57,8 +57,7 @@ enum EnclosureSacpRequestCommandId {
 
 typedef struct {
   uint8_t key;
-  uint8_t head_status;
-  bool head_active;   
+  uint8_t head_status; 
   uint8_t light_level; 
   bool check_switch;
   bool door_sta;   

@@ -402,7 +402,6 @@ err_code_t send_enclosure_info_to_hmi(void *obj, sacp_hmi_message_t *msg) {
   tmp_info = (EnclosureInfo *)(msg->data+1);
   tmp_info->key = enclosure.get_key();
   tmp_info->head_status = enclosure.get_status();;    
-  tmp_info->head_active = false;
   tmp_info->light_level = enclosure.light_level;
   tmp_info->check_switch = enclosure.check_switch;
   tmp_info->door_sta = !!(enclosure.enclosure_sta & ENCLOSURE_DOOR_STATUS_MASK);
@@ -535,7 +534,6 @@ uint16_t hmi_subscribe_enclosure_func(void *obj, uint8_t *buffer) {
   tmp_info = (EnclosureInfo *)(buffer + 1);
   tmp_info->key = enclosure.get_key();
   tmp_info->head_status = enclosure.get_status();
-  tmp_info->head_active = false;
   tmp_info->light_level = enclosure.light_level;
   tmp_info->check_switch = enclosure.check_switch;
   tmp_info->door_sta = !!(enclosure.enclosure_sta & ENCLOSURE_DOOR_STATUS_MASK);
@@ -559,7 +557,6 @@ void Enclosure::enclosure_hmi_self_test_interface(uint8_t test_type, uint32_t pa
         tmp_info = (EnclosureInfo *)(msg.data+1);
         LOG_I("send msg len: %d result: %d\n",msg.length, msg.data[0]);
         LOG_I("Enclosure key: %d head_status: %d\n",  tmp_info->key, tmp_info->head_status);
-        LOG_I("Enclosure head_active: %d\n",  tmp_info->head_active);
         LOG_I("Enclosure light level: %d  speed: %d\n",  tmp_info->light_level, tmp_info->fan_speed);
         LOG_I("Enclosure check_switch: %s\n",  tmp_info->check_switch ? "enable" : "disable");
         LOG_I("Enclosure door_sta: %s\n",  tmp_info->door_sta ? "open" : "close");
@@ -598,7 +595,6 @@ void Enclosure::enclosure_hmi_self_test_interface(uint8_t test_type, uint32_t pa
         tmp_info = (EnclosureInfo *)(buff + 1);
         LOG_I("send msg len: %d result: %d\n",msg.length, buff[0]);
         LOG_I("Enclosure key: %d head_status: %d\n",  tmp_info->key, tmp_info->head_status);
-        LOG_I("Enclosure head_active: %d\n",  tmp_info->head_active);
         LOG_I("Enclosure light level: %d  speed: %d\n",  tmp_info->light_level, tmp_info->fan_speed);
         LOG_I("Enclosure check_switch: %s\n",  tmp_info->check_switch ? "enable" : "disable");
         LOG_I("Enclosure door_sta: %s\n",  tmp_info->door_sta ? "open" : "close");

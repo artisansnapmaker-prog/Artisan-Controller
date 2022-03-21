@@ -127,6 +127,8 @@ err_code_t BedVirtual::post_init() {
   if (host_hmi.register_subscription(SACP_CMD_SET_HEATED_BED, SACP_BED_SUBSCRIBE_COMMANDID,\
       this, hmi_subscribe_bed_func))
     return E_FAILURE;
+
+  set_status(MODULE_STATUS_NORMAL);
   return E_SUCCESS;
 }
 

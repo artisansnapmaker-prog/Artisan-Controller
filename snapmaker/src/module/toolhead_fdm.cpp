@@ -231,6 +231,8 @@ static err_code_t hmi_req_callback_get_toolhead_info(void *obj, sacp_hmi_message
   ToolHeadFDM &fdm = *(ToolHeadFDM *)obj;
   uint16_t index = 0;
 
+  LOG_I("hmi request fdm toolhead info\n");
+
   //  result
   msg->data[index++] = E_SUCCESS;
 
@@ -325,7 +327,9 @@ static err_code_t hmi_req_callback_get_toolhead_info(void *obj, sacp_hmi_message
 
 static err_code_t hmi_req_callback_set_hotend_temp(void *obj, sacp_hmi_message_t *msg) {
   ToolHeadFDM &fdm = *(ToolHeadFDM *)obj;
-  err_code_t ret;
+  err_code_t ret = E_SUCCESS;
+
+  LOG_I("hmi request set hotend%d_temp: %d\n", msg->data[1], msg->data[2] << 8 | msg->data[3]);
 
   uint8_t extruders = fdm.get_extruders_count();
 
@@ -334,7 +338,11 @@ static err_code_t hmi_req_callback_set_hotend_temp(void *obj, sacp_hmi_message_t
     goto EXIT;
   }
 
-  ret = fdm.set_hotend_temp(msg->data[2] << 8 | msg->data[1], msg->data[1]);
+  {
+    char gcode_cmd[32];
+    snprintf(gcode_cmd, 32, "M104 T%d S%d", msg->data[1], msg->data[2] << 8 | msg->data[3]);
+    motion_svc.run_gcode(gcode_cmd);
+  }
 
 EXIT:
   // response
@@ -356,6 +364,8 @@ static err_code_t hmi_req_callback_set_filament_detect_ctrl(void *obj, sacp_hmi_
 
   ret = fdm.filament_detect_ctrl(msg->data[2], msg->data[1]);
 
+  LOG_I("hmi request set extruder%d filament state: %d\n", msg->data[1], msg->data[2]);
+
 EXIT:
   uint16_t index = 0;
   msg->data[index++] = ret;
@@ -372,6 +382,8 @@ static err_code_t hmi_req_callback_switch_extruder(void *obj, sacp_hmi_message_t
     ret = E_PARAM;
     goto EXIT;
   }
+
+  LOG_I("switch to extruder: %d\n", msg->data[1]);
 
   ret = fdm.switch_extruder(msg->data[1]);
 
@@ -404,6 +416,8 @@ static err_code_t hmi_req_callback_set_fan_speed(void *obj, sacp_hmi_message_t *
     goto EXIT;
   }
 
+  LOG_I("hmi request set fan%d, speed: %d\n", msg->data[1], msg->data[2]);
+
   ret = fdm.set_fan_speed(msg->data[1], msg->data[2]);
 
 EXIT:
@@ -417,6 +431,9 @@ EXIT:
 static err_code_t hmi_req_callback_set_hotend_offset(void *obj, sacp_hmi_message_t *msg) {
   ToolHeadFDM &fdm = *(ToolHeadFDM *)obj;
   err_code_t ret = E_SUCCESS;
+  uint8_t key;
+  uint8_t array_size;
+  uint8_t e;
   uint8_t axis;
   float offset;
 
@@ -425,16 +442,38 @@ static err_code_t hmi_req_callback_set_hotend_offset(void *obj, sacp_hmi_message
     goto EXIT;
   }
 
-  axis = msg->data[1];
-  offset = ((msg->data[2] << 24) | (msg->data[3] << 16) | (msg->data[4] << 8) | msg->data[5]) / 1000;
+  LOG_I("hmi request set hotend_offset, ");
+
+  key = msg->data[0];
+  array_size = msg->data[1];
+  e = msg->data[2];
+  axis = msg->data[3];
+  ((uint8_t *)&offset)[0] = msg->data[4];
+  ((uint8_t *)&offset)[1] = msg->data[5];
+  ((uint8_t *)&offset)[2] = msg->data[6];
+  ((uint8_t *)&offset)[3] = msg->data[7];
+  offset = offset / 1000;
+  LOG_I("x: %f, ", offset);
   ret = fdm.set_hotend_offset(offset, axis);
 
-  axis = msg->data[6];
-  offset = ((msg->data[7] << 24) | (msg->data[8] << 16) | (msg->data[9] << 8) | msg->data[10]) / 1000;
+  e = msg->data[8];
+  axis = msg->data[9];
+  ((uint8_t *)&offset)[0] = msg->data[10];
+  ((uint8_t *)&offset)[1] = msg->data[11];
+  ((uint8_t *)&offset)[2] = msg->data[12];
+  ((uint8_t *)&offset)[3] = msg->data[13];
+  offset = offset / 1000;
+  LOG_I("y: %f, ", offset);
   ret = fdm.set_hotend_offset(offset, axis);
 
-  axis = msg->data[11];
-  offset = ((msg->data[12] << 24) | (msg->data[13] << 16) | (msg->data[14] << 8) | msg->data[15]) / 1000;
+  e = msg->data[14];
+  axis = msg->data[15];
+  ((uint8_t *)&offset)[0] = msg->data[16];
+  ((uint8_t *)&offset)[1] = msg->data[17];
+  ((uint8_t *)&offset)[2] = msg->data[18];
+  ((uint8_t *)&offset)[3] = msg->data[19];
+  offset = offset / 1000;
+  LOG_I("z: %f\n", offset);
   ret = fdm.set_hotend_offset(offset, axis);
 
 EXIT:

@@ -437,8 +437,8 @@ err_code_t ModuleService::get_function_list(ModuleBase &module) {
   sacp_module_message_t cmd;
   err_code_t ret;
 
-  uint8_t  recv_buffer[32] {0};
-  uint16_t recv_length = 32;
+  uint8_t  recv_buffer[60] {0};
+  uint16_t recv_length = 60;
 
   // for CAN link, peer need to be MAC
   cmd.peer   = module.get_mac();

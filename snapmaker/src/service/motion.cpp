@@ -486,7 +486,7 @@ int16_t target_bed_temp(uint8_t area_id = 0) {
 }
 err_code_t MotionService::run_gcode(char *gcode, bool blocked /* = false*/,
     uint32_t blocked_timeout/*= 180 * 1000 ms*/) {
-  int length = strlen(gcode);
+  int length = strlen(gcode) + 1;
 
   if (length > MAX_CMD_SIZE) {
     LOG_E("length of gcode is out of range: %d\n", MAX_CMD_SIZE);
@@ -494,7 +494,7 @@ err_code_t MotionService::run_gcode(char *gcode, bool blocked /* = false*/,
   }
 
   int wl = xMessageBufferSend(gcode_queue, gcode, length + 1, pdMS_TO_TICKS(100));
-  if (wl == (length + 1)) {
+  if (wl != (length + 1)) {
     LOG_E("fail to submit gcode: %s\n", gcode);
     return E_TIMEOUT;
   }

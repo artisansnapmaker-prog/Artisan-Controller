@@ -32,51 +32,15 @@ enum LinearSACPCommandId {
 
 #define LINEAR_VIRTUAL_OBJECT_MAX (6)
 
-extern pin_t X_MIN_PIN_var;
-extern pin_t Y_MAX_PIN_var;
-extern pin_t Y2_MAX_PIN_var;
-extern pin_t Z_MAX_PIN_var;
-extern pin_t Z2_MAX_PIN_var;
 class LinearVirtual: public ModuleBase {
   // public methods
   public:
     LinearVirtual(uint32_t mac, uint8_t key, uint8_t sub_index): ModuleBase(mac, key, sub_index) {
       if (object_index < LINEAR_VIRTUAL_OBJECT_MAX)
         objects[object_index++] = this;
-
-      // TODO: setup detect pin
-      switch (sub_index) {
-      case MODULE_LINEAR_X1:
-        endstop_pin = X_MIN_PIN_var;
-        lead = 40;
-        break;      
-
-      case MODULE_LINEAR_Y1:
-        endstop_pin = Y_MAX_PIN_var;
-        lead = 40;
-        break;      
-
-      case MODULE_LINEAR_Z1:
-        endstop_pin = Z_MAX_PIN_var;
-        lead = 8;
-        break;      
-
-      case MODULE_LINEAR_Z2:
-        endstop_pin = Z2_MAX_PIN_var;
-        lead = 8;
-        break;      
-
-      case MODULE_LINEAR_Y2:
-        endstop_pin = Y2_MAX_PIN_var;
-        lead = 40;
-        break;      
-
-      default:
-        break;      
-      }
     }
     bool check_online() { return true; }
-    err_code_t pre_init() { return E_SUCCESS; }
+    err_code_t pre_init();
     err_code_t post_init();
     err_code_t deinit() { return E_SUCCESS; }
 

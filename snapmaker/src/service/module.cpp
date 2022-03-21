@@ -373,6 +373,7 @@ int ModuleService::init_virtual_modules() {
     LOG_E("failed to create module [0x%x, %u]\n", mac, MODULE_LINEAR_X1);
   }
   else {
+    module->pre_init();
     module->set_fw_version("v1.0.0");
     modules[configured_module++] = module;
   }
@@ -382,6 +383,7 @@ int ModuleService::init_virtual_modules() {
     LOG_E("failed to create module [0x%x, %u]\n", mac, MODULE_LINEAR_Y1);
   }
   else {
+    module->pre_init();
     module->set_fw_version("v1.0.0");
     modules[configured_module++] = module;
   }
@@ -391,6 +393,7 @@ int ModuleService::init_virtual_modules() {
     LOG_E("failed to create module [0x%x, %u]\n", mac, MODULE_LINEAR_Z1);
   }
   else {
+    module->pre_init();
     module->set_fw_version("v1.0.0");
     modules[configured_module++] = module;
   }
@@ -400,6 +403,8 @@ int ModuleService::init_virtual_modules() {
     LOG_E("failed to create module [0x%x, %u]\n", mac, MODULE_LINEAR_Y2);
   }
   else {
+    module->pre_init();
+    module->set_fw_version("v1.0.0");
     modules[configured_module++] = module;
   }
 
@@ -408,6 +413,7 @@ int ModuleService::init_virtual_modules() {
     LOG_E("failed to create module [0x%x, %u]\n", mac, MODULE_LINEAR_Z2);
   }
   else {
+    module->pre_init();
     module->set_fw_version("v1.0.0");
     modules[configured_module++] = module;
   }
@@ -418,6 +424,7 @@ int ModuleService::init_virtual_modules() {
     LOG_E("failed to create module [0x%x, %u]\n", mac, 0);
   }
   else {
+    module->pre_init();
     module->set_fw_version("v1.0.0");
     modules[configured_module++] = module;
   }

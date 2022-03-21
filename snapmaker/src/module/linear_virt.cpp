@@ -2,10 +2,54 @@
 #include "../host/sacp_hmi.h"
 #include "../service/motion.h"
 
+extern int16_t X_DETECT_PIN_var;
+extern int16_t Y_DETECT_PIN_var;
+extern int16_t Y2_DETECT_PIN_var;
+extern int16_t Z_DETECT_PIN_var;
+extern int16_t Z2_DETECT_PIN_var;
 
 LinearVirtual *LinearVirtual::objects[LINEAR_VIRTUAL_OBJECT_MAX] {NULL, NULL, NULL, NULL, NULL};
 uint8_t LinearVirtual::object_index = 0;
 
+err_code_t LinearVirtual::pre_init() {
+  // TODO: setup detect pin
+  switch (get_sub_index()) {
+  case MODULE_LINEAR_X1:
+    endstop_pin = X_MIN_PIN_var;
+    detect_pin  = X_DETECT_PIN_var;
+    lead = 40;
+    break;      
+
+  case MODULE_LINEAR_Y1:
+    endstop_pin = Y_MAX_PIN_var;
+    detect_pin  = Y_DETECT_PIN_var;
+    lead = 40;
+    break;      
+
+  case MODULE_LINEAR_Z1:
+    endstop_pin = Z_MAX_PIN_var;
+    detect_pin  = Z_DETECT_PIN_var;
+    lead = 8;
+    break;      
+
+  case MODULE_LINEAR_Z2:
+    endstop_pin = Z2_MAX_PIN_var;
+    detect_pin  = Z2_DETECT_PIN_var;
+    lead = 8;
+    break;      
+
+  case MODULE_LINEAR_Y2:
+    endstop_pin = Y2_MAX_PIN_var;
+    detect_pin  = Y2_DETECT_PIN_var;
+    lead = 40;
+    break;      
+
+  default:
+    break;      
+  }
+
+  return E_SUCCESS;
+}
 
 
 err_code_t LinearVirtual::post_init() {
@@ -15,6 +59,10 @@ err_code_t LinearVirtual::post_init() {
           (void *)this, hmi_cb_get_info);
   host_hmi.register_callback(SACP_CMD_SET_LINEAR_MODULE, SACP_CMD_ID_LINEAR_SET_ENDSTOP,
           (void *)this, hmi_cb_set_endstop);
+
+  pinMode(detect_pin, INPUT_ANALOG);
+
+  LOG_I("axis[%u], vol: %d mV\n", get_sub_index(), analogRead(detect_pin));
 
   set_status(MODULE_STATUS_NORMAL);
 

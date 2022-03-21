@@ -196,7 +196,7 @@ err_code_t Enclosure::set_enclosure_dev_func(uint8_t dev_type, uint8_t value, bo
   uint8_t recv_len = 0;
   smcan_message_t msg;
   err_code_t ret = E_FAILURE;   
-  value = value >= 100 ? 255 : value * 255 / 100;
+  value = value >= 100 ? 100 : value;
   switch (dev_type) {
     case 0:
       msg.id = get_message_id(MODULE_FUNC_SET_ENCLOSURE_LIGHT);

@@ -257,6 +257,7 @@ bool ClientNode::sacp_get_batch_gcode(req_batch_gcode_t &req_batch_gcode, res_ba
   // peer id? and send id?
   // seq not change
   s_msg.ch = _ch;
+  s_msg.peer = SACP_HOST_ID_SCREEN;
   s_msg.attr = 0;
   s_msg.data = buf;
   s_msg.cmd_set = CMD_SET_JOB_CTRL;

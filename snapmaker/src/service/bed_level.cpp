@@ -36,6 +36,8 @@ static err_code_t hmi_req_callback_set_level_mode(void *obj, sacp_hmi_message_t 
   err_code_t ret;
   enum SystemStatus req_status, ret_status;
 
+  LOG_I("hmi request set bedlevel mode: %d\n", msg->data[0]);
+
   if (smprinter.get_sys_status() != SYSTEM_STATUS_IDLE) {
     ret = E_BUSY;
     goto EXIT;
@@ -85,6 +87,8 @@ static err_code_t hmi_req_callback_start_level(void *obj, sacp_hmi_message_t *ms
   err_code_t ret = E_SUCCESS;
   uint8_t grid;
 
+  LOG_I("hmi request start bedlevel\n");
+
   uint8_t mode = bedlevel.get_bedlevel_mode();
   if ((mode != BEDLEVEL_MODE_AUTO) && (mode != BEDLEVEL_MODE_MANUAL)) {
     ret = E_BUSY;
@@ -118,6 +122,8 @@ static err_code_t hmi_req_callback_goto_probe_point(void *obj, sacp_hmi_message_
   err_code_t ret;
   uint8_t point_index;
 
+  LOG_I("hmi request goto bedlevel point: %d\n", msg->data[0]);
+
   uint8_t mode = bedlevel.get_bedlevel_mode();
   if (mode != BEDLEVEL_MODE_MANUAL) {
     ret = E_BUSY;
@@ -141,6 +147,8 @@ static err_code_t hmi_req_callback_exit_level(void *obj, sacp_hmi_message_t *msg
   BedLevelService &bedlevel = *(BedLevelService *)obj;
   err_code_t ret = E_SUCCESS;
   enum SystemStatus ret_status;
+
+  LOG_I("hmi request exti bedlevel mode\n");
 
   if (smprinter.get_sys_status() == SYSTEM_STATUS_IDLE) {
     ret = E_SUCCESS;
@@ -207,6 +215,8 @@ EXIT:
 static err_code_t hmi_req_callback_get_level_state(void *obj, sacp_hmi_message_t *msg) {
   BedLevelService &bedlevel = *(BedLevelService *)obj;
 
+  LOG_I("hmi request get level state\n");
+
   msg->data[0] = bedlevel.is_bedleveled();
   msg->length = 1;
   host_hmi.send_ack(msg);
@@ -218,6 +228,8 @@ static err_code_t hmi_req_callback_bed_position_detection(void *obj, sacp_hmi_me
   err_code_t ret = E_SUCCESS;
   uint8_t extruder_index = msg->data[0];
   float x, y;
+
+  LOG_I("hmi request bed position detection\n");
 
   if ((bedlevel.get_bedlevel_mode() != BEDLEVEL_MODE_AUTO_BED_DETECTION) && (bedlevel.get_bedlevel_mode() != BEDLEVEL_MODE_MANUAL_BED_DETECTION)) {
     ret = E_FAILURE;
@@ -260,6 +272,8 @@ static err_code_t hmi_req_callback_probe_sensor_calibration(void *obj, sacp_hmi_
   err_code_t ret = E_SUCCESS;
   uint8_t action = msg->data[0];
   float x, y;
+
+  LOG_I("hmi request probe sensor calibration\n");
 
   if (bedlevel.get_bedlevel_mode() != BEDLEVEL_MODE_PROBE_SENSOR_CALIBRATE) {
     ret = E_FAILURE;
@@ -316,8 +330,14 @@ static err_code_t hmi_req_callback_set_live_z_offset(void *obj, sacp_hmi_message
   BedLevelService &bedlevel = *(BedLevelService *)obj;
   err_code_t ret = E_SUCCESS;
   uint8_t e = msg->data[1];
-  float offset = (msg->data[2] << 24) | (msg->data[3] << 16) | (msg->data[4] << 8) | msg->data[5];
+  float offset;
+  ((uint8_t *)&offset)[0] = msg->data[2];
+  ((uint8_t *)&offset)[1] = msg->data[3];
+  ((uint8_t *)&offset)[2] = msg->data[4];
+  ((uint8_t *)&offset)[3] = msg->data[5];
   offset = offset / 1000;
+
+  LOG_I("hmi request set live z offset, e: %d, offset: %f\n", e, offset);
 
   if (bedlevel.get_bedlevel_mode() != BEDLEVEL_MODE_IDLE) {
     ret = E_FAILURE;
@@ -351,6 +371,8 @@ static err_code_t hmi_req_callback_get_live_z_offset(void *obj, sacp_hmi_message
   BedLevelService &bedlevel = *(BedLevelService *)obj;
   uint16_t index = 0;
   uint8_t key = msg->data[0];
+
+  LOG_I("hmi reqeust get live z offset\n");
 
   // result
   msg->data[index++] = E_SUCCESS;

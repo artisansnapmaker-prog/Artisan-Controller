@@ -670,6 +670,7 @@ void GcodeSuite::M2000() {
           z = z * 1000;
           buffer[index++] = smprinter.fdm->get_key();
           buffer[index++] = e;
+          buffer[index++] = ((uint8_t *)&z)[0];
           buffer[index++] = ((uint8_t *)&z)[1];
           buffer[index++] = ((uint8_t *)&z)[2];
           buffer[index++] = ((uint8_t *)&z)[3];

@@ -85,11 +85,11 @@ void GcodeSuite::M2000() {
       /* start a job */
       uint8_t msg_buf[128];
       uint8_t *p = msg_buf;
-      _16_TO_LITTLE_STREAM(32, p); 
+      _16_TO_LITTLE_STREAM(32, p);
       p += 2;
-      memcpy(p, "0123456789ABCDEF0123456789ABCDEF", 32); 
+      memcpy(p, "0123456789ABCDEF0123456789ABCDEF", 32);
       p += 32;
-      _16_TO_LITTLE_STREAM(9, p); 
+      _16_TO_LITTLE_STREAM(9, p);
       p += 2;
       memcpy(p, "gcodefile", 9);
       p += 9;
@@ -357,7 +357,7 @@ void GcodeSuite::M2000() {
       LOG_I("set cnc Kd: %f\n",tmp);
       smprinter.spindle_debug_config(CMD_SET_MOTOR_PID_KD, (uint32_t)(tmp * 1000));
     }
-    
+
     smprinter.spindle_debug_config(CMD_GET_MOTOR_PID_KP, 0);
     smprinter.spindle_debug_config(CMD_GET_MOTOR_PID_KI, 0);
     smprinter.spindle_debug_config(CMD_GET_MOTOR_PID_KD, 0);
@@ -373,7 +373,7 @@ void GcodeSuite::M2000() {
     // get cnc status
     smprinter.get_spindle_status();
     break;
-  
+
   case 5:
     // send cnc head info to hmi 0x11 0x1
     smprinter.spindle_hmi_self_test_interface(0, 0);
@@ -407,7 +407,7 @@ void GcodeSuite::M2000() {
     // hmi cnc subscription 0x11 0xa0
     smprinter.spindle_hmi_self_test_interface(5, 0);
     break;
-  
+
   case 11:
     p = parser.byteval('P', 0);
     if (p > 3) p = 3;
@@ -430,190 +430,97 @@ void GcodeSuite::M2000() {
     break;
   }
 
-  switch (f) {
-    case 0:
-      {
-        sacp_hmi_message_t msg;
-        uint8_t msg_buf[1];
-        uint16_t index = 0;
-        msg.peer = SACP_HOST_ID_SCREEN;
-        msg.ch = SACP_HMI_CH_SCREEN;
-        msg.attr = SACP_MESSAGE_ATTR_SET_SEQ;
-        msg.seq = 1;
-        msg.cmd_set = SACP_CMD_SET_FDM;
-        msg.cmd_id = FDM_REQ_CMD_ID_GET_TOOLHEAD_INFO;
-
-        msg_buf[index++] = smprinter.fdm->get_key();
-        msg.data = msg_buf;
-        msg.length = index;
-        ClientNode::sacp_cb(smprinter.fdm, &msg);
-      }
-      break;
-    case 1:
-      {
-        sacp_hmi_message_t msg;
-        uint8_t msg_buf[4];
-        uint16_t index = 0;
-        uint8_t e = (uint8_t)parser.byteval('E', (uint8_t)0);
-        uint16_t temp = (uint16_t)parser.byteval('T', (uint16_t)0);
-        msg.peer = SACP_HOST_ID_SCREEN;
-        msg.ch = SACP_HMI_CH_SCREEN;
-        msg.attr = SACP_MESSAGE_ATTR_SET_SEQ;
-        msg.seq = 1;
-        msg.cmd_set = SACP_CMD_SET_FDM;
-        msg.cmd_id = FDM_REQ_CMD_ID_SET_HOTEND_TEMP;
-
-        msg_buf[index++] = smprinter.fdm->get_key();
-        msg_buf[index++] = e;
-        msg_buf[index++] = temp >> 8;
-        msg_buf[index++] = temp & 0xff;
-        msg.data = msg_buf;
-        msg.length = index;
-        ClientNode::sacp_cb(smprinter.fdm, &msg);
-      }
-      break;
-    case 2:
-      {
-        sacp_hmi_message_t msg;
-        uint8_t msg_buf[3];
-        uint16_t index = 0;
-        uint8_t e = (uint8_t)parser.byteval('E', (uint8_t)0);
-        uint8_t state = (uint16_t)parser.byteval('O', (uint16_t)0);
-        msg.peer = SACP_HOST_ID_SCREEN;
-        msg.ch = SACP_HMI_CH_SCREEN;
-        msg.attr = SACP_MESSAGE_ATTR_SET_SEQ;
-        msg.seq = 1;
-        msg.cmd_set = SACP_CMD_SET_FDM;
-        msg.cmd_id = FDM_REQ_CMD_ID_FILAMENT_DETECT_CTRL;
-
-        msg_buf[index++] = smprinter.fdm->get_key();
-        msg_buf[index++] = e;
-        msg_buf[index++] = state;
-        msg.data = msg_buf;
-        msg.length = index;
-        ClientNode::sacp_cb(smprinter.fdm, &msg);
-      }
-      break;
-    case 3:
-      {
-        sacp_hmi_message_t msg;
-        uint8_t msg_buf[2];
-        uint16_t index = 0;
-        uint8_t t = (uint8_t)parser.byteval('T', (uint8_t)0);
-        msg.peer = SACP_HOST_ID_SCREEN;
-        msg.ch = SACP_HMI_CH_SCREEN;
-        msg.attr = SACP_MESSAGE_ATTR_SET_SEQ;
-        msg.seq = 1;
-        msg.cmd_set = SACP_CMD_SET_FDM;
-        msg.cmd_id = FDM_REQ_CMD_ID_SWITCH_EXTRUDER;
-
-        msg_buf[index++] = smprinter.fdm->get_key();
-        msg_buf[index++] = t;
-        msg.data = msg_buf;
-        msg.length = index;
-        ClientNode::sacp_cb(smprinter.fdm, &msg);
-      }
-      break;
-    case 4:
-      {
-        sacp_hmi_message_t msg;
-        uint8_t msg_buf[3];
-        uint16_t index = 0;
-        uint8_t i = (uint8_t)parser.byteval('I', (uint8_t)0);
-        uint8_t d = (uint8_t)parser.byteval('D', (uint8_t)0);
-        msg.peer = SACP_HOST_ID_SCREEN;
-        msg.ch = SACP_HMI_CH_SCREEN;
-        msg.attr = SACP_MESSAGE_ATTR_SET_SEQ;
-        msg.seq = 1;
-        msg.cmd_set = SACP_CMD_SET_FDM;
-        msg.cmd_id = FDM_REQ_CMD_ID_SET_FAN_SPEED;
-
-        msg_buf[index++] = smprinter.fdm->get_key();
-        msg_buf[index++] = i;
-        msg_buf[index++] = d;
-        msg.data = msg_buf;
-        msg.length = index;
-        ClientNode::sacp_cb(smprinter.fdm, &msg);
-      }
-      break;
-    case 5:
-      {
-        sacp_hmi_message_t msg;
-        uint8_t msg_buf[15];
-        uint16_t index = 0;
-        float x = (float)parser.floatval('X', (float)0);
-        float y = (float)parser.floatval('Y', (float)0);
-        float z = (float)parser.floatval('Z', (float)0);
-        x = x*1000;
-        y = y*1000;
-        z = z*1000;
-        msg.peer = SACP_HOST_ID_SCREEN;
-        msg.ch = SACP_HMI_CH_SCREEN;
-        msg.attr = SACP_MESSAGE_ATTR_SET_SEQ;
-        msg.seq = 1;
-        msg.cmd_set = SACP_CMD_SET_FDM;
-        msg.cmd_id = FDM_REQ_CMD_ID_SET_HOTEND_OFFSET;
-
-        msg_buf[index++] = smprinter.fdm->get_key();
-        msg_buf[index++] = 1;  // array size
-        msg_buf[index++] = 1;  // extruder index
-        msg_buf[index++] = ((uint8_t *)&x)[0];
-        msg_buf[index++] = ((uint8_t *)&x)[1];
-        msg_buf[index++] = ((uint8_t *)&x)[2];
-        msg_buf[index++] = ((uint8_t *)&x)[3];
-        msg_buf[index++] = ((uint8_t *)&y)[0];
-        msg_buf[index++] = ((uint8_t *)&y)[1];
-        msg_buf[index++] = ((uint8_t *)&y)[2];
-        msg_buf[index++] = ((uint8_t *)&y)[3];
-        msg_buf[index++] = ((uint8_t *)&z)[0];
-        msg_buf[index++] = ((uint8_t *)&z)[1];
-        msg_buf[index++] = ((uint8_t *)&z)[2];
-        msg_buf[index++] = ((uint8_t *)&z)[3];
-        msg.data = msg_buf;
-        msg.length = index;
-        ClientNode::sacp_cb(smprinter.fdm, &msg);
-      }
-      break;
-    case 6:
-      {
-        sacp_hmi_message_t msg;
-        uint8_t msg_buf[1];
-        uint16_t index = 0;
-        msg.peer = SACP_HOST_ID_SCREEN;
-        msg.ch = SACP_HMI_CH_SCREEN;
-        msg.attr = SACP_MESSAGE_ATTR_SET_SEQ;
-        msg.seq = 1;
-        msg.cmd_set = SACP_CMD_SET_FDM;
-        msg.cmd_id = FDM_REQ_CMD_ID_GET_HOTEND_OFFSET;
-
-        msg_buf[index++] = smprinter.fdm->get_key();
-        msg.data = msg_buf;
-        msg.length = index;
-        ClientNode::sacp_cb(smprinter.fdm, &msg);
-      }
-      break;
-    case 7:
-      {
-        sacp_hmi_message_t msg;
-        uint8_t msg_buf[1];
-        uint16_t index = 0;
-        msg.peer = SACP_HOST_ID_SCREEN;
-        msg.ch = SACP_HMI_CH_SCREEN;
-        msg.attr = SACP_MESSAGE_ATTR_SET_SEQ;
-        msg.seq = 1;
-        msg.cmd_set = SACP_CMD_SET_FDM;
-        msg.cmd_id = FDM_SUBSCRIPT_CMD_ID_EXTRUDER_INFO;
-
-        msg.data = msg_buf;
-        msg.length = index;
-        ClientNode::sacp_cb(smprinter.fdm, &msg);
-      }
-      break;
-    default:
-      break;
+  {
+    uint8_t buffer[100];
+    uint8_t index = 0;
+    switch (f) {
+      case 0:
+        {
+          buffer[index++] = smprinter.fdm->get_key();
+          host_hmi.test_interface(SACP_CMD_SET_FDM, FDM_REQ_CMD_ID_GET_TOOLHEAD_INFO, buffer, index);
+        }
+        break;
+      case 1:
+        {
+          uint8_t e = (uint8_t)parser.byteval('E', (uint8_t)0);
+          uint16_t temp = (uint16_t)parser.byteval('T', (uint16_t)0);
+          buffer[index++] = smprinter.fdm->get_key();
+          buffer[index++] = e;
+          buffer[index++] = temp >> 8;
+          buffer[index++] = temp & 0xff;
+          host_hmi.test_interface(SACP_CMD_SET_FDM, FDM_REQ_CMD_ID_SET_HOTEND_TEMP, buffer, index);
+        }
+        break;
+      case 2:
+        {
+          uint8_t e = (uint8_t)parser.byteval('E', (uint8_t)0);
+          uint8_t state = (uint16_t)parser.byteval('O', (uint16_t)0);
+          buffer[index++] = smprinter.fdm->get_key();
+          buffer[index++] = e;
+          buffer[index++] = state;
+          host_hmi.test_interface(SACP_CMD_SET_FDM, FDM_REQ_CMD_ID_FILAMENT_DETECT_CTRL, buffer, index);
+        }
+        break;
+      case 3:
+        {
+          uint8_t t = (uint8_t)parser.byteval('T', (uint8_t)0);
+          buffer[index++] = smprinter.fdm->get_key();
+          buffer[index++] = t;
+          host_hmi.test_interface(SACP_CMD_SET_FDM, FDM_REQ_CMD_ID_SWITCH_EXTRUDER, buffer, index);
+        }
+        break;
+      case 4:
+        {
+          uint8_t i = (uint8_t)parser.byteval('I', (uint8_t)0);
+          uint8_t d = (uint8_t)parser.byteval('D', (uint8_t)0);
+          buffer[index++] = smprinter.fdm->get_key();
+          buffer[index++] = i;
+          buffer[index++] = d;
+          host_hmi.test_interface(SACP_CMD_SET_FDM, FDM_REQ_CMD_ID_SET_FAN_SPEED, buffer, index);
+        }
+        break;
+      case 5:
+        {
+          float x = (float)parser.floatval('X', (float)0);
+          float y = (float)parser.floatval('Y', (float)0);
+          float z = (float)parser.floatval('Z', (float)0);
+          x = x*1000;
+          y = y*1000;
+          z = z*1000;
+          buffer[index++] = smprinter.fdm->get_key();
+          buffer[index++] = 1;  // array size
+          buffer[index++] = 1;  // extruder index
+          buffer[index++] = ((uint8_t *)&x)[0];
+          buffer[index++] = ((uint8_t *)&x)[1];
+          buffer[index++] = ((uint8_t *)&x)[2];
+          buffer[index++] = ((uint8_t *)&x)[3];
+          buffer[index++] = ((uint8_t *)&y)[0];
+          buffer[index++] = ((uint8_t *)&y)[1];
+          buffer[index++] = ((uint8_t *)&y)[2];
+          buffer[index++] = ((uint8_t *)&y)[3];
+          buffer[index++] = ((uint8_t *)&z)[0];
+          buffer[index++] = ((uint8_t *)&z)[2];
+          buffer[index++] = ((uint8_t *)&z)[3];
+          host_hmi.test_interface(SACP_CMD_SET_FDM, FDM_REQ_CMD_ID_SET_HOTEND_OFFSET, buffer, index);
+        }
+        break;
+      case 6:
+        {
+          buffer[index++] = smprinter.fdm->get_key();
+          host_hmi.test_interface(SACP_CMD_SET_FDM, FDM_REQ_CMD_ID_GET_HOTEND_OFFSET, buffer, index);
+        }
+        break;
+      case 7:
+        {
+          host_hmi.test_interface(SACP_CMD_SET_FDM, FDM_SUBSCRIPT_CMD_ID_EXTRUDER_INFO, buffer, index);
+        }
+        break;
+      default:
+        break;
+    }
   }
 
-  switch (w) 
+  switch (w)
   {
   case 0:
     // get enclosure status
@@ -631,7 +538,7 @@ void GcodeSuite::M2000() {
     p = p > 100 ? 100 : p;
     smprinter.set_enclosure_fan_speed((uint8_t)p);
     break;
-  
+
   case 3:
     // send enclosure head info to hmi 0x15 0x1
     smprinter.enclosure_hmi_self_test_interface(0, 0);
@@ -660,7 +567,7 @@ void GcodeSuite::M2000() {
     smprinter.enclosure_hmi_self_test_interface(4, 0);
     break;
 
-  // bed 
+  // bed
   case 20:
   case 21:
   case 22:
@@ -674,180 +581,76 @@ void GcodeSuite::M2000() {
     break;
   }
 
-  switch (b) {
-    case 0:
-      {
-        sacp_hmi_message_t msg;
-        uint8_t msg_buf[1];
-        uint16_t index = 0;
-        uint8_t m = (uint8_t)parser.byteval('M', (uint8_t)2);
-        msg.peer = SACP_HOST_ID_SCREEN;
-        msg.ch = SACP_HMI_CH_SCREEN;
-        msg.attr = SACP_MESSAGE_ATTR_SET_SEQ;
-        msg.seq = 1;
-        msg.cmd_set = SACP_CMD_SET_CALIBRATE_FDM;
-        msg.cmd_id = BEDLEVEL_REQ_CMD_ID_SET_LEVEL_MODE;
-
-        msg_buf[index++] = m;
-        msg.data = msg_buf;
-        msg.length = index;
-        ClientNode::sacp_cb(&bedlevel_svc, &msg);
-      }
-      break;
-    case 1:
-      {
-        sacp_hmi_message_t msg;
-        uint8_t msg_buf[1];
-        uint16_t index = 0;
-        uint8_t g = (uint8_t)parser.byteval('G', (uint8_t)3);
-        msg.peer = SACP_HOST_ID_SCREEN;
-        msg.ch = SACP_HMI_CH_SCREEN;
-        msg.attr = SACP_MESSAGE_ATTR_SET_SEQ;
-        msg.seq = 1;
-        msg.cmd_set = SACP_CMD_SET_CALIBRATE_FDM;
-        msg.cmd_id = BEDLEVEL_REQ_CMD_ID_START_LEVEL;
-
-        msg_buf[index++] = g;
-        msg.data = msg_buf;
-        msg.length = index;
-        ClientNode::sacp_cb(&bedlevel_svc, &msg);
-      }
-      break;
-    case 2:
-      {
-        sacp_hmi_message_t msg;
-        uint8_t msg_buf[1];
-        uint16_t index = 0;
-        uint8_t p = (uint8_t)parser.byteval('P', (uint8_t)1);
-        msg.peer = SACP_HOST_ID_SCREEN;
-        msg.ch = SACP_HMI_CH_SCREEN;
-        msg.attr = SACP_MESSAGE_ATTR_SET_SEQ;
-        msg.seq = 1;
-        msg.cmd_set = SACP_CMD_SET_CALIBRATE_FDM;
-        msg.cmd_id = BEDLEVEL_REQ_CMD_ID_GOTO_PROBE_POINT;
-
-        msg_buf[index++] = p;
-        msg.data = msg_buf;
-        msg.length = index;
-        ClientNode::sacp_cb(&bedlevel_svc, &msg);
-      }
-      break;
-    case 3:
-      {
-        sacp_hmi_message_t msg;
-        uint8_t msg_buf[1];
-        uint16_t index = 0;
-        msg.peer = SACP_HOST_ID_SCREEN;
-        msg.ch = SACP_HMI_CH_SCREEN;
-        msg.attr = SACP_MESSAGE_ATTR_SET_SEQ;
-        msg.seq = 1;
-        msg.cmd_set = SACP_CMD_SET_CALIBRATE_FDM;
-        msg.cmd_id = BEDLEVEL_REQ_CMD_ID_EXIT_LEVEL;
-
-        msg.data = msg_buf;
-        msg.length = index;
-        ClientNode::sacp_cb(&bedlevel_svc, &msg);
-      }
-      break;
-    case 4:
-      {
-        sacp_hmi_message_t msg;
-        uint8_t msg_buf[1];
-        uint16_t index = 0;
-        msg.peer = SACP_HOST_ID_SCREEN;
-        msg.ch = SACP_HMI_CH_SCREEN;
-        msg.attr = SACP_MESSAGE_ATTR_SET_SEQ;
-        msg.seq = 1;
-        msg.cmd_set = SACP_CMD_SET_CALIBRATE_FDM;
-        msg.cmd_id = BEDLEVEL_REQ_CMD_ID_GET_LEVEL_STATE;
-
-        msg.data = msg_buf;
-        msg.length = index;
-        ClientNode::sacp_cb(&bedlevel_svc, &msg);
-      }
-      break;
-    case 5:
-      {
-        sacp_hmi_message_t msg;
-        uint8_t msg_buf[1];
-        uint16_t index = 0;
-        msg.peer = SACP_HOST_ID_SCREEN;
-        msg.ch = SACP_HMI_CH_SCREEN;
-        msg.attr = SACP_MESSAGE_ATTR_SET_SEQ;
-        msg.seq = 1;
-        msg.cmd_set = SACP_CMD_SET_CALIBRATE_FDM;
-        msg.cmd_id = BEDLEVEL_REQ_CMD_ID_BED_POSITION_DETECTION;
-
-        msg.data = msg_buf;
-        msg.length = index;
-        ClientNode::sacp_cb(&bedlevel_svc, &msg);
-      }
-      break;
-    case 6:
-      {
-        sacp_hmi_message_t msg;
-        uint8_t msg_buf[1];
-        uint16_t index = 0;
-        uint8_t p = (uint8_t)parser.byteval('P', (uint8_t)1);
-        msg.peer = SACP_HOST_ID_SCREEN;
-        msg.ch = SACP_HMI_CH_SCREEN;
-        msg.attr = SACP_MESSAGE_ATTR_SET_SEQ;
-        msg.seq = 1;
-        msg.cmd_set = SACP_CMD_SET_CALIBRATE_FDM;
-        msg.cmd_id = BEDLEVEL_REQ_CMD_ID_PROBE_SENSOR_CALIBRATION;
-
-        msg_buf[index++] = p;
-        msg.data = msg_buf;
-        msg.length = index;
-        ClientNode::sacp_cb(&bedlevel_svc, &msg);
-      }
-      break;
-    case 7:
-      {
-        sacp_hmi_message_t msg;
-        uint8_t msg_buf[1];
-        uint16_t index = 0;
-        uint8_t e = (uint8_t)parser.byteval('E', (uint8_t)0);
-        float z = (float)parser.floatval('Z', (float)0);
-        z = z * 1000;
-        msg.peer = SACP_HOST_ID_SCREEN;
-        msg.ch = SACP_HMI_CH_SCREEN;
-        msg.attr = SACP_MESSAGE_ATTR_SET_SEQ;
-        msg.seq = 1;
-        msg.cmd_set = SACP_CMD_SET_CALIBRATE_FDM;
-        msg.cmd_id = BEDLEVEL_REQ_CMD_ID_SET_LIVE_Z_OFFSET;
-
-        msg_buf[index++] = smprinter.fdm->get_key();
-        msg_buf[index++] = e;
-        msg_buf[index++] = ((uint8_t *)&z)[0];
-        msg_buf[index++] = ((uint8_t *)&z)[1];
-        msg_buf[index++] = ((uint8_t *)&z)[2];
-        msg_buf[index++] = ((uint8_t *)&z)[3];
-        msg.data = msg_buf;
-        msg.length = index;
-        ClientNode::sacp_cb(&bedlevel_svc, &msg);
-      }
-      break;
-    case 8:
-      {
-        sacp_hmi_message_t msg;
-        uint8_t msg_buf[1];
-        uint16_t index = 0;
-        msg.peer = SACP_HOST_ID_SCREEN;
-        msg.ch = SACP_HMI_CH_SCREEN;
-        msg.attr = SACP_MESSAGE_ATTR_SET_SEQ;
-        msg.seq = 1;
-        msg.cmd_set = SACP_CMD_SET_CALIBRATE_FDM;
-        msg.cmd_id = BEDLEVEL_REQ_CMD_ID_GET_LIVE_Z_OFFSET;
-
-        msg.data = msg_buf;
-        msg.length = index;
-        ClientNode::sacp_cb(&bedlevel_svc, &msg);
-      }
-      break;
-    default:
-      break;
+  {
+    uint8_t buffer[100];
+    uint8_t index = 0;
+    switch (b) {
+      case 0:
+        {
+          uint8_t m = (uint8_t)parser.byteval('M', (uint8_t)2);
+          buffer[index++] = m;
+          host_hmi.test_interface(SACP_CMD_SET_CALIBRATE_FDM, BEDLEVEL_REQ_CMD_ID_SET_LEVEL_MODE, buffer, index);
+        }
+        break;
+      case 1:
+        {
+          uint8_t g = (uint8_t)parser.byteval('G', (uint8_t)3);
+          buffer[index++] = g;
+          host_hmi.test_interface(SACP_CMD_SET_CALIBRATE_FDM, BEDLEVEL_REQ_CMD_ID_START_LEVEL, buffer, index);
+        }
+        break;
+      case 2:
+        {
+          uint8_t p = (uint8_t)parser.byteval('P', (uint8_t)1);
+          buffer[index++] = p;
+          host_hmi.test_interface(SACP_CMD_SET_CALIBRATE_FDM, BEDLEVEL_REQ_CMD_ID_GOTO_PROBE_POINT, buffer, index);
+        }
+        break;
+      case 3:
+        {
+          host_hmi.test_interface(SACP_CMD_SET_CALIBRATE_FDM, BEDLEVEL_REQ_CMD_ID_EXIT_LEVEL, buffer, index);
+        }
+        break;
+      case 4:
+        {
+          host_hmi.test_interface(SACP_CMD_SET_CALIBRATE_FDM, BEDLEVEL_REQ_CMD_ID_GET_LEVEL_STATE, buffer, index);
+        }
+        break;
+      case 5:
+        {
+          host_hmi.test_interface(SACP_CMD_SET_CALIBRATE_FDM, BEDLEVEL_REQ_CMD_ID_BED_POSITION_DETECTION, buffer, index);
+        }
+        break;
+      case 6:
+        {
+          uint8_t p = (uint8_t)parser.byteval('P', (uint8_t)1);
+          buffer[index++] = p;
+          host_hmi.test_interface(SACP_CMD_SET_CALIBRATE_FDM, BEDLEVEL_REQ_CMD_ID_PROBE_SENSOR_CALIBRATION, buffer, index);
+        }
+        break;
+      case 7:
+        {
+          uint8_t e = (uint8_t)parser.byteval('E', (uint8_t)0);
+          float z = (float)parser.floatval('Z', (float)0);
+          z = z * 1000;
+          buffer[index++] = smprinter.fdm->get_key();
+          buffer[index++] = e;
+          buffer[index++] = ((uint8_t *)&z)[1];
+          buffer[index++] = ((uint8_t *)&z)[2];
+          buffer[index++] = ((uint8_t *)&z)[3];
+          host_hmi.test_interface(SACP_CMD_SET_CALIBRATE_FDM, BEDLEVEL_REQ_CMD_ID_SET_LIVE_Z_OFFSET, buffer, index);
+        }
+        break;
+      case 8:
+        {
+          host_hmi.test_interface(SACP_CMD_SET_CALIBRATE_FDM, BEDLEVEL_REQ_CMD_ID_GET_LIVE_Z_OFFSET, buffer, index);
+        }
+        break;
+      default:
+        break;
+    }
   }
+
   {
     sacp_hmi_message_t motion_msg;
     uint8_t buffer[128];

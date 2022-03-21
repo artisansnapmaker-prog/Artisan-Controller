@@ -348,6 +348,35 @@ err_code_t HostSACPHMI::send_sync(sacp_hmi_message_t *message, uint8_t *out, uin
 }
 
 
+err_code_t HostSACPHMI::test_interface(sacp_hmi_message_t *message) {
+  return handle_message(*message);
+}
+
+
+err_code_t HostSACPHMI::test_interface(uint16_t cmd_set, uint16_t cmd_id, uint8_t *data, uint16_t length) {
+  sacp_hmi_message_t msg;
+  uint8_t buffer[768];
+
+  msg.ch      = SACP_HMI_CH_PC;
+  msg.attr    = 0;
+  msg.cmd_set = cmd_set;
+  msg.cmd_id  = cmd_id;
+  msg.peer    = SACP_HOST_ID_LUBAN;
+  msg.ver     = SACP_VER_1;
+  msg.seq     = channels[SACP_HMI_CH_PC].seq;
+  msg.data    = buffer;
+  msg.length  = length;
+
+  if (data) {
+    for (int i = 0; i < length; i++) {
+      buffer[i] = data[i];
+    }
+  }
+
+  return handle_message(msg);
+}
+
+
 err_code_t HostSACPHMI::send_ack(sacp_hmi_message_t *message, uint8_t result) {
   message->data = &result;
   message->length = 1;
@@ -720,13 +749,12 @@ void HostSACPHMI::handle_receive() {
 }
 
 
-void HostSACPHMI::handle_message(sacp_hmi_message_t &msg) {
+err_code_t HostSACPHMI::handle_message(sacp_hmi_message_t &msg) {
   sacp_hmi_handle_t *handle = NULL;
 
   if (!cmd_set_handle[msg.cmd_set] || cmd_set_handle_len[msg.cmd_set] == 0) {
     LOG_E("nobody have registered handle for cmd[%x:%x]\n", msg.cmd_set, msg.cmd_id);
-    send_ack(&msg, E_INVALID_CMD_SET);
-    return;
+    return send_ack(&msg, E_INVALID_CMD_SET);
   }
 
   for (int i = 0; i < cmd_set_handle_len[msg.cmd_set]; i++) {
@@ -738,14 +766,12 @@ void HostSACPHMI::handle_message(sacp_hmi_message_t &msg) {
 
   if (!handle) {
     LOG_E("no handle for cmd[%x:%x]\n", msg.cmd_set, msg.cmd_id);
-    send_ack(&msg, E_INVALID_CMD_ID);
-    return;
+    return send_ack(&msg, E_INVALID_CMD_ID);
   }
 
   if (msg.attr & SACP_MESSAGE_ATTR_ACK) {
     if (handle->ack_cb) {
-      handle->ack_cb(handle->obj, &msg);
-      return;
+      return handle->ack_cb(handle->obj, &msg);
     }
     else {
       LOG_E("no callback for ACK[%x:%x]\n", msg.cmd_set, msg.cmd_id);
@@ -753,16 +779,14 @@ void HostSACPHMI::handle_message(sacp_hmi_message_t &msg) {
   }
   else {
     if (handle->req_cb) {
-      handle->req_cb(handle->obj, &msg);
-      return;
+      return handle->req_cb(handle->obj, &msg);
     }
     else {
       LOG_E("no callback for REQ[%x:%x]\n", msg.cmd_set, msg.cmd_id);
     }
   }
 
-  send_ack(&msg, E_INVALID_CMD_ID);
-  return;
+  return send_ack(&msg, E_INVALID_CMD_ID);
 }
 
 

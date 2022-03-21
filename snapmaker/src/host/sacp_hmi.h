@@ -112,6 +112,9 @@ class HostSACPHMI: public HostSACP {
     err_code_t send_ack(sacp_hmi_message_t *message, uint8_t result);
     err_code_t send_ack(sacp_hmi_message_t *message, uint8_t *data, uint16_t length);
 
+    err_code_t test_interface(sacp_hmi_message_t *message);
+    err_code_t test_interface(uint16_t cmd_set, uint16_t cmd_id, uint8_t *data, uint16_t length);
+
     void handle_receive();
     void handle_events();
 
@@ -123,7 +126,7 @@ class HostSACPHMI: public HostSACP {
   // private methods
   private:
     err_code_t parse_packets(sacp_channel_t &channel);
-    void handle_message(sacp_hmi_message_t &msg);
+    err_code_t handle_message(sacp_hmi_message_t &msg);
 
     void handle_subscript(sacp_hmi_message_t &msg);
     void handle_unsubscript(sacp_hmi_message_t &msg);

@@ -55,6 +55,7 @@ ModuleBase *module_factory(uint32_t mac, uint8_t key, uint8_t sub_index) {
     break;
 
   case MODULE_DEVICE_ID_LASER_1P6W_2019:
+    return new ToolHeadLaser(mac, key, sub_index);
     break;
 
   case MODULE_DEVICE_ID_LINEAR_TBS_2019:

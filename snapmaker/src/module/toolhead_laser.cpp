@@ -342,8 +342,8 @@ err_code_t ToolHeadLaser::hmi_cb_do_auto_focusing(void *obj, sacp_hmi_message_t 
 
   // TODO: check system status
 
-  int32_t *tmp;
-  float   z_interval;
+  int32_t *tmp = (int32_t *)(message->data);
+  float   z_interval = *tmp / 1000.0;
   uint8_t count = 21;
   float   start_pos[3];
   float next_x, next_y, next_z;
@@ -555,6 +555,9 @@ err_code_t ToolHeadLaser::pre_init() {
   //TODO: check if laser is plugged in correct port and update output_pin & serial_port
 
   output_pin = E0_STEP_PIN;
+
+  pinMode(output_pin, OUTPUT);
+  digitalWrite(output_pin, HIGH);
 
   return E_SUCCESS;
 }
@@ -820,9 +823,9 @@ void ToolHeadLaser::setup_camera_port(uint8_t port) {
     serial->begin(115200);
     link_camera.set_serial(serial);
     // setup RX
-    uint8_t *buffer = (uint8_t *)pvPortMalloc(SACP_PDU_MAX_SIZE);
+    uint8_t *buffer = (uint8_t *)pvPortMalloc(SACP_PDU_MAX_SIZE / 2);
     configASSERT(buffer);
-    link_camera.set_sec_rx_buffer(buffer, SACP_PDU_MAX_SIZE);
+    link_camera.set_sec_rx_buffer(buffer, SACP_PDU_MAX_SIZE / 2);
     link_camera.set_sec_rx_waiting(SACP_V1_PDU_MIN_SIZE);
     // setup TX
     buffer = (uint8_t *)pvPortMalloc(SACP_PDU_MAX_SIZE);
@@ -956,6 +959,9 @@ uint8_t ToolHeadLaser::get_pwm_pin_state() {
 }
 
 err_code_t ToolHeadLaser::confirm_pwm_pin_state(uint32_t pin) {
+  if (get_device_id() != MODULE_DEVICE_ID_LASER_10W_2021)
+    return E_SUCCESS;
+
   uint8_t pin_state_high, pin_state_low;
   pinMode(pin, OUTPUT);
 
@@ -995,12 +1001,12 @@ err_code_t ToolHeadLaser::set_temp_threshold(int8_t protect_temp, int8_t recover
   err_code_t ret;
   smcan_message_t msg;
   // TODO: check sequence of temp
-  uint8_t buffer[2] = {protect_temp, recover_temp};
+  int8_t buffer[2] = {protect_temp, recover_temp};
 
   msg.id     = get_message_id(MODULE_FUNC_SET_PROTECT_TEMP);
   msg.ch     = get_channel();
   msg.length = 2;
-  msg.data   = buffer;
+  msg.data   = (uint8_t *)buffer;
 
   ret = host_can_rou.send(&msg);
   if (ret != E_SUCCESS) {
@@ -1191,4 +1197,6 @@ err_code_t ToolHeadLaser::resume_env(uint8_t *env_buf, uint32_t &len) {
 
 err_code_t ToolHeadLaser::standby(void) {
   update_output(0);
+
+  return E_SUCCESS;
 }

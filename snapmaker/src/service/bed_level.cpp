@@ -76,7 +76,7 @@ static err_code_t hmi_req_callback_set_level_mode(void *obj, sacp_hmi_message_t 
 EXIT:
   msg->data[0] = ret;
   msg->length  = 1;
-  host_hmi.send(msg);
+  host_hmi.send_ack(msg);
   return ret;
 }
 
@@ -109,7 +109,7 @@ EXIT:
   uint8_t index = 0;
   msg->data[index++] = ret;
   msg->length = index;
-  host_hmi.send(msg);
+  host_hmi.send_ack(msg);
   return ret;
 }
 
@@ -133,7 +133,7 @@ EXIT:
   uint8_t index = 0;
   msg->data[index++] = ret;
   msg->length = index;
-  host_hmi.send(msg);
+  host_hmi.send_ack(msg);
   return ret;
 }
 
@@ -200,7 +200,7 @@ EXIT:
   uint8_t index = 0;
   msg->data[index++] = ret;
   msg->length = index;
-  host_hmi.send(msg);
+  host_hmi.send_ack(msg);
   return ret;
 }
 
@@ -209,7 +209,7 @@ static err_code_t hmi_req_callback_get_level_state(void *obj, sacp_hmi_message_t
 
   msg->data[0] = bedlevel.is_bedleveled();
   msg->length = 1;
-  host_hmi.send(msg);
+  host_hmi.send_ack(msg);
   return E_SUCCESS;
 }
 
@@ -251,7 +251,7 @@ EXIT:
   uint8_t index = 0;
   msg->data[index++] = ret;
   msg->length = index;
-  host_hmi.send(msg);
+  host_hmi.send_ack(msg);
   return ret;
 }
 
@@ -308,7 +308,7 @@ EXIT:
   uint8_t index = 0;
   msg->data[index++] = ret;
   msg->length = index;
-  host_hmi.send(msg);
+  host_hmi.send_ack(msg);
   return ret;
 }
 
@@ -343,7 +343,7 @@ EXIT:
   uint8_t index = 0;
   msg->data[index++] = ret;
   msg->length = index;
-  host_hmi.send(msg);
+  host_hmi.send_ack(msg);
   return ret;
 }
 
@@ -372,7 +372,7 @@ static err_code_t hmi_req_callback_get_live_z_offset(void *obj, sacp_hmi_message
   }
 
   msg->length = index;
-  host_hmi.send(msg);
+  host_hmi.send_ack(msg);
   return E_SUCCESS;
 }
 

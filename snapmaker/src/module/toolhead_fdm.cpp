@@ -318,7 +318,7 @@ static err_code_t hmi_req_callback_get_toolhead_info(void *obj, sacp_hmi_message
   }
 
   msg->length = index;
-  host_hmi.send(msg);
+  host_hmi.send_ack(msg);
 
   return E_SUCCESS;
 }
@@ -341,7 +341,7 @@ EXIT:
   uint16_t index = 0;
   msg->data[index++] = ret;
   msg->length = index;
-  host_hmi.send(msg);
+  host_hmi.send_ack(msg);
   return ret;
 }
 
@@ -360,7 +360,7 @@ EXIT:
   uint16_t index = 0;
   msg->data[index++] = ret;
   msg->length = index;
-  host_hmi.send(msg);
+  host_hmi.send_ack(msg);
   return ret;
 }
 
@@ -379,7 +379,7 @@ EXIT:
   uint16_t index = 0;
   msg->data[index++] = ret;
   msg->length = index;
-  host_hmi.send(msg);
+  host_hmi.send_ack(msg);
   return ret;
 }
 
@@ -410,7 +410,7 @@ EXIT:
   uint16_t index = 0;
   msg->data[index++] = ret;
   msg->length = index;
-  host_hmi.send(msg);
+  host_hmi.send_ack(msg);
   return ret;
 }
 
@@ -441,7 +441,7 @@ EXIT:
   uint16_t index = 0;
   msg->data[index++] = ret;
   msg->length = index;
-  host_hmi.send(msg);
+  host_hmi.send_ack(msg);
   return ret;
 }
 
@@ -480,7 +480,7 @@ static err_code_t hmi_req_callback_get_hotend_offset(void *obj, sacp_hmi_message
   msg->data[index++] = z_offset_int & 0xff;
 
   msg->length = index;
-  host_hmi.send(msg);
+  host_hmi.send_ack(msg);
   return E_SUCCESS;
 }
 
@@ -504,7 +504,7 @@ static err_code_t hmi_req_callback_extruder_motion(void *obj, sacp_hmi_message_t
   uint16_t index = 0;
   msg->data[index++] = E_SUCCESS;
   msg->length = index;
-  host_hmi.send(msg);
+  host_hmi.send_ack(msg);
   return E_SUCCESS;
 }
 

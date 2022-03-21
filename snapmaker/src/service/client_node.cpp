@@ -257,7 +257,7 @@ bool ClientNode::sacp_get_batch_gcode(req_batch_gcode_t &req_batch_gcode, res_ba
   // peer id? and send id?
   // seq not change
   s_msg.ch = _ch;
-  s_msg.attr = SACP_MESSAGE_ATTR_ACK;
+  s_msg.attr = 0;
   s_msg.data = buf;
   s_msg.cmd_set = CMD_SET_JOB_CTRL;
   s_msg.cmd_id = CMD_ID_JOB_CTRL_REQ_GCODE;
@@ -490,6 +490,7 @@ void ClientNode::job_req_pause_cb(sacp_hmi_message_t *copy_msg, uint8_t result) 
     // host_hmi.send_ack(copy_msg, SACP_RET_EXECUTING);
   }
   else if(SYSTEM_STATUS_PAUSED == result) {
+    LOG_I("client_node: send JOB PRINTING OK ACK to client\r\n");
     host_hmi.send_ack(copy_msg, SACP_RET_SUCCESS);
     free_sacp_msg_node(copy_msg);
   }

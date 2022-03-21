@@ -100,16 +100,16 @@ void JobCtrl::background_thread(void *p) {
   
   // make sure send starting ACK before get gcodes
   // TODO: uncomment when release
-  // if (SYSTEM_STATUS_PRINTING == smprinter.get_sys_status()) {
-  //   keep_printing_cnt++;
-  //   if (keep_printing_cnt >= 3) {
-  //     get_gcodes_from_client();
-  //     keep_printing_cnt = 3;
-  //   }
-  // }
-  // else {
-  //   keep_printing_cnt = 0;
-  // }
+  if (SYSTEM_STATUS_PRINTING == smprinter.get_sys_status()) {
+    keep_printing_cnt++;
+    if (keep_printing_cnt >= 3) {
+      get_gcodes_from_client();
+      keep_printing_cnt = 3;
+    }
+  }
+  else {
+    keep_printing_cnt = 0;
+  }
 
   if (_statistics_log_interval_ms > 0) {
     if (!time_after(system_svc.millis(), _statistics_log_last_tick_ms + _statistics_log_interval_ms)) {
@@ -265,7 +265,7 @@ err_code_t JobCtrl::save_env(void) {
   for(uint32_t i = 0; i < AXIS_NUM; i++)
     _env.current_pos[i] = motion_svc.get_current_position(i);
   */
-  LOG_I("TODO: if 3DP, save bed tempretrue\r\n");
+  LOG_I("TODO: if 3DP, save bed tempretrue, call the bed module's save_env\r\n");
   LOG_I("TODO: save current line number\r\n");
   LOG_I("TODO: save print feedrate\r\n");
   LOG_I("TODO: save travle feedrate\r\n");
@@ -398,6 +398,7 @@ void JobCtrl::get_gcodes_from_client(void) {
     req_batch_gcode.line_num = _env.req_line_num;
     req_batch_gcode.buf_len = MIN(_gcode_rb.free(), GCODE_RB_SIZE/4);
     res_batch_gcode.gcode_str = batch_gcode_buf;
+    LOG_I("job_ctrl: get gcode from client %d, startline %d, buffer %d\r\n", _client_id, req_batch_gcode.line_num, req_batch_gcode.buf_len);
     if(ClientNode::get_batch_gcode(_client_id, req_batch_gcode, res_batch_gcode)) {
       if(res_batch_gcode.start_line_num != req_batch_gcode.line_num) {
         LOG_E("start line number not match, drop this batch gcode\r\n");
@@ -406,7 +407,9 @@ void JobCtrl::get_gcodes_from_client(void) {
         break;
       }
       // shoule we check the line number?
-      uint8_t *p = res_batch_gcode.gcode_str;
+      uint8_t *p, *ls;
+      p = ls = res_batch_gcode.gcode_str;
+      uint8_t str_temp[MAX_CMD_SIZE];
       uint32_t rx_line_num = 0;
       {
         while('\0' != *p) {
@@ -415,6 +418,14 @@ void JobCtrl::get_gcodes_from_client(void) {
           }
           p++;
         }
+
+        // 747 debug
+        if (p - ls < MAX_CMD_SIZE) {
+          memcpy(str_temp, ls, (p - ls));
+          str_temp[p-ls] = 0;
+          LOG_I("job_ctrl: get gocde: %s\r\n", (char *)str_temp);
+        }
+
         if(rx_line_num != (res_batch_gcode.end_line_num - res_batch_gcode.start_line_num)) {
           LOG_E("line number not match, drop this batch gcode\r\n");
           _issue_ret_rb.insert_one(SACP_JOB_PAUSE_ISSUE_RET_IVALID_GCODE_LINE_NUMBER);
@@ -488,16 +499,17 @@ void JobCtrl::do_start(struct JobCtrlReqInfo &jri) {
   _env.gcode_file_info = jri.req_data.req_start_data.gcodeInfo;
   _env.cur_line_num = 0;
   _env.req_line_num = 0;
-  _gcode_rb.reset();
+  _gcode_rb.reset(); 
   _env.time_elape = 0;
   _err_get_batch_gcode_cnt = 0;
   _env.gfi_valid = true;
 
   if (E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_PRINTING, &ret_sys_status)) {
-    LOG_E("job_ctrl: Can not enter SYS_PRINTING status");
+    LOG_E("job_ctrl: Can not enter SYS_PRINTING status\r\n");
     DO_JOB_REQ_NOTIFY_CB(jri.cb, ret_sys_status);
     return;
   }
+  LOG_I("job_ctrl: enter SYS_PRINTING status\r\n");
 
   DO_JOB_REQ_NOTIFY_CB(jri.cb, SYSTEM_STATUS_PRINTING);
 }
@@ -609,6 +621,9 @@ bool JobCtrl::consume_a_gcode(uint8_t *cmd, uint16_t max_len, uint32_t *line) {
     return false;
   }
 
+  // TODO: check the emergency event here
+  // If need to stop quickly, now do it
+
   ret = false;
   cmd_len = 0;
   LOCK(_lock, JOB_LOCK_WAIT_TICK);
@@ -624,7 +639,13 @@ bool JobCtrl::consume_a_gcode(uint8_t *cmd, uint16_t max_len, uint32_t *line) {
       *line = _env.cur_line_num;
       _env.cur_line_num++;
       cmd[cmd_len] = 0;
-      ret = true;
+      
+      // 747 debug
+      // consume here, do not push this gcode to marlin or other platform
+      // ret = true;
+      LOG_I("job_ctrl: consume a gcode: %s\r\n", cmd);
+      ret = false;
+      
       break;
     }
   }

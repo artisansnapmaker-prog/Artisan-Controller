@@ -518,6 +518,35 @@ void GcodeSuite::M2000() {
         break;
       case 7:
         {
+          uint8_t m = (uint8_t)parser.byteval('M', (uint8_t)0);  // move type
+          float i = (float)parser.floatval('I', (float)0);   // extrusion length
+          float h = (float)parser.floatval('H', (float)0);   // extrusion speed
+          float j = (float)parser.floatval('J', (float)0);   // retract length
+          float r = (float)parser.floatval('R', (float)0);   // retract speed
+
+          buffer[index++] = smprinter.fdm->get_key();
+          buffer[index++] = m;
+          buffer[index++] = ((uint8_t *)&i)[0];
+          buffer[index++] = ((uint8_t *)&i)[1];
+          buffer[index++] = ((uint8_t *)&i)[2];
+          buffer[index++] = ((uint8_t *)&i)[3];
+          buffer[index++] = ((uint8_t *)&h)[0];
+          buffer[index++] = ((uint8_t *)&h)[1];
+          buffer[index++] = ((uint8_t *)&h)[2];
+          buffer[index++] = ((uint8_t *)&h)[3];
+          buffer[index++] = ((uint8_t *)&j)[0];
+          buffer[index++] = ((uint8_t *)&j)[1];
+          buffer[index++] = ((uint8_t *)&j)[2];
+          buffer[index++] = ((uint8_t *)&j)[3];
+          buffer[index++] = ((uint8_t *)&r)[0];
+          buffer[index++] = ((uint8_t *)&r)[1];
+          buffer[index++] = ((uint8_t *)&r)[2];
+          buffer[index++] = ((uint8_t *)&r)[3];
+          host_hmi.test_interface(SACP_CMD_SET_FDM, FDM_REQ_CMD_ID_EXTRUDER_MOTION, buffer, index);
+        }
+        break;
+      case 8:
+        {
           host_hmi.test_interface(SACP_CMD_SET_FDM, FDM_SUBSCRIPT_CMD_ID_EXTRUDER_INFO, buffer, index);
         }
         break;

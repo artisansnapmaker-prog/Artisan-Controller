@@ -488,6 +488,8 @@ static err_code_t hmi_req_callback_get_hotend_offset(void *obj, sacp_hmi_message
   ToolHeadFDM &fdm = *(ToolHeadFDM *)obj;
   uint16_t index = 0;
 
+  LOG_I("hmi request to get hotend_offset\n");
+
   float x_offset, y_offset, z_offset;
   int32_t x_offset_int, y_offset_int, z_offset_int;
   fdm.get_hotend_offset(x_offset, y_offset, z_offset);
@@ -530,6 +532,25 @@ static err_code_t hmi_req_callback_extruder_motion(void *obj, sacp_hmi_message_t
   float extrusion_speed;
   float retraction_length;
   float retraction_speed;
+
+  move_type = msg->data[1];
+  ((uint8_t *)&extrusion_length)[0] = msg->data[2];
+  ((uint8_t *)&extrusion_length)[1] = msg->data[3];
+  ((uint8_t *)&extrusion_length)[2] = msg->data[4];
+  ((uint8_t *)&extrusion_length)[3] = msg->data[5];
+  ((uint8_t *)&extrusion_speed)[0] = msg->data[6];
+  ((uint8_t *)&extrusion_speed)[1] = msg->data[7];
+  ((uint8_t *)&extrusion_speed)[2] = msg->data[8];
+  ((uint8_t *)&extrusion_speed)[3] = msg->data[9];
+  ((uint8_t *)&retraction_length)[0] = msg->data[10];
+  ((uint8_t *)&retraction_length)[1] = msg->data[11];
+  ((uint8_t *)&retraction_length)[2] = msg->data[12];
+  ((uint8_t *)&retraction_length)[3] = msg->data[13];
+  ((uint8_t *)&retraction_speed)[0] = msg->data[14];
+  ((uint8_t *)&retraction_speed)[1] = msg->data[15];
+  ((uint8_t *)&retraction_speed)[2] = msg->data[16];
+  ((uint8_t *)&retraction_speed)[3] = msg->data[17];
+  LOG_I("hmi request etruder move, movetype: %d, extrusion_length: %f, extrusion_speed: %f, retraction_length: %f, retraction_speed: %f\n", move_type, extrusion_length, extrusion_speed, retraction_length, retraction_speed);
 
   move_type = msg->data[1];
   if (move_type == 0) {

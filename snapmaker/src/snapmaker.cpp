@@ -20,66 +20,71 @@ SnapmakerPrinter smprinter;
 
 // dynamic pins defination and default value
 
-pin_t X_STEP_PIN_var = PB4;
-pin_t X_DIR_PIN_var = PB3;
-pin_t X_ENABLE_PIN_var = PB2;
-pin_t X_MIN_PIN_var = PE7;
-pin_t X_UART_PIN_var = PD12;
-pin_t X_STANDBY_PIN_var = PB5;
+int16_t X_STEP_PIN_var = PB4;
+int16_t X_DIR_PIN_var = PB3;
+int16_t X_ENABLE_PIN_var = PB2;
+int16_t X_MIN_PIN_var = PE7;
+int16_t X_UART_PIN_var = PD12;
+int16_t X_STANDBY_PIN_var = PB5;
+int16_t X_DETECT_PIN_var = PC3;
 
 
-pin_t Y_STEP_PIN_var = PB7;
-pin_t Y_DIR_PIN_var = PB6;
-pin_t Y_ENABLE_PIN_var = PB2;
-pin_t Y_MAX_PIN_var = PE8;
-pin_t Y_UART_PIN_var = PD13;
-pin_t Y_STANDBY_PIN_var = PE3;
+int16_t Y_STEP_PIN_var = PB7;
+int16_t Y_DIR_PIN_var = PB6;
+int16_t Y_ENABLE_PIN_var = PB2;
+int16_t Y_MAX_PIN_var = PE8;
+int16_t Y_UART_PIN_var = PD13;
+int16_t Y_STANDBY_PIN_var = PE3;
+int16_t Y_DETECT_PIN_var = PA0;
 
-pin_t Y2_STEP_PIN_var = PE6;
-pin_t Y2_DIR_PIN_var = PE5;
-pin_t Y2_ENABLE_PIN_var = PB2;
-pin_t Y2_MAX_PIN_var = PE9;
-pin_t Y2_UART_PIN_var = PD14;
-pin_t Y2_STANDBY_PIN_var = PE4;
+int16_t Y2_STEP_PIN_var = PE6;
+int16_t Y2_DIR_PIN_var = PE5;
+int16_t Y2_ENABLE_PIN_var = PB2;
+int16_t Y2_MAX_PIN_var = PE9;
+int16_t Y2_UART_PIN_var = PD14;
+int16_t Y2_STANDBY_PIN_var = PE4;
+int16_t Y2_DETECT_PIN_var = PA1;
 
-pin_t Z_STEP_PIN_var = PC6;
-pin_t Z_DIR_PIN_var = PD15;
-pin_t Z_ENABLE_PIN_var = PB2;
-pin_t Z_MIN_PIN_var = PC0;     // fake pin
-pin_t Z_MAX_PIN_var = PE10;
-pin_t Z_UART_PIN_var = PC8;
-pin_t Z_STANDBY_PIN_var = PC7;
+int16_t Z_STEP_PIN_var = PC6;
+int16_t Z_DIR_PIN_var = PD15;
+int16_t Z_ENABLE_PIN_var = PB2;
+int16_t Z_MIN_PIN_var = PC0;     // fake pin
+int16_t Z_MAX_PIN_var = PE10;
+int16_t Z_UART_PIN_var = PC8;
+int16_t Z_STANDBY_PIN_var = PC7;
+int16_t Z_DETECT_PIN_var = PA2;
 
-pin_t Z2_STEP_PIN_var = PB14;
-pin_t Z2_DIR_PIN_var = PD9;
-pin_t Z2_ENABLE_PIN_var = PB2;
-pin_t Z2_MAX_PIN_var = PE11;
-pin_t Z2_UART_PIN_var = PC9;
-pin_t Z2_STANDBY_PIN_var = PD8;
+int16_t Z2_STEP_PIN_var = PB14;
+int16_t Z2_DIR_PIN_var = PD9;
+int16_t Z2_ENABLE_PIN_var = PB2;
+int16_t Z2_MAX_PIN_var = PE11;
+int16_t Z2_UART_PIN_var = PC9;
+int16_t Z2_STANDBY_PIN_var = PD8;
+int16_t Z2_DETECT_PIN_var = PA3;
 
-pin_t E0_STEP_PIN_var = PE14;
-pin_t E0_DIR_PIN_var = PB10;
-pin_t E0_ENABLE_PIN_var = PB11;
+int16_t E0_STEP_PIN_var = PE14;
+int16_t E0_DIR_PIN_var = PB10;
+int16_t E0_ENABLE_PIN_var = PB11;
 
-pin_t E1_STEP_PIN_var = PE14;
-pin_t E1_DIR_PIN_var = PB10;
-pin_t E1_ENABLE_PIN_var = PB11;
+int16_t E1_STEP_PIN_var = PE14;
+int16_t E1_DIR_PIN_var = PB10;
+int16_t E1_ENABLE_PIN_var = PB11;
 
-pin_t I_STEP_PIN_var = PA15;
-pin_t I_DIR_PIN_var = PC10;
-pin_t I_ENABLE_PIN_var = PC11;
+int16_t I_STEP_PIN_var = PA15;
+int16_t I_DIR_PIN_var = PC10;
+int16_t I_ENABLE_PIN_var = PC11;
 
-pin_t J_STEP_PIN_var = PB15;
-pin_t J_DIR_PIN_var = PC12;
-pin_t J_ENABLE_PIN_var = PD2;
+int16_t J_STEP_PIN_var = PB15;
+int16_t J_DIR_PIN_var = PC12;
+int16_t J_ENABLE_PIN_var = PD2;
 
 
 typedef struct {
-  pin_t step;
-  pin_t dir;
-  pin_t enable;
-  pin_t endstop;
-  pin_t sw_uart;
+  int16_t step;
+  int16_t dir;
+  int16_t enable;
+  int16_t endstop;
+  int16_t sw_uart;
 } motor_pins_t;
 
 
@@ -94,7 +99,7 @@ motor_pins_t pins_map[] = {
   {PB15, PC12, PD2, -1, -1}   // P3
 };
 
-pin_t linear_detect_pins[] = {
+int16_t linear_detect_pins[] = {
 L1_DETECT_PIN,
 L2_DETECT_PIN,
 L3_DETECT_PIN,
@@ -157,7 +162,6 @@ struct __packed MachineSize {
 };
 
 err_code_t SnapmakerPrinter::hmi_cb_get_machine_size(void *obj, sacp_hmi_message_t *msg) {
-  SnapmakerPrinter *printer = (SnapmakerPrinter *)obj;
   MachineSize *msize;
 
   msg->data[0] = E_SUCCESS;
@@ -305,20 +309,34 @@ static void system_thread(void *p) {
 
     taskYIELD();
   }
-
 }
 
 
 void SnapmakerPrinter::pre_init(void) {
-  // enable the power to do TMC initialization in arduino setup()
-  OUT_WRITE(POWER_CTRL_MOTOR, POWER_CTRL_ON);
-  OUT_WRITE(TMC_MASTER_SWITCH, TMC_SWITCH_ON);
+  // avoid turn on laser
+  pinMode(pins_map[PORT_INDEX_P1].step, OUTPUT);
+  digitalWrite(pins_map[PORT_INDEX_P1].step, HIGH);
+  pinMode(pins_map[PORT_INDEX_P2].step, OUTPUT);
+  digitalWrite(pins_map[PORT_INDEX_P1].step, HIGH);
+  pinMode(pins_map[PORT_INDEX_P2].step, OUTPUT);
+  digitalWrite(pins_map[PORT_INDEX_P1].step, HIGH);
 
-  OUT_WRITE(X_STANDBY_PIN_var, LOW);
-  OUT_WRITE(Y_STANDBY_PIN_var, LOW);
-  OUT_WRITE(Y2_STANDBY_PIN_var, LOW);
-  OUT_WRITE(Z_STANDBY_PIN_var, LOW);
-  OUT_WRITE(Z2_STANDBY_PIN_var, LOW);
+  // enable the power to do TMC initialization in arduino setup()
+  pinMode(POWER_CTRL_MOTOR, OUTPUT);
+  digitalWrite(POWER_CTRL_MOTOR, POWER_CTRL_ON);
+  pinMode(TMC_MASTER_SWITCH, OUTPUT);
+  digitalWrite(TMC_MASTER_SWITCH, TMC_SWITCH_ON);
+
+  pinMode(X_STANDBY_PIN_var, OUTPUT);
+  digitalWrite(X_STANDBY_PIN_var, LOW);
+  pinMode(Y_STANDBY_PIN_var, OUTPUT);
+  digitalWrite(Y_STANDBY_PIN_var, LOW);
+  pinMode(Y2_STANDBY_PIN_var, OUTPUT);
+  digitalWrite(Y2_STANDBY_PIN_var, LOW);
+  pinMode(Z_STANDBY_PIN_var, OUTPUT);
+  digitalWrite(Z_STANDBY_PIN_var, LOW);
+  pinMode(Z2_STANDBY_PIN_var, OUTPUT);
+  digitalWrite(Z2_STANDBY_PIN_var, LOW);
 }
 
 
@@ -326,11 +344,20 @@ void SnapmakerPrinter::post_init() {
   BaseType_t ret;
 
   // enable power
-  OUT_WRITE(POWER_CTRL_8P, POWER_CTRL_ON);
-  OUT_WRITE(POWER_CTRL_BED, POWER_CTRL_ON);
-  OUT_WRITE(POWER_CTRL_MOTION, POWER_CTRL_ON);
-  OUT_WRITE(POWER_CTRL_HMI, POWER_CTRL_ON);
-  OUT_WRITE(POWER_CTRL_4P, POWER_CTRL_ON);
+  pinMode(POWER_CTRL_8P, OUTPUT);
+  digitalWrite(POWER_CTRL_8P, POWER_CTRL_ON);
+
+  pinMode(POWER_CTRL_BED, OUTPUT);
+  digitalWrite(POWER_CTRL_BED, POWER_CTRL_ON);
+
+  pinMode(POWER_CTRL_MOTION, OUTPUT);
+  digitalWrite(POWER_CTRL_MOTION, POWER_CTRL_ON);
+
+  pinMode(POWER_CTRL_HMI, OUTPUT);
+  digitalWrite(POWER_CTRL_HMI, POWER_CTRL_ON);
+
+  pinMode(POWER_CTRL_4P, OUTPUT);
+  digitalWrite(POWER_CTRL_4P, POWER_CTRL_ON);
 
   debug.init();
 

@@ -4,7 +4,7 @@
 #include "src/core/boards.h"
 
 // because macro UNUSED is defined in Marlin and HAL, so undefine it here to avoid buid warning
-#undef UNUSED(X)
+#undef UNUSED
 
 #include "arduino.h"
 #include "stm32f4xx_hal_can.h"

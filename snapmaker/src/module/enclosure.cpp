@@ -394,6 +394,10 @@ err_code_t send_enclosure_info_to_hmi(void *obj, sacp_hmi_message_t *msg) {
     return host_hmi.send_ack(msg, E_INVALID_MODULE_KEY);
   }
 
+  if (enclosure.get_status() != MODULE_STATUS_NORMAL) {
+    return host_hmi.send_ack(msg, E_INVALID_STATE);
+  }
+
   msg->data[0] = E_SUCCESS;   // default success
   tmp_info = (EnclosureInfo *)(msg->data+1);
   tmp_info->key = enclosure.get_key();
@@ -426,6 +430,10 @@ err_code_t hmi_set_enclosure_light(void *obj, sacp_hmi_message_t *msg) {
     return host_hmi.send_ack(msg, E_INVALID_MODULE_KEY);
   }
 
+  if (enclosure.get_status() != MODULE_STATUS_NORMAL) {
+    return host_hmi.send_ack(msg, E_INVALID_STATE);
+  }
+
   result = enclosure.set_light_bar(msg->data[1]);
   
   if (result != E_SUCCESS) {
@@ -455,6 +463,10 @@ err_code_t hmi_set_enclosure_check(void *obj, sacp_hmi_message_t *msg) {
     LOG_E("[%s] msg key is %d, obj key is %d, No processing\n",\
       __FUNCTION__, msg->data[0], enclosure.get_key());
     return host_hmi.send_ack(msg, E_INVALID_MODULE_KEY);
+  }
+
+  if (enclosure.get_status() != MODULE_STATUS_NORMAL) {
+    return host_hmi.send_ack(msg, E_INVALID_STATE);
   }
 
   if (msg->data[1])
@@ -489,6 +501,10 @@ err_code_t hmi_set_enclosure_fan(void *obj, sacp_hmi_message_t *msg) {
     LOG_E("[%s] msg key is %d, obj key is %d, No processing\n",\
       __FUNCTION__, msg->data[0], enclosure.get_key());
     return host_hmi.send_ack(msg, E_INVALID_MODULE_KEY);
+  }
+
+  if (enclosure.get_status() != MODULE_STATUS_NORMAL) {
+    return host_hmi.send_ack(msg, E_INVALID_STATE);
   }
 
   result = enclosure.set_fan_speed(msg->data[1]);

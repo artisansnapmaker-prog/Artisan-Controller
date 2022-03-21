@@ -448,6 +448,10 @@ err_code_t send_cnc_head_info_to_hmi(void *obj, sacp_hmi_message_t *msg) {
     return host_hmi.send_ack(msg, E_INVALID_MODULE_KEY);
   }
 
+  if (cnc.get_status() != MODULE_STATUS_NORMAL) {
+    return host_hmi.send_ack(msg, E_INVALID_STATE);
+  }
+
   msg->data[0] = E_SUCCESS;   // default success
   tmp_info = (CNCToolHeadInfo *)(msg->data+1);
   tmp_info->key = cnc.get_key();
@@ -486,6 +490,10 @@ err_code_t hmi_set_cnc_power(void *obj, sacp_hmi_message_t *msg) {
     return host_hmi.send_ack(msg, E_INVALID_MODULE_KEY);
   }
 
+  if (cnc.get_status() != MODULE_STATUS_NORMAL) {
+    return host_hmi.send_ack(msg, E_INVALID_STATE);
+  }
+
   if (cnc.set_power(msg->data[1]))
     result = E_SUCCESS;
 
@@ -522,6 +530,10 @@ err_code_t hmi_set_cnc_rpm(void *obj, sacp_hmi_message_t *msg) {
     LOG_E("[%s] msg key is %d, obj key is %d, No processing\n",\
       __FUNCTION__, msg->data[0], cnc.get_key());
     return host_hmi.send_ack(msg, E_INVALID_MODULE_KEY);
+  }
+
+  if (cnc.get_status() != MODULE_STATUS_NORMAL) {
+    return host_hmi.send_ack(msg, E_INVALID_STATE);
   }
 
   if (!cnc.is_support_rpm_mode()) {
@@ -570,6 +582,10 @@ err_code_t hmi_set_cnc_ctr_mode(void *obj, sacp_hmi_message_t *msg) {
     return host_hmi.send_ack(msg, E_INVALID_MODULE_KEY);
   }
 
+  if (cnc.get_status() != MODULE_STATUS_NORMAL) {
+    return host_hmi.send_ack(msg, E_INVALID_STATE);
+  }
+
   if (!cnc.is_support_change_ctr_mode()) {
     LOG_E("[%s] No support for setting ctr_mode\n",__FUNCTION__);
     msg->data[0] = E_CNC_NO_SUPPORT;      // no support
@@ -609,6 +625,10 @@ err_code_t hmi_set_cnc_enable(void *obj, sacp_hmi_message_t *msg) {
     return host_hmi.send_ack(msg, E_INVALID_MODULE_KEY);
   }
 
+  if (cnc.get_status() != MODULE_STATUS_NORMAL) {
+    return host_hmi.send_ack(msg, E_INVALID_STATE);
+  }
+
   if (cnc.online) {
     if (msg->data[1]) {
       if (cnc.ctr_mode == CNC_CONSTANT_POWER_MODE) {
@@ -646,6 +666,10 @@ err_code_t hmi_set_cnc_enter_calibrate(void *obj, sacp_hmi_message_t *msg) {
     return host_hmi.send_ack(msg, E_PARAM);
   }
 
+  if (cnc.get_status() != MODULE_STATUS_NORMAL) {
+    return host_hmi.send_ack(msg, E_INVALID_STATE);
+  }
+
   // TODO
   LOG_I("cnc enter calibrate mode. parm: %d\n", msg->data[0]);
 
@@ -667,6 +691,10 @@ err_code_t hmi_set_cnc_exit_calibrate(void *obj, sacp_hmi_message_t *msg) {
   if (!msg || !obj || msg->length != 1) {
     LOG_E("[%s] got a invalid parameter\n",__FUNCTION__);
     return host_hmi.send_ack(msg, E_PARAM);
+  }
+
+  if (cnc.get_status() != MODULE_STATUS_NORMAL) {
+    return host_hmi.send_ack(msg, E_INVALID_STATE);
   }
 
   // TODO

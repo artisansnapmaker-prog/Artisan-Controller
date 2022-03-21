@@ -150,6 +150,7 @@ Stepper stepper; // Singleton
 #if HAS_MOTOR_CURRENT_SPI || HAS_MOTOR_CURRENT_PWM
   bool Stepper::initialized; // = false
   uint32_t Stepper::motor_current_setting[MOTOR_CURRENT_COUNT]; // Initialized by settings.load()
+
   #if HAS_MOTOR_CURRENT_SPI
     constexpr uint32_t Stepper::digipot_count[];
   #endif
@@ -2609,6 +2610,7 @@ void Stepper::init() {
   #if HAS_K_DIR
     K_DIR_INIT();
   #endif
+#if !(MB_SNAPMAKER)
   #if HAS_E0_DIR
     E0_DIR_INIT();
   #endif
@@ -2633,7 +2635,7 @@ void Stepper::init() {
   #if HAS_E7_DIR
     E7_DIR_INIT();
   #endif
-
+#endif
   // Init Enable Pins - steppers default to disabled.
   #if HAS_X_ENABLE
     X_ENABLE_INIT();
@@ -2679,6 +2681,7 @@ void Stepper::init() {
     K_ENABLE_INIT();
     if (!K_ENABLE_ON) K_ENABLE_WRITE(HIGH);
   #endif
+#if !(MB_SNAPMAKER)
   #if HAS_E0_ENABLE
     E0_ENABLE_INIT();
     if (!E_ENABLE_ON) E0_ENABLE_WRITE(HIGH);
@@ -2711,6 +2714,7 @@ void Stepper::init() {
     E7_ENABLE_INIT();
     if (!E_ENABLE_ON) E7_ENABLE_WRITE(HIGH);
   #endif
+#endif
 
   #define _STEP_INIT(AXIS) AXIS ##_STEP_INIT()
   #define _WRITE_STEP(AXIS, HIGHLOW) AXIS ##_STEP_WRITE(HIGHLOW)
@@ -2765,6 +2769,7 @@ void Stepper::init() {
     AXIS_INIT(K, K);
   #endif
 
+#if !(MB_SNAPMAKER)
   #if E_STEPPERS && HAS_E0_STEP
     E_AXIS_INIT(0);
   #endif
@@ -2789,7 +2794,7 @@ void Stepper::init() {
   #if E_STEPPERS > 7 && HAS_E7_STEP
     E_AXIS_INIT(7);
   #endif
-
+#endif
   #if DISABLED(I2S_STEPPER_STREAM)
     HAL_timer_start(MF_TIMER_STEP, 122); // Init Stepper ISR to 122 Hz for quick starting
     wake_up();

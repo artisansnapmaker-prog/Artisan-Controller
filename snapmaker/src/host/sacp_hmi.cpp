@@ -227,7 +227,6 @@ err_code_t HostSACPHMI::send_sync_legacy(sacp_hmi_message_t *message, uint8_t *o
     return E_NO_RESRC;
   }
 
-  sacp_channel_t &channel = channels[message->ch];
   // legacy API is only available for V0
   message->ver = SACP_VER_0;
   message->attr |= (SACP_MESSAGE_ATTR_SET_VER | SACP_MESSAGE_ATTR_SET_SEQ);
@@ -526,7 +525,7 @@ err_code_t HostSACPHMI::parse_packets(sacp_channel_t &channel) {
         // SACP_FRONT_HEADER_MIN_SIZE is 7
         // parser.length is total length of whole packet - 8
         // so we are waiting for (parser.length + (8 - 7)) bytes
-        parser.length = parser.buffer[SACP_V0_FRAME_INDEX_LEN_H]<<8 | parser.buffer[SACP_V0_FRAME_INDEX_LEN_L] + 1;
+        parser.length = (parser.buffer[SACP_V0_FRAME_INDEX_LEN_H]<<8 | parser.buffer[SACP_V0_FRAME_INDEX_LEN_L]) + 1;
         parser.ver    = SACP_VER_0;
       }
 
@@ -1005,6 +1004,11 @@ void HostSACPHMI::handle_subscript(sacp_hmi_message_t &msg) {
   xSemaphoreGive(subscription_lock);
   subscription_clients[client_index].timer = xTimerCreate(NULL, pdMS_TO_TICKS(period),
   pdTRUE, (void *)&subscription_clients[client_index], subscription_timer_cb);
+  if (!subscription_clients[client_index].timer) {
+    LOG_E("cannot create timersubscription[%x:%x]\n", cmd_set, cmd_id);
+    send_ack(&msg, E_NO_MEM);
+    return;
+  }
 
   if (xTimerStart(subscription_clients[client_index].timer, portMAX_DELAY) != pdPASS) {
     LOG_E("failed to start timer for subscribe[%x:%x]\n", cmd_set, cmd_id);

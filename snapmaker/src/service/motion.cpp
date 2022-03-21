@@ -84,11 +84,11 @@ err_code_t MotionService::hmi_cb_set_active_coordinate_system(void *obj, sacp_hm
 
   switch (id) {
   case 0:
-    motion->run_gcode("G53");
+    motion->run_gcode((char *)"G53");
     break;
 
   case 1:
-    motion->run_gcode("G54");
+    motion->run_gcode((char *)"G54");
     break;
 
   default:

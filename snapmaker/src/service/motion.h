@@ -138,10 +138,10 @@ class MotionService {
 
     // home API
     bool is_all_axes_homed() {return all_axes_homed();}
-    err_code_t home(bool block = true) { return run_gcode("G28", block); }
-    err_code_t home_x(bool block = true) { return run_gcode("G28 X", block); }
-    err_code_t home_y(bool block = true) { return run_gcode("G28 Y", block); }
-    err_code_t home_z(bool block = true) { return run_gcode("G28 Z", block); }
+    err_code_t home(bool block = true) { return run_gcode((char *)"G28", block); }
+    err_code_t home_x(bool block = true) { return run_gcode((char *)"G28 X", block); }
+    err_code_t home_y(bool block = true) { return run_gcode((char *)"G28 Y", block); }
+    err_code_t home_z(bool block = true) { return run_gcode((char *)"G28 Z", block); }
 
     // speed control API
     float get_feedrate(void);

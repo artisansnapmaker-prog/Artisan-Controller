@@ -43,8 +43,6 @@ xy_pos_t bilinear_grid_spacing, bilinear_start;
 xy_float_t bilinear_grid_factor;
 bed_mesh_t z_values;
 bed_mesh_t z_values_raw;
-float z_compensation[EXTRUDERS];
-
 
 /**
  * Extrapolate a single point from its neighbors

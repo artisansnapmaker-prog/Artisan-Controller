@@ -259,8 +259,7 @@ typedef struct SettingsDataStruct {
   matrix_3x3 planner_bed_level_matrix;                  // planner.bed_level_matrix
 
   #if MB_SNAPMAKER
-  float z_compensation[EXTRUDERS];
-  bed_mesh_t z_values_raw;
+    bed_mesh_t z_values_raw;
   #endif
 
   //
@@ -848,7 +847,6 @@ void MarlinSettings::postprocess() {
 
     #if MB_SNAPMAKER
       {
-        EEPROM_WRITE(z_compensation);
         EEPROM_WRITE(z_values_raw);
       }
     #endif
@@ -1754,7 +1752,6 @@ void MarlinSettings::postprocess() {
 
       #if MB_SNAPMAKER
         {
-          EEPROM_READ(z_compensation);
           EEPROM_READ(z_values_raw);
         }
       #endif
@@ -1767,6 +1764,8 @@ void MarlinSettings::postprocess() {
         EEPROM_READ_ALWAYS(grid_max_x);                // 1 byte
         EEPROM_READ_ALWAYS(grid_max_y);                // 1 byte
         #if ENABLED(AUTO_BED_LEVELING_BILINEAR)
+          GRID_MAX_POINTS_X = grid_max_x;
+          GRID_MAX_POINTS_Y = grid_max_y;
           if (grid_max_x == (GRID_MAX_POINTS_X) && grid_max_y == (GRID_MAX_POINTS_Y)) {
             if (!validating) set_bed_leveling_enabled(false);
             EEPROM_READ(bilinear_grid_spacing);        // 2 ints

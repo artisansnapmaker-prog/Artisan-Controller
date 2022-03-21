@@ -132,7 +132,7 @@ class MotionService {
       soft_endstop._enabled = status;
     }
     void sync_feedrate_percentage_to_platform(int16_t percentage) { feedrate_percentage = percentage; }
-    
+
     void quickstop(void);
     void normalstop(void);
 
@@ -184,8 +184,6 @@ class MotionService {
     void sync_leveling_limit_to_platform(float x_start, float x_end, float y_start, float y_end);
     void sync_z_values_to_platform();
     void sync_z_values_from_platform();
-    void sync_z_compensation_to_platform();
-    void sync_z_compensation_from_platform();
     void extrapolate_unprobed_points() {extrapolate_unprobed_bed_level();}
     void interpolate_virt_points() {refresh_bed_level();}
     void print_leveling_grid() { print_bilinear_leveling_grid();}

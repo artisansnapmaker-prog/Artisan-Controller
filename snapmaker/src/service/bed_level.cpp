@@ -680,7 +680,6 @@ err_code_t BedLevelService::confirm_probe_sensor_calibration(uint8_t e) {
     motion_svc.moveto_z(motion_svc.sm_current_position[Z_AXIS] + 100, 30);
     smprinter.fdm->set_hotend_offset_z(hotend_touch_bed_z_[0] - hotend_touch_bed_z_[1]);
     LOG_I("hotend_offset_z: %f\n", hotend_touch_bed_z_[0] - hotend_touch_bed_z_[1]);
-    motion_svc.sync_z_compensation_to_platform();
     motion_svc.save_settings();
   } else if (e == 1) {
     z_compensation_[1] = stroke_temp;

@@ -241,7 +241,7 @@ err_code_t MotionService::hmi_cb_request_home(void *obj, sacp_hmi_message_t *msg
 
 void MotionService::motion_background(void *p) {
   MotionService &motion = *(MotionService *)p;
-  
+
   for (;;) {
     loop();
     taskYIELD();
@@ -361,7 +361,7 @@ void MotionService::normalstop(void) {
 
   // Just wait for all the block in planner has been runout
   // Now the system status is PAUSING, marlin or other platform
-  // will not get gcode from job control's ringbuffer. So marlin 
+  // will not get gcode from job control's ringbuffer. So marlin
   // or other platform will runout the planed block.
   while(planner.busy()) vTaskDelay(1);
 }
@@ -444,16 +444,6 @@ void MotionService::sync_z_values_from_platform() {
   memcpy(bedlevel_svc.z_values_, z_values_raw, sizeof(z_values));
 }
 
-void MotionService::sync_z_compensation_to_platform() {
-  z_compensation[0] = bedlevel_svc.z_compensation_[0];
-  z_compensation[1] = bedlevel_svc.z_compensation_[0];
-}
-
-void MotionService::sync_z_compensation_from_platform() {
-  bedlevel_svc.z_compensation_[0] = z_compensation[0];
-  bedlevel_svc.z_compensation_[0] = z_compensation[1];
-}
-
 void MotionService::sync_hotend_offset_to_platform(float x_offset, float y_offset, float z_offset) {
   hotend_offset[X_AXIS][1] = x_offset;
   hotend_offset[Y_AXIS][1] = y_offset;
@@ -461,23 +451,20 @@ void MotionService::sync_hotend_offset_to_platform(float x_offset, float y_offse
 }
 
 void MotionService::load_settings() {
-  settings.load();
-  sync_z_compensation_from_platform();
   sync_z_values_from_platform();
 }
 
 void MotionService::save_settings() {
-  sync_z_compensation_to_platform();
   sync_z_values_to_platform();
   settings.save();
 }
 
 float current_bed_temp(uint8_t area_id = 0) {
   float cur_temp = 0;
-  #if ENABLED(SNAPMAKER_DOUBLE_ZONE_BED) 
+  #if ENABLED(SNAPMAKER_DOUBLE_ZONE_BED)
     if (area_id == 0)
       cur_temp = thermalManager.degBed();
-    else 
+    else
       cur_temp = thermalManager.degChamber();
   #else
     cur_temp = thermalManager.degBed();
@@ -487,15 +474,15 @@ float current_bed_temp(uint8_t area_id = 0) {
 
 int16_t target_bed_temp(uint8_t area_id = 0) {
   int16_t target_temp = 0;
-  #if ENABLED(SNAPMAKER_DOUBLE_ZONE_BED) 
+  #if ENABLED(SNAPMAKER_DOUBLE_ZONE_BED)
     if (area_id == 0)
       target_temp = thermalManager.degTargetBed();
-    else 
+    else
       target_temp = thermalManager.degTargetChamber();
   #else
     target_temp = thermalManager.degTargetBed();
   #endif
-  return target_temp;  
+  return target_temp;
 }
 err_code_t MotionService::run_gcode(char *gcode, bool blocked /* = false*/,
     uint32_t blocked_timeout/*= 180 * 1000 ms*/) {
@@ -539,7 +526,7 @@ bool MotionService::consume_a_gcode(uint8_t *cmd, uint16_t max_len, uint32_t *li
     return false;
   if (gcode_len < 2 || gcode_len > MAX_CMD_SIZE)
     return false;
-  
+
   memcpy(cmd, gcode_cmd, gcode_len);
   *line = 0;
   return true;

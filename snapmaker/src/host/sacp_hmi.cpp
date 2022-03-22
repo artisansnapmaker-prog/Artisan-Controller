@@ -308,12 +308,12 @@ err_code_t HostSACPHMI::send_sync(sacp_hmi_message_t *message, uint8_t *out, uin
 
   for (; node_index < SACP_HMI_WAITING_NODE_MAX; node_index++) {
     if (waiting_nodes[node_index].status == SACP_WAITING_NODE_STA_IDLE) {
-      waiting_nodes[node_index].status  = SACP_WAITING_NODE_STA_INUSE_V1;
       waiting_nodes[node_index].cmd_set = message->cmd_set;
       waiting_nodes[node_index].cmd_id  = message->cmd_id;
       waiting_nodes[node_index].seq     = message->seq;
       waiting_nodes[node_index].ch      = message->ch;
       waiting_nodes[node_index].peer    = message->peer;
+      waiting_nodes[node_index].status  = SACP_WAITING_NODE_STA_INUSE_V1;
       break;
     }
   }
@@ -326,8 +326,8 @@ err_code_t HostSACPHMI::send_sync(sacp_hmi_message_t *message, uint8_t *out, uin
   }
 
   xMessageBufferReset(waiting_nodes[node_index].queue);
-
   for (; retry > 0; retry--) {
+    // LOG_I("scap: send seq %u, time: %u\r\n", message->seq, millis());
     if ((ret = send(message)) != E_SUCCESS) {
       LOG_I("send sync failed\n");
       vTaskDelay(pdMS_TO_TICKS(timeout>>1));
@@ -335,6 +335,7 @@ err_code_t HostSACPHMI::send_sync(sacp_hmi_message_t *message, uint8_t *out, uin
     }
 
     recv_len = xMessageBufferReceive(waiting_nodes[node_index].queue, out, *out_len, pdMS_TO_TICKS(timeout));
+    // LOG_I("len: %u, end time: %u, %x,%x\r\n", recv_len, millis(), out[0], out[1]);
     if (recv_len < 1) {
       ret = E_EXE_TIMEOUT;
       continue;
@@ -355,6 +356,7 @@ err_code_t HostSACPHMI::send_sync(sacp_hmi_message_t *message, uint8_t *out, uin
     waiting_nodes[node_index].status = SACP_WAITING_NODE_STA_IDLE;
     return E_NO_RESRC;
   }
+  // LOG_I("end time: %u\r\n", millis());
 
   return ret;
 }
@@ -669,6 +671,8 @@ void HostSACPHMI::handle_receive() {
     buffer_len  = channels[i].parser.length;
     version     = channels[i].parser.ver;
 
+    seq = 65535;
+
     if (parser_buff[SACP_V1_FRAME_INDEX_VER] == SACP_VER_1) {
       if (parser_buff[SACP_V1_FRAME_INDEX_RECV_ID] != host_id) {
         LOG_E("recv id of msg[%x, %x] isn't me!\n", parser_buff[SACP_V1_FRAME_INDEX_CMD_SET],
@@ -721,18 +725,16 @@ void HostSACPHMI::handle_receive() {
       }
     }
 
-    if (version == SACP_VER_1)
-      LOG_I("recv ch[%u] v1 msg[%x:%x]\n", i, parser_buff[SACP_V1_FRAME_INDEX_CMD_SET], parser_buff[SACP_V1_FRAME_INDEX_CMD_ID]);
-    else 
-      LOG_I("recv ch[%u] v0 msg[%x]\n", i, parser_buff[SACP_V0_FRAME_INDEX_EVENT_ID]);
-
+    // LOG_I("recv new msg[%x:%x], seq %u, time: %u\n", parser_buff[SACP_V1_FRAME_INDEX_CMD_SET], parser_buff[SACP_V1_FRAME_INDEX_CMD_ID], seq, millis());
     if (version == SACP_VER_1) {
       // if someone is waiting this message, send to it
       if (tmp_queue) {
-        // just send the payload part except cmd set and cmd id
-        xMessageBufferSend(tmp_queue, parser_buff + SACP_V1_FRAME_INDEX_PAYLOAD,
-          buffer_len - SACP_V1_PDU_MIN_SIZE, pdMS_TO_TICKS(100));
+        // LOG_I("pkt len: %u\n", parser_buff[SACP_V1_FRAME_INDEX_LEN_H]<<8|parser_buff[SACP_V1_FRAME_INDEX_LEN_L]);
 
+        // just send the payload part except cmd set and cmd id
+        seq = xMessageBufferSend(tmp_queue, parser_buff + SACP_V1_FRAME_INDEX_PAYLOAD,
+          buffer_len - SACP_V1_PDU_MIN_SIZE, pdMS_TO_TICKS(100));
+        // LOG_I("ret: %u, len: %u, %x, %x\n", seq, buffer_len - SACP_V1_PDU_MIN_SIZE, parser_buff[SACP_V1_FRAME_INDEX_PAYLOAD], parser_buff[SACP_V1_FRAME_INDEX_PAYLOAD+1]);
       }
       else {
         // check if we have callback for this message, if yes, send it to event thread

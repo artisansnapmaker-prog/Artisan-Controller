@@ -178,8 +178,7 @@ err_code_t JobCtrl::req_start(  uint8_t client_id,
   return E_SUCCESS;
 }
 
-err_code_t JobCtrl::req_pause(job_req_notify_cb_t cb) {
-
+err_code_t JobCtrl::req_pause(enum JobPauseType pt/* = PAUSE_CLIENT_REQ*/, job_req_notify_cb_t cb/* = NULL*/){
   if (SYSTEM_STATUS_PRINTING != smprinter.get_sys_status()) {
     LOG_E("job client: can not pause a job as current status is no printing\r\n");
     return E_JOB_NOT_IN_WORKING_STATUS;
@@ -187,6 +186,7 @@ err_code_t JobCtrl::req_pause(job_req_notify_cb_t cb) {
 
   JobCtrlReqInfo jri;
   jri.req_action = REQ_PAUSE;
+  jri.req_data.req_pause_data.type = pt;
   jri.cb = cb;
 
   if (sizeof(jri) != xMessageBufferSend(_req_queue, &jri, sizeof(jri), pdMS_TO_TICKS(100))) {
@@ -394,12 +394,23 @@ void JobCtrl::get_gcodes_from_client(void) {
   res_batch_gcode_t res_batch_gcode;
   uint8_t batch_gcode_buf[GCODE_RB_SIZE/4];
   
-  while(_gcode_rb.free()) {
+  while(_gcode_rb.free() >= _get_gcode_buffer_req_min) {
     req_batch_gcode.line_num = _env.req_line_num;
     req_batch_gcode.buf_len = MIN(_gcode_rb.free(), GCODE_RB_SIZE/4);
+    if (req_batch_gcode.buf_len < _get_gcode_buffer_req_min){
+      LOG_I("job_ctrl: no large enough buffer for get gcode, minimum request %d, but we juest get %d\r\n", _get_gcode_buffer_req_min, req_batch_gcode.buf_len);
+      break;
+    }
     res_batch_gcode.gcode_str = batch_gcode_buf;
     LOG_I("job_ctrl: get gcode from client %d, startline %d, buffer %d\r\n", _client_id, req_batch_gcode.line_num, req_batch_gcode.buf_len);
     if(ClientNode::get_batch_gcode(_client_id, req_batch_gcode, res_batch_gcode)) {
+      if (E_SUCCESS != res_batch_gcode.result &&
+          E_JOB_LAST_GCODE_PACK != res_batch_gcode.result) {
+        LOG_I("job_ctrl: get gcode's result error\r\n");
+        _err_get_batch_gcode_cnt++;
+        continue;
+      }
+
       if(res_batch_gcode.start_line_num != req_batch_gcode.line_num) {
         LOG_E("start line number not match, drop this batch gcode\r\n");
         _issue_ret_rb.insert_one(SACP_JOB_PAUSE_ISSUE_RET_IVALID_GCODE_LINE_NUMBER);
@@ -415,26 +426,32 @@ void JobCtrl::get_gcodes_from_client(void) {
         while('\0' != *p) {
           if ('\n' == *p) {
             rx_line_num++;
+            // 747 debug
+            if (p - ls < MAX_CMD_SIZE) {
+              memcpy(str_temp, ls, (p - ls));
+              str_temp[p-ls] = 0;
+              ls = p + 1;
+              // LOG_I("job_ctrl: get gocde: %s\r\n", (char *)str_temp);
+            }
           }
           p++;
         }
 
-        // 747 debug
-        if (p - ls < MAX_CMD_SIZE) {
-          memcpy(str_temp, ls, (p - ls));
-          str_temp[p-ls] = 0;
-          LOG_I("job_ctrl: get gocde: %s\r\n", (char *)str_temp);
+        if (0 == rx_line_num) {
+          LOG_I("job_ctrl: get 0 line gcode, perhaps no large buffer for the next gcode, break and wait for the next large gcode buffer\r\n");
+          // update 
+          _get_gcode_buffer_req_min = req_batch_gcode.buf_len + 1;
         }
 
-        if(rx_line_num != (res_batch_gcode.end_line_num - res_batch_gcode.start_line_num)) {
-          LOG_E("line number not match, drop this batch gcode\r\n");
+        if (rx_line_num != ((res_batch_gcode.end_line_num - res_batch_gcode.start_line_num) + 1)) {
+          LOG_E("line number not match, drop this batch gcode, expect %d, but get %d\r\n", rx_line_num, ((res_batch_gcode.end_line_num - res_batch_gcode.start_line_num) + 1));
           _issue_ret_rb.insert_one(SACP_JOB_PAUSE_ISSUE_RET_IVALID_GCODE_LINE_NUMBER);
           req_stop();
           break;
         }
         // gcode ringbuffer guarantee to hold all the gcode string.
         _gcode_rb.insert_multi(res_batch_gcode.gcode_str, p - res_batch_gcode.gcode_str);
-        _env.req_line_num = res_batch_gcode.end_line_num;
+        _env.req_line_num = res_batch_gcode.end_line_num + 1;
         _err_get_batch_gcode_cnt = 0;
 
         if (E_JOB_LAST_GCODE_PACK == res_batch_gcode.result) {
@@ -443,6 +460,7 @@ void JobCtrl::get_gcodes_from_client(void) {
             // we will continue to request the client to send gcodes
             LOG_E("job_ctrl: can to enter SYS_FINISHING status\r\n");
           }
+          break;
         }
       }
     }
@@ -503,6 +521,7 @@ void JobCtrl::do_start(struct JobCtrlReqInfo &jri) {
   _env.time_elape = 0;
   _err_get_batch_gcode_cnt = 0;
   _env.gfi_valid = true;
+  _get_gcode_buffer_req_min = 0;
 
   if (E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_PRINTING, &ret_sys_status)) {
     LOG_E("job_ctrl: Can not enter SYS_PRINTING status\r\n");
@@ -524,7 +543,35 @@ void JobCtrl::do_pause(struct JobCtrlReqInfo &jri) {
   }
   DO_JOB_REQ_NOTIFY_CB(jri.cb, SYSTEM_STATUS_PAUSING);
 
-  motion_svc.normalstop();
+  switch (jri.req_data.req_pause_data.type) {
+    case PAUSE_CLIENT_REQ:
+      motion_svc.normalstop();
+    break;
+
+    case PAUSE_FILM_RUNOUT:
+      motion_svc.normalstop();
+    break;
+
+    case PAUSE_POWR_LOSE:
+      LOG_I("TODO: quickstop\r\n");
+    break;
+
+    case PAUSE_DOOR_OPEN:
+      LOG_I("TODO: quickstop\r\n");
+    break;
+
+    case PAUSE_EXCEPTION:
+      LOG_I("TODO: quickstop\r\n");
+    break;
+
+    default:
+      LOG_E("job_ctrl: unknow pause type\r\n");
+      smprinter.set_sys_status(SYSTEM_STATUS_IDLE, &ret_sys_status);
+      DO_JOB_REQ_NOTIFY_CB(jri.cb, ret_sys_status);
+      return;
+    break;
+  }
+
   if (E_SUCCESS != save_env()) {
     smprinter.set_sys_status(SYSTEM_STATUS_IDLE, &ret_sys_status);
     DO_JOB_REQ_NOTIFY_CB(jri.cb, ret_sys_status);
@@ -636,16 +683,16 @@ bool JobCtrl::consume_a_gcode(uint8_t *cmd, uint16_t max_len, uint32_t *line) {
 
     cmd[cmd_len++] = c;
     if('\n' == c) {
-      *line = _env.cur_line_num;
-      _env.cur_line_num++;
+      *line = _env.cur_line_num++;
       cmd[cmd_len] = 0;
       
       // 747 debug
       // consume here, do not push this gcode to marlin or other platform
       // ret = true;
-      LOG_I("job_ctrl: consume a gcode: %s\r\n", cmd);
+      // LOG_I("job_ctrl: consume a gcode: %s\r\n", (char *)cmd);
       ret = false;
       
+      vTaskDelay(2);
       break;
     }
   }

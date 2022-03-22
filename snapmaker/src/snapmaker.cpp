@@ -667,7 +667,9 @@ err_code_t SnapmakerPrinter::set_sys_status(enum SystemStatus req_status, enum S
     break;
 
   case SYSTEM_STATUS_STOPING:
-    if (SYSTEM_STATUS_PRINTING == sys_status || SYSTEM_STATUS_PAUSED == sys_status) {
+    if (SYSTEM_STATUS_PRINTING == sys_status || 
+        SYSTEM_STATUS_PAUSED == sys_status || 
+        SYSTEM_STATUS_FINISHING == sys_status) {
       sys_status = req_status;
       ret = E_SUCCESS;
     }

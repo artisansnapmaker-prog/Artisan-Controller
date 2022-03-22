@@ -37,7 +37,7 @@
 
 #define MAX_CLIENT_NODE_NUM                           4
 #define MAX_SACP_MSG_COPY                             2
-#define SEND_BUF_SIZE                                 256
+#define SEND_BUF_SIZE                                 (256 + 16)
 // TODO: this should define in the SACP
 #define IVALID_PEER                                   0xFFFFFFFF
 #define IVALID_CH                                     0xFF

@@ -78,9 +78,11 @@ struct GcodeFileInfo {
   uint8_t name[GCODE_FILE_NAME_SIZE];
 };
 
-enum JobNotiy {
+enum JobPauseType {
+  PAUSE_CLIENT_REQ,
   PAUSE_FILM_RUNOUT,
   PAUSE_POWR_LOSE,
+  PAUSE_DOOR_OPEN,
   PAUSE_EXCEPTION,
 };
 
@@ -123,6 +125,7 @@ struct JobCtrlReqInfo {
     } req_start_data;
 
     struct {
+      enum JobPauseType type;
     } req_pause_data;
 
     struct {
@@ -144,7 +147,7 @@ class JobCtrl {
 
     // job control
     err_code_t req_start(uint8_t client_id, struct GcodeFileInfo *gcodeInfo, toolHeadType th_type, job_req_notify_cb_t cb = NULL);
-    err_code_t req_pause(job_req_notify_cb_t cb = NULL);
+    err_code_t req_pause(enum JobPauseType pt = PAUSE_CLIENT_REQ, job_req_notify_cb_t cb = NULL);
     err_code_t req_resume(uint8_t client_id, job_req_notify_cb_t cb = NULL);
     err_code_t req_stop(job_req_notify_cb_t cb = NULL);
 
@@ -188,6 +191,9 @@ class JobCtrl {
     uint32_t _err_get_batch_gcode_cnt;
     uint32_t _statistics_log_interval_ms;
     uint32_t _statistics_log_last_tick_ms;
+
+    // use for get gcode
+    uint32_t _get_gcode_buffer_req_min;                       /** the minimum buffer use to get gcode                                       */
 };
 
 extern JobCtrl job_ctrl_svc;

@@ -154,8 +154,10 @@ bool ClientNode::get_batch_gcode(uint8_t client_id, req_batch_gcode_t &req_batch
 uint16_t ClientNode::job_ctrl_linenum_sub_cb(void *obj, uint8_t *buffer) {
   uint32_t ln;
   ln = job_ctrl_svc.get_cur_linenum();
-  _32_TO_LITTLE_STREAM(ln, buffer);
-  return 4;
+  
+  buffer[0] = E_SUCCESS;              // result
+  _32_TO_LITTLE_STREAM(ln, buffer+1);   // line number
+  return 5;
 }
 
 uint16_t ClientNode::sys_hardtick_sub_cb(void *obj, uint8_t *buffer) {
@@ -250,9 +252,16 @@ void ClientNode::timer_cb(void *p) {
 }
 
 bool ClientNode::sacp_get_batch_gcode(req_batch_gcode_t &req_batch_gcode, res_batch_gcode_t &res_batch_gcode) {
-  sacp_hmi_message_t s_msg;
+  err_code_t ret;
   uint16_t out_len;
+  sacp_hmi_message_t s_msg;
   uint8_t buf[SEND_BUF_SIZE];
+
+  // 11 is the start of linenumber end of linenumber and so on
+  if (req_batch_gcode.buf_len + 11 > SEND_BUF_SIZE) {
+    LOG_E("client_node: sacp_get_batch_gcode req buf len too large\r\n");
+    return false;
+  }
 
   // peer id? and send id?
   // seq not change
@@ -265,19 +274,26 @@ bool ClientNode::sacp_get_batch_gcode(req_batch_gcode_t &req_batch_gcode, res_ba
   _32_TO_LITTLE_STREAM(req_batch_gcode.line_num, buf);
   _16_TO_LITTLE_STREAM(req_batch_gcode.buf_len, buf + 4);
   s_msg.length = 6;
-  if (E_SUCCESS == host_hmi.send_sync(&s_msg, buf, &out_len)) {
+  out_len = SEND_BUF_SIZE;
+  ret = host_hmi.send_sync(&s_msg, buf, &out_len, 200, 1);
+  if (E_SUCCESS == ret) {
     if(out_len < 8){
       LOG_E("Client node: batch gcode response lenght error, must > 8, but get %d\r\n", out_len);
       return false;
     }
-    res_batch_gcode.result = buf[0];
-    res_batch_gcode.start_line_num = LITTLE_STREAM_TO_32(buf + 1);
-    res_batch_gcode.end_line_num = LITTLE_STREAM_TO_32(buf + 1 + 4);
-    memcpy(res_batch_gcode.gcode_str, buf + 9, out_len - 9);
+    uint8_t *p = buf;
+    res_batch_gcode.result = p[0]; p += 1;
+    res_batch_gcode.start_line_num = LITTLE_STREAM_TO_32(p); p += 4;
+    res_batch_gcode.end_line_num = LITTLE_STREAM_TO_32(p); p+= 4;
+    uint16_t str_len = LITTLE_STREAM_TO_16(p); p += 2;
+    // LOG_I("client_node: start line %d, end line %d, strlen %d\r\n", res_batch_gcode.start_line_num, res_batch_gcode.end_line_num, str_len);
+    // LOG_I("gcode string: %s\r\n", (char *)p);
+    memcpy(res_batch_gcode.gcode_str, p, str_len); p += str_len;
+    res_batch_gcode.gcode_str[str_len] = '\0';
     return true;
   }
   else {
-    LOG_E("Client node: send sync failed in when get gcode\r\n");
+    LOG_E("Client node: send sync failed in when get gcode, return %d\r\n", ret);
     return false;
   }
 }
@@ -414,7 +430,7 @@ err_code_t ClientNode::req_pause_job(sacp_hmi_message_t* msg) {
   err_code_t ret;
   sacp_hmi_message_t *msg_cp;
 
-  LOG_I("Client node: client %d request pause a job\r\n");
+  LOG_I("Client node: client %d request pause a job <<<<<<<<<<<>>>>>>>>>>>\r\n");
   msg_cp = malloc_sacp_msg_node();
   if (!msg_cp) {
     LOG_E("client_node: can not malloc sacp msg copy\r\n");
@@ -422,7 +438,7 @@ err_code_t ClientNode::req_pause_job(sacp_hmi_message_t* msg) {
   }
   *msg_cp = *msg;
   req_pause_cb = std::bind(&ClientNode::job_req_pause_cb, this, msg_cp, std::placeholders::_1);
-  ret = job_ctrl_svc.req_pause(req_pause_cb);
+  ret = job_ctrl_svc.req_pause(PAUSE_CLIENT_REQ, req_pause_cb);
   if (E_SUCCESS != ret) {
     free_sacp_msg_node(msg_cp);
     return host_hmi.send_ack(msg, ret);

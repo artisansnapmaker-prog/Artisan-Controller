@@ -204,6 +204,7 @@ err_code_t ToolHeadLaser::hmi_cb_set_focal_length(void *obj, sacp_hmi_message_t 
   LOG_I("set focal len[%u]\n", *length);
 
   if (*length > 65535) {
+    LOG_I("focal len is out of range[65535]\n", *length);
     return host_hmi.send_ack(message, E_PARAM);
   }
 

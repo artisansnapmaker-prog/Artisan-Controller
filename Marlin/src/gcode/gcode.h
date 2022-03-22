@@ -601,6 +601,7 @@ private:
   #if HAS_CUTTER || MB_SNAPMAKER
     static void M3_M4(const bool is_M4);
     static void M5();
+    static void M101();
   #endif
 
   #if ENABLED(COOLANT_MIST)

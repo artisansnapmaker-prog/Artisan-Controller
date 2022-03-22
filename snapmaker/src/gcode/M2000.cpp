@@ -45,6 +45,7 @@ void GcodeSuite::M2000() {
   {
   case 0:
     /* show system info */
+    smprinter.show_sys_info();
     break;
 
   case 1:

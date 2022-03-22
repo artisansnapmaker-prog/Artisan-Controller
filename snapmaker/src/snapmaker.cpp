@@ -813,6 +813,11 @@ err_code_t SnapmakerPrinter::set_sys_status(enum SystemStatus req_status, enum S
   return ret;
 }
 
+void SnapmakerPrinter::show_sys_info() {
+  LOG_I("sys state: %u\n", sys_status);
+  motion_svc.show_coordiantes();
+}
+
 extern "C" {
   // hook for failing to apply memory in freeRTOS
   void vApplicationMallocFailedHook( void ) {

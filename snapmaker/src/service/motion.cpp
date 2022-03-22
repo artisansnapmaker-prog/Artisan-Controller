@@ -35,32 +35,30 @@ uint16_t MotionService::hmi_cb_publish_coordinate_info(void *obj, uint8_t *buffe
   info->active_coordinate_system = (uint8_t)(motion->get_active_coordinate_system() + 1);
   info->is_original_offset       = motion->is_original_position_offset();
 
-  motion->update_position_from_platform();
   info->current_pos[0].axis  = AXIS_KEY_X1;
-  info->current_pos[0].value = (int32_t)(motion->sm_current_position[X_AXIS] * 1000);
+  info->current_pos[0].value = (int32_t)(current_position[X_AXIS] * 1000);
   info->current_pos[1].axis  = AXIS_KEY_Y1;
-  info->current_pos[1].value = (int32_t)(motion->sm_current_position[Y_AXIS] * 1000);
+  info->current_pos[1].value = (int32_t)(current_position[Y_AXIS] * 1000);
   info->current_pos[2].axis  = AXIS_KEY_Z1;
-  info->current_pos[2].value = (int32_t)(motion->sm_current_position[Z_AXIS] * 1000);
+  info->current_pos[2].value = (int32_t)(current_position[Z_AXIS] * 1000);
   info->current_pos[3].axis  = AXIS_KEY_A1;
-  info->current_pos[3].value = (int32_t)(motion->sm_current_position[A_AXIS] * 1000);
+  info->current_pos[3].value = (int32_t)(current_position[A_AXIS] * 1000);
   info->current_pos[4].axis  = AXIS_KEY_B1;
-  info->current_pos[4].value = (int32_t)(motion->sm_current_position[B_AXIS] * 1000);
+  info->current_pos[4].value = (int32_t)(current_position[B_AXIS] * 1000);
   info->current_pos_num      = 5;
   LOG_V("coor: X: %d, Y:%d, Z:%d, A: %d, B:%d\n", info->current_pos[0].value, info->current_pos[1].value,
     info->current_pos[2].value, info->current_pos[3].value, info->current_pos[4].value);
 
-  motion->update_position_shift_from_platform();
   info->origin_offset[0].axis  = AXIS_KEY_X1;
-  info->origin_offset[0].value = (int32_t)(motion->sm_position_shift[X_AXIS] * 1000);
+  info->origin_offset[0].value = (int32_t)(position_shift[X_AXIS] * 1000);
   info->origin_offset[1].axis  = AXIS_KEY_Y1;
-  info->origin_offset[1].value = (int32_t)(motion->sm_position_shift[Y_AXIS] * 1000);
+  info->origin_offset[1].value = (int32_t)(position_shift[Y_AXIS] * 1000);
   info->origin_offset[2].axis  = AXIS_KEY_Z1;
-  info->origin_offset[2].value = (int32_t)(motion->sm_position_shift[Y_AXIS] * 1000);
+  info->origin_offset[2].value = (int32_t)(position_shift[Y_AXIS] * 1000);
   info->origin_offset[3].axis  = AXIS_KEY_A1;
-  info->origin_offset[3].value = (int32_t)(motion->sm_position_shift[A_AXIS] * 1000);
+  info->origin_offset[3].value = (int32_t)(position_shift[A_AXIS] * 1000);
   info->origin_offset[4].axis  = AXIS_KEY_B1;
-  info->origin_offset[4].value = (int32_t)(motion->sm_position_shift[B_AXIS] * 1000);
+  info->origin_offset[4].value = (int32_t)(position_shift[B_AXIS] * 1000);
   info->origin_offset_num      = 5;
 
   LOG_V("pos offset: X: %d, Y:%d, Z:%d, A: %d, B:%d\n", info->current_pos[0].value, info->current_pos[1].value,
@@ -523,4 +521,19 @@ bool MotionService::consume_a_gcode(uint8_t *cmd, uint16_t max_len, uint32_t *li
 
 void MotionService::moveto(xyze_pos_t target, float feedrate, bool blocked) {
   do_blocking_move_to(target, feedrate);
+}
+
+void MotionService::show_coordiantes() {
+  update_position_from_platform();
+  LOG_I("home offset: X%.3f, Y%.3f, Z%.3f, A%.3f, B%.3f\n", home_offset[X_AXIS],
+      home_offset[Y_AXIS], home_offset[Z_AXIS], home_offset[A_AXIS], home_offset[B_AXIS]);
+  LOG_I("position offset: X%.3f, Y%.3f, Z%.3f, A%.3f, B%.3f\n", position_shift[X_AXIS],
+      position_shift[Y_AXIS], position_shift[Z_AXIS], position_shift[A_AXIS], position_shift[B_AXIS]);
+  LOG_I("work offset: X%.3f, Y%.3f, Z%.3f, A%.3f, B%.3f\n", workspace_offset[X_AXIS],
+      workspace_offset[Y_AXIS], workspace_offset[Z_AXIS], workspace_offset[A_AXIS], workspace_offset[B_AXIS]);
+  LOG_I("machine position: X%.3f, Y%.3f, Z%.3f, A%.3f, B%.3f\n", current_position[X_AXIS],
+      current_position[Y_AXIS], current_position[Z_AXIS], current_position[A_AXIS], current_position[B_AXIS]);
+  LOG_I("logical position: X%.3f, Y%.3f, Z%.3f, A%.3f, B%.3f\n", LOGICAL_X_POSITION(current_position[X_AXIS]),
+      LOGICAL_X_POSITION(current_position[Y_AXIS]), LOGICAL_X_POSITION(current_position[Z_AXIS]),
+      LOGICAL_X_POSITION(current_position[A_AXIS]), LOGICAL_X_POSITION(current_position[B_AXIS]));
 }

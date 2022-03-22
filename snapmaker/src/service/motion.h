@@ -155,12 +155,8 @@ class MotionService {
     // position info API
     xyze_pos_t sm_current_position;
     xyze_pos_t sm_destination_position;
-    xyze_pos_t sm_position_shift;
     void  update_position_from_platform() {
       sm_current_position = current_position;
-    }
-    void  update_position_shift_from_platform() {
-      sm_position_shift = position_shift;
     }
     float get_current_position(uint8_t axis) {
       update_position_from_platform();
@@ -232,6 +228,8 @@ class MotionService {
     static err_code_t hmi_cb_set_origin(void *obj, sacp_hmi_message_t *msg);
     static err_code_t hmi_cb_move_absoluty(void *obj, sacp_hmi_message_t *msg);
     static err_code_t hmi_cb_request_home(void *obj, sacp_hmi_message_t *msg);
+
+    void show_coordiantes();
 
   private:
     MessageBufferHandle_t gcode_queue;

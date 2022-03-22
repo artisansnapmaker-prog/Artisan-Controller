@@ -188,6 +188,100 @@ void BedVirtual::bed_hmi_self_test_interface(uint8_t test_type, uint32_t param) 
         }
       }
     break;
+
+    // case 4:
+    //   save_env(bed_save_buff, bed_save_l);
+    // break; 
+
+    // case 5:
+    //   resume_env(bed_save_buff, bed_save_l);
+    // break; 
   }
+}
+
+err_code_t BedVirtual::save_env(uint8_t *env_buf, uint32_t &len) {
+  err_code_t result = E_FAILURE;
+  uint32_t need_len = 0;
+  uint32_t check_sum = 0;
+  ZoneInfo *tmp_info = NULL;
+  uint8_t bed_num = 1;
+#if ENABLED(SNAPMAKER_DOUBLE_ZONE_BED)
+  bed_num = 2;
+#endif
+  need_len = bed_num * sizeof(ZoneInfo) + 4; // bed info + check
+  if (len >= need_len) {
+    tmp_info = (ZoneInfo *)(env_buf);
+    tmp_info->bed_index = 0;
+    tmp_info->cur_temp = (int32_t)(thermalManager.degBed() * 1000);
+    tmp_info->target_temp = thermalManager.degTargetBed();
+
+    #if ENABLED(SNAPMAKER_DOUBLE_ZONE_BED)
+    tmp_info = (ZoneInfo *)(env_buf + sizeof(ZoneInfo));
+    tmp_info->bed_index = 1;
+    tmp_info->cur_temp = (int32_t)(thermalManager.degChamber() * 1000);
+    tmp_info->target_temp = thermalManager.degTargetChamber();
+    #endif
+
+    //add simple calibration
+    for(u_int32_t i = 0; i < need_len - 4; i++) {
+      check_sum += env_buf[i];
+    }
+    check_sum ^= 0x20;
+    memcpy(env_buf + sizeof(ZoneInfo) * bed_num , (uint8_t*)(&check_sum), 4);
+    result = E_SUCCESS;
+    len = need_len;
+  }
+  else {
+    len = 0;
+  }
+  return result;
+}
+
+err_code_t BedVirtual::resume_env(uint8_t *env_buf, uint32_t &len) {
+  err_code_t result = E_FAILURE;
+  uint32_t need_len = 0;
+  uint32_t check_sum = 0;
+  uint32_t tmp_sum = 0;
+  ZoneInfo *tmp_info = NULL;
+  uint8_t bed_num = 1;
+#if ENABLED(SNAPMAKER_DOUBLE_ZONE_BED)
+  bed_num = 2;
+#endif
+  need_len = bed_num * sizeof(ZoneInfo) + 4; // bed info + check
+  if (need_len == len) {
+    for(u_int32_t i = 0; i < need_len - 4; i++) {
+      tmp_sum += env_buf[i];
+    }
+    tmp_sum ^= 0x20;
+    check_sum = *(uint32_t*)(env_buf + bed_num * sizeof(ZoneInfo));
+    if (tmp_sum != check_sum) {
+      LOG_E("[%s] bed info check sum error, read check_sum:0x%x cal check_sum: 0x%x\n",__FUNCTION__,check_sum, tmp_sum);
+      goto resume_out;
+    }
+    
+    for (u_int32_t i = 0; i < bed_num; i++) {
+      tmp_info = (ZoneInfo *)(env_buf + sizeof(ZoneInfo)*i);
+      LOG_I("save bed zoneIndex:%d\n", tmp_info->bed_index);
+      LOG_I("save bed cur_temp:%.3f\n", (float)(tmp_info->cur_temp) / 1000);
+      LOG_I("save bed target_temp:%d\n", tmp_info->target_temp);
+      taskENTER_CRITICAL();
+      #if DISABLED(SNAPMAKER_DOUBLE_ZONE_BED) 
+        thermalManager.setTargetBed(tmp_info->target_temp);
+      #else 
+        if (tmp_info->bed_index == 0) 
+          thermalManager.setTargetBed(tmp_info->target_temp);
+        else if (tmp_info->bed_index == 1) 
+          thermalManager.setTargetChamber(tmp_info->target_temp);
+      #endif
+      taskEXIT_CRITICAL();
+    }
+    result = E_SUCCESS;
+  }
+  else {
+    LOG_E("[%s] error bed info len\n",__FUNCTION__);
+  }
+
+resume_out:
+  return result;
 }
 

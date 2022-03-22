@@ -333,7 +333,7 @@ err_code_t ToolHeadCNC::save_env(uint8_t *env_buf, uint32_t &len) {
   uint32_t check_sum = 0;
   CNCToolHeadInfo *tmp_info = NULL;
   tmp_info = (CNCToolHeadInfo *)env_buf;
-  if (len > need_len) {
+  if (len >= need_len) {
     tmp_info->key = get_key();
     tmp_info->head_status = get_status();    
     tmp_info->head_active = false;
@@ -374,8 +374,8 @@ err_code_t ToolHeadCNC::resume_env(uint8_t *env_buf, uint32_t &len) {
     tmp_sum ^= 0x20;
     check_sum = *(uint32_t*)(env_buf + sizeof(CNCToolHeadInfo));
     if (tmp_sum != check_sum) {
-      LOG_E("[%s] check sum error, read check_sum:0x%x cal check_sum: 0x%x\n",__FUNCTION__,check_sum, tmp_sum);
-      goto exit;
+      LOG_E("[%s] cnc info check sum error, read check_sum:0x%x cal check_sum: 0x%x\n",__FUNCTION__,check_sum, tmp_sum);
+      goto resume_out;
     }
     tmp_info = (CNCToolHeadInfo *)env_buf;
     LOG_I("CNC key: %d head_status: %d\n",  tmp_info->key, tmp_info->head_status);
@@ -389,21 +389,21 @@ err_code_t ToolHeadCNC::resume_env(uint8_t *env_buf, uint32_t &len) {
     if (tmp_info->control_mode != ctr_mode && is_support_change_ctr_mode()) {
       if (set_run_mode((CNCSpeedControlMode)tmp_info->target_power)) {
         LOG_E("[%s] resume target_power fail.\n",__FUNCTION__);
-        goto exit;
+        goto resume_out;
       }
     }
 
     if (tmp_info->target_power != power) {
       if (set_output_power(tmp_info->target_power)) {
         LOG_E("[%s] resume run mode fail.\n",__FUNCTION__);
-        goto exit;
+        goto resume_out;
       }
     }
 
     if (tmp_info->target_rpm != target_rpm && is_support_rpm_mode()) {
       if (set_output_power(tmp_info->target_power)) {
         LOG_E("[%s] resume run mode fail.\n",__FUNCTION__);
-        goto exit;
+        goto resume_out;
       }
     }
 
@@ -422,10 +422,10 @@ err_code_t ToolHeadCNC::resume_env(uint8_t *env_buf, uint32_t &len) {
     }
   }
   else {
-    LOG_E("[%s] error len\n",__FUNCTION__);
+    LOG_E("[%s] error cnc info len\n",__FUNCTION__);
   }
 
-exit:
+resume_out:
   return result;
 }
 

@@ -82,11 +82,15 @@ err_code_t MotionService::hmi_cb_set_active_coordinate_system(void *obj, sacp_hm
 
   switch (id) {
   case 0:
-    motion->run_gcode((char *)"G53");
+    // motion->run_gcode((char *)"G53");
+    parser.parse("G53");
+    gcode.process_parsed_command();
     break;
 
   case 1:
-    motion->run_gcode((char *)"G54");
+    // motion->run_gcode((char *)"G54");
+    parser.parse("G54");
+    gcode.process_parsed_command();
     break;
 
   default:
@@ -113,7 +117,8 @@ err_code_t MotionService::hmi_cb_set_origin(void *obj, sacp_hmi_message_t *msg) 
     value = (float)(info[i].value / 1000.0);
     if (info[i].axis <= AXIS_KEY_C1) {
       snprintf(gcode_cmd, 32, "G92 %c%.3f", axis_cmd[info[i].axis], value);
-      motion->run_gcode(gcode_cmd);
+      parser.parse(gcode_cmd);
+      gcode.process_parsed_command();
     }
     else {
       LOG_E("invalid axis key[%u]\n", info[i].axis);
@@ -129,31 +134,31 @@ err_code_t MotionService::hmi_cb_move_absoluty(void *obj, sacp_hmi_message_t *ms
   err_code_t ret;
 
   uint8_t number = msg->data[0];
-  MovingCommand *move_cmd = (MovingCommand *)(msg->data + 1);
+  coordinate_info_t *move_cmd = (coordinate_info_t *)(msg->data + 1);
 
   xyze_float_t dest;
-  float feedrate;
+  uint16_t feedrate;
 
   for (int i = 0; i < number; i++) {
     switch (move_cmd[i].axis) {
     case AXIS_KEY_X1:
-      dest.x = move_cmd[i].position / 1000.0;
+      dest.x = move_cmd[i].value / 1000.0;
       break;
 
     case AXIS_KEY_Y1:
-      dest.y = move_cmd[i].position / 1000.0;
+      dest.y = move_cmd[i].value / 1000.0;
       break;
 
     case AXIS_KEY_Z1:
-      dest.z = move_cmd[i].position / 1000.0;
+      dest.z = move_cmd[i].value / 1000.0;
       break;
 
     case AXIS_KEY_A1:
-      dest.a = move_cmd[i].position / 1000.0;
+      dest.i = move_cmd[i].value / 1000.0;
       break;
 
     case AXIS_KEY_B1:
-      dest.b = move_cmd[i].position / 1000.0;
+      dest.j = move_cmd[i].value / 1000.0;
       break;
 
     default:
@@ -162,18 +167,20 @@ err_code_t MotionService::hmi_cb_move_absoluty(void *obj, sacp_hmi_message_t *ms
     }
   }
 
-  LOG_I("move to X%.3f, Y%.3f, Z%.3f, A%.3f, B%.3f\n", dest.x, dest.y, dest.z, dest.a, dest.b);
-
-  if (move_cmd[0].feedrate) {
-    feedrate = (float)(move_cmd[0].feedrate / 60.0);
+  feedrate = *(uint16_t *)(msg->data + 1 + sizeof(coordinate_info_t) * number);
+  if (feedrate) {
+    feedrate = (feedrate / 60.0);
   }
   else {
     feedrate = feedrate_mm_s;
   }
 
-  motion->run_gcode("G90");
+  LOG_I("move to X%.3f, Y%.3f, Z%.3f, A%.3f, B%.3f, fr: %u\n", dest.x, dest.y, dest.z, dest.i, dest.j, feedrate);
 
-  motion->moveto(dest, feedrate);
+  parser.parse("G90 ");
+  gcode.process_parsed_command();
+
+  motion->moveto(dest, (float)feedrate);
 
   return host_hmi.send_ack(msg, E_SUCCESS);
 }
@@ -194,14 +201,16 @@ err_code_t MotionService::hmi_cb_request_home(void *obj, sacp_hmi_message_t *msg
 
   if (msg->data[0] > SACP_HOME_Z) {
     LOG_I("invalid home axis\n");
-    return host_hmi.send_ack(msg, E_PARAM);
+    msg->data[0] = E_PARAM;
+    return host_hmi.send_ack(msg);
   }
   else {
-    host_hmi.send_ack(msg, E_SUCCESS);
+    msg->data[0] = E_SUCCESS;
+    host_hmi.send_ack(msg);
   }
 
   uint8_t recv_buff[4];
-  uint16_t recv_len = sizeof(recv_buff);
+  uint16_t recv_len = 4;
   msg->cmd_id = SACP_CMD_ID_GLOABL_REQ_REPORT_HOME_RESULT;
   msg->attr   = 0;
   msg->length = 1;
@@ -209,7 +218,11 @@ err_code_t MotionService::hmi_cb_request_home(void *obj, sacp_hmi_message_t *msg
   snprintf(gcode_cmd, 8, "G28 %c", axis[msg->data[0]]);
 
   // for now waiting for 100s
-  ret = motion->run_gcode(gcode_cmd, true, 100 * 1000);
+  // ret = motion->run_gcode(gcode_cmd, true, 100 * 1000);
+  parser.parse(gcode_cmd);
+  gcode.process_parsed_command();
+  planner.synchronize();
+  ret = E_SUCCESS;
 
   if (ret != E_SUCCESS) {
     msg->data[0] = 1;
@@ -251,7 +264,7 @@ void MotionService::init() {
             (void *)this, hmi_cb_get_coordinate_info);
 
   host_hmi.register_callback(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_SET_ACTIVE_COORDINATE,
-            (void *)this, hmi_cb_set_active_coordinate_system);
+            (void *)this, hmi_cb_set_active_coordinate_system, SACP_CB_ATTR_BLOCKED_WITH_MOTION);
 
   host_hmi.register_callback(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_SET_ORIGIN,
             (void *)this, hmi_cb_set_origin, SACP_CB_ATTR_BLOCKED_WITH_MOTION);

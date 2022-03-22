@@ -622,8 +622,8 @@ void GcodeSuite::M2000() {
     switch (b) {
       case 0:
         {
-          uint8_t m = (uint8_t)parser.byteval('M', (uint8_t)2);
-          buffer[index++] = m;
+          uint8_t k = (uint8_t)parser.byteval('K', (uint8_t)2);
+          buffer[index++] = k;
           host_hmi.test_interface(SACP_CMD_SET_CALIBRATE_FDM, BEDLEVEL_REQ_CMD_ID_SET_LEVEL_MODE, buffer, index);
         }
         break;

@@ -40,6 +40,7 @@ static err_code_t hmi_req_callback_set_level_mode(void *obj, sacp_hmi_message_t 
 
   if (smprinter.get_sys_status() != SYSTEM_STATUS_IDLE) {
     ret = E_BUSY;
+    LOG_I("system is busy now!\n");
     goto EXIT;
   }
 
@@ -69,8 +70,10 @@ static err_code_t hmi_req_callback_set_level_mode(void *obj, sacp_hmi_message_t 
 
   ret = smprinter.set_sys_status(req_status, &ret_status);
   if ((ret != E_SUCCESS) || (req_status != ret_status)) {
+    LOG_I("failed to set system status!\n");
     goto EXIT;
   }
+
 
   ret = bedlevel.set_bedlevel_mode(msg->data[0]);
   bedlevel.set_end_leveling_process_status(false);
@@ -92,6 +95,7 @@ static err_code_t hmi_req_callback_start_level(void *obj, sacp_hmi_message_t *ms
   uint8_t mode = bedlevel.get_bedlevel_mode();
   if ((mode != BEDLEVEL_MODE_AUTO) && (mode != BEDLEVEL_MODE_MANUAL)) {
     ret = E_BUSY;
+    LOG_I("bedlevel mode error\n");
     goto EXIT;
   }
 
@@ -107,6 +111,8 @@ static err_code_t hmi_req_callback_start_level(void *obj, sacp_hmi_message_t *ms
     ret = bedlevel.start_auto_bed_leveling(grid);
   } else if (mode == BEDLEVEL_MODE_MANUAL) {
     ret = bedlevel.start_manual_bed_leveling(grid);
+  } else {
+    ret = E_FAILURE;
   }
 
 EXIT:
@@ -415,7 +421,7 @@ uint8_t BedLevelService::get_bedlevel_mode() {
 }
 
 err_code_t BedLevelService::set_bedlevel_mode(uint8_t mode) {
-  if (mode != BEDLEVEL_MODE_IDLE) {
+  if (bedlevel_mode != BEDLEVEL_MODE_IDLE) {
     return E_BUSY;
   }
 
@@ -574,18 +580,22 @@ err_code_t BedLevelService::start_auto_bed_leveling(uint8_t grids) {
   if (grids < 2 && grids > 11) {
     return E_PARAM;
   }
+
   motion_svc.set_leveling_grids(grids);
+  LOG_I("GRID_MAX_POINTS_X: %d, GRID_MAX_POINTS_Y: %d\n", GRID_MAX_POINTS_X, GRID_MAX_POINTS_Y);
   // save grids
 
   // go home
-  motion_svc.run_gcode((char *)"G28\n", true);
+  // motion_svc.run_gcode((char *)"G28\n", true);
 
   motion_svc.disable_leveling();
   motion_svc.enable_z_probe();
   if (smprinter.fdm->get_device_id() == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
+    LOG_I("set left optocoupler as probe sensor\n");
     smprinter.fdm->set_probe_sensor(PROBE_SENSOR_LEFT_OPTOCOUPLER);
   } else if (smprinter.fdm->get_device_id() == MODULE_DEVICE_ID_FDM_1EXTRUDER_2019) {
     smprinter.fdm->set_probe_sensor(PROBE_SENSOR_PROXIMITY_SWITCH);
+    LOG_I("set right optocoupler as probe sensor\n");
   }
 
   motion_svc.moveto_z(20, 30);
@@ -608,7 +618,6 @@ err_code_t BedLevelService::start_auto_bed_leveling(uint8_t grids) {
   msg.attr    = 0;
   msg.length  = 3;
 
-  LOG_I("GRID_MAX_POINTS_X: %d, GRID_MAX_POINTS_Y: %d\n", GRID_MAX_POINTS_X, GRID_MAX_POINTS_Y);
   for (int k = 0; k < GRID_MAX_POINTS_X * GRID_MAX_POINTS_Y; ++k) {
     LOG_I("Probing No. %d\n", k);
     LOG_I("x: %f, y: %f\n", _GET_MESH_X(cur_x), _GET_MESH_Y(cur_y));
@@ -629,7 +638,7 @@ err_code_t BedLevelService::start_auto_bed_leveling(uint8_t grids) {
     buffer[1] = (uint8_t)(cur_y * GRID_MAX_POINTS_X + cur_x + 1);
     buffer[2] = 0;
 
-    host_hmi.send(&msg);
+    host_hmi.send_ack(&msg);
 
     int new_x = cur_x + direction[dir_idx][0];
     int new_y = cur_y + direction[dir_idx][1];

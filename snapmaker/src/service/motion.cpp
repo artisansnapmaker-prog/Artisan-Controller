@@ -415,6 +415,8 @@ void MotionService::set_leveling_grids(uint8_t grids) {
   GRID_MAX_CELLS_X  = GRID_MAX_POINTS_X - 1;
   GRID_MAX_CELLS_Y  = GRID_MAX_POINTS_Y - 1;
 
+  LOG_I("startx: %f, endx: %f, starty: %f, endy: %f\n", startx, endx, starty, endy);
+
   bilinear_grid_spacing[X_AXIS] = (endx - startx) / (GRID_MAX_POINTS_X - 1);
   bilinear_grid_spacing[Y_AXIS] = (endy - starty) / (GRID_MAX_POINTS_Y - 1);
   bilinear_start[X_AXIS] = RAW_X_POSITION(startx);

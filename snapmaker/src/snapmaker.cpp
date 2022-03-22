@@ -571,7 +571,7 @@ bool SnapmakerPrinter::get_gcode_from_run_gcode_buffer(uint8_t *cmd, uint16_t ma
   return motion_svc.consume_a_gcode(cmd, max_len, line);
 }
 
-ModuleBase *SnapmakerPrinter::get_cur_toolhead(void) { 
+ModuleBase *SnapmakerPrinter::get_cur_toolhead(void) {
 
   if (fdm && !cnc && !laser) {
     return fdm;
@@ -736,6 +736,60 @@ err_code_t SnapmakerPrinter::set_sys_status(enum SystemStatus req_status, enum S
       ret = E_BUSY;
     }
   break;
+
+  case SYSTEM_STATUS_XY_CALIBRATING:
+    if (sys_status == SYSTEM_STATUS_IDLE) {
+      sys_status = req_status;
+      ret = E_SUCCESS;
+    } else {
+      ret = E_BUSY;
+    }
+    break;
+
+  case SYSTEM_STATUS_AUTO_BEDLEVEL:
+    if (sys_status == SYSTEM_STATUS_IDLE) {
+      sys_status = req_status;
+      ret = E_SUCCESS;
+    } else {
+      ret = E_BUSY;
+    }
+    break;
+
+  case SYSTEM_STATUS_MANUAL_BEDLEVEL:
+    if (sys_status == SYSTEM_STATUS_IDLE) {
+      sys_status = req_status;
+      ret = E_SUCCESS;
+    } else {
+      ret = E_BUSY;
+    }
+    break;
+
+  case SYSTEM_STATUS_AUTO_BED_DETECTION:
+    if (sys_status == SYSTEM_STATUS_IDLE) {
+      sys_status = req_status;
+      ret = E_SUCCESS;
+    } else {
+      ret = E_BUSY;
+    }
+    break;
+
+  case SYSTEM_STATUS_MANUAL_BED_DETECTION:
+    if (sys_status == SYSTEM_STATUS_IDLE) {
+      sys_status = req_status;
+      ret = E_SUCCESS;
+    } else {
+      ret = E_BUSY;
+    }
+    break;
+
+  case SYSTEM_STATUS_PROBE_SENSOR_CALIBRATION:
+    if (sys_status == SYSTEM_STATUS_IDLE) {
+      sys_status = req_status;
+      ret = E_SUCCESS;
+    } else {
+      ret = E_BUSY;
+    }
+    break;
 
   default:
     ret = E_FAILURE;

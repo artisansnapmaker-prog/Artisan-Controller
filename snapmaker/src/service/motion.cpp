@@ -474,29 +474,36 @@ int16_t target_bed_temp(uint8_t area_id = 0) {
   #endif
   return target_temp;
 }
-err_code_t MotionService::run_gcode(char *gcode_cmd, bool blocked /* = false*/,
-    uint32_t blocked_timeout/*= 180 * 1000 ms*/) {
-  int length = strlen(gcode_cmd) + 1;
 
-  uint32_t next_ms = millis() + blocked_timeout;
+err_code_t MotionService::run_gcode(char *gcode, bool blocked /* = false*/,
+    uint32_t blocked_timeout/*= 180 * 1000 ms*/) {
+  int length = strlen(gcode) + 1;
 
   if (length > MAX_CMD_SIZE) {
     LOG_E("length of gcode is out of range: %d\n", MAX_CMD_SIZE);
     return E_PARAM;
   }
 
-  LOG_I("run gocde: %s\n", gcode_cmd);
-  parser.parse(gcode_cmd);
-  gcode.process_parsed_command();
+  int wl = xMessageBufferSend(gcode_queue, gcode, length, pdMS_TO_TICKS(100));
+  if (wl != length) {
+    LOG_E("fail to submit gcode: %s\n", gcode);
+    return E_TIMEOUT;
+  }
+
+  LOG_I("submitted gocde: %s\n", gcode);
 
   // for now just blocked with moving
   if (blocked) {
+    // wait firsly 100ms to make marlin get the gcode
+    vTaskDelay(pdMS_TO_TICKS(100));
     while (planner.busy()) {
-      if (ELAPSED((millis()), next_ms)) {
+      vTaskDelay(pdMS_TO_TICKS(10));
+      if (blocked_timeout > 10) {
+        blocked_timeout -= 10;
+      }
+      else {
         return E_TIMEOUT;
       }
-      idle();
-      taskYIELD();
     }
   }
 

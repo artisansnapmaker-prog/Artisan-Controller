@@ -816,6 +816,9 @@ void HostSACPHMI::handle_receive() {
         xMessageBufferSend(tmp_queue, &parser_buff[SACP_V0_FRAME_INDEX_EVENT_ID],
           buffer_len - SACP_V0_NON_PAYPLOAD_SIZE, pdMS_TO_TICKS(100));
       }
+
+      channels[i].parser.status = SACP_PARSER_STA_IDLE;
+      continue;
     }
 
     // for now, won't support handle V0 events async

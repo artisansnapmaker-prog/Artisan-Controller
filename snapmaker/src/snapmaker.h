@@ -269,9 +269,6 @@ class SnapmakerPrinter
   private:
     enum SystemStatus sys_status;
     SemaphoreHandle_t status_lock;
-    TaskHandle_t thandle_marlin;
-    TaskHandle_t thandle_can_recv;
-    TaskHandle_t thandle_can_event;
 
     SnapmakerModel model = SNAPMAKER_MODEL_UNKNOWN;
 
@@ -289,4 +286,7 @@ class SnapmakerPrinter
 
 extern SnapmakerPrinter smprinter;
 
+extern TaskHandle_t thandle_marlin;
+extern TaskHandle_t thandle_system;
+extern TaskHandle_t thandle_hmi_event;
 #endif  // #ifndef SNAPMAKER_H_

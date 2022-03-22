@@ -18,6 +18,10 @@
 
 SnapmakerPrinter smprinter;
 
+TaskHandle_t thandle_marlin = NULL;
+TaskHandle_t thandle_system = NULL;
+TaskHandle_t thandle_hmi_event = NULL;
+
 // dynamic pins defination and default value
 
 int16_t X_STEP_PIN_var = PB4;
@@ -253,7 +257,6 @@ static void system_thread(void *p) {
   BaseType_t ret;
 
   TaskHandle_t hmi_recv_task;
-  TaskHandle_t hmi_event_task;
   SemaphoreHandle_t hmi_recv_signal = NULL;
 
   hmi_recv_signal = xSemaphoreCreateCounting(65535, 0);
@@ -271,7 +274,7 @@ static void system_thread(void *p) {
 
   LOG_I("Creating HMI event task...");
   ret = xTaskCreate((TaskFunction_t)hmi_event_handler, "hmi_event", HMI_EVENT_TASK_STACK_SIZE,
-        NULL, HMI_EVENT_TASK_PRIORITY, &hmi_event_task);
+        NULL, HMI_EVENT_TASK_PRIORITY, &thandle_hmi_event);
   if (ret != pdPASS) {
     LOG_E(LOG_RESULT_FAIL);
     while(1);
@@ -281,7 +284,7 @@ static void system_thread(void *p) {
   }
 
   // must init hmi firstly
-  host_hmi.init(hmi_event_task, hmi_recv_signal);
+  host_hmi.init(thandle_hmi_event, hmi_recv_signal);
   host_hmi.apply_cmd_set_handle(SACP_CMD_SET_GLOBAL_REQ, 20);
 
   // module init
@@ -291,6 +294,11 @@ static void system_thread(void *p) {
   bedlevel_svc.init();
   job_ctrl_svc.init();
   ClientNode::class_init();
+
+  host_hmi.register_callback(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_SUBSCRIPT,
+      (void *)&host_hmi, HostSACPHMI::handle_subscript);
+  host_hmi.register_callback(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_UNSUBSCRIPT,
+      (void *)&host_hmi, HostSACPHMI::handle_unsubscript);
 
   host_hmi.register_subscription(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_HEARTBEAT,
       (void *)&smprinter, SnapmakerPrinter::hmi_cb_publish_system_status);
@@ -306,6 +314,8 @@ static void system_thread(void *p) {
   for (;;) {
     module_svc.background_thread();
     system_svc.background_thread();
+
+    host_hmi.handle_events();
 
     taskYIELD();
   }
@@ -362,7 +372,7 @@ void SnapmakerPrinter::post_init() {
   debug.init();
 
   ret = xTaskCreate((TaskFunction_t)system_thread, "system", SYSTEM_TASK_STACK_SIZE,
-        (void *)(this), SYSTEM_TASK_PRIORITY,  &thandle_can_recv);
+        (void *)(this), SYSTEM_TASK_PRIORITY,  &thandle_system);
   if (ret != pdPASS) {
     // LOG_E(LOG_RESULT_FAIL);
     while(1);

@@ -231,6 +231,8 @@ err_code_t HostSACPHMI::send_sync_legacy(sacp_hmi_message_t *message, uint8_t *o
   message->ver = SACP_VER_0;
   message->attr |= (SACP_MESSAGE_ATTR_SET_VER | SACP_MESSAGE_ATTR_SET_SEQ);
 
+  xMessageBufferReset(waiting_nodes[node_index].queue);
+
   for (; retry > 0; retry--) {
     if ((ret = send(message)) != E_SUCCESS) {
       LOG_I("send sync failed\n");
@@ -263,7 +265,15 @@ err_code_t HostSACPHMI::send_sync_legacy(sacp_hmi_message_t *message, uint8_t *o
   return ret;
 }
 
-
+/* send message and wait its ACK
+ * Parameters:
+ *  message - point to your message
+ *  out     - to save the ACK from peer
+ *  out_len - when you call this API, you should tell it the length of buffer 'out' with out_len.
+ *            when you get the ACK save in 'out', out_len will be the length of ACK
+ *  timeout - the timeout to wait ACK from peer, its has a default value in declaration
+ *  retry   - indicate the API will try to send message to peer, default is 1, it couldn't be 0
+*/
 err_code_t HostSACPHMI::send_sync(sacp_hmi_message_t *message, uint8_t *out, uint16_t *out_len, uint32_t timeout, uint8_t retry) {
   int node_index  = 0;
   size_t recv_len = 0;
@@ -314,6 +324,8 @@ err_code_t HostSACPHMI::send_sync(sacp_hmi_message_t *message, uint8_t *out, uin
     LOG_E("no avail waiting node for cmd[%x:%x]!\n", message->cmd_set, message->cmd_id);
     return E_NO_RESRC;
   }
+
+  xMessageBufferReset(waiting_nodes[node_index].queue);
 
   for (; retry > 0; retry--) {
     if ((ret = send(message)) != E_SUCCESS) {
@@ -396,6 +408,7 @@ err_code_t HostSACPHMI::send_ack(sacp_hmi_message_t *message, uint8_t *data, uin
 
 
 err_code_t HostSACPHMI::send(sacp_hmi_message_t *message) {
+  err_code_t ret = E_SUCCESS;
   uint8_t buffer[SACP_V1_PDU_MAX_SIZE];
   uint16_t length = SACP_V1_PDU_MAX_SIZE;
 
@@ -417,9 +430,9 @@ err_code_t HostSACPHMI::send(sacp_hmi_message_t *message) {
     message->ver = version;
   }
 
-  if (package(message, buffer, &length) != E_SUCCESS) {
-    LOG_E("failed to package message[%u, %u]\n", message->cmd_set, message->cmd_id);
-    return E_FAILURE;
+  if ((ret = package(message, buffer, &length)) != E_SUCCESS) {
+    LOG_E("failed to package message[%u, %u], ret[%u]\n", message->cmd_set, message->cmd_id, ret);
+    return ret;
   }
 
 #if 1

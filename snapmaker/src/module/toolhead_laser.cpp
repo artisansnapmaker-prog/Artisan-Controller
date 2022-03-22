@@ -422,17 +422,19 @@ err_code_t ToolHeadLaser::hmi_cb_set_cali_mode(void *obj, sacp_hmi_message_t *me
     return host_hmi.send_ack(message, E_INVALID_STATE);
   }
 
-  LOG_I("hmi_cb_set_cali_mode [%u]\n", message->data[0]);
-
   if (message->data[0] >= LASER_CALI_STATUS_INVALID) {
     LOG_E("invalid laser cali mode [%u]\n", message->data[0]);
     return host_hmi.send_ack(message, E_PARAM);
   }
 
-  if (E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_LASER_CALIBRATING, NULL)) {
-    LOG_E("failed to enter SYSTEM_STATUS_LASER_CALIBRATING status\r\n");
-    return host_hmi.send_ack(message, E_INVALID_STATE);
+  if (smprinter.get_sys_status() != SYSTEM_STATUS_LASER_CALIBRATING) {
+    if (E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_LASER_CALIBRATING, NULL)) {
+      LOG_E("failed to enter SYSTEM_STATUS_LASER_CALIBRATING status\r\n");
+      return host_hmi.send_ack(message, E_INVALID_STATE);
+    }
   }
+
+  LOG_I("hmi_cb_set_cali_mode [%u]\n", message->data[0]);
 
   laser.cali_status = (ToolHeadLaserCalibrationStatus)message->data[0];
 
@@ -455,6 +457,9 @@ err_code_t ToolHeadLaser::hmi_cb_exit_calibraion(void *obj, sacp_hmi_message_t *
 
   if (smprinter.get_sys_status() == SYSTEM_STATUS_LASER_CALIBRATING) {
     smprinter.set_sys_status(SYSTEM_STATUS_IDLE, NULL);
+  }
+  else {
+    LOG_E("system isn't in laser cali mode!!!");
   }
 
   LOG_I("hmi_cb_exit_calibraion [%u]\n", message->data[0]);
@@ -764,11 +769,15 @@ err_code_t ToolHeadLaser::post_init() {
     hmi_cb_publish_power);
 
   // calibration API
-  host_hmi.apply_cmd_set_handle(SACP_CMD_SET_CALIBRATE_LASER, SACP_CMD_ID_LASER_CALI_MAX - 1);
+  host_hmi.apply_cmd_set_handle(SACP_CMD_SET_CALIBRATE_LASER, SACP_CMD_ID_LASER_CALI_MAX);
   host_hmi.register_callback(SACP_CMD_SET_CALIBRATE_LASER, SACP_CMD_ID_LASER_CALI_MANUAL, (void *)this,
     hmi_cb_do_manual_focusing);
   host_hmi.register_callback(SACP_CMD_SET_CALIBRATE_LASER, SACP_CMD_ID_LASER_CALI_AUTO, (void *)this,
     hmi_cb_do_auto_focusing);
+  host_hmi.register_callback(SACP_CMD_SET_CALIBRATE_LASER, SACP_CMD_ID_LASER_CALI_SET_MODE, (void *)this,
+    hmi_cb_set_cali_mode);
+  host_hmi.register_callback(SACP_CMD_SET_CALIBRATE_LASER, SACP_CMD_ID_LASER_CALI_REQ_EXIT, (void *)this,
+    hmi_cb_exit_calibraion);
 
   read_focal_length();
 
@@ -857,6 +866,7 @@ err_code_t ToolHeadLaser::get_bt_mac() {
   msg.cmd_id = 0xFFFF;
   msg.peer = 4;
   msg.ver = SACP_VER_0;
+  msg.length = 0;
 
   if ((ret = host_hmi.send_sync_legacy(&msg, recv_buff, &recv_len, 1000, 3)) != E_SUCCESS) {
     LOG_E("failed to get BT MAC, ret[%u]\n", ret);

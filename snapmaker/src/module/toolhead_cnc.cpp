@@ -670,7 +670,11 @@ err_code_t hmi_set_cnc_enter_calibrate(void *obj, sacp_hmi_message_t *msg) {
     return host_hmi.send_ack(msg, E_INVALID_STATE);
   }
 
-  // TODO
+  if (msg->data[0] >= CNC_CALIBRATION_IDLE) {
+    LOG_E("[%s] error cnc calibrate param [%d]\n",__FUNCTION__,msg->data[0]);
+    return host_hmi.send_ack(msg, E_PARAM);
+  }
+
   LOG_I("cnc enter calibrate mode. parm: %d\n", msg->data[0]);
 
   if (smprinter.set_sys_status(SYSTEM_STATUS_CNC_CALIBRATING, NULL)) {
@@ -697,10 +701,13 @@ err_code_t hmi_set_cnc_exit_calibrate(void *obj, sacp_hmi_message_t *msg) {
     return host_hmi.send_ack(msg, E_INVALID_STATE);
   }
 
-  // TODO
   LOG_I("cnc exit calibrate mode. parm: %d\n", msg->data[0]);
 
-  // TODO: Is it possible to exit cnc calibration mode here directly with idle status?
+  if (smprinter.get_sys_status() != SYSTEM_STATUS_CNC_CALIBRATING) {
+    LOG_E("[%s] not currently in CNC calibration state, exit failed \n",__FUNCTION__);
+    return host_hmi.send_ack(msg, E_FAILURE);
+  }
+
   if (smprinter.set_sys_status(SYSTEM_STATUS_IDLE, NULL)) {
     LOG_E("[%s] cnc enter calibrate mode fail\n",__FUNCTION__);
     return host_hmi.send_ack(msg, E_FAILURE);

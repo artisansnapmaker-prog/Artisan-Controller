@@ -392,6 +392,7 @@ void SnapmakerPrinter::register_module(uint16_t type, ModuleBase *module) {
     break;
 
   case MODULE_DEVICE_ID_LASER_1P6W_2019:
+    laser = (ToolHeadLaser *)module;
     break;
 
   case MODULE_DEVICE_ID_LINEAR_TBS_2019:
@@ -717,7 +718,10 @@ err_code_t SnapmakerPrinter::set_sys_status(enum SystemStatus req_status, enum S
     if (sys_status != SYSTEM_STATUS_IDLE) {
       ret = E_FAILURE;
     }
-    sys_status = req_status;
+    else {
+      sys_status = req_status;
+      ret = E_SUCCESS;
+    }
     break;
 
   case SYSTEM_STATUS_CNC_CALIBRATING:

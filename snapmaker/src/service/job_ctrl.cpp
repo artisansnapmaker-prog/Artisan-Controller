@@ -685,14 +685,14 @@ bool JobCtrl::consume_a_gcode(uint8_t *cmd, uint16_t max_len, uint32_t *line) {
     if('\n' == c) {
       *line = _env.cur_line_num++;
       cmd[cmd_len] = 0;
-      
+      ret = true;
+
       // 747 debug
-      // consume here, do not push this gcode to marlin or other platform
-      // ret = true;
+      // consume here, do not push this gcode to marlin or other platform      
       // LOG_I("job_ctrl: consume a gcode: %s\r\n", (char *)cmd);
-      ret = false;
-      
-      vTaskDelay(2);
+      // ret = false;
+      // vTaskDelay(2);
+
       break;
     }
   }

@@ -34,7 +34,7 @@ typedef struct {
   uint16_t cmd_id;
   sacp_hmi_callback req_cb;
   sacp_hmi_callback ack_cb;
-  uint32_t attr;
+  uint32_t cb_attr;
 } sacp_hmi_handle_t;
 
 typedef struct {
@@ -90,6 +90,10 @@ class HostSACPHMI: public HostSACP {
     HostSACPHMI(SACPVerion ver, uint32_t id): HostSACP() {
       version = ver;
       host_id = id;
+      ch_recv_signal = NULL;
+      events_normal  = NULL;
+      events_blocked_without_motion = NULL;
+      events_with_motion = NULL;
     }
 
     err_code_t init(TaskHandle_t event_task, SemaphoreHandle_t recv_signal);
@@ -123,17 +127,17 @@ class HostSACPHMI: public HostSACP {
       return &channels[ch];
     }
 
+    static err_code_t handle_subscript(void *obj, sacp_hmi_message_t *msg);
+    static err_code_t handle_unsubscript(void *obj, sacp_hmi_message_t *msg);
+
   // private methods
   private:
     err_code_t parse_packets(sacp_channel_t &channel);
+    err_code_t handle_message(sacp_hmi_message_t &msg, sacp_hmi_handle_t *handle);
     err_code_t handle_message(sacp_hmi_message_t &msg);
 
-    void handle_subscript(sacp_hmi_message_t &msg);
-    void handle_unsubscript(sacp_hmi_message_t &msg);
-
-  // public properties
-  public:
-
+    MessageBufferHandle_t get_event_queue_by_cmd(uint8_t *parser_buff, uint8_t channel);
+    MessageBufferHandle_t get_event_queue_by_thread();
 
   // private properties
   private:
@@ -142,7 +146,9 @@ class HostSACPHMI: public HostSACP {
     sacp_channel_t channels[SACP_HMI_CH_MAX];
     SemaphoreHandle_t ch_recv_signal;
 
-    MessageBufferHandle_t event_queue;
+    MessageBufferHandle_t events_normal;
+    MessageBufferHandle_t events_blocked_without_motion;
+    MessageBufferHandle_t events_with_motion;
 
     // waiting queue
     xSemaphoreHandle        waiting_lock;

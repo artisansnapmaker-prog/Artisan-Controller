@@ -134,34 +134,28 @@ err_code_t MotionService::hmi_cb_move_absoluty(void *obj, sacp_hmi_message_t *ms
   MovingCommand *move_cmd = (MovingCommand *)(msg->data + 1);
 
   xyze_float_t dest;
-  uint16_t feedrate;
-  char gcode_cmd[64];
-
-  LOG_I("hmi_cb_move_absoluty\n");
-
-  motion->update_position_from_platform();
-  dest = motion->sm_current_position;
+  float feedrate;
 
   for (int i = 0; i < number; i++) {
     switch (move_cmd[i].axis) {
     case AXIS_KEY_X1:
-      dest[X_AXIS] = move_cmd[i].position / 1000.0;
+      dest.x = move_cmd[i].position / 1000.0;
       break;
 
     case AXIS_KEY_Y1:
-      dest[Y_AXIS] = move_cmd[i].position / 1000.0;
+      dest.y = move_cmd[i].position / 1000.0;
       break;
 
     case AXIS_KEY_Z1:
-      dest[Z_AXIS] = move_cmd[i].position / 1000.0;
+      dest.z = move_cmd[i].position / 1000.0;
       break;
 
     case AXIS_KEY_A1:
-      dest[A_AXIS] = move_cmd[i].position / 1000.0;
+      dest.a = move_cmd[i].position / 1000.0;
       break;
 
     case AXIS_KEY_B1:
-      dest[B_AXIS] = move_cmd[i].position / 1000.0;
+      dest.b = move_cmd[i].position / 1000.0;
       break;
 
     default:
@@ -170,26 +164,20 @@ err_code_t MotionService::hmi_cb_move_absoluty(void *obj, sacp_hmi_message_t *ms
     }
   }
 
+  LOG_I("move to X%.3f, Y%.3f, Z%.3f, A%.3f, B%.3f\n", dest.x, dest.y, dest.z, dest.a, dest.b);
+
   if (move_cmd[0].feedrate) {
-    feedrate = (uint16_t)(move_cmd[0].feedrate);
+    feedrate = (float)(move_cmd[0].feedrate / 60.0);
   }
   else {
-    feedrate = feedrate_mm_s * 60;
+    feedrate = feedrate_mm_s;
   }
-
-  snprintf(gcode_cmd, 64, "G0 F%u X%.3f Y%.3f Z%.3f A%.3f B %.3f", feedrate, dest[X_AXIS], dest[Y_AXIS],
-    dest[Z_AXIS], dest[A_AXIS], dest[B_AXIS]);
 
   motion->run_gcode("G90");
 
-  // for now waiting for 100s
-  ret = motion->run_gcode(gcode_cmd, true, 100 * 1000);
-  if (ret != E_SUCCESS) {
-    return host_hmi.send_ack(msg, ret);
-  }
-  else {
-    return host_hmi.send_ack(msg, E_SUCCESS);
-  }
+  motion->moveto(dest, feedrate);
+
+  return host_hmi.send_ack(msg, E_SUCCESS);
 }
 
 enum MotionSACPHomeAxis {
@@ -221,6 +209,7 @@ err_code_t MotionService::hmi_cb_request_home(void *obj, sacp_hmi_message_t *msg
   msg->length = 1;
 
   snprintf(gcode_cmd, 8, "G28 %c", axis[msg->data[0]]);
+
   // for now waiting for 100s
   ret = motion->run_gcode(gcode_cmd, true, 100 * 1000);
 
@@ -243,6 +232,7 @@ void MotionService::motion_background(void *p) {
   MotionService &motion = *(MotionService *)p;
 
   for (;;) {
+    host_hmi.handle_events();
     loop();
     taskYIELD();
   }
@@ -266,17 +256,17 @@ void MotionService::init() {
             (void *)this, hmi_cb_set_active_coordinate_system);
 
   host_hmi.register_callback(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_SET_ORIGIN,
-            (void *)this, hmi_cb_set_origin);
+            (void *)this, hmi_cb_set_origin, SACP_CB_ATTR_BLOCKED_WITH_MOTION);
 
   host_hmi.register_callback(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_MOVE_ABSOLUTELY,
-            (void *)this, hmi_cb_move_absoluty);
+            (void *)this, hmi_cb_move_absoluty, SACP_CB_ATTR_BLOCKED_WITH_MOTION);
 
   host_hmi.register_callback(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_HOME,
-            (void *)this, hmi_cb_request_home);
+            (void *)this, hmi_cb_request_home, SACP_CB_ATTR_BLOCKED_WITH_MOTION);
 
   LOG_I("Creating marlin task...");
-  ret = xTaskCreate((TaskFunction_t)motion_background, "marin", MOTION_TASK_STACK_SIZE, (void *)this,
-        MOTION_TASK_PRIORITY, NULL);
+  ret = xTaskCreate((TaskFunction_t)motion_background, "marlin", MOTION_TASK_STACK_SIZE, (void *)this,
+        MOTION_TASK_PRIORITY, &thandle_marlin);
   if (ret != pdPASS) {
     LOG_E(LOG_RESULT_FAIL);
     while(1);
@@ -486,33 +476,29 @@ int16_t target_bed_temp(uint8_t area_id = 0) {
   #endif
   return target_temp;
 }
-err_code_t MotionService::run_gcode(char *gcode, bool blocked /* = false*/,
+err_code_t MotionService::run_gcode(char *gcode_cmd, bool blocked /* = false*/,
     uint32_t blocked_timeout/*= 180 * 1000 ms*/) {
-  int length = strlen(gcode) + 1;
+  int length = strlen(gcode_cmd) + 1;
+
+  uint32_t next_ms = millis() + blocked_timeout;
 
   if (length > MAX_CMD_SIZE) {
     LOG_E("length of gcode is out of range: %d\n", MAX_CMD_SIZE);
     return E_PARAM;
   }
 
-  int wl = xMessageBufferSend(gcode_queue, gcode, length + 1, pdMS_TO_TICKS(100));
-  if (wl != (length + 1)) {
-    LOG_E("fail to submit gcode: %s\n", gcode);
-    return E_TIMEOUT;
-  }
-
-  LOG_I("submitted gocde: %s\n", gcode);
+  LOG_I("run gocde: %s\n", gcode_cmd);
+  parser.parse(gcode_cmd);
+  gcode.process_parsed_command();
 
   // for now just blocked with moving
   if (blocked) {
     while (planner.busy()) {
-      vTaskDelay(pdMS_TO_TICKS(10));
-      if (blocked_timeout > 10) {
-        blocked_timeout -= 10;
+      if (ELAPSED((millis()), next_ms)) {
+        return E_TIMEOUT;
       }
-      else {
-        break;
-      }
+      idle();
+      taskYIELD();
     }
   }
 
@@ -532,4 +518,9 @@ bool MotionService::consume_a_gcode(uint8_t *cmd, uint16_t max_len, uint32_t *li
   memcpy(cmd, gcode_cmd, gcode_len);
   *line = 0;
   return true;
+}
+
+
+void MotionService::moveto(xyze_pos_t target, float feedrate, bool blocked) {
+  do_blocking_move_to(target, feedrate);
 }

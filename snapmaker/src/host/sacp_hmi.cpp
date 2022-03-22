@@ -1,5 +1,5 @@
 #include "sacp_hmi.h"
-
+#include "snapmaker.h"
 
 HostSACPHMI host_hmi(SACP_VER_1, SACP_HOST_ID_CONTROLLER);
 
@@ -84,8 +84,12 @@ err_code_t HostSACPHMI::init(TaskHandle_t event_task, SemaphoreHandle_t recv_sig
   add_channel(SACP_HMI_CH_PC, &link_pc);
   add_channel(SACP_HMI_CH_SCREEN, &link_screen);
 
-  event_queue = xMessageBufferCreate(SACP_PDU_MAX_SIZE);
-  configASSERT(event_queue);
+  events_normal = xMessageBufferCreate(SACP_PDU_MAX_SIZE);
+  configASSERT(events_normal);
+  events_blocked_without_motion = xMessageBufferCreate(SACP_PDU_MAX_SIZE);
+  configASSERT(events_blocked_without_motion);
+  events_with_motion = xMessageBufferCreate(SACP_PDU_MAX_SIZE);
+  configASSERT(events_with_motion);
 
   return E_SUCCESS;
 }
@@ -129,7 +133,7 @@ err_code_t HostSACPHMI::apply_cmd_set_handle(uint8_t cmd_set, uint8_t length) {
   for (int i = 0; i < length; i++) {
     handles[i].ack_cb = NULL;
     handles[i].req_cb = NULL;
-    handles[i].attr   = 0;
+    handles[i].cb_attr = 0;
     handles[i].obj    = NULL;
     handles[i].cmd_id = SACP_V1_CMD_ID_INVALID;
   }
@@ -174,9 +178,9 @@ err_code_t HostSACPHMI::register_callback(uint8_t cmd_set, uint8_t cmd_id, void 
     return E_NO_RESRC;
   }
 
-  cmd_set_handle[cmd_set][i].cmd_id = cmd_id;
-  cmd_set_handle[cmd_set][i].obj    = obj;
-  cmd_set_handle[cmd_set][i].attr   = attr;
+  cmd_set_handle[cmd_set][i].cmd_id  = cmd_id;
+  cmd_set_handle[cmd_set][i].obj     = obj;
+  cmd_set_handle[cmd_set][i].cb_attr = attr;
 
   if (attr & SACP_CB_ATTR_ACK) {
     cmd_set_handle[cmd_set][i].ack_cb = cb;
@@ -651,15 +655,84 @@ err_code_t HostSACPHMI::parse_packets(sacp_channel_t &channel) {
   return ret;
 }
 
+
+struct __packed EventHandle {
+  sacp_hmi_handle_t *handle;
+  uint16_t length: 12;
+  uint16_t version: 4;
+  uint8_t  channel;
+};
+
+MessageBufferHandle_t HostSACPHMI::get_event_queue_by_cmd(uint8_t *buffer, uint8_t channel) {
+  uint8_t cmd_set = buffer[SACP_V1_FRAME_INDEX_CMD_SET];
+  uint8_t cmd_id = buffer[SACP_V1_FRAME_INDEX_CMD_ID];
+  uint16_t length = (buffer[SACP_V1_FRAME_INDEX_LEN_H]<<8 | buffer[SACP_V1_FRAME_INDEX_LEN_L]) & 0x0FFF;
+  sacp_hmi_message_t msg;
+  sacp_hmi_handle_t *handle = NULL;
+
+  EventHandle *event_handle = (EventHandle *)buffer;
+
+  if (!cmd_set_handle[cmd_set] || cmd_set_handle_len[cmd_set] == 0) {
+    LOG_E("nobody have registered handle for cmd[%x:%x]\n", cmd_set, cmd_id);
+    // use flash resource to save CPU resource
+    msg.peer    = buffer[SACP_V1_FRAME_INDEX_SENDER_ID];
+    msg.attr    = buffer[SACP_V1_FRAME_INDEX_ATTR];
+    msg.cmd_set = cmd_set;
+    msg.cmd_id  = cmd_id;
+    msg.ver     = buffer[SACP_V1_FRAME_INDEX_VER];
+    msg.seq     = buffer[SACP_V1_FRAME_INDEX_SEQ_H]<<8 | buffer[SACP_V1_FRAME_INDEX_SEQ_L];
+    msg.ch      = channel;
+
+    send_ack(&msg, E_INVALID_CMD_SET);
+    return NULL;
+  }
+
+  for (int i = 0; i < cmd_set_handle_len[cmd_set]; i++) {
+    if (cmd_set_handle[cmd_set][i].cmd_id == cmd_id) {
+      handle = &cmd_set_handle[cmd_set][i];
+      break;
+    }
+  }
+
+  if (!handle) {
+    LOG_E("nobody have registered handle for cmd[%x:%x]\n", cmd_set, cmd_id);
+    // use flash resource to save CPU resource
+    msg.peer    = buffer[SACP_V1_FRAME_INDEX_SENDER_ID];
+    msg.attr    = buffer[SACP_V1_FRAME_INDEX_ATTR];
+    msg.cmd_set = cmd_set;
+    msg.cmd_id  = cmd_id;
+    msg.ver     = buffer[SACP_V1_FRAME_INDEX_VER];
+    msg.seq     = buffer[SACP_V1_FRAME_INDEX_SEQ_H]<<8 | buffer[SACP_V1_FRAME_INDEX_SEQ_L];
+    msg.ch      = channel;
+
+    send_ack(&msg, E_INVALID_CMD_ID);
+    return NULL;
+  }
+
+  // change thr front 7 bytes to save handle
+  event_handle->handle  = handle;
+  event_handle->channel = channel;
+  event_handle->version = SACP_VER_1; // for now only support V1
+  event_handle->length  = length;
+
+  if (handle->cb_attr & SACP_CB_ATTR_BLOCKED_WITH_MOTION) {
+    return events_with_motion;
+  }
+  else if (handle->cb_attr & SACP_CB_ATTR_BLOCKED_WITHOUT_MOTION) {
+    return events_blocked_without_motion;
+  }
+  else {
+    return events_normal;
+  }
+}
+
 void HostSACPHMI::handle_receive() {
   MessageBufferHandle_t tmp_queue = NULL;
+  MessageBufferHandle_t event_queue = NULL;
   uint32_t seq;
   uint8_t *parser_buff = NULL;
   uint16_t buffer_len = 0;
   uint8_t version;
-
-  if (!event_queue)
-    return;
 
   for (int i = 0; i < SACP_HMI_CH_MAX; i++) {
     if (parse_packets(channels[i]) != E_SUCCESS)
@@ -723,38 +796,45 @@ void HostSACPHMI::handle_receive() {
 
     if (version == SACP_VER_1)
       LOG_I("recv ch[%u] v1 msg[%x:%x]\n", i, parser_buff[SACP_V1_FRAME_INDEX_CMD_SET], parser_buff[SACP_V1_FRAME_INDEX_CMD_ID]);
-    else 
+    else
       LOG_I("recv ch[%u] v0 msg[%x]\n", i, parser_buff[SACP_V0_FRAME_INDEX_EVENT_ID]);
 
-    if (version == SACP_VER_1) {
-      // if someone is waiting this message, send to it
-      if (tmp_queue) {
+    if (!events_normal || !events_blocked_without_motion || !events_with_motion) {
+      channels[i].parser.status = SACP_PARSER_STA_IDLE;
+      continue;
+    }
+
+    // if someone is waiting this message, send to it
+    if (tmp_queue) {
+      if (version == SACP_VER_1) {
         // just send the payload part except cmd set and cmd id
         xMessageBufferSend(tmp_queue, parser_buff + SACP_V1_FRAME_INDEX_PAYLOAD,
           buffer_len - SACP_V1_PDU_MIN_SIZE, pdMS_TO_TICKS(100));
-
       }
       else {
-        // check if we have callback for this message, if yes, send it to event thread
-        // data send to event thread doesn't include the 2 bytes checksum
-
-        parser_buff[SACP_V1_FRAME_INDEX_CRC8] = i; // use CRC8 position to transmit the receive channel
-        xMessageBufferSend(event_queue, parser_buff, buffer_len - 2, pdMS_TO_TICKS(100));
-      }
-    }
-    else {
-      // if someone is waiting this message, send to it
-      if (tmp_queue) {
         // just send the payload part except cmd set and cmd id
         xMessageBufferSend(tmp_queue, &parser_buff[SACP_V0_FRAME_INDEX_EVENT_ID],
           buffer_len - SACP_V0_NON_PAYPLOAD_SIZE, pdMS_TO_TICKS(100));
-
-      }
-      else {
-        LOG_E("Unsupported V0 event[%x][%x]\n", parser_buff[SACP_V0_FRAME_INDEX_EVENT_ID],
-          parser_buff[SACP_V0_FRAME_INDEX_OPCODE]);
       }
     }
+
+    // for now, won't support handle V0 events async
+    if (version != SACP_VER_1) {
+      channels[i].parser.status = SACP_PARSER_STA_IDLE;
+      LOG_I("for now, won't support handle V0 events async\n");
+      continue;
+    }
+
+    event_queue = get_event_queue_by_cmd(parser_buff, i);
+    if (!event_queue) {
+      LOG_I("no queue for msg[%x:%x]\n", parser_buff[SACP_V1_FRAME_INDEX_CMD_SET], parser_buff[SACP_V1_FRAME_INDEX_CMD_ID]);
+      channels[i].parser.status = SACP_PARSER_STA_IDLE;
+      continue;
+    }
+
+    // check if we have callback for this message, if yes, send it to event thread
+    // data send to event thread doesn't include the 2 bytes checksum
+    xMessageBufferSend(event_queue, parser_buff, buffer_len - 2, pdMS_TO_TICKS(100));
 
     // reset the parser to tell it we have toke message
     channels[i].parser.status = SACP_PARSER_STA_IDLE;
@@ -767,7 +847,7 @@ err_code_t HostSACPHMI::handle_message(sacp_hmi_message_t &msg) {
 
   if (!cmd_set_handle[msg.cmd_set] || cmd_set_handle_len[msg.cmd_set] == 0) {
     LOG_E("nobody have registered handle for cmd[%x:%x]\n", msg.cmd_set, msg.cmd_id);
-    return send_ack(&msg, E_INVALID_CMD_SET);
+    return E_INVALID_CMD_SET;
   }
 
   for (int i = 0; i < cmd_set_handle_len[msg.cmd_set]; i++) {
@@ -777,6 +857,10 @@ err_code_t HostSACPHMI::handle_message(sacp_hmi_message_t &msg) {
     }
   }
 
+  return handle_message(msg, handle);
+}
+
+err_code_t HostSACPHMI::handle_message(sacp_hmi_message_t &msg, sacp_hmi_handle_t *handle) {
   if (!handle) {
     LOG_E("no handle for cmd[%x:%x]\n", msg.cmd_set, msg.cmd_id);
     return send_ack(&msg, E_INVALID_CMD_ID);
@@ -803,12 +887,27 @@ err_code_t HostSACPHMI::handle_message(sacp_hmi_message_t &msg) {
 }
 
 
+MessageBufferHandle_t HostSACPHMI::get_event_queue_by_thread() {
+  if (xTaskGetCurrentTaskHandle() == thandle_marlin) {
+    return events_with_motion;
+  }
+  else if (xTaskGetCurrentTaskHandle() == thandle_system) {
+    return events_blocked_without_motion;
+  }
+  else {
+    return events_normal;
+  }
+}
+
 void HostSACPHMI::handle_events() {
+  MessageBufferHandle_t event_queue = NULL;
   sacp_hmi_message_t msg;
   uint16_t length;
   uint16_t pdu_length;
   uint8_t buffer[SACP_V1_PDU_MAX_SIZE];
+  EventHandle *event_handle;
 
+  event_queue = get_event_queue_by_thread();
   if (!event_queue)
     return;
 
@@ -822,42 +921,27 @@ void HostSACPHMI::handle_events() {
     return;
   }
 
-  pdu_length = (buffer[SACP_V1_FRAME_INDEX_LEN_H]<<8 | buffer[SACP_V1_FRAME_INDEX_LEN_L])
-                + SACP_V1_FRONT_HEADER_SIZE - 2;
+  event_handle = (EventHandle *)buffer;
+
+  pdu_length = event_handle->length + SACP_V1_FRONT_HEADER_SIZE - 2;
 
   if (length != pdu_length) {
-    LOG_E("invalid message, len[%u], pdu len[%u]\n", length, pdu_length);
+    LOG_E("invalid message, len[%u], pdu len[%u], even len[%u]\n", length, pdu_length, event_handle->length);
     return;
   }
 
+  msg.length  = event_handle->length;
+  msg.ver     = event_handle->version;
+  msg.ch      = event_handle->channel;
   msg.peer    = buffer[SACP_V1_FRAME_INDEX_SENDER_ID];
   msg.attr    = buffer[SACP_V1_FRAME_INDEX_ATTR];
-  msg.length  = pdu_length - SACP_V1_PDU_MIN_SIZE + 2;
   msg.cmd_set = buffer[SACP_V1_FRAME_INDEX_CMD_SET];
   msg.cmd_id  = buffer[SACP_V1_FRAME_INDEX_CMD_ID];
-  msg.ver     = buffer[SACP_V1_FRAME_INDEX_VER];
   msg.seq     = buffer[SACP_V1_FRAME_INDEX_SEQ_H]<<8 | buffer[SACP_V1_FRAME_INDEX_SEQ_L];
-
-  msg.ch = buffer[SACP_V1_FRAME_INDEX_CRC8]; // use CRC8 position to transmit the receive channel
 
   msg.data = buffer + (SACP_V1_FRONT_HEADER_SIZE + SACP_V1_REAR_HEADER_SIZE);
 
-  if (msg.cmd_set == SACP_CMD_SET_GLOBAL_REQ) {
-    switch (msg.cmd_id) {
-    case SACP_CMD_ID_GLOABL_REQ_SUBSCRIPT:
-      handle_subscript(msg);
-      return;
-
-    case SACP_CMD_ID_GLOABL_REQ_UNSUBSCRIPT:
-      handle_unsubscript(msg);
-      return;
-
-    default:
-      break;
-    }
-  }
-
-  handle_message(msg);
+  handle_message(msg, event_handle->handle);
 }
 
 
@@ -969,7 +1053,8 @@ static void subscription_timer_cb(TimerHandle_t timer) {
   return;
 }
 
-void HostSACPHMI::handle_subscript(sacp_hmi_message_t &msg) {
+err_code_t HostSACPHMI::handle_subscript(void *obj, sacp_hmi_message_t *msg) {
+  HostSACPHMI &host = *(HostSACPHMI *)obj;
   err_code_t ret = E_SUCCESS;
   sacp_subscription_node_t *node = NULL;
   int client_index = 0;
@@ -978,20 +1063,20 @@ void HostSACPHMI::handle_subscript(sacp_hmi_message_t &msg) {
   uint8_t cmd_id;
   uint16_t period;
 
-  if (msg.length < 4) {
-    LOG_E("invalid data length[%u] for subscription!\n", msg.length);
+  if (msg->length < 4) {
+    LOG_E("invalid data length[%u] for subscription!\n", msg->length);
     ret = E_PARAM;
     goto out_subscript;
   }
 
-  cmd_set = msg.data[0];
-  cmd_id  = msg.data[1];
-  period = msg.data[2] | msg.data[3]<<8;
+  cmd_set = msg->data[0];
+  cmd_id  = msg->data[1];
+  period = msg->data[2] | msg->data[3]<<8;
 
   // check firstly if someone has register this node of cmd_set & cmd_id
   for (; node_index < SACP_SUBSCRIPTION_NODE_MAX; node_index++) {
-    if (subscription_nodes[node_index].cmd_set == cmd_set &&
-        subscription_nodes[node_index].cmd_id == cmd_id) {
+    if (host.subscription_nodes[node_index].cmd_set == cmd_set &&
+        host.subscription_nodes[node_index].cmd_id == cmd_id) {
       break;
     }
   }
@@ -1006,24 +1091,24 @@ void HostSACPHMI::handle_subscript(sacp_hmi_message_t &msg) {
   for (; client_index < SACP_SUBSCRIPTION_CLIENT_MAX; client_index++) {
     // if have same peer and ch, indicate the client send same request again
     // maybe it just want to change period
-    if (subscription_clients[client_index].peer == msg.peer &&
-        subscription_clients[client_index].ch == msg.ch) {
+    if (host.subscription_clients[client_index].peer == msg->peer &&
+        host.subscription_clients[client_index].ch == msg->ch) {
 
-      node = subscription_clients[client_index].node;
+      node = host.subscription_clients[client_index].node;
       if (!node)
         break;
       if (node->cmd_set == cmd_set && node->cmd_id == cmd_id) {
-        if (subscription_clients[client_index].period != period) {
+        if (host.subscription_clients[client_index].period != period) {
           // update period and return
-          xTimerChangePeriod(subscription_clients[client_index].timer, period, portMAX_DELAY);
-          subscription_clients[client_index].period = period;
+          xTimerChangePeriod(host.subscription_clients[client_index].timer, period, portMAX_DELAY);
+          host.subscription_clients[client_index].period = period;
         }
         // got same client, break out
         goto out_subscript;
       }
     }
 
-    if (!subscription_clients[client_index].node) {
+    if (!host.subscription_clients[client_index].node) {
       break;
     }
   }
@@ -1033,84 +1118,83 @@ void HostSACPHMI::handle_subscript(sacp_hmi_message_t &msg) {
   }
 
   // add new client
-  xSemaphoreTake(subscription_lock, portMAX_DELAY);
-  subscription_clients[client_index].peer = msg.peer;
-  subscription_clients[client_index].ch   = msg.ch;
-  subscription_clients[client_index].period = period;
-  subscription_clients[client_index].node = &subscription_nodes[node_index];
-  xSemaphoreGive(subscription_lock);
-  subscription_clients[client_index].timer = xTimerCreate(NULL, pdMS_TO_TICKS(period),
-  pdTRUE, (void *)&subscription_clients[client_index], subscription_timer_cb);
-  if (!subscription_clients[client_index].timer) {
+  xSemaphoreTake(host.subscription_lock, portMAX_DELAY);
+  host.subscription_clients[client_index].peer = msg->peer;
+  host.subscription_clients[client_index].ch   = msg->ch;
+  host.subscription_clients[client_index].period = period;
+  host.subscription_clients[client_index].node = &host.subscription_nodes[node_index];
+  xSemaphoreGive(host.subscription_lock);
+  host.subscription_clients[client_index].timer = xTimerCreate(NULL, pdMS_TO_TICKS(period),
+  pdTRUE, (void *)&host.subscription_clients[client_index], subscription_timer_cb);
+  if (!host.subscription_clients[client_index].timer) {
     LOG_E("cannot create timersubscription[%x:%x]\n", cmd_set, cmd_id);
-    send_ack(&msg, E_NO_MEM);
-    return;
+    return host_hmi.send_ack(msg, E_NO_MEM);
   }
 
-  if (xTimerStart(subscription_clients[client_index].timer, portMAX_DELAY) != pdPASS) {
+  if (xTimerStart(host.subscription_clients[client_index].timer, portMAX_DELAY) != pdPASS) {
     LOG_E("failed to start timer for subscribe[%x:%x]\n", cmd_set, cmd_id);
     ret = E_FAILURE;
 
-    xSemaphoreTake(subscription_lock, portMAX_DELAY);
-    subscription_clients[client_index].peer = SACP_V1_HOST_INVALID;
-    subscription_clients[client_index].ch   = SACP_HMI_CH_MAX;
-    subscription_clients[client_index].period = portMAX_DELAY;
-    subscription_clients[client_index].node = NULL;
-    xSemaphoreGive(subscription_lock);
+    xSemaphoreTake(host.subscription_lock, portMAX_DELAY);
+    host.subscription_clients[client_index].peer = SACP_V1_HOST_INVALID;
+    host.subscription_clients[client_index].ch   = SACP_HMI_CH_MAX;
+    host.subscription_clients[client_index].period = portMAX_DELAY;
+    host.subscription_clients[client_index].node = NULL;
+    xSemaphoreGive(host.subscription_lock);
   }
   else {
     LOG_I("subscribe cmd[%x:%x], period[%u]!\n", cmd_set, cmd_id, period);
   }
 
 out_subscript:
-  send_ack(&msg, ret);
-  return;
+  return host_hmi.send_ack(msg, ret);
 }
 
 
-void HostSACPHMI::handle_unsubscript(sacp_hmi_message_t &msg) {
+err_code_t HostSACPHMI::handle_unsubscript(void *obj, sacp_hmi_message_t *msg) {
+  HostSACPHMI &host = *(HostSACPHMI *)obj;
   err_code_t ret = E_SUCCESS;
   sacp_subscription_node_t *node = NULL;
   int client_index = 0;
   uint8_t cmd_set;
   uint8_t cmd_id;
 
-  if (msg.length < 2) {
-    LOG_E("invalid data length[%u] for unsubscription!\n", msg.length);
+  if (msg->length < 2) {
+    LOG_E("invalid data length[%u] for unsubscription!\n", msg->length);
     ret = E_PARAM;
     goto out_unsubscript;
   }
 
-  cmd_set = msg.data[0];
-  cmd_id  = msg.data[1];
+  cmd_set = msg->data[0];
+  cmd_id  = msg->data[1];
 
-  LOG_V("handle_unsubscript!\n");
+  LOG_I("unsubscript cmd[%x:%x]!\n", cmd_set, cmd_id);
 
   // check if client has register this node of cmd_set & cmd_id
   for (; client_index < SACP_SUBSCRIPTION_CLIENT_MAX; client_index++) {
     // if have same peer and ch, indicate the client send same request again
     // maybe it just want to change period
-    if (subscription_clients[client_index].peer == msg.peer &&
-        subscription_clients[client_index].ch == msg.ch) {
+    if (host.subscription_clients[client_index].peer == msg->peer &&
+        host.subscription_clients[client_index].ch == msg->ch) {
 
-      node = subscription_clients[client_index].node;
+      node = host.subscription_clients[client_index].node;
       if (!node)
         break;
       if (node->cmd_set == cmd_set && node->cmd_id == cmd_id) {
-        xTimerDelete(subscription_clients[client_index].timer, portMAX_DELAY);
+        xTimerDelete(host.subscription_clients[client_index].timer, portMAX_DELAY);
         // deinit client
-        xSemaphoreTake(subscription_lock, portMAX_DELAY);
-        subscription_clients[client_index].peer = SACP_V1_HOST_INVALID;
-        subscription_clients[client_index].timer = NULL;
-        subscription_clients[client_index].node = NULL;
-        subscription_clients[client_index].ch = SACP_HMI_CH_MAX;
-        subscription_clients[client_index].period = 0;
-        xSemaphoreGive(subscription_lock);
+        xSemaphoreTake(host.subscription_lock, portMAX_DELAY);
+        host.subscription_clients[client_index].peer = SACP_V1_HOST_INVALID;
+        host.subscription_clients[client_index].timer = NULL;
+        host.subscription_clients[client_index].node = NULL;
+        host.subscription_clients[client_index].ch = SACP_HMI_CH_MAX;
+        host.subscription_clients[client_index].period = 0;
+        xSemaphoreGive(host.subscription_lock);
         goto out_unsubscript;
       }
     }
 
-    if (!subscription_clients[client_index].node) {
+    if (!host.subscription_clients[client_index].node) {
       break;
     }
   }
@@ -1119,6 +1203,5 @@ void HostSACPHMI::handle_unsubscript(sacp_hmi_message_t &msg) {
   ret = E_PARAM;
 
 out_unsubscript:
-  send_ack(&msg, ret);
-  return;
+  return host_hmi.send_ack(msg, ret);
 }

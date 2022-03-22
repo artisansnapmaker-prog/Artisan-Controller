@@ -95,7 +95,7 @@ class MotionService {
     void moveto_b(float b, float feedrate, bool blocked=true) {}
     void moveto_e(float e, float feedrate, bool blocked=true) {}
     void moveto_e(float e, uint8_t extruder, float feedrate, bool blocked=true) {}
-    void moveto(float target[AXIS_NUM], float feedrate, bool blocked=true);
+    void moveto(xyze_pos_t target, float feedrate, bool blocked=true);
     void synchronize_planner() {
       while (planner.busy()) {
         vTaskDelay(pdMS_TO_TICKS(10));

@@ -524,16 +524,22 @@ void MotionService::moveto(xyze_pos_t target, float feedrate, bool blocked) {
 }
 
 void MotionService::show_coordiantes() {
-  update_position_from_platform();
-  LOG_I("home offset: X%.3f, Y%.3f, Z%.3f, A%.3f, B%.3f\n", home_offset[X_AXIS],
+  LOG_I("home offset: X%.3f, Y%.3f, Z%.3f, A%.3f, B%.3f\n\n", home_offset[X_AXIS],
       home_offset[Y_AXIS], home_offset[Z_AXIS], home_offset[A_AXIS], home_offset[B_AXIS]);
-  LOG_I("position offset: X%.3f, Y%.3f, Z%.3f, A%.3f, B%.3f\n", position_shift[X_AXIS],
+
+  // position offset = offset between current coordiante and original coordinate
+  LOG_I("position offset: X%.3f, Y%.3f, Z%.3f, A%.3f, B%.3f\n\n", position_shift[X_AXIS],
       position_shift[Y_AXIS], position_shift[Z_AXIS], position_shift[A_AXIS], position_shift[B_AXIS]);
-  LOG_I("work offset: X%.3f, Y%.3f, Z%.3f, A%.3f, B%.3f\n", workspace_offset[X_AXIS],
+
+  // work offset = home offset + position offset
+  LOG_I("work offset: X%.3f, Y%.3f, Z%.3f, A%.3f, B%.3f\n\n", workspace_offset[X_AXIS],
       workspace_offset[Y_AXIS], workspace_offset[Z_AXIS], workspace_offset[A_AXIS], workspace_offset[B_AXIS]);
-  LOG_I("machine position: X%.3f, Y%.3f, Z%.3f, A%.3f, B%.3f\n", current_position[X_AXIS],
+
+  LOG_I("machine position: X%.3f, Y%.3f, Z%.3f, A%.3f, B%.3f\n\n", current_position[X_AXIS],
       current_position[Y_AXIS], current_position[Z_AXIS], current_position[A_AXIS], current_position[B_AXIS]);
-  LOG_I("logical position: X%.3f, Y%.3f, Z%.3f, A%.3f, B%.3f\n", LOGICAL_X_POSITION(current_position[X_AXIS]),
+
+  // logical position = machine position + work offset
+  LOG_I("logical position: X%.3f, Y%.3f, Z%.3f, A%.3f, B%.3f\n\n", LOGICAL_X_POSITION(current_position[X_AXIS]),
       LOGICAL_X_POSITION(current_position[Y_AXIS]), LOGICAL_X_POSITION(current_position[Z_AXIS]),
       LOGICAL_X_POSITION(current_position[A_AXIS]), LOGICAL_X_POSITION(current_position[B_AXIS]));
 }

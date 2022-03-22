@@ -154,7 +154,7 @@ static err_code_t hmi_req_callback_exit_level(void *obj, sacp_hmi_message_t *msg
   err_code_t ret = E_SUCCESS;
   enum SystemStatus ret_status;
 
-  LOG_I("hmi request exti bedlevel mode\n");
+  LOG_I("hmi request exit bedlevel mode\n");
 
   if (smprinter.get_sys_status() == SYSTEM_STATUS_IDLE) {
     ret = E_SUCCESS;

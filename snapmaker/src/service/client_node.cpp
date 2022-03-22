@@ -512,6 +512,7 @@ void ClientNode::job_req_pause_cb(sacp_hmi_message_t *copy_msg, uint8_t result) 
     free_sacp_msg_node(copy_msg);
   }
   else {
+    LOG_I("client_node: pause failure\r\n");
     host_hmi.send_ack(copy_msg, result);
     free_sacp_msg_node(copy_msg);
   }

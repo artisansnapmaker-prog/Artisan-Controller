@@ -150,6 +150,7 @@ class JobCtrl {
     err_code_t req_pause(enum JobPauseType pt = PAUSE_CLIENT_REQ, job_req_notify_cb_t cb = NULL);
     err_code_t req_resume(uint8_t client_id, job_req_notify_cb_t cb = NULL);
     err_code_t req_stop(job_req_notify_cb_t cb = NULL);
+    void print_job_env(struct JobEnv *env);
 
     // set & get
     err_code_t set_env(struct JobEnv &env);

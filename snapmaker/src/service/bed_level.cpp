@@ -604,8 +604,7 @@ err_code_t BedLevelService::start_auto_bed_leveling(uint8_t grids) {
   LOG_I("GRID_MAX_POINTS_X: %d, GRID_MAX_POINTS_Y: %d\n", GRID_MAX_POINTS_X, GRID_MAX_POINTS_Y);
   // save grids
 
-  // go home
-  // motion_svc.run_gcode((char *)"G28\n", true);
+  motion_svc.run_gcode((char *)"G28\n", true);
 
   motion_svc.disable_leveling();
   motion_svc.enable_z_probe();

@@ -930,7 +930,7 @@ void HostSACPHMI::handle_events() {
     return;
   }
 
-  msg.length  = event_handle->length;
+  msg.length  = event_handle->length - SACP_V1_REAR_HEADER_SIZE - 2;
   msg.ver     = event_handle->version;
   msg.ch      = event_handle->channel;
   msg.peer    = buffer[SACP_V1_FRAME_INDEX_SENDER_ID];

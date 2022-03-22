@@ -860,6 +860,7 @@ err_code_t ToolHeadLaser::get_bt_mac() {
   sacp_hmi_message_t msg;
   uint8_t  recv_buff[12];
   uint16_t recv_len = sizeof(recv_buff);
+  uint8_t cmd = 0;
 
   msg.attr = 0;
   msg.ch = SACP_HMI_CH_CAMERA;
@@ -867,7 +868,8 @@ err_code_t ToolHeadLaser::get_bt_mac() {
   msg.cmd_id = 0xFFFF;
   msg.peer = 4;
   msg.ver = SACP_VER_0;
-  msg.length = 0;
+  msg.length = 1;
+  msg.data = &cmd;
 
   if ((ret = host_hmi.send_sync_legacy(&msg, recv_buff, &recv_len, 1000, 3)) != E_SUCCESS) {
     LOG_E("failed to get BT MAC, ret[%u]\n", ret);

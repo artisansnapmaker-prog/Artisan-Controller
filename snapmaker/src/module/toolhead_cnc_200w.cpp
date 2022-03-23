@@ -320,6 +320,22 @@ err_code_t ToolHeadCNC200W::sync_cnc_output(uint16_t value, CNCSpeedControlType 
   msg.data   = buffer;
   msg.length = i;
   result = host_can_rou.send_sync(&msg, out_buf, &out_len, 200);
+
+  if (result == E_SUCCESS) {
+    if (public_mutex_lock()) {
+      if (value > 0)
+        output_sta = CNC_OUTPUT_ON;
+      else if (output_sta == CNC_OUTPUT_ON)
+        output_sta = CNC_OUTPUT_OFF_ING;
+      else 
+        output_sta = CNC_OUTPUT_OFF;
+      public_mutex_unlock();
+    }
+    else {
+      LOG_E("[%s] cnc take public_mutex_lock fail\n", __FUNCTION__);
+    }
+  }
+  
   if (result) 
     LOG_E("[%s] send fail result: %d\n",__FUNCTION__, result);
   return result;

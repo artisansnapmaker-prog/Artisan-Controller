@@ -414,7 +414,7 @@ err_code_t ToolHeadCNC::resume_env(uint8_t *env_buf, uint32_t &len) {
         result = sync_cnc_output(target_rpm, CNC_RPM_SET_SPEED);
     }
     else {
-      result = sync_cnc_output(power, CNC_PWM_SET_SPEED);
+      result = sync_cnc_output(0, CNC_PWM_SET_SPEED);
     }
 
     if (result) {
@@ -429,6 +429,9 @@ resume_out:
   return result;
 }
 
+err_code_t ToolHeadCNC::standby(void) {
+  return sync_cnc_output(0, CNC_PWM_SET_SPEED);
+}
 
 // functions provided by CNC for screen use
 // commandset 0x11  commandId 0x01 

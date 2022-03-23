@@ -131,6 +131,7 @@ class ToolHeadCNC: public ModuleBase {
     uint16_t get_rpm() { return rpm; };
     err_code_t save_env(uint8_t *env_buf, uint32_t &len);
     err_code_t resume_env(uint8_t *env_buf, uint32_t &len);
+    err_code_t standby(void);
 
     virtual err_code_t set_output_power(uint8_t new_power, bool is_update_power=true);
     virtual err_code_t set_output_rpm(uint16_t new_rpm, bool is_update_rpm=true) { return E_INVALID_CMD; } 

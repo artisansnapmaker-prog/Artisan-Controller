@@ -54,6 +54,7 @@ class BedVirtual: public ModuleBase {
     err_code_t deinit() { return E_SUCCESS; }
     err_code_t save_env(uint8_t *env_buf, uint32_t &len);
     err_code_t resume_env(uint8_t *env_buf, uint32_t &len);
+    err_code_t standby(void);
 
     friend err_code_t send_bed_info_to_hmi(void *obj, sacp_hmi_message_t *msg);
     friend err_code_t hmi_set_bed_target_temp(void *obj, sacp_hmi_message_t *msg);

@@ -62,6 +62,7 @@ static err_code_t hmi_req_callback_set_level_mode(void *obj, sacp_hmi_message_t 
       break;
     case BEDLEVEL_MODE_XY_CALIBRATION:
       req_status = SYSTEM_STATUS_XY_CALIBRATING;
+      break;
     default:
       ret = E_PARAM;
       goto EXIT;
@@ -73,7 +74,6 @@ static err_code_t hmi_req_callback_set_level_mode(void *obj, sacp_hmi_message_t 
     LOG_I("failed to set system status!\n");
     goto EXIT;
   }
-
 
   ret = bedlevel.set_bedlevel_mode(msg->data[0]);
   switch (msg->data[0]) {
@@ -95,6 +95,7 @@ static err_code_t hmi_req_callback_set_level_mode(void *obj, sacp_hmi_message_t 
       break;
     case BEDLEVEL_MODE_XY_CALIBRATION:
       req_status = SYSTEM_STATUS_XY_CALIBRATING;
+      break;
     default:
       ret = E_PARAM;
       goto EXIT;
@@ -468,6 +469,9 @@ err_code_t BedLevelService::set_bedlevel_mode(uint8_t mode) {
       break;
     case BEDLEVEL_MODE_PROBE_SENSOR_CALIBRATE:
       bedlevel_mode = BEDLEVEL_MODE_PROBE_SENSOR_CALIBRATE;
+      break;
+    case BEDLEVEL_MODE_XY_CALIBRATION:
+      bedlevel_mode = BEDLEVEL_MODE_XY_CALIBRATION;
       break;
     default:
       return E_PARAM;

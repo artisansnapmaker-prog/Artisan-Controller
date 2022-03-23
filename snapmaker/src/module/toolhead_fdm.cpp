@@ -202,27 +202,27 @@ static uint16_t hmi_subscript_callback_extruder_info(void *obj, uint8_t *buffer)
 
     // nozzle diameter
     float diameter = fdm.get_hotend_diameter(i);
-    diameter = diameter  * 1000;
-    buffer[index++] = ((uint8_t *)&diameter)[0];
-    buffer[index++] = ((uint8_t *)&diameter)[1];
-    buffer[index++] = ((uint8_t *)&diameter)[2];
-    buffer[index++] = ((uint8_t *)&diameter)[3];
+    uint32_t scaled_diameter = diameter  * 1000;
+    buffer[index++] = scaled_diameter & 0xff;
+    buffer[index++] = scaled_diameter >> 8;
+    buffer[index++] = scaled_diameter >> 16;
+    buffer[index++] = scaled_diameter >> 24;
 
     // current temp
     float cur_temp = fdm.get_hotend_temp(i);
-    cur_temp = cur_temp * 1000;
-    buffer[index++] = ((uint8_t *)&cur_temp)[0];
-    buffer[index++] = ((uint8_t *)&cur_temp)[1];
-    buffer[index++] = ((uint8_t *)&cur_temp)[2];
-    buffer[index++] = ((uint8_t *)&cur_temp)[3];
+    uint32_t scaled_cur_temp = cur_temp * 1000;
+    buffer[index++] = scaled_cur_temp & 0xff;
+    buffer[index++] = scaled_cur_temp >> 8;
+    buffer[index++] = scaled_cur_temp >> 16;
+    buffer[index++] = scaled_cur_temp >> 24;
 
     // target temp
     float target_temp = fdm.get_hotend_target_temp(i);
-    target_temp = target_temp * 1000;
-    buffer[index++] = ((uint8_t *)&target_temp)[0];
-    buffer[index++] = ((uint8_t *)&target_temp)[1];
-    buffer[index++] = ((uint8_t *)&target_temp)[2];
-    buffer[index++] = ((uint8_t *)&target_temp)[3];
+    uint32_t scaled_target_temp = target_temp * 1000;
+    buffer[index++] = scaled_target_temp & 0xff;
+    buffer[index++] = scaled_target_temp >> 8;
+    buffer[index++] = scaled_target_temp >> 16;
+    buffer[index++] = scaled_target_temp >> 24;
   }
 
   return index;
@@ -1036,12 +1036,12 @@ err_code_t ToolHeadFDM::set_hotend_temp(uint16_t temp, uint8_t e) {
 }
 
 uint8_t ToolHeadFDM::get_filament_state(uint8_t e) {
-  // return (filament_state & (1<<e)) >> e;
+  return (filament_state & (1<<e)) >> e;
   return 1;
 }
 
 uint8_t ToolHeadFDM::get_filament_state() {
-  // return (filament_state & (1<<active_extruder)) >> active_extruder;
+  return (filament_state & (1<<active_extruder)) >> active_extruder;
   return 1;
 }
 

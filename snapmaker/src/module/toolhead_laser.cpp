@@ -144,6 +144,7 @@ struct __packed LaserToolHeadInfo {
 
 err_code_t ToolHeadLaser::hmi_cb_get_info(void *obj, sacp_hmi_message_t *message) {
   ToolHeadLaser &laser = *(ToolHeadLaser *)obj;
+  static bool tell_mac = false;
 
   LaserToolHeadInfo *info;
 
@@ -182,9 +183,14 @@ err_code_t ToolHeadLaser::hmi_cb_get_info(void *obj, sacp_hmi_message_t *message
 
   message->length = sizeof(LaserToolHeadInfo) + 1;
 
-  host_hmi.send_ack(message);
-
-  return laser.report_bt_mac();
+  if (!tell_mac) {
+    host_hmi.send_ack(message);
+    tell_mac = true;
+    return laser.report_bt_mac();
+  }
+  else {
+    return host_hmi.send_ack(message);
+  }
 }
 
 err_code_t ToolHeadLaser::hmi_cb_set_focal_length(void *obj, sacp_hmi_message_t *message) {
@@ -1219,6 +1225,8 @@ err_code_t ToolHeadLaser::resume_env(uint8_t *env_buf, uint32_t &len) {
   power_current = env->power_current;
   power_pwm = env->power_pwm;
 
+  len = sizeof(laser_env_t);
+
   return E_SUCCESS;
 }
 
@@ -1232,4 +1240,6 @@ err_code_t ToolHeadLaser::resume_finish(void) {
   if (power_pwm > 0) {
     update_output(power_pwm);
   }
+
+  return E_SUCCESS;
 }

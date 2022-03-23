@@ -256,7 +256,7 @@ class ToolHeadLaser: public ModuleBase {
     int8_t  imu_temp;
     bool pwm_normal;
 
-    uint8_t bt_mac[6] {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
+    uint8_t bt_mac[8] {0xff};
 
     ToolHeadLaserCalibrationStatus cali_status = LASER_CALI_STATUS_INVALID;
 };

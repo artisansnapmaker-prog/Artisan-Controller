@@ -182,7 +182,9 @@ err_code_t ToolHeadLaser::hmi_cb_get_info(void *obj, sacp_hmi_message_t *message
 
   message->length = sizeof(LaserToolHeadInfo) + 1;
 
-  return host_hmi.send_ack(message);
+  host_hmi.send_ack(message);
+
+  return laser.report_bt_mac();
 }
 
 err_code_t ToolHeadLaser::hmi_cb_set_focal_length(void *obj, sacp_hmi_message_t *message) {
@@ -788,8 +790,6 @@ err_code_t ToolHeadLaser::post_init() {
 
   setup_camera_port(PORT_INDEX_P1);
 
-  get_bt_mac();
-
   if (pwm_normal) {
     pinMode(output_pin, OUTPUT);
     set_pwm_duty(output_pin, 0, 255, true);
@@ -801,6 +801,10 @@ err_code_t ToolHeadLaser::post_init() {
   else {
     set_status(MODULE_STATUS_LASER_CHECKING_PWM);
   }
+
+  vTaskDelay(pdMS_TO_TICKS(3000));
+
+  get_bt_mac();
 
   next_ms = millis();
 
@@ -859,7 +863,7 @@ err_code_t ToolHeadLaser::get_bt_mac() {
   err_code_t ret;
   sacp_hmi_message_t msg;
   uint8_t  recv_buff[12];
-  uint16_t recv_len = sizeof(recv_buff);
+  uint16_t recv_len = 12;
   uint8_t cmd = 0;
 
   msg.attr = 0;
@@ -874,6 +878,16 @@ err_code_t ToolHeadLaser::get_bt_mac() {
   if ((ret = host_hmi.send_sync_legacy(&msg, recv_buff, &recv_len, 1000, 3)) != E_SUCCESS) {
     LOG_E("failed to get BT MAC, ret[%u]\n", ret);
   }
+
+  for (int i = 0; i < 7; i++) {
+    bt_mac[i] = recv_buff[1 + i];
+  }
+
+  LOG_I("original: \n");
+  for (int i = 1; i < 7; i++) {
+    LOG_I("%02X, ", bt_mac[i]);
+  }
+  LOG_I("\n");
 
   return E_SUCCESS;
 }

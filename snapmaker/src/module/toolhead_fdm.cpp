@@ -342,8 +342,10 @@ static err_code_t hmi_req_callback_set_hotend_temp(void *obj, sacp_hmi_message_t
 
   {
     char gcode_cmd[32];
-    snprintf(gcode_cmd, 32, "M104 T%d S%d", msg->data[1], msg->data[2] | msg->data[3] << 8);
-    motion_svc.run_gcode(gcode_cmd);
+    snprintf(gcode_cmd, 32, "M104 T%d S%d\n", msg->data[1], msg->data[2] | msg->data[3] << 8);
+    // motion_svc.run_gcode(gcode_cmd);
+    parser.parse(gcode_cmd);
+    gcode.process_parsed_command();
   }
 
 EXIT:
@@ -387,7 +389,7 @@ static err_code_t hmi_req_callback_switch_extruder(void *obj, sacp_hmi_message_t
 
   LOG_I("switch to extruder: %d\n", msg->data[1]);
 
-  ret = fdm.switch_extruder(msg->data[1]);
+  ret = fdm.tool_change(msg->data[1]);
 
 EXIT:
   uint16_t index = 0;

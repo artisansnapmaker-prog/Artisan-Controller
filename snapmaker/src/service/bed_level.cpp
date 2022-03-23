@@ -314,7 +314,9 @@ static err_code_t hmi_req_callback_probe_sensor_calibration(void *obj, sacp_hmi_
 
   // need go home
   if (!motion_svc.is_all_axes_homed()) {
-    motion_svc.run_gcode((char *)"G28\n", true);
+    // motion_svc.run_gcode((char *)"G28", true);
+    parser.parse("G28");
+    gcode.process_parsed_command();
   }
 
   motion_svc.disable_leveling();

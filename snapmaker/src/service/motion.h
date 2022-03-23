@@ -142,6 +142,7 @@ class MotionService {
     err_code_t home_x(bool block = true) { return run_gcode((char *)"G28 X", block); }
     err_code_t home_y(bool block = true) { return run_gcode((char *)"G28 Y", block); }
     err_code_t home_z(bool block = true) { return run_gcode((char *)"G28 Z", block); }
+    void set_axis_to_homed(AxisEnum axis) { set_axis_homed(axis); }
 
     // speed control API
     float get_feedrate(void);

@@ -1112,7 +1112,7 @@ err_code_t ToolHeadFDM::tool_change(uint8_t new_tool, bool z_compensation/*=true
     goto EXIT;
   }
 
-  if (motion_svc.is_all_axes_homed()) {
+  if (!motion_svc.is_all_axes_homed()) {
     LOG_E("need go home before ");
     ret = E_FAILURE;
     goto EXIT;

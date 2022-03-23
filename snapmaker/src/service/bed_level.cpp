@@ -312,31 +312,37 @@ static err_code_t hmi_req_callback_probe_sensor_calibration(void *obj, sacp_hmi_
   bedlevel.set_end_leveling_process_status(false);
 
   // need go home
-  motion_svc.run_gcode((char *)"G28\n", true);
+  if (!motion_svc.is_all_axes_homed()) {
+    motion_svc.run_gcode((char *)"G28\n", true);
+  }
 
+  motion_svc.disable_leveling();
   motion_svc.get_leveling_first_point_position(x, y);
   motion_svc.moveto_xy(x, y, 60);
   motion_svc.moveto_z(20, 30);
 
-  motion_svc.disable_leveling();
   switch (action) {
     case 0:
+      LOG_I("probe sensor calibration left extruder auto detect\n");
       motion_svc.enable_z_probe();
       smprinter.fdm->tool_change(0, false);
       smprinter.fdm->set_probe_sensor(PROBE_SENSOR_LEFT_OPTOCOUPLER);
       bedlevel.hotend_triggered_z_[0] = motion_svc.probe_at_point(x, y, PROBE_PT_RAISE);
       break;
     case 1:
+      LOG_I("probe sensor calibration right extruder auto detect\n");
       motion_svc.enable_z_probe();
       smprinter.fdm->tool_change(1, false);
       smprinter.fdm->set_probe_sensor(PROBE_SENSOR_RIGHT_OPTOCOUPLER);
       bedlevel.hotend_triggered_z_[1] = motion_svc.probe_at_point(x, y, PROBE_PT_RAISE);
       break;
     case 2:
+      LOG_I("probe sensor calibration right extruder manual detect\n");
       motion_svc.disable_z_probe();
       smprinter.fdm->tool_change(1, false);
       break;
     case 3:
+      LOG_I("probe sensor calibration left extruder manual detect\n");
       bedlevel.hotend_touch_bed_z_[1] = motion_svc.get_current_position(Z_AXIS);
       motion_svc.disable_z_probe();
       smprinter.fdm->tool_change(0, false);

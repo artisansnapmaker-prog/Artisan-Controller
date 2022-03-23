@@ -259,6 +259,9 @@ void MotionService::init() {
 
   load_settings();
 
+  set_axis_to_homed(I_AXIS);
+  set_axis_to_homed(J_AXIS);
+
   gcode_queue = xMessageBufferCreate(MOTION_PLATFORM_QUEUE_SIZE);
   configASSERT(gcode_queue);
 

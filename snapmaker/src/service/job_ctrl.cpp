@@ -164,6 +164,12 @@ err_code_t JobCtrl::req_start(  uint8_t client_id,
   //   return E_JOB_UNMATCHED_TOOLHEAD;
   // }
   
+  // check toolhead type
+  if (th_type != smprinter.get_toolhead_type()) {
+    LOG_E("job_ctrl: toolhead not macth in job req\r\n");
+    return E_PARAM;
+  }
+
   JobCtrlReqInfo jri;
   jri.req_action = REQ_START;
   jri.req_data.req_start_data.client_id = client_id;
@@ -372,6 +378,7 @@ err_code_t JobCtrl::machine_standby(void) {
 
   LOG_I("job_ctrl: check current toolhead type\r\n");
   if (smprinter.get_toolhead_type() != _env.type) {
+    LOG_E("job_ctrl: toolhead not macth\r\n");
     return E_JOB_UNSUPPORT_PARAM;
   }
 

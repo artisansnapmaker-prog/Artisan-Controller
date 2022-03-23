@@ -206,25 +206,6 @@ err_code_t ClientNode::issue_client(uint8_t peer, uint8_t issue_ret) {
 
   return E_SUCCESS;
 }
-
-void job_req_pause_static_cb(void *p, uint8_t result) {
-  sacp_hmi_message_t *copy_msg = (sacp_hmi_message_t *)p;
-  if (SYSTEM_STATUS_PAUSING == result) {
-    LOG_I("TODO: client_node: send JOB PAUSING ACK to client\r\n");
-    // host_hmi.send_ack(copy_msg, SACP_RET_EXECUTING);
-  }
-  else if(SYSTEM_STATUS_PAUSED == result) {
-    LOG_I("client_node: send JOB PAUSED OK ACK to client\r\n");
-    host_hmi.send_ack(copy_msg, SACP_RET_SUCCESS);
-    ClientNode::free_sacp_msg_node(copy_msg);
-  }
-  else {
-    LOG_I("client_node: pause failure\r\n");
-    host_hmi.send_ack(copy_msg, result);
-    ClientNode::free_sacp_msg_node(copy_msg);
-  }
-}
-
 ClientNode::ClientNode(uint32_t peer, uint8_t ch): _peer(peer), _ch(ch) {
 
 }

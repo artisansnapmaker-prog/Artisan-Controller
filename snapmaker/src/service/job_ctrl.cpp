@@ -631,6 +631,8 @@ void JobCtrl::do_pause(struct JobCtrlReqInfo &jri) {
     DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, ret_sys_status);
     return;
   }
+
+  _paused = true;
   DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, SYSTEM_STATUS_PAUSED);
 }
 
@@ -728,20 +730,23 @@ bool JobCtrl::consume_a_gcode(uint8_t *cmd, uint16_t max_len, uint32_t *line) {
       cmd[cmd_len] = 0;
       ret = true;
 
-      if (!(cur_toolhead = smprinter.get_cur_toolhead())) {
-        LOG_E("job_ctrl: can NOT get toolhead\r\n");
-        _issue_ret_rb.insert_one(SACP_JOB_PAUSE_ISSUE_RET_STALL_PROTECTION);
-        req_stop();
-        ret = false;
-        break;
-      }
-      if(E_SUCCESS != cur_toolhead->resume_finish()) {
-        _issue_ret_rb.insert_one(SACP_JOB_PAUSE_ISSUE_RET_STALL_PROTECTION);
-        req_stop();
-        ret = false;
-        break;
-      }
+      if (_paused){
+        if (!(cur_toolhead = smprinter.get_cur_toolhead())) {
+          LOG_E("job_ctrl: can NOT get toolhead\r\n");
+          _issue_ret_rb.insert_one(SACP_JOB_PAUSE_ISSUE_RET_STALL_PROTECTION);
+          req_stop();
+          ret = false;
+          break;
+        }
+        if(E_SUCCESS != cur_toolhead->resume_finish()) {
+          _issue_ret_rb.insert_one(SACP_JOB_PAUSE_ISSUE_RET_STALL_PROTECTION);
+          req_stop();
+          ret = false;
+          break;
+        }
 
+        _paused = false;
+      }
       // 747 debug
       // consume here, do not push this gcode to marlin or other platform      
       // LOG_I("job_ctrl: consume a gcode: %s\r\n", (char *)cmd);

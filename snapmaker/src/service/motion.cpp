@@ -8,6 +8,7 @@
 #include "../Marlin/src/gcode/gcode.h"
 #include "../../Marlin/src/module/motion.h"
 #include "../Marlin/src/module/stepper.h"
+#include "job_ctrl.h"
 
 
 MotionService motion_svc;

@@ -158,16 +158,9 @@ err_code_t JobCtrl::req_start(  uint8_t client_id,
     return E_SUCCESS;
   }
 
-  // TODO: uncomment when release
-  // if (th_type != smprinter.get_toolhead_type()) {
-  //   LOG_E("Unmatched toolhead\r\n");
-  //   return E_JOB_UNMATCHED_TOOLHEAD;
-  // }
-  
-  // check toolhead type
   if (th_type != smprinter.get_toolhead_type()) {
-    LOG_E("job_ctrl: toolhead not macth in job req\r\n");
-    return E_PARAM;
+    LOG_E("job_ctrl: Unmatched toolhead\r\n");
+    return E_JOB_UNMATCHED_TOOLHEAD;
   }
 
   JobCtrlReqInfo jri;
@@ -417,11 +410,16 @@ err_code_t JobCtrl::machine_standby(void) {
   LOG_I("TODO: bed temp set to 0 degree\r\n");
 
   LOG_I("job_ctrl: Z raise to highest\r\n");
-  motion_svc.run_gcode("G28 Z", true);
+  // motion_svc.run_gcode("G28 Z", true);
+  motion_svc.run_gcode("G0 Z395", true);
+
   LOG_I("job_ctrl: x move to left\r\n");
-  motion_svc.run_gcode("G28 X", true);
+  // motion_svc.run_gcode("G28 X", true);
+  motion_svc.run_gcode("G0 X5", true);
+
   LOG_I("job_ctrl: y move to head\r\n");
-  motion_svc.run_gcode("G28 Y", true);
+  // motion_svc.run_gcode("G28 Y", true);
+  motion_svc.run_gcode("G0 Y395", true);
 
   LOG_I("job_ctrl: machine standby end\r\n");
   return E_SUCCESS;

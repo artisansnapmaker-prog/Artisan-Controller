@@ -31,7 +31,7 @@
 
 JobCtrl job_ctrl_svc;
 
-static void job_ctrl_thread_entry(void *p) {
+void job_ctrl_thread_entry(void *p) {
   for(;;) {
     job_ctrl_svc.background_thread(p);
   }
@@ -60,8 +60,7 @@ void JobCtrl::init(void) {
   _env.gfi_valid = false;
   _resume_feedrate = RESUME_FEEDRATE;
 
-  // TODO: thread stack size expand tow twice
-  ret = xTaskCreate((TaskFunction_t)(job_ctrl_thread_entry), "jobctrl", SYSTEM_TASK_STACK_SIZE * 2,
+  ret = xTaskCreate((TaskFunction_t)(job_ctrl_thread_entry), "jobctrl", SYSTEM_TASK_STACK_SIZE,
         (void *)(this), HIGHEST_TASK_PRIORITY,  NULL);
   if (ret != pdPASS) {
     LOG_E("job_ctrl: cant not create thread\r\n");
@@ -138,7 +137,8 @@ void JobCtrl::background_thread(void *p) {
 err_code_t JobCtrl::req_start(  uint8_t client_id, 
                                 struct GcodeFileInfo *gcodeInfo, 
                                 toolHeadType th_type, 
-                                job_req_notify_cb_t cb /* = NULL */) {
+                                job_req_notify_cb_t cb/* = NULL*/, 
+                                void *p/* = NULL*/) {
   
     // status check
   if (SYSTEM_STATUS_IDLE != smprinter.get_sys_status() && 
@@ -170,6 +170,7 @@ err_code_t JobCtrl::req_start(  uint8_t client_id,
   jri.req_data.req_start_data.gcodeInfo = *gcodeInfo;
   jri.req_data.req_start_data.th_type = th_type;
   jri.cb = cb;
+  jri.param = p;
 
   if (sizeof(jri) != xMessageBufferSend(_req_queue, &jri, sizeof(jri), pdMS_TO_TICKS(100))) {
     LOG_E("job_ctrl: can not submit a job ctrl request\r\n");
@@ -179,7 +180,8 @@ err_code_t JobCtrl::req_start(  uint8_t client_id,
   return E_SUCCESS;
 }
 
-err_code_t JobCtrl::req_pause(enum JobPauseType pt/* = PAUSE_CLIENT_REQ*/, job_req_notify_cb_t cb/* = NULL*/){
+err_code_t JobCtrl::req_pause( enum JobPauseType pt, 
+                                      job_req_notify_cb_t cb/* = NULL*/, void *p/* = NULL*/) {
   if (SYSTEM_STATUS_PRINTING != smprinter.get_sys_status()) {
     LOG_E("job client: can not pause a job as current status is no printing\r\n");
     return E_JOB_NOT_IN_WORKING_STATUS;
@@ -189,6 +191,7 @@ err_code_t JobCtrl::req_pause(enum JobPauseType pt/* = PAUSE_CLIENT_REQ*/, job_r
   jri.req_action = REQ_PAUSE;
   jri.req_data.req_pause_data.type = pt;
   jri.cb = cb;
+  jri.param = p;
 
   if (sizeof(jri) != xMessageBufferSend(_req_queue, &jri, sizeof(jri), pdMS_TO_TICKS(100))) {
     LOG_E("job_ctrl: can not submit a job ctrl request\r\n");
@@ -198,7 +201,9 @@ err_code_t JobCtrl::req_pause(enum JobPauseType pt/* = PAUSE_CLIENT_REQ*/, job_r
   return E_SUCCESS;
 }
 
-err_code_t JobCtrl::req_resume(uint8_t client_id, job_req_notify_cb_t cb) {
+err_code_t JobCtrl::req_resume( uint8_t client_id, 
+                                job_req_notify_cb_t cb/* = NULL*/, 
+                                void *p/* = NULL*/) {
   // status check
   if (SYSTEM_STATUS_PAUSED != smprinter.get_sys_status()) {
     LOG_E("job_ctrl: Can not resume a job as current status is no pause\r\n");
@@ -209,6 +214,7 @@ err_code_t JobCtrl::req_resume(uint8_t client_id, job_req_notify_cb_t cb) {
   jri.req_action = REQ_RESUME;
   jri.req_data.req_resume_data.client_id = client_id;
   jri.cb = cb;
+  jri.param = p;
 
   if (sizeof(jri) != xMessageBufferSend(_req_queue, &jri, sizeof(jri), pdMS_TO_TICKS(100))) {
     LOG_E("job_ctrl: can not submit a job ctrl request\r\n");
@@ -218,7 +224,7 @@ err_code_t JobCtrl::req_resume(uint8_t client_id, job_req_notify_cb_t cb) {
   return E_SUCCESS;
 }
 
-err_code_t JobCtrl::req_stop(job_req_notify_cb_t cb) {
+err_code_t JobCtrl::req_stop(job_req_notify_cb_t cb/* = NULL*/, void *p/* = NULL*/) {
   // status check
   if (SYSTEM_STATUS_PRINTING != smprinter.get_sys_status() && 
       SYSTEM_STATUS_PAUSED != smprinter.get_sys_status() &&
@@ -230,6 +236,7 @@ err_code_t JobCtrl::req_stop(job_req_notify_cb_t cb) {
   JobCtrlReqInfo jri;
   jri.req_action = REQ_STOP;
   jri.cb = cb;
+  jri.param = p;
 
   if (sizeof(jri) != xMessageBufferSend(_req_queue, &jri, sizeof(jri), pdMS_TO_TICKS(100))) {
     LOG_E("job_ctrl: can not submit a job ctrl request\r\n");
@@ -244,16 +251,16 @@ void JobCtrl::print_job_env(struct JobEnv *env) {
   LOG_I("gcode name: %s\r\n", env->gcode_file_info.name);
   LOG_I("req_line_num: %d\r\n", env->req_line_num);
   LOG_I("cur_line_num: %d\r\n", env->cur_line_num);
-  LOG_I("cur_pos: %f\r\n");
+  LOG_I("cur_pos:\r\n");
   for(uint32_t i = 0; i < AXIS_NUM; i++)
-    LOG_I("cur_pos[i]: %f\r\n", i, _env.current_pos[i]);
+    LOG_I("cur_pos[%d]: %f\r\n", i, _env.current_pos[i]);
   LOG_I("print_feadrate: %f\r\n", env->print_feadrate);
   LOG_I("travel_feadrate: %f\r\n", env->travel_feadrate);
   LOG_I("g0g1_relative_mode: %d\r\n", env->g0g1_relative_mode);
   LOG_I("bed_temp: %d\r\n", env->bed_temp);
   LOG_I("toolhead_env_buf_size: %d\r\n", env->toolhead_env_buf_size);
   for (uint32_t i; i < env->toolhead_env_buf_size; i++) {
-    LOG_I("%02x ", env->toolhead_env_buf[i]);
+    LOG_I("%02X ", env->toolhead_env_buf[i]);
   }
 }
 
@@ -266,23 +273,24 @@ err_code_t JobCtrl::save_env(void) {
     return E_JOB_SAVE_ENV_FAILURE;
   }
 
-  LOG_I("job_ctrl: current toolhead save env\r\n");
-  _env.toolhead_env_buf_size = TOOLHEAD_ENV_MAX_SIZE;
-  if (E_SUCCESS != cur_toolhead->save_env(_env.toolhead_env_buf, _env.toolhead_env_buf_size)) {
-    LOG_E("Toolhead save env error\r\n");
-    return E_JOB_SAVE_ENV_FAILURE;
-  }
+  // LOG_I("job_ctrl: current toolhead save env\r\n");
+  // _env.toolhead_env_buf_size = TOOLHEAD_ENV_MAX_SIZE;
+  // if (E_SUCCESS != cur_toolhead->save_env(_env.toolhead_env_buf, _env.toolhead_env_buf_size)) {
+  //   LOG_E("Toolhead save env error\r\n");
+  //   return E_JOB_SAVE_ENV_FAILURE;
+  // }
 
-  /*
   LOG_I("job_ctrl: if 3DP, save bed tempretrue, call the bed module's save_env\r\n");
   LOG_I("job_ctrl: save current line number\r\n");
   LOG_I("job_ctrl: save print feedrate\r\n");
   LOG_I("job_ctrl: save travle feedrate\r\n");
   LOG_I("job_ctrl: save relative mode\r\n");
   LOG_I("job_ctrl: save current position\r\n");
+  
   if (TH_TYPE_3DP == _env.type)
     _env.bed_temp = motion_svc.get_bet_temp();
   _env.cur_line_num = smprinter.gcode_file_position;
+  LOG_I("job_ctrl: cur_line_num %d\r\n", _env.cur_line_num);
   _env.print_feadrate = motion_svc.get_feedrate();
   _env.travel_feadrate = motion_svc.get_travl_feedrate();
   _env.g0g1_relative_mode = motion_svc.get_relative_mode();
@@ -290,7 +298,6 @@ err_code_t JobCtrl::save_env(void) {
     _env.current_pos[i] = motion_svc.get_current_position(i);
   
   print_job_env(&_env);
-  */
   return E_SUCCESS;
 }
 
@@ -309,15 +316,15 @@ err_code_t JobCtrl::resum_env(void) {
     return E_JOB_UNSUPPORT_PARAM;
   }
 
-  LOG_I("TODO: current toolhead resume\r\n");
-  if (!cur_toolhead->resume_env(_env.toolhead_env_buf, _env.toolhead_env_buf_size)) {
-    LOG_E("job_ctrl: can not resume toolhead\r\n");
-    return E_JOB_RESUME_ENV_FAILURE;
-  }
+  // LOG_I("TODO: current toolhead resume\r\n");
+  // if (E_SUCCESS != cur_toolhead->resume_env(_env.toolhead_env_buf, _env.toolhead_env_buf_size)) {
+  //   LOG_E("job_ctrl: can not resume toolhead\r\n");
+  //   return E_JOB_RESUME_ENV_FAILURE;
+  // }
   
   if (TH_TYPE_3DP == _env.type) {
-    thermalManager.setTargetBed(_env.bed_temp);
     // TODO:
+    // thermalManager.setTargetBed(_env.bed_temp);
     // thermalManager.wait_for_bed();
   }
   
@@ -327,13 +334,27 @@ err_code_t JobCtrl::resum_env(void) {
   LOG_I("job_ctrl: resume travle feedrate\r\n");
   LOG_I("job_ctrl: resume relative mode\r\n");
   LOG_I("job_ctrl: resume current position\r\n");
-  _env.req_line_num = _env.cur_line_num;
-  motion_svc.moveto_xyz(  _env.current_pos[0],
-                          _env.current_pos[1],
-                          _env.current_pos[2],
-                          _resume_feedrate);
+  
+  _env.req_line_num = _env.cur_line_num + 1;
+  LOG_I("job_ctrl: req_line_num %d\r\n", _env.req_line_num);
+  
+  LOG_I("job_ctrl: resume relative mode %d\r\n", _env.g0g1_relative_mode);
+  motion_svc.set_relative_mode(_env.g0g1_relative_mode);
+  // motion_svc.set_relative_mode(false);
+  
+  LOG_I("job_ctrl: resume xy position %f %f\r\n", _env.current_pos[0], _env.current_pos[1]);
+  motion_svc.moveto_xy(_env.current_pos[0], _env.current_pos[1], _resume_feedrate);
+
+  LOG_I("job_ctrl: resume z position %f\r\n", _env.current_pos[2]);
+  motion_svc.moveto_z(_env.current_pos[2], _resume_feedrate);
+
+  LOG_I("job_ctrl: resume print_feadrate %f\r\n", _env.print_feadrate);
   motion_svc.set_feedrate(_env.print_feadrate);
+
+  LOG_I("job_ctrl: resume travel_feadrate %f\r\n", _env.travel_feadrate);
   motion_svc.set_travl_feedrate(_env.travel_feadrate);
+
+  LOG_I("job_ctrl: resume relative mode %d\r\n", _env.g0g1_relative_mode);
   motion_svc.set_relative_mode(_env.g0g1_relative_mode);
 
   return E_SUCCESS;
@@ -364,13 +385,12 @@ err_code_t JobCtrl::machine_standby(void) {
     LOG_I("TODO: fans set to 0 speed\r\n");
     LOG_I("TODO: bed temp set to 0 degree\r\n");
 
-    motion_svc.set_relative_mode(true);
-    motion_svc.moveto_e(-10, 600, true);
-
-    smprinter.set_fdm_fan_speed(0, 0); // left mode fan
-    smprinter.set_fdm_fan_speed(1, 0); // right mode fan
-    smprinter.set_hotend_temp(0, 0); // set index 0 hotend
-    smprinter.set_hotend_temp(0, 1); // set index 1 hotend
+    //motion_svc.set_relative_mode(true);
+    //motion_svc.moveto_e(-10, 600, true);
+    // smprinter.set_fdm_fan_speed(0, 0); // left mode fan
+    // smprinter.set_fdm_fan_speed(1, 0); // right mode fan
+    // smprinter.set_hotend_temp(0, 0); // set index 0 hotend
+    // smprinter.set_hotend_temp(0, 1); // set index 1 hotend
     break;
 
   case TH_TYPE_CNC:
@@ -393,14 +413,12 @@ err_code_t JobCtrl::machine_standby(void) {
     break;
   }
 
-  /*
   LOG_I("job_ctrl: Z raise to highest\r\n");
   motion_svc.run_gcode("G28 Z", true);
   LOG_I("job_ctrl: x move to left\r\n");
   motion_svc.run_gcode("G28 X", true);
   LOG_I("job_ctrl: y move to head\r\n");
   motion_svc.run_gcode("G28 Y", true);
-  */
 
   LOG_I("job_ctrl: machine standby end\r\n");
   return E_SUCCESS;
@@ -517,17 +535,17 @@ void JobCtrl::do_start(struct JobCtrlReqInfo &jri) {
 
   if (E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_STARTING, &ret_sys_status)) {
     LOG_E("job_ctrl: Can not enter to SYS_STARTING status\r\n");
-    DO_JOB_REQ_NOTIFY_CB(jri.cb, ret_sys_status);
+    DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, ret_sys_status);
     return;
   }
-  DO_JOB_REQ_NOTIFY_CB(jri.cb, SYSTEM_STATUS_STARTING);
+  DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, SYSTEM_STATUS_STARTING);
   
   LOG_I("TODO: homing\r\n");
   /*
   if (motion_svc.is_all_axes_homed()) {
     if(E_SUCCESS != motion_svc.home()) {
       smprinter.set_sys_status(SYSTEM_STATUS_IDLE, NULL);
-      DO_JOB_REQ_NOTIFY_CB(jri.cb, SYSTEM_STATUS_IDLE);
+      DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, jri.param, SYSTEM_STATUS_IDLE);
       return;
     }
   }
@@ -538,7 +556,9 @@ void JobCtrl::do_start(struct JobCtrlReqInfo &jri) {
   _env.gcode_file_info = jri.req_data.req_start_data.gcodeInfo;
   _env.cur_line_num = 0;
   _env.req_line_num = 0;
-  _gcode_rb.reset(); 
+  LOCK(_lock, JOB_LOCK_WAIT_TICK);
+  _gcode_rb.reset();
+  UNLOCK(_lock);
   _env.time_elape = 0;
   _err_get_batch_gcode_cnt = 0;
   _env.gfi_valid = true;
@@ -546,12 +566,11 @@ void JobCtrl::do_start(struct JobCtrlReqInfo &jri) {
 
   if (E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_PRINTING, &ret_sys_status)) {
     LOG_E("job_ctrl: Can not enter SYS_PRINTING status\r\n");
-    DO_JOB_REQ_NOTIFY_CB(jri.cb, ret_sys_status);
+    DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, ret_sys_status);
     return;
   }
   LOG_I("job_ctrl: enter SYS_PRINTING status\r\n");
-
-  DO_JOB_REQ_NOTIFY_CB(jri.cb, SYSTEM_STATUS_PRINTING);
+  DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, SYSTEM_STATUS_PRINTING);
 }
 
 void JobCtrl::do_pause(struct JobCtrlReqInfo &jri) {
@@ -559,10 +578,11 @@ void JobCtrl::do_pause(struct JobCtrlReqInfo &jri) {
 
   if (E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_PAUSING, &ret_sys_status)) {
     LOG_E("job ctrl: can not to enter SYS_PAUSEING status\r\n");
-    DO_JOB_REQ_NOTIFY_CB(jri.cb, ret_sys_status);
+    DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, ret_sys_status);
     return;
   }
-  DO_JOB_REQ_NOTIFY_CB(jri.cb, SYSTEM_STATUS_PAUSING);
+  
+  DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, SYSTEM_STATUS_PAUSING);
 
   switch (jri.req_data.req_pause_data.type) {
     case PAUSE_CLIENT_REQ:
@@ -588,30 +608,34 @@ void JobCtrl::do_pause(struct JobCtrlReqInfo &jri) {
     default:
       LOG_E("job_ctrl: unknow pause type\r\n");
       smprinter.set_sys_status(SYSTEM_STATUS_IDLE, &ret_sys_status);
-      DO_JOB_REQ_NOTIFY_CB(jri.cb, ret_sys_status);
+      DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, ret_sys_status);
       return;
     break;
   }
 
   if (E_SUCCESS != save_env()) {
     smprinter.set_sys_status(SYSTEM_STATUS_IDLE, &ret_sys_status);
-    DO_JOB_REQ_NOTIFY_CB(jri.cb, ret_sys_status);
+    DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, ret_sys_status);
     return;
   }
+
   if (E_SUCCESS != machine_standby()) {
     smprinter.set_sys_status(SYSTEM_STATUS_IDLE, &ret_sys_status);
-    DO_JOB_REQ_NOTIFY_CB(jri.cb, ret_sys_status);
+    DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, ret_sys_status);
     return;
   }
-  _gcode_rb.reset();
 
-  if (E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_PAUSED, NULL)) {
+  // LOCK(_lock, JOB_LOCK_WAIT_TICK);
+  // _gcode_rb.reset();
+  // UNLOCK(_lock);
+
+  if (E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_PAUSED, &ret_sys_status)) {
     LOG_E("job ctrl: can not enter SYS_PAUSED status");
     smprinter.set_sys_status(SYSTEM_STATUS_IDLE, &ret_sys_status);
-    DO_JOB_REQ_NOTIFY_CB(jri.cb, ret_sys_status);
+    DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, ret_sys_status);
     return;
   }
-  DO_JOB_REQ_NOTIFY_CB(jri.cb, SYSTEM_STATUS_PAUSED);
+  DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, SYSTEM_STATUS_PAUSED);
 }
 
 void JobCtrl::do_resume(struct JobCtrlReqInfo &jri) {
@@ -619,27 +643,26 @@ void JobCtrl::do_resume(struct JobCtrlReqInfo &jri) {
 
   if (E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_RESUMING, &ret_sys_status)) {
     LOG_E("job_ctrl: Can not enter to SYS_RESUMING status\r\n");
-    DO_JOB_REQ_NOTIFY_CB(jri.cb, ret_sys_status);
+    DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, ret_sys_status);
     return;
   }
-  DO_JOB_REQ_NOTIFY_CB(jri.cb, SYSTEM_STATUS_RESUMING);
+  DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, SYSTEM_STATUS_RESUMING);
 
   if (E_SUCCESS != resum_env()) {
     LOG_E("job ctrl: resume failed\r\n");
     smprinter.set_sys_status(SYSTEM_STATUS_IDLE, &ret_sys_status);
-    DO_JOB_REQ_NOTIFY_CB(jri.cb, SYSTEM_STATUS_IDLE);
+    DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, SYSTEM_STATUS_IDLE);
     return;
   }
-
   _client_id = jri.req_data.req_resume_data.client_id;
 
   if (E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_PRINTING, NULL)) {
     LOG_E("job ctrl: can not enter SYS_PRINTING status");
     smprinter.set_sys_status(SYSTEM_STATUS_IDLE, &ret_sys_status);
-    DO_JOB_REQ_NOTIFY_CB(jri.cb, ret_sys_status);
+    DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, ret_sys_status);
     return;
   }
-  DO_JOB_REQ_NOTIFY_CB(jri.cb, SYSTEM_STATUS_PRINTING);
+  DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, SYSTEM_STATUS_PRINTING);
 }
 
 void JobCtrl::do_stop(struct JobCtrlReqInfo &jri) {
@@ -647,26 +670,26 @@ void JobCtrl::do_stop(struct JobCtrlReqInfo &jri) {
 
   if (E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_STOPING, &ret_sys_status)) {
     LOG_E("job_ctrl: Can not enter to SYSTEM_STATUS_STOPING status\r\n");
-    DO_JOB_REQ_NOTIFY_CB(jri.cb, ret_sys_status);
+    DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, ret_sys_status);
     return;
   }
-  DO_JOB_REQ_NOTIFY_CB(jri.cb, SYSTEM_STATUS_STOPING);
+  DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, SYSTEM_STATUS_STOPING);
 
   motion_svc.normalstop();
   if (E_SUCCESS != machine_standby()) {
     LOG_E("job ctrl: machine standby failure\r\n");
     smprinter.set_sys_status(SYSTEM_STATUS_IDLE, &ret_sys_status);
-    DO_JOB_REQ_NOTIFY_CB(jri.cb, ret_sys_status);
+    DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, ret_sys_status);
     return;
   }
 
   if (E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_IDLE, &ret_sys_status)) {
     LOG_E("job ctrl: can not enter SYS_IDLE status");
     smprinter.set_sys_status(SYSTEM_STATUS_IDLE, &ret_sys_status);
-    DO_JOB_REQ_NOTIFY_CB(jri.cb, ret_sys_status);
+    DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, ret_sys_status);
     return;
   }
-  DO_JOB_REQ_NOTIFY_CB(jri.cb, SYSTEM_STATUS_IDLE);
+  DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, SYSTEM_STATUS_IDLE);
 }
 
 err_code_t JobCtrl::set_env(struct JobEnv &env) {

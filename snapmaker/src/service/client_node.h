@@ -130,6 +130,18 @@ class ClientNode {
     static uint16_t sys_hardtick_sub_cb(void *obj, uint8_t *buffer);
     static err_code_t issue_client(uint8_t peer, uint8_t issue_ret);
 
+
+    static SemaphoreHandle_t sacp_msg_copy_lock;
+    static sacp_hmi_message_t sacp_msg_copy[MAX_SACP_MSG_COPY];
+    static bool sacp_msg_copy_occupy[MAX_SACP_MSG_COPY];
+
+    static sacp_hmi_message_t *malloc_sacp_msg_node(void);
+    static err_code_t free_sacp_msg_node(sacp_hmi_message_t*);
+    static void job_req_start_cb(void *p, uint8_t result);
+    static void job_req_pause_cb(void *p, uint8_t result);
+    static void job_req_resume_cb(void *p, uint8_t result);
+    static void job_req_stop_cb(void *p, uint8_t result);
+
   private:
     static SemaphoreHandle_t _lock;
     static ClientNode* client_node_tab[MAX_CLIENT_NODE_NUM];
@@ -145,19 +157,6 @@ class ClientNode {
     uint8_t _ch;
 
   private:
-    typedef std::function<void(int)> job_req_notify_cb_t;
-    job_req_notify_cb_t req_start_cb;
-    job_req_notify_cb_t req_pause_cb;
-    job_req_notify_cb_t req_resume_cb;
-    job_req_notify_cb_t req_stop_cb;
-
-    SemaphoreHandle_t sacp_msg_copy_lock;
-    sacp_hmi_message_t sacp_msg_copy[MAX_SACP_MSG_COPY];
-    bool sacp_msg_copy_occupy[MAX_SACP_MSG_COPY];
-
-    sacp_hmi_message_t *malloc_sacp_msg_node(void);
-    err_code_t free_sacp_msg_node(sacp_hmi_message_t*);
-
     err_code_t sacp_handle(sacp_hmi_message_t*);
     err_code_t get_gcode_info(sacp_hmi_message_t*);
     err_code_t req_start_job(sacp_hmi_message_t*);
@@ -165,10 +164,6 @@ class ClientNode {
     err_code_t req_resume_job(sacp_hmi_message_t*);
     err_code_t req_stop_job(sacp_hmi_message_t*);
     err_code_t req_set_feedrate_percentage(sacp_hmi_message_t* msg);
-    void job_req_start_cb(sacp_hmi_message_t *copy_msg, uint8_t result);
-    void job_req_pause_cb(sacp_hmi_message_t *copy_msg, uint8_t result);
-    void job_req_resume_cb(sacp_hmi_message_t *copy_msg, uint8_t result);
-    void job_req_stop_cb(sacp_hmi_message_t *copy_msg, uint8_t result);
 };
 
 

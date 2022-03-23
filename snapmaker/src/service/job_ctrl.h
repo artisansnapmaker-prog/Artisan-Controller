@@ -65,11 +65,10 @@
 #define JOB_LOCK_WAIT_TICK 100
 #define TOOLHEAD_ENV_MAX_SIZE 128
 #define GCODE_RB_SIZE 1024
-#define RESUME_FEEDRATE 3000
+#define RESUME_FEEDRATE 30
 #define JOB_CTRL_LOOP_TIME_MS (100)
 #define JOB_CTRL_REQ_INFO_BUF ((sizeof(struct JobCtrlReqInfo) + 8) * 4)
-
-#define DO_JOB_REQ_NOTIFY_CB(cb, ret)                   do{ if(cb) (cb)(ret); } while(0)
+#define DO_JOB_REQ_NOTIFY_CB(cb, p, ret)                do{ if(cb) (cb)(p, ret); } while(0)
 
 
 // TODO: this type should define other
@@ -112,7 +111,8 @@ enum JobReqAction {
 };
 
 // typedef void (*job_req_notify_cb)(uint8_t result);
-typedef std::function<void(int)> job_req_notify_cb_t;
+// typedef std::function<void(int)> job_req_notify_cb_t;
+typedef void(*job_req_notify_cb_t)(void *, uint8_t);
 
 struct JobCtrlReqInfo {
   JobReqAction req_action;
@@ -135,7 +135,9 @@ struct JobCtrlReqInfo {
     struct {
     } req_stop_data;
   } req_data;
+
   job_req_notify_cb_t cb;
+  void *param;
 };
 
 class JobCtrl {
@@ -146,10 +148,19 @@ class JobCtrl {
     void background_thread(void *p);                               /** main loop, to check all the event from system which will change current job status */
 
     // job control
-    err_code_t req_start(uint8_t client_id, struct GcodeFileInfo *gcodeInfo, toolHeadType th_type, job_req_notify_cb_t cb = NULL);
-    err_code_t req_pause(enum JobPauseType pt = PAUSE_CLIENT_REQ, job_req_notify_cb_t cb = NULL);
-    err_code_t req_resume(uint8_t client_id, job_req_notify_cb_t cb = NULL);
-    err_code_t req_stop(job_req_notify_cb_t cb = NULL);
+    err_code_t req_start( uint8_t client_id, 
+                          struct GcodeFileInfo *gcodeInfo, 
+                          toolHeadType th_type, 
+                          job_req_notify_cb_t cb = NULL, 
+                          void *p = NULL);
+    err_code_t req_pause( enum JobPauseType pt, 
+                          job_req_notify_cb_t cb = NULL, 
+                          void *p = NULL);
+    err_code_t req_resume(uint8_t client_id, 
+                          job_req_notify_cb_t cb = NULL, 
+                          void *p = NULL);
+    err_code_t req_stop(  job_req_notify_cb_t cb = NULL, 
+                          void *p = NULL);
     void print_job_env(struct JobEnv *env);
 
     // set & get

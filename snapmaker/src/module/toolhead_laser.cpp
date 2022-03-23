@@ -1227,3 +1227,9 @@ err_code_t ToolHeadLaser::standby(void) {
 
   return E_SUCCESS;
 }
+
+err_code_t ToolHeadLaser::resume_finish(void) {
+  if (power_pwm > 0) {
+    update_output(power_pwm);
+  }
+}

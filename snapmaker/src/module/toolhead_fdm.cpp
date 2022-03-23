@@ -164,6 +164,8 @@ err_code_t ToolHeadFDM::post_init() {
   hotend_offset_sync();
   z_compensation_sync();
 
+  motion_svc.pins_post_init();
+
   return E_SUCCESS;
 }
 

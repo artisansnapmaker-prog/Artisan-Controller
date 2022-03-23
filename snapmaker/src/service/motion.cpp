@@ -296,6 +296,33 @@ void MotionService::init() {
   }
 }
 
+void MotionService::pins_post_init() {
+  #if HAS_E0_DIR
+    E0_DIR_INIT();
+  #endif
+  #if HAS_E1_DIR
+    E1_DIR_INIT();
+  #endif
+  #if HAS_E2_DIR
+    E2_DIR_INIT();
+  #endif
+  #if HAS_E3_DIR
+    E3_DIR_INIT();
+  #endif
+  #if HAS_E4_DIR
+    E4_DIR_INIT();
+  #endif
+  #if HAS_E5_DIR
+    E5_DIR_INIT();
+  #endif
+  #if HAS_E6_DIR
+    E6_DIR_INIT();
+  #endif
+  #if HAS_E7_DIR
+    E7_DIR_INIT();
+  #endif
+}
+
 void MotionService::moveto_xy(float x, float y, float feedrate, bool blocked) {
   do_blocking_move_to_xy(x, y, feedrate);
   if (blocked) {

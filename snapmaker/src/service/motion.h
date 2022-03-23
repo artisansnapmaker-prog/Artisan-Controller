@@ -84,6 +84,8 @@ class MotionService {
 
     void init();
 
+    void pins_post_init();
+
     // moving API
     void moveto_xy(float x, float y, float feedrate, bool blocked=true);
     void moveto_xyz(float x, float y, float z, float feedrate, bool blocked=true);

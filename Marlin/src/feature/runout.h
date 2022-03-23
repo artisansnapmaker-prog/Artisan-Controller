@@ -34,6 +34,8 @@
 
 #include "../inc/MarlinConfig.h"
 
+#include "../../../snapmaker/src/snapmaker.h"
+
 #if ENABLED(EXTENSIBLE_UI)
   #include "../lcd/extui/ui_api.h"
 #endif
@@ -115,7 +117,7 @@ class TFilamentMonitor : public FilamentMonitorBase {
 
     // Give the response a chance to update its counter.
     static inline void run() {
-      if (enabled && !filament_ran_out && (printingIsActive() || did_pause_print)) {
+      if (enabled && !filament_ran_out && (printingIsActive() || did_pause_print) && (smprinter.get_sys_status() == SYSTEM_STATUS_PRINTING || smprinter.get_sys_status() == SYSTEM_STATUS_XY_CALIBRATING)) {
         TERN_(HAS_FILAMENT_RUNOUT_DISTANCE, cli()); // Prevent RunoutResponseDelayed::block_completed from accumulating here
         response.run();
         sensor.run();
@@ -155,9 +157,18 @@ class TFilamentMonitor : public FilamentMonitorBase {
           filament_ran_out = true;
           event_filament_runout(extruder);
           planner.synchronize();
+
         }
       }
-    }
+    } //else if () {
+      // todo
+      // dither filter
+
+    // }
+
+
+
+
 };
 
 /*************************** FILAMENT PRESENCE SENSORS ***************************/
@@ -207,45 +218,51 @@ class FilamentSensorBase {
       #undef  INIT_RUNOUT_PIN
     }
 
-    // Return a bitmask of runout pin states
-    static inline uint8_t poll_runout_pins() {
-      #if MB_SNAPMAKER
-        #define _OR_RUNOUT(N) | (smprinter.runout_state(FIL_RUNOUT##N##_PIN) ? _BV((N) - 1) : 0)
-      #else
-        #define _OR_RUNOUT(N) | (READ(FIL_RUNOUT##N##_PIN) ? _BV((N) - 1) : 0)
-      #endif
-      return (0 REPEAT_1(NUM_RUNOUT_SENSORS, _OR_RUNOUT));
-      #undef _OR_RUNOUT
-    }
+    #if !MB_SNAPMAKER
+      // Return a bitmask of runout pin states
+      static inline uint8_t poll_runout_pins() {
+        #if MB_SNAPMAKER
+          #define _OR_RUNOUT(N) | (smprinter.runout_state(FIL_RUNOUT##N##_PIN) ? _BV((N) - 1) : 0)
+        #else
+          #define _OR_RUNOUT(N) | (READ(FIL_RUNOUT##N##_PIN) ? _BV((N) - 1) : 0)
+        #endif
+        return (0 REPEAT_1(NUM_RUNOUT_SENSORS, _OR_RUNOUT));
+        #undef _OR_RUNOUT
+      }
+    #endif
 
     // Return a bitmask of runout flag states (1 bits always indicates runout)
     static inline uint8_t poll_runout_states() {
-      return poll_runout_pins() ^ uint8_t(0
-        #if NUM_RUNOUT_SENSORS >= 1
-          | (FIL_RUNOUT1_STATE ? 0 : _BV(1 - 1))
-        #endif
-        #if NUM_RUNOUT_SENSORS >= 2
-          | (FIL_RUNOUT2_STATE ? 0 : _BV(2 - 1))
-        #endif
-        #if NUM_RUNOUT_SENSORS >= 3
-          | (FIL_RUNOUT3_STATE ? 0 : _BV(3 - 1))
-        #endif
-        #if NUM_RUNOUT_SENSORS >= 4
-          | (FIL_RUNOUT4_STATE ? 0 : _BV(4 - 1))
-        #endif
-        #if NUM_RUNOUT_SENSORS >= 5
-          | (FIL_RUNOUT5_STATE ? 0 : _BV(5 - 1))
-        #endif
-        #if NUM_RUNOUT_SENSORS >= 6
-          | (FIL_RUNOUT6_STATE ? 0 : _BV(6 - 1))
-        #endif
-        #if NUM_RUNOUT_SENSORS >= 7
-          | (FIL_RUNOUT7_STATE ? 0 : _BV(7 - 1))
-        #endif
-        #if NUM_RUNOUT_SENSORS >= 8
-          | (FIL_RUNOUT8_STATE ? 0 : _BV(8 - 1))
-        #endif
-      );
+      #if MB_SNAPMAKER
+        return smprinter.runout_state();
+      #else
+        return poll_runout_pins() ^ uint8_t(0
+          #if NUM_RUNOUT_SENSORS >= 1
+            | (FIL_RUNOUT1_STATE ? 0 : _BV(1 - 1))
+          #endif
+          #if NUM_RUNOUT_SENSORS >= 2
+            | (FIL_RUNOUT2_STATE ? 0 : _BV(2 - 1))
+          #endif
+          #if NUM_RUNOUT_SENSORS >= 3
+            | (FIL_RUNOUT3_STATE ? 0 : _BV(3 - 1))
+          #endif
+          #if NUM_RUNOUT_SENSORS >= 4
+            | (FIL_RUNOUT4_STATE ? 0 : _BV(4 - 1))
+          #endif
+          #if NUM_RUNOUT_SENSORS >= 5
+            | (FIL_RUNOUT5_STATE ? 0 : _BV(5 - 1))
+          #endif
+          #if NUM_RUNOUT_SENSORS >= 6
+            | (FIL_RUNOUT6_STATE ? 0 : _BV(6 - 1))
+          #endif
+          #if NUM_RUNOUT_SENSORS >= 7
+            | (FIL_RUNOUT7_STATE ? 0 : _BV(7 - 1))
+          #endif
+          #if NUM_RUNOUT_SENSORS >= 8
+            | (FIL_RUNOUT8_STATE ? 0 : _BV(8 - 1))
+          #endif
+        );
+      #endif
     }
 };
 

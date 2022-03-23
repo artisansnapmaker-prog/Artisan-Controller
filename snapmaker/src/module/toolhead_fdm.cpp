@@ -797,7 +797,7 @@ void ToolHeadFDM::update_filament_state(uint8_t *data) {
     else
       filament_state &= ~0x01;
 
-    if (!data[1])
+    if (data[1])
       filament_state |= 0x02;
     else
       filament_state &= ~0x02;
@@ -1052,12 +1052,10 @@ err_code_t ToolHeadFDM::set_hotend_temp(uint16_t temp, uint8_t e) {
 
 uint8_t ToolHeadFDM::get_filament_state(uint8_t e) {
   return (filament_state & (1<<e)) >> e;
-  return 1;
 }
 
 uint8_t ToolHeadFDM::get_filament_state() {
   return (filament_state & (1<<active_extruder)) >> active_extruder;
-  return 1;
 }
 
 uint8_t ToolHeadFDM::get_filament_detection_state(uint8_t e) {

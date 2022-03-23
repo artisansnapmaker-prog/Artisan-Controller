@@ -73,75 +73,79 @@ bool FilamentMonitorBase::enabled = true,
 #endif
 
 void event_filament_runout(const uint8_t extruder) {
+  #if MB_SNAPMAKER
+    // todo
+    // smprinter.pause_trigger(TRIGGER_SOURCE_RUNOUT);
+  #else
+    if (did_pause_print) return;  // Action already in progress. Purge triggered repeated runout.
 
-  if (did_pause_print) return;  // Action already in progress. Purge triggered repeated runout.
-
-  #if ENABLED(TOOLCHANGE_MIGRATION_FEATURE)
-    if (migration.in_progress) {
-      DEBUG_ECHOLNPGM("Migration Already In Progress");
-      return;  // Action already in progress. Purge triggered repeated runout.
-    }
-    if (migration.automode) {
-      DEBUG_ECHOLNPGM("Migration Starting");
-      if (extruder_migration()) return;
-    }
-  #endif
-
-  TERN_(EXTENSIBLE_UI, ExtUI::onFilamentRunout(ExtUI::getTool(extruder)));
-  TERN_(DWIN_CREALITY_LCD_ENHANCED, DWIN_FilamentRunout(extruder));
-
-  #if ANY(HOST_PROMPT_SUPPORT, HOST_ACTION_COMMANDS, MULTI_FILAMENT_SENSOR)
-    const char tool = '0' + TERN0(MULTI_FILAMENT_SENSOR, extruder);
-  #endif
-
-  //action:out_of_filament
-  #if ENABLED(HOST_PROMPT_SUPPORT)
-    hostui.prompt_do(PROMPT_FILAMENT_RUNOUT, F("FilamentRunout T"), tool); //action:out_of_filament
-  #endif
-
-  const bool run_runout_script = !runout.host_handling;
-
-  #if ENABLED(HOST_ACTION_COMMANDS)
-    if (run_runout_script
-      && ( strstr(FILAMENT_RUNOUT_SCRIPT, "M600")
-        || strstr(FILAMENT_RUNOUT_SCRIPT, "M125")
-        || TERN0(ADVANCED_PAUSE_FEATURE, strstr(FILAMENT_RUNOUT_SCRIPT, "M25"))
-      )
-    ) {
-      hostui.paused(false);
-    }
-    else {
-      // Legacy Repetier command for use until newer version supports standard dialog
-      // To be removed later when pause command also triggers dialog
-      #ifdef ACTION_ON_FILAMENT_RUNOUT
-        hostui.action(F(ACTION_ON_FILAMENT_RUNOUT " T"), false);
-        SERIAL_CHAR(tool);
-        SERIAL_EOL();
-      #endif
-
-      hostui.pause(false);
-    }
-    SERIAL_ECHOPGM(" " ACTION_REASON_ON_FILAMENT_RUNOUT " ");
-    SERIAL_CHAR(tool);
-    SERIAL_EOL();
-  #endif // HOST_ACTION_COMMANDS
-
-  if (run_runout_script) {
-    #if MULTI_FILAMENT_SENSOR
-      char script[strlen(FILAMENT_RUNOUT_SCRIPT) + 1];
-      sprintf_P(script, PSTR(FILAMENT_RUNOUT_SCRIPT), tool);
-      #if ENABLED(FILAMENT_RUNOUT_SENSOR_DEBUG)
-        SERIAL_ECHOLNPGM("Runout Command: ", script);
-      #endif
-      queue.inject(script);
-    #else
-      #if ENABLED(FILAMENT_RUNOUT_SENSOR_DEBUG)
-        SERIAL_ECHOPGM("Runout Command: ");
-        SERIAL_ECHOLNPGM(FILAMENT_RUNOUT_SCRIPT);
-      #endif
-      queue.inject(F(FILAMENT_RUNOUT_SCRIPT));
+    #if ENABLED(TOOLCHANGE_MIGRATION_FEATURE)
+      if (migration.in_progress) {
+        DEBUG_ECHOLNPGM("Migration Already In Progress");
+        return;  // Action already in progress. Purge triggered repeated runout.
+      }
+      if (migration.automode) {
+        DEBUG_ECHOLNPGM("Migration Starting");
+        if (extruder_migration()) return;
+      }
     #endif
-  }
+
+    TERN_(EXTENSIBLE_UI, ExtUI::onFilamentRunout(ExtUI::getTool(extruder)));
+    TERN_(DWIN_CREALITY_LCD_ENHANCED, DWIN_FilamentRunout(extruder));
+
+    #if ANY(HOST_PROMPT_SUPPORT, HOST_ACTION_COMMANDS, MULTI_FILAMENT_SENSOR)
+      const char tool = '0' + TERN0(MULTI_FILAMENT_SENSOR, extruder);
+    #endif
+
+    //action:out_of_filament
+    #if ENABLED(HOST_PROMPT_SUPPORT)
+      hostui.prompt_do(PROMPT_FILAMENT_RUNOUT, F("FilamentRunout T"), tool); //action:out_of_filament
+    #endif
+
+    const bool run_runout_script = !runout.host_handling;
+
+    #if ENABLED(HOST_ACTION_COMMANDS)
+      if (run_runout_script
+        && ( strstr(FILAMENT_RUNOUT_SCRIPT, "M600")
+          || strstr(FILAMENT_RUNOUT_SCRIPT, "M125")
+          || TERN0(ADVANCED_PAUSE_FEATURE, strstr(FILAMENT_RUNOUT_SCRIPT, "M25"))
+        )
+      ) {
+        hostui.paused(false);
+      }
+      else {
+        // Legacy Repetier command for use until newer version supports standard dialog
+        // To be removed later when pause command also triggers dialog
+        #ifdef ACTION_ON_FILAMENT_RUNOUT
+          hostui.action(F(ACTION_ON_FILAMENT_RUNOUT " T"), false);
+          SERIAL_CHAR(tool);
+          SERIAL_EOL();
+        #endif
+
+        hostui.pause(false);
+      }
+      SERIAL_ECHOPGM(" " ACTION_REASON_ON_FILAMENT_RUNOUT " ");
+      SERIAL_CHAR(tool);
+      SERIAL_EOL();
+    #endif // HOST_ACTION_COMMANDS
+
+    if (run_runout_script) {
+      #if MULTI_FILAMENT_SENSOR
+        char script[strlen(FILAMENT_RUNOUT_SCRIPT) + 1];
+        sprintf_P(script, PSTR(FILAMENT_RUNOUT_SCRIPT), tool);
+        #if ENABLED(FILAMENT_RUNOUT_SENSOR_DEBUG)
+          SERIAL_ECHOLNPGM("Runout Command: ", script);
+        #endif
+        queue.inject(script);
+      #else
+        #if ENABLED(FILAMENT_RUNOUT_SENSOR_DEBUG)
+          SERIAL_ECHOPGM("Runout Command: ");
+          SERIAL_ECHOLNPGM(FILAMENT_RUNOUT_SCRIPT);
+        #endif
+        queue.inject(F(FILAMENT_RUNOUT_SCRIPT));
+      #endif
+    }
+  #endif
 }
 
 #endif // HAS_FILAMENT_SENSOR

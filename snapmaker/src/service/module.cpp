@@ -5,6 +5,13 @@
 
 ModuleService module_svc;
 
+#if ENABLE_CCRAM
+static __attribute__((section(".ccmram"))) StackType_t stack_can_event_thread[MODULE_EVENT_TASK_STACK_DEPTH];
+static __attribute__((section(".ccmram"))) StackType_t stack_can_recv_thread[MODULE_RECEIVE_TASK_STACK_DEPTH];
+static __attribute__((section(".ccmram"))) StaticTask_t tcb_can_event;
+static __attribute__((section(".ccmram"))) StaticTask_t tcb_can_recv;
+#endif
+
 typedef struct {
   uint8_t   key;
   uint16_t  device_id;
@@ -281,10 +288,17 @@ void ModuleService::init() {
   configASSERT(recv_signal);
 
   // create tasks then the callbacks can be performed
+  
   LOG_I("Creating CAN receiver task...");
+#if ENABLE_CCRAM
+  recv_task = xTaskCreateStatic((TaskFunction_t)handle_can_receive, "can_receive", MODULE_RECEIVE_TASK_STACK_DEPTH,
+        (void *)(recv_signal), MODULE_RECEIVE_TASK_PRIORITY, stack_can_recv_thread, &tcb_can_recv);
+  if (!recv_task) {
+#else
   ret = xTaskCreate((TaskFunction_t)handle_can_receive, "can_receive", MODULE_RECEIVE_TASK_STACK_DEPTH,
         (void *)(recv_signal), MODULE_RECEIVE_TASK_PRIORITY, &recv_task);
   if (ret != pdPASS) {
+#endif
     LOG_E(LOG_RESULT_FAIL);
     while(1);
   }
@@ -292,10 +306,16 @@ void ModuleService::init() {
     LOG_I(LOG_RESULT_OK);
   }
 
-  //LOG_I("Creating CAN event task...");
+  LOG_I("Creating CAN event task...");
+#if ENABLE_CCRAM
+  event_task = xTaskCreateStatic((TaskFunction_t)handle_can_events, "can_event", MODULE_EVENT_TASK_STACK_DEPTH,
+        (void *)(this), MODULE_EVENT_TASK_PRIORITY, stack_can_event_thread, &tcb_can_event);
+  if (!event_task) {
+#else
   ret = xTaskCreate((TaskFunction_t)handle_can_events, "can_event", MODULE_EVENT_TASK_STACK_DEPTH,
         (void *)(this), MODULE_EVENT_TASK_PRIORITY, &event_task);
   if (ret != pdPASS) {
+#endif
     LOG_E(LOG_RESULT_FAIL);
     while(1);
   }

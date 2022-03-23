@@ -95,7 +95,7 @@ class MotionService {
     void moveto_z(float z, float feedrate, bool blocked=true);
     void moveto_a(float a, float feedrate, bool blocked=true) {}
     void moveto_b(float b, float feedrate, bool blocked=true) {}
-    void moveto_e(float e, float feedrate, bool blocked=true) {}
+    void moveto_e(float e, float feedrate, bool blocked=true);
     void moveto_e(float e, uint8_t extruder, float feedrate, bool blocked=true) {}
     void moveto(xyze_pos_t target, float feedrate, bool blocked=true);
     void synchronize_planner() {

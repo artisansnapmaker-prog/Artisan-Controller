@@ -368,6 +368,15 @@ void MotionService::moveto_z(float z, float feedrate, bool blocked) {
   }
 }
 
+void MotionService::moveto_e(float e, float feedrate, bool blocked/*=true*/) {
+  current_position[E_AXIS] = e;
+  line_to_current_position(feedrate);
+  if (blocked) {
+    synchronize_planner();
+    update_position_from_platform();
+  }
+}
+
 void MotionService::sync_leveling_limit_to_platform(float x_start, float x_end, float y_start, float y_end) {
   startx = x_start;
   endx   = x_end;

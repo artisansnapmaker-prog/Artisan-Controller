@@ -541,24 +541,37 @@ static err_code_t hmi_req_callback_extruder_motion(void *obj, sacp_hmi_message_t
   float extrusion_speed;
   float retraction_length;
   float retraction_speed;
+  int32_t tmp_data;
 
+  // movement type
   move_type = msg->data[1];
-  ((uint8_t *)&extrusion_length)[0] = msg->data[2];
-  ((uint8_t *)&extrusion_length)[1] = msg->data[3];
-  ((uint8_t *)&extrusion_length)[2] = msg->data[4];
-  ((uint8_t *)&extrusion_length)[3] = msg->data[5];
-  ((uint8_t *)&extrusion_speed)[0] = msg->data[6];
-  ((uint8_t *)&extrusion_speed)[1] = msg->data[7];
-  ((uint8_t *)&extrusion_speed)[2] = msg->data[8];
-  ((uint8_t *)&extrusion_speed)[3] = msg->data[9];
-  ((uint8_t *)&retraction_length)[0] = msg->data[10];
-  ((uint8_t *)&retraction_length)[1] = msg->data[11];
-  ((uint8_t *)&retraction_length)[2] = msg->data[12];
-  ((uint8_t *)&retraction_length)[3] = msg->data[13];
-  ((uint8_t *)&retraction_speed)[0] = msg->data[14];
-  ((uint8_t *)&retraction_speed)[1] = msg->data[15];
-  ((uint8_t *)&retraction_speed)[2] = msg->data[16];
-  ((uint8_t *)&retraction_speed)[3] = msg->data[17];
+  // ((uint8_t *)&extrusion_length)[0] = msg->data[2];
+  // ((uint8_t *)&extrusion_length)[1] = msg->data[3];
+  // ((uint8_t *)&extrusion_length)[2] = msg->data[4];
+  // ((uint8_t *)&extrusion_length)[3] = msg->data[5];
+  tmp_data = msg->data[2] | msg->data[3] << 8 | msg->data[4] << 16 | msg->data[5] << 24;
+  extrusion_length = tmp_data / 1000;
+
+  // ((uint8_t *)&extrusion_speed)[0] = msg->data[6];
+  // ((uint8_t *)&extrusion_speed)[1] = msg->data[7];
+  // ((uint8_t *)&extrusion_speed)[2] = msg->data[8];
+  // ((uint8_t *)&extrusion_speed)[3] = msg->data[9];
+  tmp_data = msg->data[6] | msg->data[7] << 8 | msg->data[8] << 16 | msg->data[9] << 24;
+  extrusion_speed = tmp_data / 1000;
+
+  // ((uint8_t *)&retraction_length)[0] = msg->data[10];
+  // ((uint8_t *)&retraction_length)[1] = msg->data[11];
+  // ((uint8_t *)&retraction_length)[2] = msg->data[12];
+  // ((uint8_t *)&retraction_length)[3] = msg->data[13];
+  tmp_data = msg->data[10] | msg->data[11] << 8 | msg->data[12] << 16 | msg->data[13] << 24;
+  retraction_length = tmp_data / 1000;
+
+  // ((uint8_t *)&retraction_speed)[0] = msg->data[14];
+  // ((uint8_t *)&retraction_speed)[1] = msg->data[15];
+  // ((uint8_t *)&retraction_speed)[2] = msg->data[16];
+  // ((uint8_t *)&retraction_speed)[3] = msg->data[17];
+  tmp_data = msg->data[14] | msg->data[15] << 8 | msg->data[16] << 16 | msg->data[17] << 24;
+  retraction_speed = tmp_data / 1000;
   LOG_I("hmi request etruder move, movetype: %d, extrusion_length: %f, extrusion_speed: %f, retraction_length: %f, retraction_speed: %f\n", move_type, extrusion_length, extrusion_speed, retraction_length, retraction_speed);
 
   move_type = msg->data[1];

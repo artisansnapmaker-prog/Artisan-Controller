@@ -1076,6 +1076,8 @@ err_code_t HostSACPHMI::handle_subscript(void *obj, sacp_hmi_message_t *msg) {
   cmd_id  = msg->data[1];
   period = msg->data[2] | msg->data[3]<<8;
 
+  LOG_I("subscribe cmd[%x:%x], period[%u]!\n", cmd_set, cmd_id, period);
+
   // check firstly if someone has register this node of cmd_set & cmd_id
   for (; node_index < SACP_SUBSCRIPTION_NODE_MAX; node_index++) {
     if (host.subscription_nodes[node_index].cmd_set == cmd_set &&
@@ -1146,7 +1148,7 @@ err_code_t HostSACPHMI::handle_subscript(void *obj, sacp_hmi_message_t *msg) {
     xSemaphoreGive(host.subscription_lock);
   }
   else {
-    LOG_I("subscribe cmd[%x:%x], period[%u]!\n", cmd_set, cmd_id, period);
+    LOG_I("subscribe success!\n");
   }
 
 out_subscript:

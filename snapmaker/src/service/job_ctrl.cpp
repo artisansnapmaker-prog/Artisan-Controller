@@ -272,12 +272,12 @@ err_code_t JobCtrl::save_env(void) {
     return E_JOB_SAVE_ENV_FAILURE;
   }
 
-  LOG_I("job_ctrl: current toolhead save env\r\n");
-  _env.toolhead_env_buf_size = TOOLHEAD_ENV_MAX_SIZE;
-  if (E_SUCCESS != cur_toolhead->save_env(_env.toolhead_env_buf, _env.toolhead_env_buf_size)) {
-    LOG_E("Toolhead save env error\r\n");
-    return E_JOB_SAVE_ENV_FAILURE;
-  }
+  LOG_I("TODO: job_ctrl: current toolhead save env\r\n");
+  // _env.toolhead_env_buf_size = TOOLHEAD_ENV_MAX_SIZE;
+  // if (E_SUCCESS != cur_toolhead->save_env(_env.toolhead_env_buf, _env.toolhead_env_buf_size)) {
+  //   LOG_E("Toolhead save env error\r\n");
+  //   return E_JOB_SAVE_ENV_FAILURE;
+  // }
 
   LOG_I("job_ctrl: if 3DP, save bed tempretrue, call the bed module's save_env\r\n");
   LOG_I("job_ctrl: save current line number\r\n");
@@ -317,10 +317,10 @@ err_code_t JobCtrl::resum_env(void) {
   }
 
   LOG_I("TODO: current toolhead resume\r\n");
-  if (E_SUCCESS != cur_toolhead->resume_env(_env.toolhead_env_buf, _env.toolhead_env_buf_size)) {
-    LOG_E("job_ctrl: can not resume toolhead\r\n");
-    return E_JOB_RESUME_ENV_FAILURE;
-  }
+  // if (E_SUCCESS != cur_toolhead->resume_env(_env.toolhead_env_buf, _env.toolhead_env_buf_size)) {
+  //   LOG_E("job_ctrl: can not resume toolhead\r\n");
+  //   return E_JOB_RESUME_ENV_FAILURE;
+  // }
   
   if (TH_TYPE_3DP == _env.type) {
     // TODO:

@@ -144,9 +144,10 @@ struct __packed LaserToolHeadInfo {
 
 err_code_t ToolHeadLaser::hmi_cb_get_info(void *obj, sacp_hmi_message_t *message) {
   ToolHeadLaser &laser = *(ToolHeadLaser *)obj;
-  static bool tell_mac = false;
 
   LaserToolHeadInfo *info;
+
+  laser.tell_mac++;
 
   if (message->data[0] != laser.get_key()) {
     LOG_E("invalid module key[%u] in cmd[%x:%x]\n", message->data[0], message->cmd_set, message->cmd_id);
@@ -183,14 +184,7 @@ err_code_t ToolHeadLaser::hmi_cb_get_info(void *obj, sacp_hmi_message_t *message
 
   message->length = sizeof(LaserToolHeadInfo) + 1;
 
-  if (!tell_mac) {
-    host_hmi.send_ack(message);
-    tell_mac = true;
-    return laser.report_bt_mac();
-  }
-  else {
-    return host_hmi.send_ack(message);
-  }
+  return host_hmi.send_ack(message);
 }
 
 err_code_t ToolHeadLaser::hmi_cb_set_focal_length(void *obj, sacp_hmi_message_t *message) {
@@ -518,6 +512,11 @@ err_code_t laser_routine(void *obj) {
   // if ((int)(NOW-(SOON))<0), return
   if ((int)(millis() - laser.next_ms) < 0)
     return E_SUCCESS;
+
+  if (laser.tell_mac > 0) {
+    laser.tell_mac--;
+    laser.report_bt_mac();
+  }
 
   if (!laser.pwm_normal) {
     if (laser.confirm_pwm_pin_state(laser.output_pin) == E_SUCCESS)

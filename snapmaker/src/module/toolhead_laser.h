@@ -258,6 +258,7 @@ class ToolHeadLaser: public ModuleBase {
     bool pwm_normal;
 
     uint8_t bt_mac[8] {0xff};
+    uint8_t tell_mac = 0;
 
     ToolHeadLaserCalibrationStatus cali_status = LASER_CALI_STATUS_INVALID;
 };

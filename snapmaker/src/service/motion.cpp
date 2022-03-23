@@ -234,11 +234,12 @@ err_code_t MotionService::hmi_cb_request_home(void *obj, sacp_hmi_message_t *msg
     msg->data[0] = 0;
   }
 
-  if ((ret = host_hmi.send_sync(msg, recv_buff, &recv_len)) != E_SUCCESS) {
-    LOG_E("failed to tell screen the home state, ret[%u]\n", ret);
-  }
+  return host_hmi.send(msg);
+  // if ((ret = host_hmi.send_sync(msg, recv_buff, &recv_len)) != E_SUCCESS) {
+  //   LOG_E("failed to tell screen the home state, ret[%u]\n", ret);
+  // }
 
-  return ret;
+  // return ret;
 }
 
 

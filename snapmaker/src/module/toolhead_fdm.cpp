@@ -498,6 +498,8 @@ static err_code_t hmi_req_callback_get_hotend_offset(void *obj, sacp_hmi_message
   y_offset_int = (int32_t)(y_offset * 1000);
   z_offset_int = (int32_t)(z_offset * 1000);
 
+  LOG_I("x: %f, y: %f, z: %f\n", x_offset, y_offset,z_offset);
+
   // result
   msg->data[index++] = E_SUCCESS;
   // array size

@@ -437,12 +437,13 @@ static err_code_t hmi_req_callback_set_hotend_offset(void *obj, sacp_hmi_message
   uint8_t axis;
   float offset;
 
+  LOG_I("hmi request set hotend_offset\n");
+
   if (fdm.get_device_id() != MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
     ret = E_PARAM;
+    LOG_I("device id: %d not support set hotend offset\n", fdm.get_device_id());
     goto EXIT;
   }
-
-  LOG_I("hmi request set hotend_offset, ");
 
   key = msg->data[0];
   array_size = msg->data[1];

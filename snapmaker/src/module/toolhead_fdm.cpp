@@ -436,6 +436,7 @@ static err_code_t hmi_req_callback_set_hotend_offset(void *obj, sacp_hmi_message
   uint8_t e;
   uint8_t axis;
   float offset;
+  uint16_t get_data_index = 0;
 
   LOG_I("hmi request set hotend_offset\n");
 
@@ -445,37 +446,37 @@ static err_code_t hmi_req_callback_set_hotend_offset(void *obj, sacp_hmi_message
     goto EXIT;
   }
 
-  key = msg->data[0];
-  array_size = msg->data[1];
-  e = msg->data[2];
-  axis = msg->data[3];
-  ((uint8_t *)&offset)[0] = msg->data[4];
-  ((uint8_t *)&offset)[1] = msg->data[5];
-  ((uint8_t *)&offset)[2] = msg->data[6];
-  ((uint8_t *)&offset)[3] = msg->data[7];
-  offset = offset / 1000;
-  LOG_I("x: %f, ", offset);
-  ret = fdm.set_hotend_offset(offset, axis);
+  // key
+  key = msg->data[get_data_index++];
 
-  e = msg->data[8];
-  axis = msg->data[9];
-  ((uint8_t *)&offset)[0] = msg->data[10];
-  ((uint8_t *)&offset)[1] = msg->data[11];
-  ((uint8_t *)&offset)[2] = msg->data[12];
-  ((uint8_t *)&offset)[3] = msg->data[13];
-  offset = offset / 1000;
-  LOG_I("y: %f, ", offset);
-  ret = fdm.set_hotend_offset(offset, axis);
+  // array size
+  array_size = msg->data[get_data_index++];
 
-  e = msg->data[14];
-  axis = msg->data[15];
-  ((uint8_t *)&offset)[0] = msg->data[16];
-  ((uint8_t *)&offset)[1] = msg->data[17];
-  ((uint8_t *)&offset)[2] = msg->data[18];
-  ((uint8_t *)&offset)[3] = msg->data[19];
-  offset = offset / 1000;
-  LOG_I("z: %f\n", offset);
-  ret = fdm.set_hotend_offset(offset, axis);
+  for (uint32_t i = 0; i < array_size; i++) {
+    e = msg->data[get_data_index++];
+    axis = msg->data[get_data_index++];
+    offset = (msg->data[get_data_index++]) | (msg->data[get_data_index++] << 8) | (msg->data[get_data_index++] << 16) | (msg->data[get_data_index++] << 24);
+    offset = offset / 1000;
+    ret = fdm.set_hotend_offset(offset, axis);
+  }
+
+  // e = msg->data[2];
+  // axis = msg->data[3];
+  // offset = msg->data[4] << 24 | msg->data[5] << 16 | msg->data[6] << 8 | msg->data[7];
+  // offset = offset / 1000;
+  // ret = fdm.set_hotend_offset(offset, axis);
+
+  // e = msg->data[8];
+  // axis = msg->data[9];
+  // offset = msg->data[10] << 24 | msg->data[11] << 16 | msg->data[12] << 8 | msg->data[13];
+  // offset = offset / 1000;
+  // ret = fdm.set_hotend_offset(offset, axis);
+
+  // e = msg->data[14];
+  // axis = msg->data[15];
+  // offset = msg->data[16] << 24 | msg->data[17] << 16 | msg->data[18] << 8 | msg->data[19];
+  // offset = offset / 1000;
+  // ret = fdm.set_hotend_offset(offset, axis);
 
 EXIT:
   uint16_t index = 0;
@@ -505,23 +506,26 @@ static err_code_t hmi_req_callback_get_hotend_offset(void *obj, sacp_hmi_message
   // array size
   msg->data[index++] = 3;
 
+  msg->data[index++] = 1;        // extruder
   msg->data[index++] = X_AXIS;
-  msg->data[index++] = x_offset_int >> 24;
-  msg->data[index++] = x_offset_int >> 16;
-  msg->data[index++] = x_offset_int >> 8;
   msg->data[index++] = x_offset_int & 0xff;
+  msg->data[index++] = x_offset_int >> 8;
+  msg->data[index++] = x_offset_int >> 16;
+  msg->data[index++] = x_offset_int >> 24;
 
+  msg->data[index++] = 1;        // extruder
   msg->data[index++] = Y_AXIS;
-  msg->data[index++] = y_offset_int >> 24;
-  msg->data[index++] = y_offset_int >> 16;
-  msg->data[index++] = y_offset_int >> 8;
   msg->data[index++] = y_offset_int & 0xff;
+  msg->data[index++] = y_offset_int >> 8;
+  msg->data[index++] = y_offset_int >> 16;
+  msg->data[index++] = y_offset_int >> 24;
 
+  msg->data[index++] = 1;        // extruder
   msg->data[index++] = Z_AXIS;
-  msg->data[index++] = z_offset_int >> 24;
-  msg->data[index++] = z_offset_int >> 16;
-  msg->data[index++] = z_offset_int >> 8;
   msg->data[index++] = z_offset_int & 0xff;
+  msg->data[index++] = z_offset_int >> 8;
+  msg->data[index++] = z_offset_int >> 16;
+  msg->data[index++] = z_offset_int >> 24;
 
   msg->length = index;
   host_hmi.send_ack(msg);
@@ -1227,6 +1231,7 @@ err_code_t ToolHeadFDM::get_hotend_offset(float &x_offset, float &y_offset, floa
 err_code_t ToolHeadFDM::set_hotend_offset(float offset, uint8_t axis) {
   if (axis > Z_AXIS) return E_PARAM;
 
+  LOG_I("set hotend offset, axis: %d, offset: %f\n", axis, offset);
   hotend_offset[axis][1] = offset;
   motion_svc.sync_hotend_offset_to_platform(hotend_offset[X_AXIS][1], hotend_offset[X_AXIS][1], hotend_offset[Z_AXIS][1]);
   return save_hotend_offset_to_module(offset, axis);

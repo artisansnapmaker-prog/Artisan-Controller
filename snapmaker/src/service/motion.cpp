@@ -41,15 +41,15 @@ uint16_t MotionService::hmi_cb_publish_coordinate_info(void *obj, uint8_t *buffe
   info->is_original_offset       = motion->is_original_position_offset();
 
   info->current_pos[0].axis  = AXIS_KEY_X1;
-  info->current_pos[0].value = (int32_t)(current_position[X_AXIS] * 1000);
+  info->current_pos[0].value = (int32_t)(NATIVE_TO_LOGICAL(current_position[X_AXIS], X_AXIS) * 1000);
   info->current_pos[1].axis  = AXIS_KEY_Y1;
-  info->current_pos[1].value = (int32_t)(current_position[Y_AXIS] * 1000);
+  info->current_pos[1].value = (int32_t)(NATIVE_TO_LOGICAL(current_position[Y_AXIS], Y_AXIS) * 1000);
   info->current_pos[2].axis  = AXIS_KEY_Z1;
-  info->current_pos[2].value = (int32_t)(current_position[Z_AXIS] * 1000);
+  info->current_pos[2].value = (int32_t)(NATIVE_TO_LOGICAL(current_position[Z_AXIS], Z_AXIS) * 1000);
   info->current_pos[3].axis  = AXIS_KEY_A1;
-  info->current_pos[3].value = (int32_t)(current_position[A_AXIS] * 1000);
+  info->current_pos[3].value = (int32_t)(NATIVE_TO_LOGICAL(current_position[A_AXIS], A_AXIS) * 1000);
   info->current_pos[4].axis  = AXIS_KEY_B1;
-  info->current_pos[4].value = (int32_t)(current_position[B_AXIS] * 1000);
+  info->current_pos[4].value = (int32_t)(NATIVE_TO_LOGICAL(current_position[B_AXIS], B_AXIS) * 1000);
   info->current_pos_num      = 5;
   LOG_V("coor: X: %d, Y:%d, Z:%d, A: %d, B:%d\n", info->current_pos[0].value, info->current_pos[1].value,
     info->current_pos[2].value, info->current_pos[3].value, info->current_pos[4].value);
@@ -59,7 +59,7 @@ uint16_t MotionService::hmi_cb_publish_coordinate_info(void *obj, uint8_t *buffe
   info->origin_offset[1].axis  = AXIS_KEY_Y1;
   info->origin_offset[1].value = (int32_t)(position_shift[Y_AXIS] * 1000);
   info->origin_offset[2].axis  = AXIS_KEY_Z1;
-  info->origin_offset[2].value = (int32_t)(position_shift[Y_AXIS] * 1000);
+  info->origin_offset[2].value = (int32_t)(position_shift[Z_AXIS] * 1000);
   info->origin_offset[3].axis  = AXIS_KEY_A1;
   info->origin_offset[3].value = (int32_t)(position_shift[A_AXIS] * 1000);
   info->origin_offset[4].axis  = AXIS_KEY_B1;
@@ -81,20 +81,20 @@ err_code_t MotionService::hmi_cb_get_coordinate_info(void *obj, sacp_hmi_message
 
 err_code_t MotionService::hmi_cb_set_active_coordinate_system(void *obj, sacp_hmi_message_t *msg) {
   uint8_t id = msg->data[0];
-  MotionService *motion = (MotionService *)obj;
+  // MotionService *motion = (MotionService *)obj;
 
   LOG_I("set active coordinate[%u]\n", id);
 
   switch (id) {
   case 0:
     // motion->run_gcode((char *)"G53");
-    parser.parse("G53");
+    parser.parse((char *)"G53");
     gcode.process_parsed_command();
     break;
 
   case 1:
     // motion->run_gcode((char *)"G54");
-    parser.parse("G54");
+    parser.parse((char *)"G54");
     gcode.process_parsed_command();
     break;
 
@@ -107,7 +107,6 @@ err_code_t MotionService::hmi_cb_set_active_coordinate_system(void *obj, sacp_hm
 
 err_code_t MotionService::hmi_cb_set_origin(void *obj, sacp_hmi_message_t *msg) {
   err_code_t ret = E_SUCCESS;
-  MotionService *motion = (MotionService *)obj;
   uint8_t length = msg->data[0];
 
   char gcode_cmd[32];
@@ -136,7 +135,6 @@ err_code_t MotionService::hmi_cb_set_origin(void *obj, sacp_hmi_message_t *msg) 
 
 err_code_t MotionService::hmi_cb_move_absoluty(void *obj, sacp_hmi_message_t *msg) {
   MotionService *motion = (MotionService *)obj;
-  err_code_t ret;
 
   uint8_t number = msg->data[0];
   coordinate_info_t *move_cmd = (coordinate_info_t *)(msg->data + 1);
@@ -147,23 +145,23 @@ err_code_t MotionService::hmi_cb_move_absoluty(void *obj, sacp_hmi_message_t *ms
   for (int i = 0; i < number; i++) {
     switch (move_cmd[i].axis) {
     case AXIS_KEY_X1:
-      dest.x = move_cmd[i].value / 1000.0;
+      dest.x = LOGICAL_TO_NATIVE((move_cmd[i].value / 1000.0), X_AXIS);
       break;
 
     case AXIS_KEY_Y1:
-      dest.y = move_cmd[i].value / 1000.0;
+      dest.y = LOGICAL_TO_NATIVE((move_cmd[i].value / 1000.0), Y_AXIS);
       break;
 
     case AXIS_KEY_Z1:
-      dest.z = move_cmd[i].value / 1000.0;
+      dest.z = LOGICAL_TO_NATIVE((move_cmd[i].value / 1000.0), Z_AXIS);
       break;
 
     case AXIS_KEY_A1:
-      dest.i = move_cmd[i].value / 1000.0;
+      dest.i = LOGICAL_TO_NATIVE((move_cmd[i].value / 1000.0), A_AXIS);
       break;
 
     case AXIS_KEY_B1:
-      dest.j = move_cmd[i].value / 1000.0;
+      dest.j = LOGICAL_TO_NATIVE((move_cmd[i].value / 1000.0), B_AXIS);
       break;
 
     default:
@@ -182,7 +180,7 @@ err_code_t MotionService::hmi_cb_move_absoluty(void *obj, sacp_hmi_message_t *ms
 
   LOG_I("move to X%.3f, Y%.3f, Z%.3f, A%.3f, B%.3f, fr: %u\n", dest.x, dest.y, dest.z, dest.i, dest.j, feedrate);
 
-  parser.parse("G90 ");
+  parser.parse((char *)"G90 ");
   gcode.process_parsed_command();
 
   motion->moveto(dest, (float)feedrate);
@@ -197,7 +195,6 @@ enum MotionSACPHomeAxis {
   SACP_HOME_Z,
 };
 err_code_t MotionService::hmi_cb_request_home(void *obj, sacp_hmi_message_t *msg) {
-  MotionService *motion = (MotionService *)obj;
   err_code_t ret;
   char axis[4] = {' ', 'X', 'Y', 'Z'};
   char gcode_cmd[8];
@@ -245,7 +242,7 @@ err_code_t MotionService::hmi_cb_request_home(void *obj, sacp_hmi_message_t *msg
 
 
 void MotionService::motion_background(void *p) {
-  MotionService &motion = *(MotionService *)p;
+  UNUSED(p);
 
   for (;;) {
     host_hmi.handle_events();
@@ -255,8 +252,6 @@ void MotionService::motion_background(void *p) {
 }
 
 void MotionService::init() {
-  BaseType_t ret;
-
   load_settings();
 
   set_axis_to_homed(I_AXIS);
@@ -289,7 +284,7 @@ void MotionService::init() {
         MOTION_TASK_PRIORITY, stack_motion_thread , &taskcb_marlin);
     if (!thandle_marlin) {
 #else
-  ret = xTaskCreate((TaskFunction_t)motion_background, "marlin", MOTION_TASK_STACK_SIZE, (void *)this,
+  BaseType_t ret = xTaskCreate((TaskFunction_t)motion_background, "marlin", MOTION_TASK_STACK_SIZE, (void *)this,
         MOTION_TASK_PRIORITY, &thandle_marlin);
   if (ret != pdPASS) {
 #endif
@@ -558,6 +553,11 @@ void MotionService::moveto(xyze_pos_t target, float feedrate, bool blocked) {
 }
 
 void MotionService::show_coordiantes() {
+  LOG_I("active coordinate: %d\n\n", gcode.active_coordinate_system);
+
+  LOG_I("home state: X%u, Y%u, Z%u, A%u, B%u\n\n", axis_was_homed(X_AXIS),
+      axis_was_homed(Y_AXIS), axis_was_homed(Z_AXIS), axis_was_homed(A_AXIS), axis_was_homed(B_AXIS));
+
   LOG_I("home offset: X%.3f, Y%.3f, Z%.3f, A%.3f, B%.3f\n\n", home_offset[X_AXIS],
       home_offset[Y_AXIS], home_offset[Z_AXIS], home_offset[A_AXIS], home_offset[B_AXIS]);
 
@@ -573,7 +573,7 @@ void MotionService::show_coordiantes() {
       current_position[Y_AXIS], current_position[Z_AXIS], current_position[A_AXIS], current_position[B_AXIS]);
 
   // logical position = machine position + work offset
-  LOG_I("logical position: X%.3f, Y%.3f, Z%.3f, A%.3f, B%.3f\n\n", LOGICAL_X_POSITION(current_position[X_AXIS]),
-      LOGICAL_X_POSITION(current_position[Y_AXIS]), LOGICAL_X_POSITION(current_position[Z_AXIS]),
-      LOGICAL_X_POSITION(current_position[A_AXIS]), LOGICAL_X_POSITION(current_position[B_AXIS]));
+  LOG_I("logical position: X%.3f, Y%.3f, Z%.3f, A%.3f, B%.3f\n\n", NATIVE_TO_LOGICAL(current_position[X_AXIS], X_AXIS),
+      NATIVE_TO_LOGICAL(current_position[Y_AXIS], Y_AXIS), NATIVE_TO_LOGICAL(current_position[Z_AXIS], Z_AXIS),
+      NATIVE_TO_LOGICAL(current_position[A_AXIS], A_AXIS), NATIVE_TO_LOGICAL(current_position[B_AXIS], B_AXIS));
 }

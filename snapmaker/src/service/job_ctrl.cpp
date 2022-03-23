@@ -273,10 +273,13 @@ err_code_t JobCtrl::save_env(void) {
   }
 
   LOG_I("TODO: job_ctrl: current toolhead save env\r\n");
-  _env.toolhead_env_buf_size = MODULE_ENV_MAX_SIZE;
-  if (E_SUCCESS != cur_toolhead->save_env(_env.toolhead_env_buf, _env.toolhead_env_buf_size)) {
-    LOG_E("Toolhead save env error\r\n");
-    return E_JOB_SAVE_ENV_FAILURE;
+  if (TH_TYPE_3DP != smprinter.get_toolhead_type()) {
+    // TODO: no do save_env for 3dp toolhead as 3dp toolhead save_env has bugs.
+    _env.toolhead_env_buf_size = MODULE_ENV_MAX_SIZE;
+    if (E_SUCCESS != cur_toolhead->save_env(_env.toolhead_env_buf, _env.toolhead_env_buf_size)) {
+      LOG_E("Toolhead save env error\r\n");
+      return E_JOB_SAVE_ENV_FAILURE;
+    }
   }
 
   LOG_I("job_ctrl: if 3DP, save bed tempretrue, call the bed module's save_env\r\n");
@@ -331,9 +334,12 @@ err_code_t JobCtrl::resum_env(void) {
   }
 
   LOG_I("TODO: current toolhead resume\r\n");
-  if (E_SUCCESS != cur_toolhead->resume_env(_env.toolhead_env_buf, _env.toolhead_env_buf_size)) {
-    LOG_E("job_ctrl: can not resume toolhead\r\n");
-    return E_JOB_RESUME_ENV_FAILURE;
+  if (TH_TYPE_3DP != smprinter.get_toolhead_type()) {
+    // TODO: no do resume for 3dp toolhead as 3dp toolhead resume_env has bugs.
+    if (E_SUCCESS != cur_toolhead->resume_env(_env.toolhead_env_buf, _env.toolhead_env_buf_size)) {
+      LOG_E("job_ctrl: can not resume toolhead\r\n");
+      return E_JOB_RESUME_ENV_FAILURE;
+    } 
   }
   
   if (TH_TYPE_3DP == _env.type) {
@@ -622,7 +628,6 @@ void JobCtrl::do_pause(struct JobCtrlReqInfo &jri) {
     DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, ret_sys_status);
     return;
   }
-  
   DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, SYSTEM_STATUS_PAUSING);
 
   switch (jri.req_data.req_pause_data.type) {
@@ -666,10 +671,6 @@ void JobCtrl::do_pause(struct JobCtrlReqInfo &jri) {
     return;
   }
 
-  // LOCK(_lock, JOB_LOCK_WAIT_TICK);
-  // _gcode_rb.reset();
-  // UNLOCK(_lock);
-
   if (E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_PAUSED, &ret_sys_status)) {
     LOG_E("job ctrl: can not enter SYS_PAUSED status");
     smprinter.set_sys_status(SYSTEM_STATUS_IDLE, &ret_sys_status);
@@ -698,6 +699,9 @@ void JobCtrl::do_resume(struct JobCtrlReqInfo &jri) {
     return;
   }
   _client_id = jri.req_data.req_resume_data.client_id;
+  LOCK(_lock, JOB_LOCK_WAIT_TICK);
+  _gcode_rb.reset();
+  UNLOCK(_lock);
 
   if (E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_PRINTING, NULL)) {
     LOG_E("job ctrl: can not enter SYS_PRINTING status");

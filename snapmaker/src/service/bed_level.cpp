@@ -629,7 +629,8 @@ err_code_t BedLevelService::start_auto_bed_leveling(uint8_t grids) {
     LOG_I("set right optocoupler as probe sensor\n");
   }
 
-  motion_svc.moveto_z(20, 30);
+  // Change by 747
+  motion_svc.moveto_z(70, 30);
   bool visited[GRID_MAX_NUM][GRID_MAX_NUM];
   static int direction [4][2] = {{1, 0}, {0, 1}, {-1, 0}, {0, -1}};
   memset(visited, 0, sizeof(visited[0][0]) * GRID_MAX_NUM * GRID_MAX_NUM);

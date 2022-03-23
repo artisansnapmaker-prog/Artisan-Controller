@@ -370,23 +370,22 @@ err_code_t JobCtrl::machine_standby(void) {
     return E_JOB_RESUME_ENV_FAILURE;
   }
 
-  // Check toolhead
   LOG_I("job_ctrl: check current toolhead type\r\n");
   if (smprinter.get_toolhead_type() != _env.type) {
     return E_JOB_UNSUPPORT_PARAM;
+  }
+
+  if (E_SUCCESS != cur_toolhead->standby()) {
+    LOG_E("job_ctrl: toolhead standby\r\n");
+    return E_JOB_RESUME_ENV_FAILURE;
   }
 
   switch (_env.type)
   {
   case TH_TYPE_3DP:
     /* code */
-    LOG_I("TODO: retrace 10mm in 10mm/s\r\n");
-    LOG_I("TODO: hotend set to 0 degree\r\n");
-    LOG_I("TODO: fans set to 0 speed\r\n");
-    LOG_I("TODO: bed temp set to 0 degree\r\n");
-
-    //motion_svc.set_relative_mode(true);
-    //motion_svc.moveto_e(-10, 600, true);
+    // motion_svc.set_relative_mode(true);
+    // motion_svc.moveto_e(-10, 600, true);
     // smprinter.set_fdm_fan_speed(0, 0); // left mode fan
     // smprinter.set_fdm_fan_speed(1, 0); // right mode fan
     // smprinter.set_hotend_temp(0, 0); // set index 0 hotend
@@ -395,23 +394,20 @@ err_code_t JobCtrl::machine_standby(void) {
 
   case TH_TYPE_CNC:
     /* code */
-    LOG_I("TODO: retrace 10mm in 10mm/s\r\n");
-    LOG_I("TODO: hotend set to 0 degree\r\n");
-    LOG_I("TODO: fans set to 0 speed\r\n");
-    LOG_I("TODO: bed temp set to 0 degree\r\n");
     break;
 
   case TH_TYPE_LASER:
     /* code */
-    LOG_I("TODO: retrace 10mm in 10mm/s\r\n");
-    LOG_I("TODO: hotend set to 0 degree\r\n");
-    LOG_I("TODO: fans set to 0 speed\r\n");
-    LOG_I("TODO: bed temp set to 0 degree\r\n");
     break;
 
   default:
     break;
   }
+
+  LOG_I("TODO: retrace 10mm in 10mm/s\r\n");
+  LOG_I("TODO: hotend set to 0 degree\r\n");
+  LOG_I("TODO: fans set to 0 speed\r\n");
+  LOG_I("TODO: bed temp set to 0 degree\r\n");
 
   LOG_I("job_ctrl: Z raise to highest\r\n");
   motion_svc.run_gcode("G28 Z", true);
@@ -705,6 +701,7 @@ struct JobEnv JobCtrl::get_env(void) {
 bool JobCtrl::consume_a_gcode(uint8_t *cmd, uint16_t max_len, uint32_t *line) {
   bool ret;
   uint8_t c;
+  ModuleBase *cur_toolhead;
   uint32_t cmd_len;
 
   if (SYSTEM_STATUS_PRINTING != smprinter.get_sys_status() && 
@@ -730,6 +727,20 @@ bool JobCtrl::consume_a_gcode(uint8_t *cmd, uint16_t max_len, uint32_t *line) {
       *line = _env.cur_line_num++;
       cmd[cmd_len] = 0;
       ret = true;
+
+      if (!(cur_toolhead = smprinter.get_cur_toolhead())) {
+        LOG_E("job_ctrl: can NOT get toolhead\r\n");
+        _issue_ret_rb.insert_one(SACP_JOB_PAUSE_ISSUE_RET_STALL_PROTECTION);
+        req_stop();
+        ret = false;
+        break;
+      }
+      if(E_SUCCESS != cur_toolhead->resume_finish()) {
+        _issue_ret_rb.insert_one(SACP_JOB_PAUSE_ISSUE_RET_STALL_PROTECTION);
+        req_stop();
+        ret = false;
+        break;
+      }
 
       // 747 debug
       // consume here, do not push this gcode to marlin or other platform      

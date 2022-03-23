@@ -99,6 +99,7 @@ struct JobEnv {
   float travel_feadrate;
   bool g0g1_relative_mode;
   uint16_t bed_temp;
+  int8_t active_coordinate;
   uint32_t toolhead_env_buf_size; 
   uint8_t toolhead_env_buf[TOOLHEAD_ENV_MAX_SIZE];
 };

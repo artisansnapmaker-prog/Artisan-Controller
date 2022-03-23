@@ -288,6 +288,7 @@ err_code_t JobCtrl::save_env(void) {
   
   if (TH_TYPE_3DP == _env.type)
     _env.bed_temp = motion_svc.get_bet_temp();
+  _env.active_coordinate = motion_svc.get_active_coordinate_system();
   _env.cur_line_num = smprinter.gcode_file_position;
   LOG_I("job_ctrl: cur_line_num %d\r\n", _env.cur_line_num);
   _env.print_feadrate = motion_svc.get_feedrate();
@@ -337,6 +338,19 @@ err_code_t JobCtrl::resum_env(void) {
   _env.req_line_num = _env.cur_line_num + 1;
   LOG_I("job_ctrl: req_line_num %d\r\n", _env.req_line_num);
   
+  LOG_I("job_ctrl: resume coordinate\r\n");
+  if (_env.active_coordinate == -1) {
+    motion_svc.run_gcode("G53", true);
+    LOG_I("job_ctrl: resume to G53\r\n");
+  }
+  else if (_env.active_coordinate == 0) {
+    motion_svc.run_gcode("G54", true);
+    LOG_I("job_ctrl: resume to G54\r\n");
+  }
+  else {
+    LOG_E("job_ctrl: Unknow coordinate\r\n");
+  }
+
   LOG_I("job_ctrl: resume relative mode %d\r\n", _env.g0g1_relative_mode);
   motion_svc.set_relative_mode(_env.g0g1_relative_mode);
   // motion_svc.set_relative_mode(false);
@@ -409,17 +423,19 @@ err_code_t JobCtrl::machine_standby(void) {
   LOG_I("TODO: fans set to 0 speed\r\n");
   LOG_I("TODO: bed temp set to 0 degree\r\n");
 
+  motion_svc.run_gcode("G55");
+
   LOG_I("job_ctrl: Z raise to highest\r\n");
-  // motion_svc.run_gcode("G28 Z", true);
-  motion_svc.run_gcode("G0 Z395", true);
+  motion_svc.run_gcode("G28 Z", true);
+  // motion_svc.run_gcode("G0 Z395", true);
 
   LOG_I("job_ctrl: x move to left\r\n");
-  // motion_svc.run_gcode("G28 X", true);
-  motion_svc.run_gcode("G0 X5", true);
+  motion_svc.run_gcode("G28 X", true);
+  // motion_svc.run_gcode("G0 X5", true);
 
   LOG_I("job_ctrl: y move to head\r\n");
-  // motion_svc.run_gcode("G28 Y", true);
-  motion_svc.run_gcode("G0 Y395", true);
+  motion_svc.run_gcode("G28 Y", true);
+  // motion_svc.run_gcode("G0 Y395", true);
 
   LOG_I("job_ctrl: machine standby end\r\n");
   return E_SUCCESS;

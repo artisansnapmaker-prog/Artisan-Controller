@@ -63,7 +63,7 @@
 #define GCODE_MD5_LENGTH 32
 #define GCODE_FILE_NAME_SIZE 128
 #define JOB_LOCK_WAIT_TICK 100
-#define TOOLHEAD_ENV_MAX_SIZE 128
+#define MODULE_ENV_MAX_SIZE 128
 #define GCODE_RB_SIZE 1024
 #define RESUME_FEEDRATE 30
 #define JOB_CTRL_LOOP_TIME_MS (100)
@@ -101,7 +101,9 @@ struct JobEnv {
   uint16_t bed_temp;
   int8_t active_coordinate;
   uint32_t toolhead_env_buf_size; 
-  uint8_t toolhead_env_buf[TOOLHEAD_ENV_MAX_SIZE];
+  uint8_t toolhead_env_buf[MODULE_ENV_MAX_SIZE];
+  uint32_t bed_env_buf_size; 
+  uint8_t bed_env_buf[MODULE_ENV_MAX_SIZE];
 };
 
 enum JobReqAction {

@@ -273,7 +273,7 @@ err_code_t JobCtrl::save_env(void) {
   }
 
   LOG_I("TODO: job_ctrl: current toolhead save env\r\n");
-  // _env.toolhead_env_buf_size = TOOLHEAD_ENV_MAX_SIZE;
+  // _env.toolhead_env_buf_size = MODULE_ENV_MAX_SIZE;
   // if (E_SUCCESS != cur_toolhead->save_env(_env.toolhead_env_buf, _env.toolhead_env_buf_size)) {
   //   LOG_E("Toolhead save env error\r\n");
   //   return E_JOB_SAVE_ENV_FAILURE;
@@ -286,8 +286,22 @@ err_code_t JobCtrl::save_env(void) {
   LOG_I("job_ctrl: save relative mode\r\n");
   LOG_I("job_ctrl: save current position\r\n");
   
-  if (TH_TYPE_3DP == _env.type)
-    _env.bed_temp = motion_svc.get_bet_temp();
+  if (TH_TYPE_3DP == _env.type){
+    ModuleBase *bed;
+    bed = module_svc.get_module(MODULE_DEVICE_ID_A400_BED, 0);
+    if (bed) {
+      _env.bed_env_buf_size = MODULE_ENV_MAX_SIZE;
+      if (E_SUCCESS != bed->save_env(_env.bed_env_buf, _env.bed_env_buf_size)) {
+        LOG_I("job_ctrl: bed save env failure\r\n");
+      }
+      else {
+        LOG_I("job_ctrl: bed_temp save\r\n");
+      }
+    }
+    else {
+      LOG_I("job_ctrl: can not get bed\r\n");
+    }
+  }    
   _env.active_coordinate = motion_svc.get_active_coordinate_system();
   _env.cur_line_num = smprinter.gcode_file_position;
   LOG_I("job_ctrl: cur_line_num %d\r\n", _env.cur_line_num);
@@ -323,9 +337,19 @@ err_code_t JobCtrl::resum_env(void) {
   // }
   
   if (TH_TYPE_3DP == _env.type) {
-    // TODO:
-    // thermalManager.setTargetBed(_env.bed_temp);
-    // thermalManager.wait_for_bed();
+    ModuleBase *bed;
+    bed = module_svc.get_module(MODULE_DEVICE_ID_A400_BED, 0);
+    if (bed) {
+      if (E_SUCCESS != bed->resume_env(_env.bed_env_buf, _env.bed_env_buf_size)) {
+        LOG_I("job_ctrl: bed resume env failure\r\n");
+      }
+      else {
+        LOG_I("job_ctrl: bed resume\r\n");
+      }
+    }
+    else {
+      LOG_I("job_ctrl: can not get bed\r\n");
+    }
   }
   
   LOG_I("job_ctrl: if 3DP, resume bed tempretrue\r\n");

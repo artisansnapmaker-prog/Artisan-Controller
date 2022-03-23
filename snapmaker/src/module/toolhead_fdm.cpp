@@ -271,27 +271,27 @@ static err_code_t hmi_req_callback_get_toolhead_info(void *obj, sacp_hmi_message
 
     // nozzle diameter
     float diameter = fdm.get_hotend_diameter(i);
-    diameter = diameter  * 1000;
-    msg->data[index++] = ((uint8_t *)&diameter)[0];
-    msg->data[index++] = ((uint8_t *)&diameter)[1];
-    msg->data[index++] = ((uint8_t *)&diameter)[2];
-    msg->data[index++] = ((uint8_t *)&diameter)[3];
+    int32_t scaled_diameter = diameter  * 1000;
+    msg->data[index++] = scaled_diameter & 0xff;
+    msg->data[index++] = scaled_diameter >> 8;
+    msg->data[index++] = scaled_diameter >> 16;
+    msg->data[index++] = scaled_diameter >> 24;
 
     // current temp
     float cur_temp = fdm.get_hotend_temp(i);
-    cur_temp = cur_temp * 1000;
-    msg->data[index++] = ((uint8_t *)&cur_temp)[0];
-    msg->data[index++] = ((uint8_t *)&cur_temp)[1];
-    msg->data[index++] = ((uint8_t *)&cur_temp)[2];
-    msg->data[index++] = ((uint8_t *)&cur_temp)[3];
+    int32_t scaled_cur_temp = cur_temp * 1000;
+    msg->data[index++] = scaled_cur_temp & 0xff;
+    msg->data[index++] = scaled_cur_temp >> 8;
+    msg->data[index++] = scaled_cur_temp >> 16;
+    msg->data[index++] = scaled_cur_temp >> 24;
 
     // target temp
     float target_temp = fdm.get_hotend_target_temp(i);
-    target_temp = target_temp * 1000;
-    msg->data[index++] = ((uint8_t *)&target_temp)[0];
-    msg->data[index++] = ((uint8_t *)&target_temp)[1];
-    msg->data[index++] = ((uint8_t *)&target_temp)[2];
-    msg->data[index++] = ((uint8_t *)&target_temp)[3];
+    int32_t scaled_target_temp = target_temp * 1000;
+    msg->data[index++] = scaled_target_temp & 0xff;
+    msg->data[index++] = scaled_target_temp >> 8;
+    msg->data[index++] = scaled_target_temp >> 16;
+    msg->data[index++] = scaled_target_temp >> 24;
   }
 
   // fan info
@@ -331,7 +331,7 @@ static err_code_t hmi_req_callback_set_hotend_temp(void *obj, sacp_hmi_message_t
   ToolHeadFDM &fdm = *(ToolHeadFDM *)obj;
   err_code_t ret = E_SUCCESS;
 
-  LOG_I("hmi request set hotend%d_temp: %d\n", msg->data[1], msg->data[2] << 8 | msg->data[3]);
+  LOG_I("hmi request set hotend%d_temp: %d\n", msg->data[1], msg->data[2] | msg->data[3] << 8);
 
   uint8_t extruders = fdm.get_extruders_count();
 
@@ -342,7 +342,7 @@ static err_code_t hmi_req_callback_set_hotend_temp(void *obj, sacp_hmi_message_t
 
   {
     char gcode_cmd[32];
-    snprintf(gcode_cmd, 32, "M104 T%d S%d", msg->data[1], msg->data[2] << 8 | msg->data[3]);
+    snprintf(gcode_cmd, 32, "M104 T%d S%d", msg->data[1], msg->data[2] | msg->data[3] << 8);
     motion_svc.run_gcode(gcode_cmd);
   }
 
@@ -868,7 +868,7 @@ float ToolHeadFDM::get_hotend_temp(uint8_t e) {
 }
 
 float ToolHeadFDM::get_hotend_target_temp(uint8_t e) {
-  return hotend_temp[e].target / 10.f;
+  return hotend_temp[e].target;
 }
 
 uint8_t ToolHeadFDM::get_fan_speed(uint8_t fan_index) {

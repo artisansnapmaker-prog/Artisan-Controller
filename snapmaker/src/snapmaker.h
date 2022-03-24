@@ -44,7 +44,7 @@ enum SnapmakerModel {
   SNAPMAKER_MODEL_A400,
   SNAPMAKER_MODEL_J1,
 
-  SNAPMAKER_MODEL_UNKNOWN
+  SNAPMAKER_MODEL_MAX
 };
 
 struct SnapmakerHandle {
@@ -273,7 +273,7 @@ class SnapmakerPrinter
     enum SystemStatus sys_status;
     SemaphoreHandle_t status_lock;
 
-    SnapmakerModel model = SNAPMAKER_MODEL_UNKNOWN;
+    SnapmakerModel model = SNAPMAKER_MODEL_MAX;
 
   public:
     /* ToolHeadFDM *_3dp = NULL; */

@@ -151,6 +151,36 @@ L4_DETECT_PIN,
 L5_DETECT_PIN
 };
 
+struct MachineSize {
+  uint16_t x;
+  uint16_t y;
+  uint16_t z;
+} machine_size[SNAPMAKER_MODEL_MAX] = {
+  { 150, 150, 150}, /* A150 */
+  { 250, 250, 250}, /* A250 */
+  { 350, 350, 350}, /* A350 */
+  { 400, 400, 400}, /* A400 */
+  { 250, 250, 250}  /* J1 */
+};
+
+struct __packed MachineSizeInfo {
+  uint8_t axis_number;
+  coordinate_info_t axis_length[3];
+  uint8_t home_offset_number;
+  coordinate_info_t home_offset[3];
+};
+
+typedef struct __packed MachineInfo {
+  uint8_t  model;
+  uint8_t  hw_ver;
+  uint32_t sn;
+  uint16_t fw_ver_len;
+  char     fw_ver[0];
+} machine_info_t;
+
+#define PC_PORT_PROTOCOL_GCODE  (0)
+#define PC_PORT_PROTOCOL_SACP   (1)
+#define PC_PORT_PROTOCOL_MAX    (PC_PORT_PROTOCOL_SACP)
 
 // HMI subscription callbacks
 uint16_t SnapmakerPrinter::hmi_cb_publish_system_status(void *obj, uint8_t *buffer) {
@@ -160,19 +190,10 @@ uint16_t SnapmakerPrinter::hmi_cb_publish_system_status(void *obj, uint8_t *buff
   return 2;
 }
 
-
 // HMI event callback
-typedef struct __packed MachineInfo {
-  uint8_t  model;
-  uint8_t  hw_ver;
-  uint32_t sn;
-  uint16_t fw_ver_len;
-  char     fw_ver[0];
-} machine_info_t;
-
 err_code_t SnapmakerPrinter::hmi_cb_get_machine_info(void *obj, sacp_hmi_message_t *msg) {
   SnapmakerPrinter *printer = (SnapmakerPrinter *)obj;
-  char ver[] = "A400_V1.4.2";
+  char ver[] = "A400_V0.0.1";
   int i = 0;
 
   machine_info_t *info = (machine_info_t *)(msg->data + 1);
@@ -193,50 +214,41 @@ err_code_t SnapmakerPrinter::hmi_cb_get_machine_info(void *obj, sacp_hmi_message
   info->fw_ver_len = i;
 
   msg->length = sizeof(machine_info_t) + i + 1;
-  msg->attr |= SACP_MESSAGE_ATTR_ACK;
 
-  LOG_V("report machine info, len[0x%x]\n", msg->length);
+  LOG_I("report machine info, len[0x%x]\n", msg->length);
 
-  return host_hmi.send(msg);
+  return host_hmi.send_ack(msg);
 }
 
-struct __packed MachineSize {
-  coordinate_info_t axis_length[3];
-  coordinate_info_t home_offset[3];
-};
-
 err_code_t SnapmakerPrinter::hmi_cb_get_machine_size(void *obj, sacp_hmi_message_t *msg) {
-  MachineSize *msize;
+  MachineSizeInfo *msize;
 
   msg->data[0] = E_SUCCESS;
 
-  msize = (MachineSize *)(msg->data + 1);
+  msize = (MachineSizeInfo *)(msg->data + 1);
+  msize->axis_number = 3;
   msize->axis_length[0].axis  = AXIS_KEY_X1;
-  msize->axis_length[0].value = 400 * 1000;
+  msize->axis_length[0].value = machine_size[MACHINE_MODEL_A400].x * 1000;
   msize->axis_length[1].axis  = AXIS_KEY_Y1;
-  msize->axis_length[1].value = 400 * 1000;
+  msize->axis_length[1].value = machine_size[MACHINE_MODEL_A400].y * 1000;
   msize->axis_length[2].axis  = AXIS_KEY_Z1;
-  msize->axis_length[2].value = 400 * 1000;
+  msize->axis_length[2].value = machine_size[MACHINE_MODEL_A400].z * 1000;
 
+  msize->home_offset_number = 3;
   msize->home_offset[0].axis = AXIS_KEY_X1;
-  msize->home_offset[0].value = 0;
+  msize->home_offset[0].value = motion_svc.get_home_offset(X_AXIS);
   msize->home_offset[1].axis = AXIS_KEY_Y1;
-  msize->home_offset[1].value = 0;
+  msize->home_offset[1].value = motion_svc.get_home_offset(Y_AXIS);
   msize->home_offset[2].axis = AXIS_KEY_Z1;
-  msize->home_offset[2].value = 0;
+  msize->home_offset[2].value = motion_svc.get_home_offset(Z_AXIS);
 
-  msg->length = sizeof(MachineSize) + 1;
-  msg->attr |= SACP_MESSAGE_ATTR_ACK;
+  msg->length = sizeof(MachineSizeInfo) + 1;
 
   LOG_I("report machine size, len[0x%x]\n", msg->length);
 
-  return host_hmi.send(msg);
+  return host_hmi.send_ack(msg);
 }
 
-
-#define PC_PORT_PROTOCOL_GCODE  (0)
-#define PC_PORT_PROTOCOL_SACP   (1)
-#define PC_PORT_PROTOCOL_MAX    (PC_PORT_PROTOCOL_SACP)
 err_code_t SnapmakerPrinter::hmi_cb_set_protocol_for_PC(void *obj, sacp_hmi_message_t *msg) {
   SnapmakerPrinter *printer = (SnapmakerPrinter *)obj;
 
@@ -672,8 +684,8 @@ toolHeadType SnapmakerPrinter::get_toolhead_type(void) {
     return TH_TYPE_LASER;
   }
 
- LOG_E("toolhead unknow\r\n");
- return TH_TYPE_UNKNOW;
+  LOG_E("toolhead unknow\r\n");
+  return TH_TYPE_UNKNOW;
 }
 
 enum SystemStatus SnapmakerPrinter::get_sys_status(void) {

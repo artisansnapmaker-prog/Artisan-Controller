@@ -125,7 +125,6 @@ uint16_t ToolHeadLaser::hmi_cb_publish_power(void *obj, uint8_t *buffer) {
   return 10;
 }
 
-
 struct __packed FanInfo {
   uint8_t index;
   uint8_t type;
@@ -888,7 +887,7 @@ err_code_t ToolHeadLaser::get_bt_mac() {
     bt_mac[i] = recv_buff[1 + i];
   }
 
-  LOG_I("original: \n");
+  LOG_I("BT MAC: \n");
   for (int i = 1; i < 7; i++) {
     LOG_I("%02X, ", bt_mac[i]);
   }
@@ -1155,17 +1154,17 @@ err_code_t ToolHeadLaser::report_bt_mac() {
   uint16_t recv_len = sizeof(recv_buff);
 
   msg.ch      = SACP_HMI_CH_SCREEN;
+  msg.peer    = SACP_HOST_ID_SCREEN;
   msg.cmd_set = SACP_CMD_SET_LASER;
   msg.cmd_id  = SACP_CMD_ID_LASER_REPORT_BT_MAC;
   msg.data    = buffer;
-  msg.peer    = SACP_HOST_ID_SCREEN;
   msg.attr    = 0;
 
   buffer[len++] = get_key();
-  buffer[len++] = 0;
+  buffer[len++] = bt_mac[0];
   buffer[len++] = 6;
 
-  for (int i = 0; i < 6; i++) {
+  for (int i = 1; i < 7; i++) {
     buffer[len++] = bt_mac[i];
   }
   msg.length = len;
@@ -1173,6 +1172,9 @@ err_code_t ToolHeadLaser::report_bt_mac() {
   ret = host_hmi.send_sync(&msg, recv_buff, &recv_len, 1000, 3);
   if (ret != E_SUCCESS) {
     LOG_E("failed to report BT MAC, ret[%u]\n", ret);
+  }
+  else {
+    LOG_I("told screen BT MAC.\n");
   }
 
   return ret;

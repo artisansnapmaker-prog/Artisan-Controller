@@ -685,6 +685,8 @@ void MotionService::moveto(xyze_pos_t target, float feedrate, bool blocked) {
     const feedRate_t z_feedrate = feedrate ?: homing_feedrate(Z_AXIS);
   #endif
 
+  apply_motion_limits(target);
+
     #if HAS_Z_AXIS
       // If Z needs to raise, do it before moving XY
       if (current_position.z < target.z) {

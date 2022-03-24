@@ -86,6 +86,9 @@ class MotionService {
 
     void pins_post_init();
 
+    err_code_t pause_marlin(uint32_t timeout = 180 * 1000);
+    err_code_t resume_marlin();
+
     // moving API
     void moveto_xy(float x, float y, float feedrate, bool blocked=true);
     void moveto_xyz(float x, float y, float z, float feedrate, bool blocked=true);
@@ -145,6 +148,7 @@ class MotionService {
     err_code_t home_y(bool block = true) { return run_gcode((char *)"G28 Y", block); }
     err_code_t home_z(bool block = true) { return run_gcode((char *)"G28 Z", block); }
     void set_axis_to_homed(AxisEnum axis) { set_axis_homed(axis); }
+    float get_home_offset(AxisEnum axis) { return home_offset[axis]; }
 
     // speed control API
     float get_feedrate(void);
@@ -236,7 +240,8 @@ class MotionService {
 
   private:
     MessageBufferHandle_t gcode_queue;
-
+    xSemaphoreHandle marlin_signal;
+    bool marlin_paused;
 };
 
 

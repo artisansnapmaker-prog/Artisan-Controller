@@ -82,21 +82,21 @@ err_code_t MotionService::hmi_cb_get_coordinate_info(void *obj, sacp_hmi_message
 
 err_code_t MotionService::hmi_cb_set_active_coordinate_system(void *obj, sacp_hmi_message_t *msg) {
   uint8_t id = msg->data[0];
-  // MotionService *motion = (MotionService *)obj;
+  MotionService *motion = (MotionService *)obj;
 
   LOG_I("set active coordinate[%u]\n", id);
 
   switch (id) {
   case 0:
-    // motion->run_gcode((char *)"G53");
-    parser.parse((char *)"G53");
-    gcode.process_parsed_command();
+    motion->run_gcode((char *)"G53");
+    // parser.parse((char *)"G53");
+    // gcode.process_parsed_command();
     break;
 
   case 1:
-    // motion->run_gcode((char *)"G54");
-    parser.parse((char *)"G54");
-    gcode.process_parsed_command();
+    motion->run_gcode((char *)"G54");
+    // parser.parse((char *)"G54");
+    // gcode.process_parsed_command();
     break;
 
   default:
@@ -107,6 +107,7 @@ err_code_t MotionService::hmi_cb_set_active_coordinate_system(void *obj, sacp_hm
 }
 
 err_code_t MotionService::hmi_cb_set_origin(void *obj, sacp_hmi_message_t *msg) {
+  MotionService *motion = (MotionService *)obj;
   err_code_t ret = E_SUCCESS;
   uint8_t length = msg->data[0];
 
@@ -122,8 +123,9 @@ err_code_t MotionService::hmi_cb_set_origin(void *obj, sacp_hmi_message_t *msg) 
     value = (float)(info[i].value / 1000.0);
     if (info[i].axis <= AXIS_KEY_C1) {
       snprintf(gcode_cmd, 32, "G92 %c%.3f", axis_cmd[info[i].axis], value);
-      parser.parse(gcode_cmd);
-      gcode.process_parsed_command();
+      motion->run_gcode(gcode_cmd);
+      // parser.parse(gcode_cmd);
+      // gcode.process_parsed_command();
     }
     else {
       LOG_E("invalid axis key[%u]\n", info[i].axis);
@@ -140,7 +142,9 @@ err_code_t MotionService::hmi_cb_move_absoluty(void *obj, sacp_hmi_message_t *ms
   uint8_t number = msg->data[0];
   coordinate_info_t *move_cmd = (coordinate_info_t *)(msg->data + 1);
 
-  xyze_float_t dest;
+  motion->update_position_from_platform();
+
+  xyze_float_t dest = motion->sm_current_position;
   uint16_t feedrate;
 
   for (int i = 0; i < number; i++) {
@@ -181,8 +185,9 @@ err_code_t MotionService::hmi_cb_move_absoluty(void *obj, sacp_hmi_message_t *ms
 
   LOG_I("move to X%.3f, Y%.3f, Z%.3f, A%.3f, B%.3f, fr: %u\n", dest.x, dest.y, dest.z, dest.i, dest.j, feedrate);
 
-  parser.parse((char *)"G90 ");
-  gcode.process_parsed_command();
+  // parser.parse((char *)"G90 ");
+  // gcode.process_parsed_command();
+  motion->run_gcode((char *)"G90 ");
 
   motion->moveto(dest, (float)feedrate);
 
@@ -212,8 +217,6 @@ err_code_t MotionService::hmi_cb_request_home(void *obj, sacp_hmi_message_t *msg
     host_hmi.send_ack(msg);
   }
 
-  uint8_t recv_buff[4];
-  uint16_t recv_len = 4;
   msg->cmd_id = SACP_CMD_ID_GLOABL_REQ_REPORT_HOME_RESULT;
   msg->attr   = 0;
   msg->length = 1;
@@ -244,11 +247,15 @@ err_code_t MotionService::hmi_cb_request_home(void *obj, sacp_hmi_message_t *msg
 
 
 void MotionService::motion_background(void *p) {
-  UNUSED(p);
+  MotionService &motion = *((MotionService *)p);
 
   for (;;) {
     host_hmi.handle_events();
     loop();
+    while (uxSemaphoreGetCount(motion.marlin_signal) > 0) {
+      motion.marlin_paused = true;
+    }
+    motion.marlin_paused = false;
     taskYIELD();
   }
 }
@@ -269,16 +276,16 @@ void MotionService::init() {
             (void *)this, hmi_cb_get_coordinate_info);
 
   host_hmi.register_callback(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_SET_ACTIVE_COORDINATE,
-            (void *)this, hmi_cb_set_active_coordinate_system, SACP_CB_ATTR_BLOCKED_WITH_MOTION);
+            (void *)this, hmi_cb_set_active_coordinate_system);
 
   host_hmi.register_callback(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_SET_ORIGIN,
-            (void *)this, hmi_cb_set_origin, SACP_CB_ATTR_BLOCKED_WITH_MOTION);
+            (void *)this, hmi_cb_set_origin);
 
   host_hmi.register_callback(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_MOVE_ABSOLUTELY,
-            (void *)this, hmi_cb_move_absoluty, SACP_CB_ATTR_BLOCKED_WITH_MOTION);
+            (void *)this, hmi_cb_move_absoluty);
 
   host_hmi.register_callback(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_HOME,
-            (void *)this, hmi_cb_request_home, SACP_CB_ATTR_BLOCKED_WITH_MOTION);
+            (void *)this, hmi_cb_request_home);
 
   LOG_I("Creating marlin task...");
 #if ENABLE_CCRAM
@@ -296,6 +303,10 @@ void MotionService::init() {
   else {
     LOG_I(LOG_RESULT_OK);
   }
+
+  marlin_signal = xSemaphoreCreateCounting(65536, 0);
+  configASSERT(marlin_signal);
+  marlin_paused = false;
 }
 
 void MotionService::pins_post_init() {
@@ -535,8 +546,9 @@ int16_t target_bed_temp(uint8_t area_id = 0) {
   return target_temp;
 }
 
-err_code_t MotionService::run_gcode(char *gcode, bool blocked /* = false*/,
+err_code_t MotionService::run_gcode(char *gcode_cmd, bool blocked /* = false*/,
     uint32_t blocked_timeout/*= 180 * 1000 ms*/) {
+#if 0
   int length = strlen(gcode) + 1;
 
   if (length > MAX_CMD_SIZE) {
@@ -567,7 +579,40 @@ err_code_t MotionService::run_gcode(char *gcode, bool blocked /* = false*/,
     }
   }
 
-  return E_SUCCESS;
+#endif
+  err_code_t ret = E_SUCCESS;
+
+  if (xTaskGetCurrentTaskHandle() != thandle_marlin) {
+    if (pause_marlin() != E_SUCCESS)
+      return E_FAILURE;
+  }
+
+  LOG_I("submitted gocde: %s\n", gcode_cmd);
+
+  parser.parse((char *)gcode_cmd);
+  gcode.process_parsed_command();
+
+  // for now just blocked with moving
+  if (blocked) {
+    // wait firsly 100ms to make marlin get the gcode
+    vTaskDelay(pdMS_TO_TICKS(100));
+    while (planner.busy()) {
+      vTaskDelay(pdMS_TO_TICKS(10));
+      if (blocked_timeout > 10) {
+        blocked_timeout -= 10;
+      }
+      else {
+        ret = E_TIMEOUT;
+        break;
+      }
+    }
+  }
+
+  if (xTaskGetCurrentTaskHandle() != thandle_marlin) {
+    resume_marlin();
+  }
+
+  return ret;
 }
 
 bool MotionService::consume_a_gcode(uint8_t *cmd, uint16_t max_len, uint32_t *line) {
@@ -587,7 +632,46 @@ bool MotionService::consume_a_gcode(uint8_t *cmd, uint16_t max_len, uint32_t *li
 
 
 void MotionService::moveto(xyze_pos_t target, float feedrate, bool blocked) {
-  do_blocking_move_to(target, feedrate);
+  if (xTaskGetCurrentTaskHandle() != thandle_marlin) {
+    if (pause_marlin() != E_SUCCESS)
+      return;
+  }
+
+// LINEAR_AXIS_ARGS(const float), const_feedRate_t fr_mm_s/*=0.0f*/
+
+  const feedRate_t xy_feedrate = feedrate ?: feedRate_t(XY_PROBE_FEEDRATE_MM_S);
+
+  #if HAS_Z_AXIS
+    const feedRate_t z_feedrate = feedrate ?: homing_feedrate(Z_AXIS);
+  #endif
+
+    #if HAS_Z_AXIS
+      // If Z needs to raise, do it before moving XY
+      if (current_position.z < target.z) {
+        current_position.z = target.z;
+        line_to_current_position(z_feedrate);
+      }
+    #endif
+
+    current_position.set(target.x, target.y);
+    line_to_current_position(xy_feedrate);
+
+    #if HAS_Z_AXIS
+      // If Z needs to lower, do it after moving XY
+      if (current_position.z > target.z) {
+        current_position.z = target.z;
+        line_to_current_position(z_feedrate);
+      }
+    #endif
+
+  if (blocked)
+    planner.synchronize();
+
+  if (xTaskGetCurrentTaskHandle() != thandle_marlin) {
+    resume_marlin();
+  }
+
+  return;
 }
 
 void MotionService::show_coordiantes() {
@@ -615,3 +699,35 @@ void MotionService::show_coordiantes() {
       NATIVE_TO_LOGICAL(current_position[Y_AXIS], Y_AXIS), NATIVE_TO_LOGICAL(current_position[Z_AXIS], Z_AXIS),
       NATIVE_TO_LOGICAL(current_position[A_AXIS], A_AXIS), NATIVE_TO_LOGICAL(current_position[B_AXIS], B_AXIS));
 }
+
+
+err_code_t MotionService::pause_marlin(uint32_t timeout) {
+  if (xSemaphoreGive(marlin_signal) != pdPASS) {
+    LOG_I("failed to send signal to pause marlin\n");
+    return E_NO_RESRC;
+  }
+
+  while (marlin_paused != true) {
+    vTaskDelay(pdMS_TO_TICKS(10));
+    if (timeout > 10) {
+      timeout -= 10;
+    }
+    else {
+      xSemaphoreTake(marlin_signal, 0);
+      LOG_I("timeout to pause marlin\n");
+      return E_TIMEOUT;
+    }
+  }
+
+  return E_SUCCESS;
+}
+
+err_code_t MotionService::resume_marlin() {
+  if (xSemaphoreTake(marlin_signal, 0) != pdPASS) {
+    LOG_I("failed to take signal for pausing marlin\n");
+    return E_FAILURE;
+  }
+
+  return E_SUCCESS;
+}
+

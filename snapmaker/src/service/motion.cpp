@@ -312,6 +312,13 @@ void MotionService::init() {
   set_axis_to_homed(I_AXIS);
   set_axis_to_homed(J_AXIS);
 
+  if (get_leveling_state()) {
+    motion_svc.extrapolate_unprobed_points();
+    motion_svc.interpolate_virt_points();
+    motion_svc.print_leveling_grid();
+    motion_svc.print_leveling_grid_virt();
+  }
+
   gcode_queue = xMessageBufferCreate(MOTION_PLATFORM_QUEUE_SIZE);
   configASSERT(gcode_queue);
 

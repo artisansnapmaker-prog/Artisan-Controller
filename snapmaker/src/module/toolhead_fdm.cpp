@@ -647,6 +647,8 @@ static void fdm_callback_report_probe_sensor_compensation(void *obj, uint8_t *da
   float compensation = (float)((data[1] << 24) | (data[2] << 16) | (data[3] << 8) | data[4]) / 1000;
 
   bedlevel_svc.z_compensation_[e] = compensation;
+
+  LOG_I("extruder: %d, compensation: %f\n", e, compensation);
 }
 
 err_code_t ToolHeadFDM::probe_state_sync() {
@@ -1165,7 +1167,7 @@ err_code_t ToolHeadFDM::tool_change(uint8_t new_tool, bool z_compensation/*=true
     motion_svc.moveto_z(motion_svc.get_current_position(Z_AXIS) + 2, 10);
 
     // clear old live_z_offset
-    bedlevel_svc.unapply_live_z_offset(active_extruder);
+    // bedlevel_svc.unapply_live_z_offset(active_extruder);
 
     // performing extruder switch
     if (new_tool == 0) {
@@ -1189,7 +1191,7 @@ err_code_t ToolHeadFDM::tool_change(uint8_t new_tool, bool z_compensation/*=true
     extruder_status_check_ctrl(EXTRUDER_STATUS_CHECK);
 
     // use new live_z_offset
-    bedlevel_svc.apply_live_z_offset(active_extruder);
+    // bedlevel_svc.apply_live_z_offset(active_extruder);
     motion_svc.sync_feedrate_percentage_to_platform(extruders_feedrate_percentage[active_extruder]);
   }
 
@@ -1288,9 +1290,9 @@ err_code_t ToolHeadFDM::save_z_compensation_to_module(float *compensation) {
   err_code_t ret = E_SUCCESS;
   smcan_message_t msg;
   uint8_t buffer[5];
-  uint32_t scaled_compensation;
+  float scaled_compensation;
 
-  msg.id = get_message_id(MODULE_FUNC_SET_HOTEND_OFFSET);
+  msg.id = get_message_id(MODULE_FUNC_SET_PROBE_SENSOR_COMPENSATION);
     if (msg.id == MODULE_MESSAGE_ID_INVALID) {
     LOG_E("invalid message to set z compensation\n");
     return E_FAILURE;
@@ -1298,7 +1300,8 @@ err_code_t ToolHeadFDM::save_z_compensation_to_module(float *compensation) {
 
   for (uint32_t i = 0; i < EXTRUDERS; i++) {
     buffer[0]  = i;
-    scaled_compensation = (int32_t)compensation[i];
+    scaled_compensation = compensation[i];
+    LOG_I("scaled_compensation: %f\n", scaled_compensation);
     buffer[1]  = ((uint8_t *)&scaled_compensation)[0];
     buffer[2]  = ((uint8_t *)&scaled_compensation)[1];
     buffer[3]  = ((uint8_t *)&scaled_compensation)[2];
@@ -1309,7 +1312,7 @@ err_code_t ToolHeadFDM::save_z_compensation_to_module(float *compensation) {
     ret = host_can_rou.send(&msg);
 
     if (ret != E_SUCCESS) {
-      LOG_E("failed to set hotend offset, ret: %u\n", ret);
+      LOG_E("failed to set z compensation, ret: %u\n", ret);
       return ret;
     }
   }

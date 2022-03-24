@@ -3017,8 +3017,8 @@
   #define X2_HYBRID_THRESHOLD    200
   #define Y_HYBRID_THRESHOLD     200
   #define Y2_HYBRID_THRESHOLD    200
-  #define Z_HYBRID_THRESHOLD     40
-  #define Z2_HYBRID_THRESHOLD    40
+  #define Z_HYBRID_THRESHOLD     50
+  #define Z2_HYBRID_THRESHOLD    50
   #define Z3_HYBRID_THRESHOLD      3
   #define Z4_HYBRID_THRESHOLD      3
   #define I_HYBRID_THRESHOLD       3

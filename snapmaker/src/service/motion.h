@@ -195,6 +195,7 @@ class MotionService {
         return 0;
       }
     }
+    float get_feedrate_percentage() { return feedrate_percentage; }
 
     // bed leveling API for internal app
     bool leveling_active() { return planner.leveling_active; }

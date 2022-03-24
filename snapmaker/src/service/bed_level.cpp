@@ -194,6 +194,11 @@ static err_code_t hmi_req_callback_exit_level(void *obj, sacp_hmi_message_t *msg
   //   goto EXIT;
   // }
 
+  if (bedlevel.get_bedlevel_mode() == BEDLEVEL_MODE_MANUAL) {
+    LOG_I("finish bedlevel\n");
+    ret = bedlevel.finish_manual_bed_leveling();
+  }
+
   if ((bedlevel.get_bedlevel_mode() == BEDLEVEL_MODE_AUTO_BED_DETECTION) || (bedlevel.get_bedlevel_mode() == BEDLEVEL_MODE_MANUAL_BED_DETECTION)) {
     if (bedlevel.get_end_leveling_process_status()) {
       bedlevel.detected_bed_z_values[1] = motion_svc.get_current_position(Z_AXIS);
@@ -552,7 +557,8 @@ err_code_t BedLevelService::start_manual_bed_leveling(uint8_t grids) {
   manual_leveling_point_index_ = 25;
 
   // go home
-  // todo
+  parser.parse("G28");
+  gcode.process_parsed_command();
 
   motion_svc.disable_leveling();
   if (smprinter.fdm->get_device_id() == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {

@@ -165,6 +165,8 @@ err_code_t ToolHeadFDM::post_init() {
   z_compensation_sync();
 
   motion_svc.pins_post_init();
+  extruders_feedrate_percentage[0] = motion_svc.get_feedrate_percentage();
+  extruders_feedrate_percentage[1] = motion_svc.get_feedrate_percentage();
 
   return E_SUCCESS;
 }

@@ -41,7 +41,11 @@ uint16_t MotionService::hmi_cb_publish_coordinate_info(void *obj, uint8_t *buffe
   // result
   buffer[0] = E_SUCCESS;
 
-  info->all_homed                = motion->is_all_axes_homed();
+  if (motion->is_all_axes_homed())
+    info->all_homed  = 0;
+  else
+    info->all_homed  = 1;
+
   info->active_coordinate_system = (uint8_t)(motion->get_active_coordinate_system() + 1);
   info->is_original_offset       = motion->is_original_position_offset();
 
@@ -734,7 +738,7 @@ void MotionService::moveto(xyze_pos_t target, float feedrate, bool blocked) {
 void MotionService::show_coordiantes() {
   LOG_I("active coordinate: %d\n\n", gcode.active_coordinate_system);
 
-  LOG_I("home state: X%u, Y%u, Z%u, A%u, B%u\n\n", axis_was_homed(X_AXIS),
+  LOG_I("home state: all: %u, X%u, Y%u, Z%u, A%u, B%u\n\n", all_axes_homed(), axis_was_homed(X_AXIS),
       axis_was_homed(Y_AXIS), axis_was_homed(Z_AXIS), axis_was_homed(A_AXIS), axis_was_homed(B_AXIS));
 
   LOG_I("home offset: X%.3f, Y%.3f, Z%.3f, A%.3f, B%.3f\n\n", home_offset[X_AXIS],

@@ -1676,43 +1676,15 @@ void Planner::quick_stop() {
   #endif
 
   // Make sure to drop any attempt of queuing moves for 1 second
-  cleaning_buffer_counter = TEMP_TIMER_FREQUENCY;
+  // cleaning_buffer_counter = TEMP_TIMER_FREQUENCY;
+  // Change by 747
+  cleaning_buffer_counter = TEMP_TIMER_FREQUENCY/2;
 
   // Reenable Stepper ISR
   if (was_enabled) stepper.wake_up();
 
   // And stop the stepper ISR
   stepper.quick_stop();
-}
-
-// Add by snapmaker 747
-void Planner::normal_stop() {
-
-  // Remove all the queued blocks. Note that this function is NOT
-  // called from the Stepper ISR, so we must consider tail as readonly!
-  // that is why we set head to tail - But there is a race condition that
-  // must be handled: The tail could change between the read and the assignment
-  // so this must be enclosed in a critical section
-
-  const bool was_enabled = stepper.suspend();
-
-  // Drop all queue entries
-  block_buffer_nonbusy = block_buffer_planned = block_buffer_head = block_buffer_tail;
-
-  // Restart the block delay for the first movement - As the queue was
-  // forced to empty, there's no risk the ISR will touch this.
-  delay_before_delivering = BLOCK_DELAY_FOR_1ST_MOVE;
-
-  #if HAS_WIRED_LCD
-    // Clear the accumulated runtime
-    clear_block_buffer_runtime();
-  #endif
-
-  // Make sure to drop any attempt of queuing moves for 1 second
-  cleaning_buffer_counter = TEMP_TIMER_FREQUENCY;
-
-  // Reenable Stepper ISR
-  if (was_enabled) stepper.wake_up();
 }
 
 #if ENABLED(REALTIME_REPORTING_COMMANDS)

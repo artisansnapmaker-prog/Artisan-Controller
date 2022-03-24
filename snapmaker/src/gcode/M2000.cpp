@@ -94,7 +94,7 @@ void GcodeSuite::M2000() {
       p += 2;
       memcpy(p, "gcodefile", 9);
       p += 9;
-      p[0] = TH_TYPE_3DP;
+      p[0] = TH_TYPE_CNC;
       p++;
 
       sacp_hmi_message_t msg;

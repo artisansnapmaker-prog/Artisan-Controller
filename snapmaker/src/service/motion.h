@@ -138,7 +138,8 @@ class MotionService {
     }
     void sync_feedrate_percentage_to_platform(int16_t percentage) { feedrate_percentage = percentage; }
 
-    void quickstop(void);
+    void req_quickstop(void);
+    void do_quickstop(void);
     void normalstop(void);
 
     // home API

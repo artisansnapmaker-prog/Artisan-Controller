@@ -79,6 +79,8 @@
   #include "../feature/closedloop.h"
 #endif
 
+#include "../../snapmaker/src/common/debug.h"
+
 // Feedrate for manual moves
 #ifdef MANUAL_FEEDRATE
   constexpr xyze_feedrate_t _mf = MANUAL_FEEDRATE,
@@ -857,9 +859,6 @@ class Planner {
     // Called to force a quick stop of the machine (for example, when
     // a Full Shutdown is required, or when endstops are hit)
     static void quick_stop();
-
-    // Add by snapmaker 747
-    static void normal_stop();
 
     #if ENABLED(REALTIME_REPORTING_COMMANDS)
       // Force a quick pause of the machine (e.g., when a pause is required in the middle of move).

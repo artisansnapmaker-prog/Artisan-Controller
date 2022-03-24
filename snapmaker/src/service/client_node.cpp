@@ -495,7 +495,7 @@ err_code_t ClientNode::req_pause_job(sacp_hmi_message_t* msg) {
   err_code_t ret;
   sacp_hmi_message_t *msg_cp;
 
-  LOG_I("Client node: client %d request pause a job <<<<<<<<<<<>>>>>>>>>>>\r\n");
+  LOG_I("Client node: %d client %d request pause a job <<<<<<<<<<<>>>>>>>>>>>\r\n", millis());
   msg_cp = malloc_sacp_msg_node();
   if (!msg_cp) {
     LOG_E("client_node: can not malloc sacp msg copy\r\n");

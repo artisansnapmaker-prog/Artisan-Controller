@@ -628,6 +628,7 @@ void GCodeQueue::get_available_commands() {
   if (ring_buffer.full()) return;
 
   get_serial_commands();
+
   // Add by snapmaker 747
   get_snapmaker_commands();
 

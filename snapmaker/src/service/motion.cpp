@@ -29,6 +29,10 @@ struct __packed CoordinateSystemInformation {
   coordinate_info_t origin_offset[5];
 };
 
+// use to request quickstop
+bool req_motion_platform_quickstop = false;
+bool res_motion_platform_quickstop = false;
+
 uint16_t MotionService::hmi_cb_publish_coordinate_info(void *obj, uint8_t *buffer) {
   MotionService *motion = (MotionService *)obj;
 
@@ -433,16 +437,27 @@ void MotionService::sync_leveling_limit_to_platform(float x_start, float x_end, 
   endy   = y_end;
 }
 
-void MotionService::quickstop(void) {
+void MotionService::req_quickstop(void) {
+
   // There is a race condition that must be handled: the marlin thread and the caller thread
-  // stop Scheduling?
-  vTaskSuspendAll();
-  planner.quick_stop();
-  planner.synchronize();
-  set_current_from_steppers_for_axis(ALL_AXES_ENUM);
-  sync_plan_position();
-  if (!xTaskResumeAll())
-      taskYIELD ();
+  // wait for the last request finish
+  LOG_I("wait for the last request finish\r\n");
+  while(req_motion_platform_quickstop) vTaskDelay(pdMS_TO_TICKS(5));
+  req_motion_platform_quickstop = true;
+  res_motion_platform_quickstop = false;
+
+  // wait for the current request finish
+  LOG_I("wait for the quickstop finish\r\n");
+  while(!res_motion_platform_quickstop) vTaskDelay(pdMS_TO_TICKS(5));
+}
+
+void MotionService::do_quickstop(void) {
+  //planner.quick_stop();
+  //planner.synchronize();
+  //while(planner.busy());
+  //set_current_from_steppers_for_axis(ALL_AXES_ENUM);
+  //sync_plan_position();
+  quickstop_stepper();
 }
 
 void MotionService::normalstop(void) {

@@ -253,6 +253,9 @@
   #include "feature/easythreed_ui.h"
 #endif
 
+// Add by snapmaker 747
+#include "../../snapmaker/src/service/motion.h"
+
 PGMSTR(M112_KILL_STR, "M112 Shutdown");
 
 MarlinState marlin_state = MF_INITIALIZING;
@@ -768,6 +771,13 @@ void idle(bool no_stepper_sleep/*=false*/) {
     static uint16_t idle_depth = 0;
     if (++idle_depth > 5) SERIAL_ECHOLNPGM("idle() call depth: ", idle_depth);
   #endif
+
+  // Add snapmaker 747
+  extern bool req_motion_platform_quickstop;
+  if (req_motion_platform_quickstop) {
+    planner.quick_stop();
+    return;
+  }
 
   // Core Marlin activities
   manage_inactivity(no_stepper_sleep);
@@ -1653,9 +1663,23 @@ void loop() {
 
     queue.advance();
 
+    // Add snapmaker 747
+    extern bool req_motion_platform_quickstop;
+    extern bool res_motion_platform_quickstop;
+    if (req_motion_platform_quickstop) {
+      req_motion_platform_quickstop = false;
+      LOG_I("%d>>>>>>>>>>>>>>>>>>>>>>> do_quickstop() in idle()\r\n", millis());
+      queue.clear();
+      set_current_from_steppers_for_axis(ALL_AXES_ENUM);
+      LOG_I("%d after set_current_from_steppers_for_axis\r\n", millis());
+      sync_plan_position();
+      LOG_I("%d after sync_plan_position\r\n", millis());
+      queue.clear();
+      res_motion_platform_quickstop = true;
+    }
+
     endstops.event_handler();
 
     TERN_(HAS_TFT_LVGL_UI, printer_state_polling());
-
   } while (ENABLED(__AVR__)); // Loop forever on slower (AVR) boards
 }

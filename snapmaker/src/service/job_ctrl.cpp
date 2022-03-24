@@ -365,9 +365,10 @@ err_code_t JobCtrl::resum_env(void) {
   LOG_I("job_ctrl: resume relative mode\r\n");
   LOG_I("job_ctrl: resume current position\r\n");
   
-  _env.req_line_num = _env.cur_line_num + 1;
+  _env.req_line_num = _env.cur_line_num;
   LOG_I("job_ctrl: req_line_num %d\r\n", _env.req_line_num);
   
+  /*
   LOG_I("job_ctrl: resume coordinate\r\n");
   if (_env.active_coordinate == -1) {
     motion_svc.run_gcode("G53", true);
@@ -380,6 +381,7 @@ err_code_t JobCtrl::resum_env(void) {
   else {
     LOG_E("job_ctrl: Unknow coordinate\r\n");
   }
+  */
 
   LOG_I("job_ctrl: resume relative mode %d\r\n", _env.g0g1_relative_mode);
   motion_svc.set_relative_mode(_env.g0g1_relative_mode);
@@ -405,7 +407,7 @@ err_code_t JobCtrl::resum_env(void) {
 
 err_code_t JobCtrl::machine_standby(void) {
   ModuleBase *cur_toolhead;
-  LOG_I("job_ctrl: machine standby begin\r\n");
+  LOG_I("%d job_ctrl: machine standby begin\r\n", millis());
 
   LOG_I("job_ctrl: get current toolhead pointer\r\n");
   if (!(cur_toolhead = smprinter.get_cur_toolhead())) {
@@ -453,19 +455,19 @@ err_code_t JobCtrl::machine_standby(void) {
   LOG_I("TODO: fans set to 0 speed\r\n");
   LOG_I("TODO: bed temp set to 0 degree\r\n");
 
-  motion_svc.run_gcode("G55");
-
+  //motion_svc.run_gcode("G55");
   LOG_I("job_ctrl: Z raise to highest\r\n");
-  motion_svc.run_gcode("G28 Z", true);
-  // motion_svc.run_gcode("G0 Z395", true);
+  // motion_svc.run_gcode("G28 Z", true);
+  //motion_svc.run_gcode("G0 Z380", true);
 
-  LOG_I("job_ctrl: x move to left\r\n");
-  motion_svc.run_gcode("G28 X", true);
+  // X do not need to standby
+  // LOG_I("job_ctrl: x move to left\r\n");
+  // motion_svc.run_gcode("G28 X", true);
   // motion_svc.run_gcode("G0 X5", true);
 
   LOG_I("job_ctrl: y move to head\r\n");
-  motion_svc.run_gcode("G28 Y", true);
-  // motion_svc.run_gcode("G0 Y395", true);
+  // motion_svc.run_gcode("G28 Y", true);
+  // motion_svc.run_gcode("G0 Y380", true);
 
   LOG_I("job_ctrl: machine standby end\r\n");
   return E_SUCCESS;
@@ -632,11 +634,13 @@ void JobCtrl::do_pause(struct JobCtrlReqInfo &jri) {
 
   switch (jri.req_data.req_pause_data.type) {
     case PAUSE_CLIENT_REQ:
-      motion_svc.normalstop();
+      // motion_svc.normalstop();
+      motion_svc.req_quickstop();
     break;
 
     case PAUSE_FILM_RUNOUT:
-      motion_svc.normalstop();
+      // motion_svc.normalstop();
+      motion_svc.req_quickstop();
     break;
 
     case PAUSE_POWR_LOSE:
@@ -658,6 +662,7 @@ void JobCtrl::do_pause(struct JobCtrlReqInfo &jri) {
       return;
     break;
   }
+  LOG_I("%d after quickstop\r\n", millis());
 
   if (E_SUCCESS != save_env()) {
     smprinter.set_sys_status(SYSTEM_STATUS_IDLE, &ret_sys_status);
@@ -722,7 +727,8 @@ void JobCtrl::do_stop(struct JobCtrlReqInfo &jri) {
   }
   DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, SYSTEM_STATUS_STOPING);
 
-  motion_svc.normalstop();
+  // motion_svc.normalstop();
+  motion_svc.req_quickstop();
   if (E_SUCCESS != machine_standby()) {
     LOG_E("job ctrl: machine standby failure\r\n");
     smprinter.set_sys_status(SYSTEM_STATUS_IDLE, &ret_sys_status);
@@ -777,6 +783,7 @@ bool JobCtrl::consume_a_gcode(uint8_t *cmd, uint16_t max_len, uint32_t *line) {
     if('\n' == c) {
       *line = _env.cur_line_num++;
       cmd[cmd_len] = 0;
+      LOG_I("job_ctrl: marlin consume a gcode: %s\r\n", cmd);
       ret = true;
 
       if (_paused){

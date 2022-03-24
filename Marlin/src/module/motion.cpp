@@ -1045,6 +1045,7 @@ FORCE_INLINE void segment_idle(millis_t &next_idle_ms) {
       // Calculate and execute the segments
       millis_t next_idle_ms = millis() + 200UL;
       while (--segments) {
+        LOG_I("segmented_line_to_destination: segments %d\r\n");
         segment_idle(next_idle_ms);
         raw += segment_distance;
         if (!planner.buffer_line(raw, fr_mm_s, active_extruder, cartesian_segment_mm OPTARG(SCARA_FEEDRATE_SCALING, inv_duration))) break;

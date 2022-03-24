@@ -695,41 +695,26 @@ void GcodeSuite::M2000() {
   }
 
   {
-    sacp_hmi_message_t motion_msg;
     uint8_t buffer[128];
-    if (m < 0xff) {
-      motion_msg.ch = SACP_HMI_CH_SCREEN;
-      motion_msg.attr = 0;
-      motion_msg.cmd_set = SACP_CMD_SET_GLOBAL_REQ;
-      motion_msg.peer = SACP_HOST_ID_SCREEN;
-      motion_msg.seq = 0;
-      motion_msg.ver = SACP_VER_1;
-      motion_msg.data = buffer;
-    }
-
     switch (m) {
     case 0:
       { // get coordinate info
-        motion_msg.length = 0;
-        motion_msg.cmd_id = SACP_CMD_ID_GLOABL_REQ_GET_COORDINATE;
-        motion_svc.hmi_cb_get_coordinate_info(&motion_svc, &motion_msg);
+        host_hmi.test_interface(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_GET_COORDINATE,
+                                  buffer, 0);
       }
       break;
 
     case 1:
       { // set active coordinate
-        motion_msg.cmd_id = SACP_CMD_ID_GLOABL_REQ_SET_ACTIVE_COORDINATE;
-        motion_msg.length = 1;
         buffer[0] = (uint8_t)p;
-        motion_svc.hmi_cb_set_active_coordinate_system(&motion_svc, &motion_msg);
+        host_hmi.test_interface(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_SET_ACTIVE_COORDINATE,
+                                  buffer, 1);
       }
       break;
 
     case 2:
       { // set original
         coordinate_info_t *info = (coordinate_info_t *)(buffer + 1);
-        motion_msg.cmd_id = SACP_CMD_ID_GLOABL_REQ_SET_ACTIVE_COORDINATE;
-        motion_msg.length = sizeof(coordinate_info_t) * 3 + 1;
         buffer[0] = 3;
         info[0].axis = AXIS_KEY_X1;
         info[0].value = x * 1000;
@@ -737,28 +722,38 @@ void GcodeSuite::M2000() {
         info[1].value = y * 1000;
         info[2].axis = AXIS_KEY_Z1;
         info[2].value = z * 1000;
-        motion_svc.hmi_cb_set_origin(&motion_svc, &motion_msg);
+        host_hmi.test_interface(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_SET_ACTIVE_COORDINATE,
+                                  buffer, sizeof(coordinate_info_t) * 3 + 1);
       }
       break;
 
 
     case 3:
       { // move absolutely
-        moving_command_t *info = (moving_command_t *)(buffer + 1);
-        motion_msg.cmd_id = SACP_CMD_ID_GLOABL_REQ_SET_ACTIVE_COORDINATE;
-        motion_msg.length = sizeof(moving_command_t) * 3 + 1;
+        moving_command_t *move_cmd = (moving_command_t *)buffer;
 
-        buffer[0] = 3;
-        info[0].axis = AXIS_KEY_X1;
-        info[0].position = x * 1000;
-        info[0].feedrate = p * 60;
-        info[1].axis = AXIS_KEY_Y1;
-        info[1].position = y * 1000;
-        info[1].feedrate = p * 60;
-        info[2].axis = AXIS_KEY_Z1;
-        info[2].position = z * 1000;
-        info[2].feedrate = p * 60;
-        motion_svc.hmi_cb_move_absoluty(&motion_svc, &motion_msg);
+        move_cmd->axis_num = 3;
+        move_cmd->position[0].axis = AXIS_KEY_X1;
+        move_cmd->position[0].value = x * 1000;
+        move_cmd->position[1].axis = AXIS_KEY_Y1;
+        move_cmd->position[1].value = y * 1000;
+        move_cmd->position[2].axis = AXIS_KEY_Z1;
+        move_cmd->position[2].value = z * 1000;
+        move_cmd->position[3].axis = AXIS_KEY_A1;
+        move_cmd->position[3].value = i * 1000;
+        move_cmd->position[4].axis = AXIS_KEY_B1;
+        move_cmd->position[4].value = j * 1000;
+        move_cmd->feedrate = p;
+        host_hmi.test_interface(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_SET_ACTIVE_COORDINATE,
+                                  buffer, sizeof(moving_command_t));
+      }
+      break;
+
+    case 4:
+      // request home
+      {
+        buffer[0] = (uint8_t)p;
+        host_hmi.test_interface(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_HOME, buffer, 1);
       }
       break;
 

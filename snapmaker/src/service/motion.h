@@ -68,8 +68,8 @@ enum AxisKey {
 } coordinate_info_t;
 
 typedef struct __packed MovingCommand {
-  uint8_t  axis;
-  int32_t  position;
+  uint8_t  axis_num;
+  coordinate_info_t position[5];
   uint16_t feedrate;
 } moving_command_t;
 
@@ -143,10 +143,10 @@ class MotionService {
 
     // home API
     bool is_all_axes_homed() {return all_axes_homed();}
-    err_code_t home(bool block = true) { return run_gcode((char *)"G28", block); }
-    err_code_t home_x(bool block = true) { return run_gcode((char *)"G28 X", block); }
+    err_code_t home(bool block = true) { return run_gcode((char *)"G28 ", block); }
+    err_code_t home_x(bool block = true) { return run_gcode((char *)"G28 X  ", block); }
     err_code_t home_y(bool block = true) { return run_gcode((char *)"G28 Y", block); }
-    err_code_t home_z(bool block = true) { return run_gcode((char *)"G28 Z", block); }
+    err_code_t home_z(bool block = true) { return run_gcode((char *)"G28 Z ", block); }
     void set_axis_to_homed(AxisEnum axis) { set_axis_homed(axis); }
     float get_home_offset(AxisEnum axis) { return home_offset[axis]; }
 

@@ -202,47 +202,72 @@ enum MotionSACPHomeAxis {
 };
 err_code_t MotionService::hmi_cb_request_home(void *obj, sacp_hmi_message_t *msg) {
   err_code_t ret;
-  char axis[4] = {' ', 'X', 'Y', 'Z'};
-  char gcode_cmd[8];
+  MotionService *motion = (MotionService *)obj;
+  uint8_t home_axis;
 
-  LOG_I("hmi_cb_request_home\n");
+  LOG_I("hmi_cb_request_home[%u]\n", msg->data[0]);
 
-  if (msg->data[0] > SACP_HOME_Z) {
-    LOG_I("invalid home axis\n");
-    msg->data[0] = E_PARAM;
-    return host_hmi.send_ack(msg);
+  home_axis = msg->data[0];
+
+  if (home_axis <= SACP_HOME_Z) {
+    host_hmi.send_ack(msg, E_SUCCESS);
   }
   else {
-    msg->data[0] = E_SUCCESS;
-    host_hmi.send_ack(msg);
+    LOG_I("unknown home axis[%u]\n", msg->data[0]);
+    return host_hmi.send_ack(msg, E_PARAM);
   }
 
   msg->cmd_id = SACP_CMD_ID_GLOABL_REQ_REPORT_HOME_RESULT;
   msg->attr   = 0;
   msg->length = 1;
 
-  snprintf(gcode_cmd, 8, "G28 %c", axis[msg->data[0]]);
+  switch (home_axis) {
+  case SACP_HOME_ALL:
+    ret = motion->home();
+    break;
+
+  case SACP_HOME_X:
+    ret = motion->home_x();
+    break;
+
+  case SACP_HOME_Y:
+    ret = motion->home_y();
+    break;
+
+  case SACP_HOME_Z:
+    ret = motion->home_z();
+    break;
+
+  default:
+    LOG_I("invalid home axis\n");
+    msg->data[0] = E_PARAM;
+    return host_hmi.send_ack(msg);
+  }
+
+  // snprintf(gcode_cmd, 8, "G28 %c", axis[msg->data[0]]);
 
   // for now waiting for 100s
   // ret = motion->run_gcode(gcode_cmd, true, 100 * 1000);
-  parser.parse(gcode_cmd);
-  gcode.process_parsed_command();
-  planner.synchronize();
-  ret = E_SUCCESS;
+  // parser.parse(gcode_cmd);
+  // gcode.process_parsed_command();
+  // planner.synchronize();
+  // ret = E_SUCCESS;
 
   if (ret != E_SUCCESS) {
-    msg->data[0] = 1;
+    ret = 1;
+    msg->data = &ret;
   }
   else {
-    msg->data[0] = 0;
+    msg->data = &ret;
   }
 
-  return host_hmi.send(msg);
-  // if ((ret = host_hmi.send_sync(msg, recv_buff, &recv_len)) != E_SUCCESS) {
-  //   LOG_E("failed to tell screen the home state, ret[%u]\n", ret);
-  // }
+  uint8_t recv_buff[8];
+  uint16_t recv_len = 8;
+  if ((ret = host_hmi.send_sync(msg, recv_buff, &recv_len)) != E_SUCCESS) {
+    LOG_E("failed to tell screen the home state, ret[%u]\n", ret);
+  }
 
-  // return ret;
+  return ret;
 }
 
 

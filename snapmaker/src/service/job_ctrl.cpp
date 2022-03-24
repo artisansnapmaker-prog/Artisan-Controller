@@ -368,7 +368,6 @@ err_code_t JobCtrl::resum_env(void) {
   _env.req_line_num = _env.cur_line_num;
   LOG_I("job_ctrl: req_line_num %d\r\n", _env.req_line_num);
   
-  /*
   LOG_I("job_ctrl: resume coordinate\r\n");
   if (_env.active_coordinate == -1) {
     motion_svc.run_gcode("G53", true);
@@ -381,7 +380,6 @@ err_code_t JobCtrl::resum_env(void) {
   else {
     LOG_E("job_ctrl: Unknow coordinate\r\n");
   }
-  */
 
   LOG_I("job_ctrl: resume relative mode %d\r\n", _env.g0g1_relative_mode);
   motion_svc.set_relative_mode(_env.g0g1_relative_mode);
@@ -455,10 +453,10 @@ err_code_t JobCtrl::machine_standby(void) {
   LOG_I("TODO: fans set to 0 speed\r\n");
   LOG_I("TODO: bed temp set to 0 degree\r\n");
 
-  //motion_svc.run_gcode("G55");
+  motion_svc.run_gcode("G55");
   LOG_I("job_ctrl: Z raise to highest\r\n");
   // motion_svc.run_gcode("G28 Z", true);
-  //motion_svc.run_gcode("G0 Z380", true);
+  motion_svc.run_gcode("G0 Z400 F3000", true);
 
   // X do not need to standby
   // LOG_I("job_ctrl: x move to left\r\n");
@@ -467,7 +465,7 @@ err_code_t JobCtrl::machine_standby(void) {
 
   LOG_I("job_ctrl: y move to head\r\n");
   // motion_svc.run_gcode("G28 Y", true);
-  // motion_svc.run_gcode("G0 Y380", true);
+  motion_svc.run_gcode("G0 Y400 F3000", true);
 
   LOG_I("job_ctrl: machine standby end\r\n");
   return E_SUCCESS;
@@ -588,17 +586,6 @@ void JobCtrl::do_start(struct JobCtrlReqInfo &jri) {
     return;
   }
   DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, SYSTEM_STATUS_STARTING);
-  
-  LOG_I("TODO: homing\r\n");
-  /*
-  if (motion_svc.is_all_axes_homed()) {
-    if(E_SUCCESS != motion_svc.home()) {
-      smprinter.set_sys_status(SYSTEM_STATUS_IDLE, NULL);
-      DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, jri.param, SYSTEM_STATUS_IDLE);
-      return;
-    }
-  }
-  */
 
   _client_id = jri.req_data.req_start_data.client_id;
   _env.type = jri.req_data.req_start_data.th_type;
@@ -788,7 +775,7 @@ bool JobCtrl::consume_a_gcode(uint8_t *cmd, uint16_t max_len, uint32_t *line) {
 
       if (_paused){
         if (!(cur_toolhead = smprinter.get_cur_toolhead())) {
-          LOG_E("job_ctrl: can NOT get toolhead\r\n");
+          // LOG_E("job_ctrl: can NOT get toolhead\r\n");
           _issue_ret_rb.insert_one(SACP_JOB_PAUSE_ISSUE_RET_STALL_PROTECTION);
           req_stop();
           ret = false;

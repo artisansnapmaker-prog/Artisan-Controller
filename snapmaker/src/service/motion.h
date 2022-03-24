@@ -174,6 +174,27 @@ class MotionService {
       current_position = sm_current_position;
       sync_plan_position();
     }
+    float get_max_position(uint8_t axis) {
+      switch (axis) {
+      case X_AXIS:
+        return X_MAX_POS;
+
+      case Y_AXIS:
+        return Y_MAX_POS;
+
+      case Z_AXIS:
+        return Z_MAX_POS;
+
+      case I_AXIS:
+        return I_MAX_POS;
+
+      case J_AXIS:
+        return J_MAX_POS;
+
+      default:
+        return 0;
+      }
+    }
 
     // bed leveling API for internal app
     bool leveling_active() { return planner.leveling_active; }

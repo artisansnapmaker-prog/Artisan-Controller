@@ -453,10 +453,14 @@ err_code_t JobCtrl::machine_standby(void) {
   LOG_I("TODO: fans set to 0 speed\r\n");
   LOG_I("TODO: bed temp set to 0 degree\r\n");
 
-  motion_svc.run_gcode("G55");
+  // motion_svc.run_gcode("G55");
   LOG_I("job_ctrl: Z raise to highest\r\n");
   // motion_svc.run_gcode("G28 Z", true);
-  motion_svc.run_gcode("G0 Z400 F3000", true);
+  // motion_svc.run_gcode("G0 Z400 F3000", true);
+  motion_svc.update_position_from_platform();
+  xyze_pos_t t_pos =  motion_svc.sm_current_position;
+  t_pos.z = motion_svc.get_max_position(Z_AXIS);
+  motion_svc.moveto(t_pos, 30, true);
 
   // X do not need to standby
   // LOG_I("job_ctrl: x move to left\r\n");
@@ -465,7 +469,11 @@ err_code_t JobCtrl::machine_standby(void) {
 
   LOG_I("job_ctrl: y move to head\r\n");
   // motion_svc.run_gcode("G28 Y", true);
-  motion_svc.run_gcode("G0 Y400 F3000", true);
+  // motion_svc.run_gcode("G0 Y400 F3000", true);
+  motion_svc.update_position_from_platform();
+  t_pos = motion_svc.sm_current_position;
+  t_pos.y = motion_svc.get_max_position(Y_AXIS);
+  motion_svc.moveto(t_pos, 30, true);
 
   LOG_I("job_ctrl: machine standby end\r\n");
   return E_SUCCESS;

@@ -707,10 +707,10 @@ err_code_t BedLevelService::start_auto_bed_leveling(uint8_t grids) {
   // save z_values
   motion_svc.save_settings();
 
-  motion_svc.enable_leveling();
   motion_svc.update_position_from_platform();
   motion_svc.moveto_z(motion_svc.sm_current_position[Z_AXIS] + 100, 50);
   motion_svc.synchronize_planner();
+  motion_svc.enable_leveling();
 
   return E_SUCCESS;
 }

@@ -328,13 +328,13 @@ static err_code_t hmi_req_callback_probe_sensor_calibration(void *obj, sacp_hmi_
   }
 
   motion_svc.disable_leveling();
-  motion_svc.get_leveling_first_point_position(x, y);
-  motion_svc.moveto_xy(x, y, 60);
-  motion_svc.moveto_z(20, 30);
 
   switch (action) {
     case 0:
       LOG_I("probe sensor calibration left extruder auto detect\n");
+      motion_svc.get_leveling_first_point_position(x, y);
+      motion_svc.moveto_xy(x, y, 60);
+      motion_svc.moveto_z(20, 30);
       motion_svc.enable_z_probe();
       smprinter.fdm->tool_change(0, false);
       smprinter.fdm->set_probe_sensor(PROBE_SENSOR_LEFT_OPTOCOUPLER);
@@ -352,12 +352,11 @@ static err_code_t hmi_req_callback_probe_sensor_calibration(void *obj, sacp_hmi_
     case 2:
       LOG_I("probe sensor calibration right extruder manual detect\n");
       motion_svc.disable_z_probe();
-      smprinter.fdm->tool_change(1, false);
+      // smprinter.fdm->tool_change(1, false);
       break;
     case 3:
       LOG_I("probe sensor calibration left extruder manual detect\n");
       bedlevel.hotend_touch_bed_z_[1] = motion_svc.get_current_position(Z_AXIS);
-      LOG_I("hotend_touch_bed_z%d: %f\n", 1, bedlevel.hotend_touch_bed_z_[1]);
       motion_svc.disable_z_probe();
       smprinter.fdm->tool_change(0, false);
       break;

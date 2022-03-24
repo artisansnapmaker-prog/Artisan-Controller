@@ -168,7 +168,7 @@ class MotionService {
     }
     float get_current_position(uint8_t axis) {
       update_position_from_platform();
-      return sm_current_position[axis];
+      return current_position[axis];
     }
     void sync_plan_position_to_platform() {
       current_position = sm_current_position;

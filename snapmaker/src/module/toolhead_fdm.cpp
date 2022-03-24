@@ -1157,6 +1157,7 @@ err_code_t ToolHeadFDM::tool_change(uint8_t new_tool, bool z_compensation/*=true
     }
 
     extruder_status_check_ctrl(EXTRUDER_STATUS_IDLE);
+    motion_svc.update_position_from_platform();
     motion_svc.sm_destination_position[X_AXIS] = motion_svc.sm_current_position[X_AXIS];
     motion_svc.sm_destination_position[Y_AXIS] = motion_svc.sm_current_position[Y_AXIS];
     motion_svc.sm_destination_position[Z_AXIS] = motion_svc.sm_current_position[Z_AXIS];

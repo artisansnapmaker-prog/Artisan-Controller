@@ -277,8 +277,21 @@ void MotionService::motion_background(void *p) {
   for (;;) {
     host_hmi.handle_events();
     loop();
+
+    // check if I need to pause to let other thread to use motion resourse
     while (uxSemaphoreGetCount(motion.marlin_signal) > 0) {
+      if (!motion.marlin_paused) {
+        LOG_I("Marlin PAUSED!!!\n");
+      }
+      // tell other thread I have paused
+      // then they can use motion resource safely
       motion.marlin_paused = true;
+      // release CPU for other thread
+      taskYIELD();
+    }
+
+    if (motion.marlin_paused) {
+      LOG_I("Marlin RESUME!!!\n");
     }
     motion.marlin_paused = false;
     taskYIELD();
@@ -617,14 +630,16 @@ err_code_t MotionService::run_gcode(char *gcode_cmd, bool blocked /* = false*/,
   parser.parse((char *)gcode_cmd);
   gcode.process_parsed_command();
 
-  // for now just blocked with moving
+  // block with moving or heating
   if (blocked) {
-    // wait firsly 100ms to make marlin get the gcode
-    vTaskDelay(pdMS_TO_TICKS(100));
+    blocked_timeout = millis() + blocked_timeout;
     while (planner.busy()) {
-      vTaskDelay(pdMS_TO_TICKS(10));
-      if (blocked_timeout > 10) {
-        blocked_timeout -= 10;
+      if (PENDING((millis()), blocked_timeout)) {
+        // because now marlin has been paused or have no opportunity to run
+        // so we need to run idle() to make sure marlin system be normal
+        idle();
+        // release CPU for other threads
+        taskYIELD();
       }
       else {
         ret = E_TIMEOUT;

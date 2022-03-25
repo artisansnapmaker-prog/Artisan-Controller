@@ -121,6 +121,7 @@ err_code_t LinearVirtual::hmi_cb_set_endstop(void *obj, sacp_hmi_message_t *mess
     return host_hmi.send_ack(message, E_PARAM);
   }
 
+  LOG_I("hmi_cb_set_endstop[%u]\n", message->data[0]);
   motion_svc.set_endstop(message->data[0]);
 
   return host_hmi.send_ack(message, E_SUCCESS);

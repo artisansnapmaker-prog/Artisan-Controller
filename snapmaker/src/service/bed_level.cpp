@@ -319,6 +319,7 @@ static err_code_t hmi_req_callback_probe_sensor_calibration(void *obj, sacp_hmi_
   float x, y;
 
   LOG_I("hmi request probe sensor calibration\n");
+  motion_svc.get_leveling_first_point_position(x, y);
 
   if (bedlevel.get_bedlevel_mode() != BEDLEVEL_MODE_PROBE_SENSOR_CALIBRATE) {
     ret = E_FAILURE;
@@ -339,7 +340,6 @@ static err_code_t hmi_req_callback_probe_sensor_calibration(void *obj, sacp_hmi_
   switch (action) {
     case 0:
       LOG_I("probe sensor calibration left extruder auto detect\n");
-      motion_svc.get_leveling_first_point_position(x, y);
       motion_svc.moveto_xy(x, y, 60);
       motion_svc.moveto_z(20, 30);
       motion_svc.enable_z_probe();
@@ -369,7 +369,6 @@ static err_code_t hmi_req_callback_probe_sensor_calibration(void *obj, sacp_hmi_
       break;
     default:
       ret = E_FAILURE;
-      goto EXIT;
       break;
   }
 

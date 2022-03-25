@@ -163,7 +163,7 @@ err_code_t ToolHeadLaser::hmi_cb_get_info(void *obj, sacp_hmi_message_t *message
   info->key = laser.get_key();
   info->status = laser.get_status();
   // TODO: if
-  info->focal_length = (int32_t)(laser.focal_length * 1000);
+  info->focal_length = (int32_t)(laser.focal_length);
   info->target_power = (int32_t)(laser.power_current * 1000);
   if (laser.power_pwm)
     info->current_power = (int32_t)(laser.power_current * 1000);

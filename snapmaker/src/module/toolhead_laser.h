@@ -249,7 +249,7 @@ class ToolHeadLaser: public ModuleBase {
     uint16_t master_switch_tick;
     uint16_t msg_id_ctrl_switch;
 
-    uint16_t focal_length = LASER_CAMERA_FOCUS_MAX / 1000;
+    uint16_t focal_length = LASER_CAMERA_FOCUS_MAX;
 
     LaserSafetyState safety_state;
     int16_t roll;

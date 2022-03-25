@@ -167,6 +167,7 @@ class JobCtrl {
     uint32_t get_time_elaps(void) { return _env.time_elape; }
     void statistics_log_set(uint32_t interval_ms) { _statistics_log_interval_ms = interval_ms; };
     void statistics_output(void);
+    void stepper_quickstop_cb(void);
 
     // gcode
     bool consume_a_gcode(uint8_t *cmd, uint16_t max_len, uint32_t *line);

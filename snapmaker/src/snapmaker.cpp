@@ -451,10 +451,6 @@ void SnapmakerPrinter::post_init() {
   sys_status = SYSTEM_STATUS_IDLE;
   status_lock = xSemaphoreCreateMutex();
   configASSERT(status_lock);
-
-  quickstop_binary_sem = xSemaphoreCreateBinary();
-  configASSERT(quickstop_binary_sem);
-
   vTaskStartScheduler();
 }
 
@@ -895,14 +891,6 @@ err_code_t SnapmakerPrinter::set_sys_status(enum SystemStatus req_status, enum S
 void SnapmakerPrinter::show_sys_info() {
   LOG_I("sys state: %u\n", sys_status);
   motion_svc.show_coordiantes();
-}
-
-err_code_t SnapmakerPrinter::take_motion_platform_quickstop_sem(uint32_t wait_time) {
-  return pdTRUE == xSemaphoreTake(quickstop_binary_sem, wait_time) ? E_SUCCESS : E_FAILURE;
-}
-
-err_code_t SnapmakerPrinter::give_motion_platform_quickstop_sem(void) {
-  return pdTRUE == xSemaphoreGive(quickstop_binary_sem) ? E_SUCCESS : E_FAILURE;
 }
 
 extern "C" {

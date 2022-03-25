@@ -358,6 +358,10 @@ void MotionService::init() {
 
   marlin_signal = xSemaphoreCreateCounting(65536, 0);
   configASSERT(marlin_signal);
+  quickstop_in_stepper_binary_sem = xSemaphoreCreateBinary();
+  configASSERT(quickstop_in_stepper_binary_sem);
+  quickstop_binary_sem = xSemaphoreCreateBinary();
+  configASSERT(quickstop_binary_sem);
   marlin_paused = false;
 }
 
@@ -459,7 +463,7 @@ void MotionService::req_quickstop(void) {
 
   // wait for the current request finish
   // LOG_I("wait for the quickstop finish\r\n");
-  smprinter.take_motion_platform_quickstop_sem(0xffffffff);
+  take_quickstop_sem(0xffffffff);
 }
 
 void MotionService::normalstop(void) {
@@ -478,6 +482,33 @@ void MotionService::normalstop(void) {
   // will not get gcode from job control's ringbuffer. So marlin
   // or other platform will runout the planed block.
   while(planner.busy()) vTaskDelay(1);
+}
+
+err_code_t MotionService::take_quickstop_sem(uint32_t wait_time) {
+  return pdTRUE == xSemaphoreTake(quickstop_binary_sem, wait_time) ? E_SUCCESS : E_FAILURE;
+}
+
+err_code_t MotionService::give_quickstop_sem(void) {
+  return pdTRUE == xSemaphoreGive(quickstop_binary_sem) ? E_SUCCESS : E_FAILURE;
+}
+
+void MotionService::stepper_quickstop_sem_clear(void) {
+  while(pdTRUE == xSemaphoreTake(quickstop_in_stepper_binary_sem, 0));
+}
+
+void MotionService::stepper_quickstop_finish(void) {
+  static BaseType_t xHigherPriorityTaskWoken;
+  xHigherPriorityTaskWoken = pdTRUE;
+  xSemaphoreGiveFromISR(quickstop_in_stepper_binary_sem, &xHigherPriorityTaskWoken);
+}
+
+void MotionService::stepper_quickstop_wait(void) {
+  xSemaphoreTake(quickstop_in_stepper_binary_sem, 0xFFFFFFFF);
+}
+
+void MotionService::stepper_quickstop_cb(void) {
+  // Call from stepper ISR
+  job_ctrl_svc.stepper_quickstop_cb();
 }
 
 float MotionService::get_feedrate(void) {

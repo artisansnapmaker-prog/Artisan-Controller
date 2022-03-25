@@ -270,9 +270,6 @@ class SnapmakerPrinter
 
     void show_sys_info();
 
-    err_code_t take_motion_platform_quickstop_sem(uint32_t wait_time);
-    err_code_t give_motion_platform_quickstop_sem(void);
-
   private:
     enum SystemStatus sys_status;
     SemaphoreHandle_t status_lock;
@@ -289,8 +286,6 @@ class SnapmakerPrinter
     // toolhead fdm 1e
     // toolhead laser 1.6w
     // toolhead laser 10w
-
-    SemaphoreHandle_t quickstop_binary_sem;
 };
 
 extern SnapmakerPrinter smprinter;

@@ -1662,7 +1662,7 @@ void loop() {
     if (req_motion_platform_quickstop) {
       req_motion_platform_quickstop = false;
       queue.clear();
-      smprinter.give_motion_platform_quickstop_sem();
+      motion_svc.give_quickstop_sem();
     }
     #endif
 

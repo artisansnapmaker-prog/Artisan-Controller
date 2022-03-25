@@ -566,6 +566,29 @@ void JobCtrl::statistics_output(void) {
   LOG_I("================ job control end ================\r\n");
 }
 
+void JobCtrl::stepper_quickstop_cb(void) {
+  ModuleBase *cur_toolhead;
+  
+  // Call from stepper ISR
+  SystemStatus s = smprinter.get_sys_status();
+  if (SYSTEM_STATUS_PAUSING != s &&
+      SYSTEM_STATUS_STOPING != s &&
+      SYSTEM_STATUS_XY_CALIBRATING_PRINTING != s) {
+    return;
+  }
+
+  // Just do it for laster quickstop
+  if (TH_TYPE_LASER != smprinter.get_toolhead_type()) {
+    return;
+  }
+
+  if (!(cur_toolhead = smprinter.get_cur_toolhead())) {
+    return;
+  }
+
+  cur_toolhead->quickstop();
+}
+
 void JobCtrl::do_start(struct JobCtrlReqInfo &jri) {
   enum SystemStatus ret_sys_status;
 
@@ -626,7 +649,6 @@ void JobCtrl::do_pause(struct JobCtrlReqInfo &jri) {
   }
   DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, SYSTEM_STATUS_PAUSING);
 
-  start_millis = millis();
   switch (jri.req_data.req_pause_data.type) {
     case PAUSE_CLIENT_REQ:
       motion_svc.req_quickstop();
@@ -730,7 +752,6 @@ void JobCtrl::do_stop(struct JobCtrlReqInfo &jri) {
     DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, SYSTEM_STATUS_STOPING);
   }
 
-  // motion_svc.normalstop();
   motion_svc.req_quickstop();
   if (E_SUCCESS != machine_standby()) {
     LOG_E("job ctrl: machine standby failure\r\n");

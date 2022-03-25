@@ -81,11 +81,8 @@ typedef struct __packed MovingCommand {
 class MotionService {
   public:
     MotionService() {}
-
     void init();
-
     void pins_post_init();
-
     err_code_t pause_marlin(uint32_t timeout = 180 * 1000);
     err_code_t resume_marlin();
 
@@ -140,6 +137,13 @@ class MotionService {
 
     void req_quickstop(void);
     void normalstop(void);
+    // This api use for wait planner quickstop
+    err_code_t take_quickstop_sem(uint32_t wait_time);
+    err_code_t give_quickstop_sem(void);
+    void stepper_quickstop_sem_clear(void);
+    void stepper_quickstop_finish(void);
+    void stepper_quickstop_wait(void);
+    void stepper_quickstop_cb(void);
 
     // home API
     bool is_all_axes_homed() {return all_axes_homed();}
@@ -261,10 +265,13 @@ class MotionService {
 
     void show_coordiantes();
 
+
   private:
     MessageBufferHandle_t gcode_queue;
     xSemaphoreHandle marlin_signal;
     bool marlin_paused;
+    SemaphoreHandle_t quickstop_in_stepper_binary_sem;
+    SemaphoreHandle_t quickstop_binary_sem;
 };
 
 

@@ -239,6 +239,7 @@ class ToolHeadLaser: public ModuleBase {
 
     uint32_t next_ms;
     uint32_t output_pin;
+    int      pwm_index;
 
     uint8_t  fan_state = LASER_FAN_STATE_CLOSED;
     uint16_t fan_tick;

@@ -6,7 +6,7 @@
 #include "../snapmaker.h"
 #include "../service/module.h"
 #include "../service/motion.h"
-
+#include "../HAL/pwm.h"
 #include "Arduino.h"
 
 // 2s
@@ -15,6 +15,7 @@
 // 5 min
 #define FAN_TURN_OFF_DELAY            (5 * 600)
 
+#define USE_MARLIN_PWM 0
 
 // P1/2/3 step timer channel in GD32F407
 // P1 step, PE14: T0 CH3
@@ -522,9 +523,14 @@ err_code_t laser_routine(void *obj) {
       laser.pwm_normal = true;
 
     if (laser.pwm_normal) {
+      #if USE_MARLIN_PWM
       pinMode(laser.output_pin, OUTPUT);
       set_pwm_duty(laser.output_pin, 0, 255, true);
       set_pwm_frequency(laser.output_pin, 250);
+      #else
+      laser.pwm_index =  pwm_controller.init_pin(laser.output_pin, 0, 255, true);
+      pwm_controller.set_frequency(laser.pwm_index, 250);
+      #endif
       laser.set_output(0);
       laser.set_status(MODULE_STATUS_NORMAL);
     }
@@ -625,8 +631,11 @@ err_code_t ToolHeadLaser::update_output(uint16_t new_power_pwm) {
 
   check_fan(new_power_pwm);
   check_master_switch(new_power_pwm);
+#if USE_MARLIN_PWM
   set_pwm_duty(output_pin, new_power_pwm, 255, true);
-
+#else
+  pwm_controller.set_duty(pwm_index, new_power_pwm);
+#endif
   if (new_power_pwm > 0) {
     tube_status = LASER_TUBE_STA_ON;
   }
@@ -795,9 +804,14 @@ err_code_t ToolHeadLaser::post_init() {
   setup_camera_port(PORT_INDEX_P1);
 
   if (pwm_normal) {
+    #if USE_MARLIN_PWM
     pinMode(output_pin, OUTPUT);
     set_pwm_duty(output_pin, 0, 255, true);
     set_pwm_frequency(output_pin, 250);
+    #else
+    pwm_index = pwm_controller.init_pin(output_pin, 0, 255, true);
+    pwm_controller.set_frequency(pwm_index, 250);
+    #endif
     set_output(0);
     // for now default value is normal
     set_status(MODULE_STATUS_NORMAL);

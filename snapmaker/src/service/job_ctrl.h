@@ -190,7 +190,6 @@ class JobCtrl {
     err_code_t save_env(void);                                  /** save current job enviroment                                           */
     err_code_t resum_env(void);                                 /** resume saved enviroment to job                                        */
     err_code_t machine_standby(void);                           /** set the machine in standby status                                     */
-    void notify();                                              /** notify the client about job status                                    */
     void issue_nodify(uint8_t issue_ret);
     void get_gcodes_from_client(void);
 

@@ -457,18 +457,11 @@ void MotionService::req_quickstop(void) {
   req_motion_platform_quickstop = true;
   res_motion_platform_quickstop = false;
 
+  quickstop_stepper();
+
   // wait for the current request finish
   LOG_I("wait for the quickstop finish\r\n");
   while(!res_motion_platform_quickstop) vTaskDelay(pdMS_TO_TICKS(5));
-}
-
-void MotionService::do_quickstop(void) {
-  //planner.quick_stop();
-  //planner.synchronize();
-  //while(planner.busy());
-  //set_current_from_steppers_for_axis(ALL_AXES_ENUM);
-  //sync_plan_position();
-  quickstop_stepper();
 }
 
 void MotionService::normalstop(void) {

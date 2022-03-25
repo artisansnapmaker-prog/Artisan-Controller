@@ -481,10 +481,6 @@ err_code_t JobCtrl::machine_standby(void) {
   return E_SUCCESS;
 }
 
-void JobCtrl::notify() {
-
-}
-
 void JobCtrl::get_gcodes_from_client(void) {
   req_batch_gcode_t req_batch_gcode;
   res_batch_gcode_t res_batch_gcode;

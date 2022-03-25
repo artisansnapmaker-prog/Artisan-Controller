@@ -400,6 +400,8 @@ err_code_t JobCtrl::resum_env(void) {
 
 err_code_t JobCtrl::machine_standby(void) {
   ModuleBase *cur_toolhead;
+  xyze_pos_t t_pos;
+
   LOG_I("%d job_ctrl: machine standby begin\r\n", millis());
 
   LOG_I("job_ctrl: get current toolhead pointer\r\n");
@@ -448,12 +450,17 @@ err_code_t JobCtrl::machine_standby(void) {
   LOG_I("TODO: fans set to 0 speed\r\n");
   LOG_I("TODO: bed temp set to 0 degree\r\n");
 
+  motion_svc.update_position_from_platform();
+  t_pos =  motion_svc.sm_current_position;
+  t_pos.e -= 10;
+  motion_svc.moveto(t_pos, 10, true);
+
   // motion_svc.run_gcode("G55");
   LOG_I("job_ctrl: Z raise to highest\r\n");
   // motion_svc.run_gcode("G28 Z", true);
   // motion_svc.run_gcode("G0 Z400 F3000", true);
   motion_svc.update_position_from_platform();
-  xyze_pos_t t_pos =  motion_svc.sm_current_position;
+  t_pos =  motion_svc.sm_current_position;
   t_pos.z = motion_svc.get_max_position(Z_AXIS);
   motion_svc.moveto(t_pos, 30, true);
 

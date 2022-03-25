@@ -1659,11 +1659,10 @@ void loop() {
 
     #if MB_SNAPMAKER
     extern bool req_motion_platform_quickstop;
-    extern bool res_motion_platform_quickstop;
     if (req_motion_platform_quickstop) {
       req_motion_platform_quickstop = false;
       queue.clear();
-      res_motion_platform_quickstop = true;
+      smprinter.give_motion_platform_quickstop_sem();
     }
     #endif
 

@@ -31,7 +31,6 @@ struct __packed CoordinateSystemInformation {
 
 // use to request quickstop
 bool req_motion_platform_quickstop = false;
-bool res_motion_platform_quickstop = false;
 
 uint16_t MotionService::hmi_cb_publish_coordinate_info(void *obj, uint8_t *buffer) {
   MotionService *motion = (MotionService *)obj;
@@ -148,13 +147,12 @@ err_code_t MotionService::hmi_cb_move_absoluty(void *obj, sacp_hmi_message_t *ms
   MotionService *motion = (MotionService *)obj;
 
   uint8_t number = msg->data[0];
-  uint16_t *p_u16;
   coordinate_info_t *move_cmd = (coordinate_info_t *)(msg->data + 1);
 
   motion->update_position_from_platform();
 
   xyze_float_t dest = motion->sm_current_position;
-  float feedrate;
+  uint16_t feedrate;
 
   for (int i = 0; i < number; i++) {
     switch (move_cmd[i].axis) {
@@ -184,18 +182,21 @@ err_code_t MotionService::hmi_cb_move_absoluty(void *obj, sacp_hmi_message_t *ms
     }
   }
 
-  p_u16 = (uint16_t *)(msg->data + 1 + sizeof(coordinate_info_t) * number);
-  // LOG_I("recv fr: %u, axes num: %u\n", *p_u16, number);
-  if (*p_u16 > 0) {
-    feedrate = (*p_u16 / 60.0);
+  feedrate = *(uint16_t *)(msg->data + 1 + sizeof(coordinate_info_t) * number);
+  if (feedrate) {
+    feedrate = (feedrate / 60.0);
   }
   else {
     feedrate = feedrate_mm_s;
   }
 
-  LOG_I("move to X%.3f, Y%.3f, Z%.3f, A%.3f, B%.3f, fr: %.3f\n", dest.x, dest.y, dest.z, dest.i, dest.j, feedrate);
+  LOG_I("move to X%.3f, Y%.3f, Z%.3f, A%.3f, B%.3f, fr: %u\n", dest.x, dest.y, dest.z, dest.i, dest.j, feedrate);
 
-  motion->moveto(dest, feedrate);
+  // parser.parse((char *)"G90 ");
+  // gcode.process_parsed_command();
+  motion->run_gcode((char *)"G90 ");
+
+  motion->moveto(dest, (float)feedrate);
 
   return host_hmi.send_ack(msg, E_SUCCESS);
 }
@@ -450,16 +451,15 @@ void MotionService::req_quickstop(void) {
 
   // There is a race condition that must be handled: the marlin thread and the caller thread
   // wait for the last request finish
-  LOG_I("wait for the last request finish\r\n");
-  while(req_motion_platform_quickstop) vTaskDelay(pdMS_TO_TICKS(5));
+  // LOG_I("wait for the last request finish\r\n");
+  while(req_motion_platform_quickstop) vTaskDelay(5);
   req_motion_platform_quickstop = true;
-  res_motion_platform_quickstop = false;
 
   quickstop_stepper();
 
   // wait for the current request finish
-  LOG_I("wait for the quickstop finish\r\n");
-  while(!res_motion_platform_quickstop) vTaskDelay(pdMS_TO_TICKS(5));
+  // LOG_I("wait for the quickstop finish\r\n");
+  smprinter.take_motion_platform_quickstop_sem(0xffffffff);
 }
 
 void MotionService::normalstop(void) {
@@ -507,13 +507,7 @@ bool MotionService::get_relative_mode(void) {
 }
 
 void MotionService::set_relative_mode(bool rm) {
-  err_code_t ret;
-  ret = pause_marlin();
-
   relative_mode = rm;
-
-  if (ret == E_SUCCESS)
-    resume_marlin();
 }
 
 uint16_t MotionService::get_bet_temp(void) {

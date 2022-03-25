@@ -268,13 +268,11 @@ void JobCtrl::print_job_env(struct JobEnv *env) {
 err_code_t JobCtrl::save_env(void) {
   ModuleBase *cur_toolhead;
 
-  LOG_I("job_ctrl: get current_toolhead\r\n");
   if (!(cur_toolhead = smprinter.get_cur_toolhead())) {
     LOG_E("job_ctrl: Can not get toolhead\r\n");
     return E_JOB_SAVE_ENV_FAILURE;
   }
 
-  LOG_I("TODO: job_ctrl: current toolhead save env\r\n");
   if (TH_TYPE_3DP != smprinter.get_toolhead_type()) {
     // TODO: no do save_env for 3dp toolhead as 3dp toolhead save_env has bugs.
     _env.toolhead_env_buf_size = MODULE_ENV_MAX_SIZE;
@@ -302,14 +300,14 @@ err_code_t JobCtrl::save_env(void) {
   }    
   _env.active_coordinate = motion_svc.get_active_coordinate_system();
   _env.cur_line_num = smprinter.gcode_file_position;
-  LOG_I("job_ctrl: cur_line_num %d\r\n", _env.cur_line_num);
   _env.print_feadrate = motion_svc.get_feedrate();
   _env.travel_feadrate = motion_svc.get_travl_feedrate();
   _env.g0g1_relative_mode = motion_svc.get_relative_mode();
   for(uint32_t i = 0; i < AXIS_NUM; i++)
     _env.current_pos[i] = motion_svc.get_current_position(i);
   
-  print_job_env(&_env);
+  // LOG_I("job_ctrl: cur_line_num %d\r\n", _env.cur_line_num);
+  // print_job_env(&_env);
   return E_SUCCESS;
 }
 
@@ -366,20 +364,20 @@ err_code_t JobCtrl::resum_env(void) {
     }
 
     // wait for the hotend temperature
-    {
-      uint32_t last_ms = millis();
-      while(1) {
-        if (time_after(millis(), last_ms + 1000)) {
-          last_ms = millis();
-          LOG_I("job_ctrl: wait for hot-end heat up to target temperature\r\n");
-        }
-        // TODO: get the current hotend
-        if (thermalManager.degHotend(0) > 0.0 && thermalManager.degTargetHotend(0) < thermalManager.degHotend(0)) {
-          continue;
-        }
-        break;
-      }
-    }
+    // {
+    //   uint32_t last_ms = millis();
+    //   while(1) {
+    //     if (time_after(millis(), last_ms + 1000)) {
+    //       last_ms = millis();
+    //       LOG_I("job_ctrl: wait for hot-end heat up to target temperature\r\n");
+    //     }
+    //     // TODO: get the current hotend
+    //     if (thermalManager.degHotend(0) > 0.0 && thermalManager.degTargetHotend(0) < thermalManager.degHotend(0)) {
+    //       continue;
+    //     }
+    //     break;
+    //   }
+    // }
   }
 
   _env.req_line_num = _env.cur_line_num;
@@ -407,8 +405,7 @@ err_code_t JobCtrl::machine_standby(void) {
   ModuleBase *cur_toolhead;
   xyze_pos_t t_pos;
 
-  LOG_I("%d job_ctrl: machine standby begin\r\n", millis());
-
+  // LOG_I("%d job_ctrl: machine standby begin\r\n", millis());
   if (!(cur_toolhead = smprinter.get_cur_toolhead())) {
     LOG_E("job_ctrl: can not get toolhead\r\n");
     return E_JOB_RESUME_ENV_FAILURE;
@@ -446,19 +443,19 @@ err_code_t JobCtrl::machine_standby(void) {
     break;
   }
 
-  LOG_I("job_ctrl: Z raise to highest\r\n");
+  // LOG_I("job_ctrl: Z raise to highest\r\n");
   motion_svc.update_position_from_platform();
   t_pos =  motion_svc.sm_current_position;
   t_pos.z = motion_svc.get_max_position(Z_AXIS);
   motion_svc.moveto(t_pos, RESUME_Z_FEEDRATE, true);
 
-  LOG_I("job_ctrl: y move to fronthead\r\n");
+  // LOG_I("job_ctrl: y move to fronthead\r\n");
   motion_svc.update_position_from_platform();
   t_pos = motion_svc.sm_current_position;
   t_pos.y = motion_svc.get_max_position(Y_AXIS);
   motion_svc.moveto(t_pos, RESUME_XY_FEEDRATE, true);
 
-  LOG_I("job_ctrl: machine standby end\r\n");
+  // LOG_I("job_ctrl: machine standby end\r\n");
   return E_SUCCESS;
 }
 
@@ -620,6 +617,7 @@ void JobCtrl::do_start(struct JobCtrlReqInfo &jri) {
 
 void JobCtrl::do_pause(struct JobCtrlReqInfo &jri) {
   enum SystemStatus ret_sys_status;
+  uint32_t start_millis, end_millis;
 
   if (E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_PAUSING, &ret_sys_status)) {
     LOG_E("job ctrl: can not to enter SYS_PAUSEING status\r\n");
@@ -628,6 +626,7 @@ void JobCtrl::do_pause(struct JobCtrlReqInfo &jri) {
   }
   DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, SYSTEM_STATUS_PAUSING);
 
+  start_millis = millis();
   switch (jri.req_data.req_pause_data.type) {
     case PAUSE_CLIENT_REQ:
       motion_svc.req_quickstop();
@@ -656,13 +655,18 @@ void JobCtrl::do_pause(struct JobCtrlReqInfo &jri) {
       return;
     break;
   }
-  LOG_I("%d after quickstop\r\n", millis());
+  // LOG_I("%d after quickstop\r\n", millis());
 
   if (E_SUCCESS != save_env()) {
     smprinter.set_sys_status(SYSTEM_STATUS_IDLE, &ret_sys_status);
     DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, ret_sys_status);
     return;
   }
+  end_millis = millis();
+  LOG_I("quick stop to standby take %d milliseconds\r\n", 
+      end_millis >= start_millis? 
+      end_millis - start_millis : 
+      ((int)end_millis - (int)start_millis));
 
   if (E_SUCCESS != machine_standby()) {
     smprinter.set_sys_status(SYSTEM_STATUS_IDLE, &ret_sys_status);

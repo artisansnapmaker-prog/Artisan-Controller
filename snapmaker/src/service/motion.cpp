@@ -148,12 +148,13 @@ err_code_t MotionService::hmi_cb_move_absoluty(void *obj, sacp_hmi_message_t *ms
   MotionService *motion = (MotionService *)obj;
 
   uint8_t number = msg->data[0];
+  uint16_t *p_u16;
   coordinate_info_t *move_cmd = (coordinate_info_t *)(msg->data + 1);
 
   motion->update_position_from_platform();
 
   xyze_float_t dest = motion->sm_current_position;
-  uint16_t feedrate;
+  float feedrate;
 
   for (int i = 0; i < number; i++) {
     switch (move_cmd[i].axis) {
@@ -183,21 +184,18 @@ err_code_t MotionService::hmi_cb_move_absoluty(void *obj, sacp_hmi_message_t *ms
     }
   }
 
-  feedrate = *(uint16_t *)(msg->data + 1 + sizeof(coordinate_info_t) * number);
-  if (feedrate) {
-    feedrate = (feedrate / 60.0);
+  p_u16 = (uint16_t *)(msg->data + 1 + sizeof(coordinate_info_t) * number);
+  // LOG_I("recv fr: %u, axes num: %u\n", *p_u16, number);
+  if (*p_u16 > 0) {
+    feedrate = (*p_u16 / 60.0);
   }
   else {
     feedrate = feedrate_mm_s;
   }
 
-  LOG_I("move to X%.3f, Y%.3f, Z%.3f, A%.3f, B%.3f, fr: %u\n", dest.x, dest.y, dest.z, dest.i, dest.j, feedrate);
+  LOG_I("move to X%.3f, Y%.3f, Z%.3f, A%.3f, B%.3f, fr: %.3f\n", dest.x, dest.y, dest.z, dest.i, dest.j, feedrate);
 
-  // parser.parse((char *)"G90 ");
-  // gcode.process_parsed_command();
-  motion->run_gcode((char *)"G90 ");
-
-  motion->moveto(dest, (float)feedrate);
+  motion->moveto(dest, feedrate);
 
   return host_hmi.send_ack(msg, E_SUCCESS);
 }
@@ -509,7 +507,13 @@ bool MotionService::get_relative_mode(void) {
 }
 
 void MotionService::set_relative_mode(bool rm) {
+  err_code_t ret;
+  ret = pause_marlin();
+
   relative_mode = rm;
+
+  if (ret == E_SUCCESS)
+    resume_marlin();
 }
 
 uint16_t MotionService::get_bet_temp(void) {

@@ -99,7 +99,7 @@ void JobCtrl::background_thread(void *p) {
   
   // make sure send starting ACK before get gcodes
   SystemStatus s = smprinter.get_sys_status();
-  if (SYSTEM_STATUS_PRINTING == s &&
+  if (SYSTEM_STATUS_PRINTING == s ||
       SYSTEM_STATUS_XY_CALIBRATING_PRINTING == s) {
     keep_printing_cnt++;
     if (keep_printing_cnt >= 3) {

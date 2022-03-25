@@ -36,8 +36,9 @@ GCodeQueue queue;
 #include "../module/temperature.h"
 #include "../MarlinCore.h"
 #include "../core/bug_on.h"
-// Add by snapmaker 747
+#if MB_SNAPMAKER
 #include "../../snapmaker/src/snapmaker.h"
+#endif
 
 
 #if ENABLED(PRINTER_EVENT_LEDS)
@@ -545,7 +546,7 @@ void GCodeQueue::get_serial_commands() {
   } // queue has space, serial has data
 }
 
-// Add by snapmaker 747
+#if MB_SNAPMAKER
 void GCodeQueue::get_snapmaker_commands() {
   uint32_t lines;
 
@@ -560,8 +561,8 @@ void GCodeQueue::get_snapmaker_commands() {
     ring_buffer.commands[ring_buffer.index_w].skip_ok = true;
     ring_buffer.advance_pos(ring_buffer.index_w, 1);
   }
-  
 }
+#endif
 
 #if ENABLED(SDSUPPORT)
 
@@ -629,8 +630,9 @@ void GCodeQueue::get_available_commands() {
 
   get_serial_commands();
 
-  // Add by snapmaker 747
+  #if MB_SNAPMAKER
   get_snapmaker_commands();
+  #endif
 
   TERN_(SDSUPPORT, get_sdcard_commands());
 }

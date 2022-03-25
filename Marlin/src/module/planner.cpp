@@ -1676,9 +1676,7 @@ void Planner::quick_stop() {
   #endif
 
   // Make sure to drop any attempt of queuing moves for 1 second
-  // cleaning_buffer_counter = TEMP_TIMER_FREQUENCY;
-  // Change by 747
-  cleaning_buffer_counter = TEMP_TIMER_FREQUENCY/2;
+  cleaning_buffer_counter = TEMP_TIMER_FREQUENCY;
 
   // Reenable Stepper ISR
   if (was_enabled) stepper.wake_up();
@@ -1815,8 +1813,9 @@ bool Planner::_buffer_steps(const xyze_long_t &target
     return true;
   }
 
-  // Add by snapmaker 747
+  #if MB_SNAPMAKER
   block->file_position = queue.file_line_number();
+  #endif
 
   // If this is the first added movement, reload the delay, otherwise, cancel it.
   if (block_buffer_head == block_buffer_tail) {

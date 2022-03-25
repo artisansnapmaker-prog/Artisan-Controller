@@ -59,7 +59,9 @@ public:
   struct CommandLine {
     char buffer[MAX_CMD_SIZE];      //!< The command buffer
     bool skip_ok;                   //!< Skip sending ok when command is processed?
-    uint32_t lines;                 //!< Add by snapmaker 747, position of gcode of this command in the file
+    #if MB_SNAPMAKER
+    uint32_t lines;                 //!< position of gcode of this command in the file
+    #endif
     #if HAS_MULTI_SERIAL
       serial_index_t port;          //!< Serial port the command was received on
     #endif
@@ -206,10 +208,9 @@ public:
    */
   static inline void set_current_line_number(long n) { serial_state[ring_buffer.command_port().index].last_N = n; }
 
-  /**
-   * Add by snapmaker 747
-  */
+  #if MB_SNAPMAKER
   static inline uint32_t file_line_number() {return ring_buffer.peek_next_command().lines;}
+  #endif
 
   #if ENABLED(BUFFER_MONITORING)
 
@@ -254,8 +255,9 @@ public:
 private:
 
   static void get_serial_commands();
-  // Add by snapmaker 747
+  #if MB_SNAPMAKER
   static void get_snapmaker_commands();
+  #endif
 
   #if ENABLED(SDSUPPORT)
     static void get_sdcard_commands();

@@ -118,16 +118,22 @@ void JobCtrl::background_thread(void *p) {
   }
   
   // TODO: check other event such as temperature protetion, stall protection
-  
-  if (SYSTEM_STATUS_FINISHING == smprinter.get_sys_status() && 
-      _gcode_rb.is_empty() ){
+  if (SYSTEM_STATUS_FINISHING == smprinter.get_sys_status() && _gcode_rb.is_empty() ){
     LOG_I("push all gcodes to marlin or other 3D printer\r\n");
     issue_nodify(E_JOB_ISSUE_RET_FINISH);
     req_stop();
   }
 
+  if (SYSTEM_STATUS_XY_CALIBRATING_PRINTING == smprinter.get_sys_status() && _calibrating_print_finish){
+    _calibrating_print_finish = false;
+    LOG_I("push all gcodes to marlin or other 3D printer\r\n");
+    issue_nodify(E_JOB_ISSUE_RET_FINISH);
+    req_stop();
+  }
+
+  uint8_t issue_ret;
   while (_issue_ret_rb.available()) {
-    uint8_t issue_ret;
+    issue_ret = 0;
     _issue_ret_rb.remove_one(issue_ret);
     issue_nodify(issue_ret);
   }
@@ -275,13 +281,6 @@ err_code_t JobCtrl::save_env(void) {
       return E_JOB_SAVE_ENV_FAILURE;
     }
   }
-
-  LOG_I("job_ctrl: if 3DP, save bed tempretrue, call the bed module's save_env\r\n");
-  LOG_I("job_ctrl: save current line number\r\n");
-  LOG_I("job_ctrl: save print feedrate\r\n");
-  LOG_I("job_ctrl: save travle feedrate\r\n");
-  LOG_I("job_ctrl: save relative mode\r\n");
-  LOG_I("job_ctrl: save current position\r\n");
   
   if (TH_TYPE_3DP == _env.type){
     ModuleBase *bed;
@@ -289,14 +288,14 @@ err_code_t JobCtrl::save_env(void) {
     if (bed) {
       _env.bed_env_buf_size = MODULE_ENV_MAX_SIZE;
       if (E_SUCCESS != bed->save_env(_env.bed_env_buf, _env.bed_env_buf_size)) {
-        LOG_I("job_ctrl: bed save env failure\r\n");
+        LOG_E("job_ctrl: bed save env failure\r\n");
       }
       else {
         LOG_I("job_ctrl: bed_temp save\r\n");
       }
     }
     else {
-      LOG_I("job_ctrl: can not get bed\r\n");
+      LOG_E("job_ctrl: can not get bed\r\n");
     }
   }    
   _env.active_coordinate = motion_svc.get_active_coordinate_system();
@@ -341,59 +340,45 @@ err_code_t JobCtrl::resum_env(void) {
     bed = module_svc.get_module(MODULE_DEVICE_ID_A400_BED, 0);
     if (bed) {
       if (E_SUCCESS != bed->resume_env(_env.bed_env_buf, _env.bed_env_buf_size)) {
-        LOG_I("job_ctrl: bed resume env failure\r\n");
+        LOG_E("job_ctrl: bed resume env failure\r\n");
       }
       else {
-        LOG_I("job_ctrl: bed resume\r\n");
+        uint32_t last_ms = millis();
+        while(1) {
+          if (time_after(millis(), last_ms + 1000)) {
+            last_ms = millis();
+            LOG_I("job_ctrl: wait for bed heat up to target temperature\r\n");
+          }
+          if (thermalManager.degTargetBed() < thermalManager.degBed())
+            continue;
+          #if ENABLED(SNAPMAKER_DOUBLE_ZONE_BED)
+          if (thermalManager.degTargetChamber() < thermalManager.degChamber())
+            continue;
+          #endif
+          break;
+        }
       }
     }
     else {
-      LOG_I("job_ctrl: can not get bed\r\n");
+      LOG_E("job_ctrl: can not get bed\r\n");
     }
   }
   
-  LOG_I("job_ctrl: if 3DP, resume bed tempretrue\r\n");
-  LOG_I("job_ctrl: resume current line number\r\n");
-  LOG_I("job_ctrl: resume print feedrate\r\n");
-  LOG_I("job_ctrl: resume travle feedrate\r\n");
-  LOG_I("job_ctrl: resume relative mode\r\n");
-  LOG_I("job_ctrl: resume current position\r\n");
-  
   _env.req_line_num = _env.cur_line_num;
-  LOG_I("job_ctrl: req_line_num %d\r\n", _env.req_line_num);
-  
-  /*
-  LOG_I("job_ctrl: resume coordinate\r\n");
-  if (_env.active_coordinate == -1) {
-    motion_svc.run_gcode("G53", true);
-    LOG_I("job_ctrl: resume to G53\r\n");
-  }
-  else if (_env.active_coordinate == 0) {
-    motion_svc.run_gcode("G54", true);
-    LOG_I("job_ctrl: resume to G54\r\n");
-  }
-  else {
-    LOG_E("job_ctrl: Unknow coordinate\r\n");
-  }
-  */
-
-  LOG_I("job_ctrl: resume relative mode %d\r\n", _env.g0g1_relative_mode);
   motion_svc.set_relative_mode(_env.g0g1_relative_mode);
-  
-  LOG_I("job_ctrl: resume xy position %f %f\r\n", _env.current_pos[0], _env.current_pos[1]);
   motion_svc.moveto_xy(_env.current_pos[0], _env.current_pos[1], RESUME_XY_FEEDRATE);
-
-  LOG_I("job_ctrl: resume z position %f\r\n", _env.current_pos[2]);
   motion_svc.moveto_z(_env.current_pos[2], RESUME_Z_FEEDRATE);
-
-  LOG_I("job_ctrl: resume print_feadrate %f\r\n", _env.print_feadrate);
   motion_svc.set_feedrate(_env.print_feadrate);
-
-  LOG_I("job_ctrl: resume travel_feadrate %f\r\n", _env.travel_feadrate);
   motion_svc.set_travl_feedrate(_env.travel_feadrate);
-
-  LOG_I("job_ctrl: resume relative mode %d\r\n", _env.g0g1_relative_mode);
   motion_svc.set_relative_mode(_env.g0g1_relative_mode);
+
+  LOG_I("job_ctrl: req_line_num %d\r\n", _env.req_line_num);
+  LOG_I("job_ctrl: resume relative mode %d\r\n", _env.g0g1_relative_mode);  
+  LOG_I("job_ctrl: resume xy position %f %f\r\n", _env.current_pos[0], _env.current_pos[1]);
+  LOG_I("job_ctrl: resume z position %f\r\n", _env.current_pos[2]);
+  LOG_I("job_ctrl: resume print_feadrate %f\r\n", _env.print_feadrate);
+  LOG_I("job_ctrl: resume travel_feadrate %f\r\n", _env.travel_feadrate);
+  LOG_I("job_ctrl: resume relative mode %d\r\n", _env.g0g1_relative_mode);
 
   return E_SUCCESS;
 }
@@ -404,13 +389,11 @@ err_code_t JobCtrl::machine_standby(void) {
 
   LOG_I("%d job_ctrl: machine standby begin\r\n", millis());
 
-  LOG_I("job_ctrl: get current toolhead pointer\r\n");
   if (!(cur_toolhead = smprinter.get_cur_toolhead())) {
     LOG_E("job_ctrl: can not get toolhead\r\n");
     return E_JOB_RESUME_ENV_FAILURE;
   }
 
-  LOG_I("job_ctrl: check current toolhead type\r\n");
   if (smprinter.get_toolhead_type() != _env.type) {
     LOG_E("job_ctrl: toolhead not macth\r\n");
     return E_JOB_UNSUPPORT_PARAM;
@@ -425,12 +408,10 @@ err_code_t JobCtrl::machine_standby(void) {
   {
   case TH_TYPE_3DP:
     /* code */
-    // motion_svc.set_relative_mode(true);
-    // motion_svc.moveto_e(-10, 600, true);
-    // smprinter.set_fdm_fan_speed(0, 0); // left mode fan
-    // smprinter.set_fdm_fan_speed(1, 0); // right mode fan
-    // smprinter.set_hotend_temp(0, 0); // set index 0 hotend
-    // smprinter.set_hotend_temp(0, 1); // set index 1 hotend
+    motion_svc.update_position_from_platform();
+    t_pos =  motion_svc.sm_current_position;
+    t_pos.e -= 10;
+    motion_svc.moveto(t_pos, 10, true);
     break;
 
   case TH_TYPE_CNC:
@@ -445,33 +426,13 @@ err_code_t JobCtrl::machine_standby(void) {
     break;
   }
 
-  LOG_I("TODO: retrace 10mm in 10mm/s\r\n");
-  LOG_I("TODO: hotend set to 0 degree\r\n");
-  LOG_I("TODO: fans set to 0 speed\r\n");
-  LOG_I("TODO: bed temp set to 0 degree\r\n");
-
-  motion_svc.update_position_from_platform();
-  t_pos =  motion_svc.sm_current_position;
-  t_pos.e -= 10;
-  motion_svc.moveto(t_pos, 10, true);
-
-  // motion_svc.run_gcode("G55");
   LOG_I("job_ctrl: Z raise to highest\r\n");
-  // motion_svc.run_gcode("G28 Z", true);
-  // motion_svc.run_gcode("G0 Z400 F3000", true);
   motion_svc.update_position_from_platform();
   t_pos =  motion_svc.sm_current_position;
   t_pos.z = motion_svc.get_max_position(Z_AXIS);
   motion_svc.moveto(t_pos, 30, true);
 
-  // X do not need to standby
-  // LOG_I("job_ctrl: x move to left\r\n");
-  // motion_svc.run_gcode("G28 X", true);
-  // motion_svc.run_gcode("G0 X5", true);
-
   LOG_I("job_ctrl: y move to head\r\n");
-  // motion_svc.run_gcode("G28 Y", true);
-  // motion_svc.run_gcode("G0 Y400 F3000", true);
   motion_svc.update_position_from_platform();
   t_pos = motion_svc.sm_current_position;
   t_pos.y = motion_svc.get_max_position(Y_AXIS);
@@ -486,7 +447,7 @@ void JobCtrl::get_gcodes_from_client(void) {
   res_batch_gcode_t res_batch_gcode;
   uint8_t batch_gcode_buf[GCODE_RB_SIZE/4];
   
-  while(_gcode_rb.free() >= _get_gcode_buffer_req_min) {
+  while((uint32_t)_gcode_rb.free() >= _get_gcode_buffer_req_min) {
     req_batch_gcode.line_num = _env.req_line_num;
     req_batch_gcode.buf_len = (uint16_t) (MIN((uint32_t)_gcode_rb.free(), GCODE_RB_SIZE/4));
     if (req_batch_gcode.buf_len < _get_gcode_buffer_req_min){
@@ -512,19 +473,19 @@ void JobCtrl::get_gcodes_from_client(void) {
       // shoule we check the line number?
       uint8_t *p, *ls;
       p = ls = res_batch_gcode.gcode_str;
-      uint8_t str_temp[MAX_CMD_SIZE];
+      // uint8_t str_temp[MAX_CMD_SIZE];
       uint32_t rx_line_num = 0;
       {
         while('\0' != *p) {
           if ('\n' == *p) {
             rx_line_num++;
-            // 747 debug
-            if (p - ls < MAX_CMD_SIZE) {
-              memcpy(str_temp, ls, (p - ls));
-              str_temp[p-ls] = 0;
-              ls = p + 1;
-              // LOG_I("job_ctrl: get gocde: %s\r\n", (char *)str_temp);
-            }
+            // for debug
+            // if (p - ls < MAX_CMD_SIZE) {
+            //   memcpy(str_temp, ls, (p - ls));
+            //   str_temp[p-ls] = 0;
+            //   ls = p + 1;
+            //   LOG_I("job_ctrl: get gocde: %s\r\n", (char *)str_temp);
+            // }
           }
           p++;
         }
@@ -548,9 +509,14 @@ void JobCtrl::get_gcodes_from_client(void) {
 
         if (E_JOB_LAST_GCODE_PACK == res_batch_gcode.result) {
           LOG_I("job_ctrl: Job control get last gcode packe\r\n");
-          if (E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_FINISHING, NULL)) {
-            // we will continue to request the client to send gcodes
-            LOG_E("job_ctrl: can to enter SYS_FINISHING status\r\n");
+          if (SYSTEM_STATUS_XY_CALIBRATING_PRINTING == smprinter.get_sys_status()) {
+            _calibrating_print_finish = true;
+          }
+          else {
+            if (E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_FINISHING, NULL)) {
+              // we will continue to request the client to send gcodes
+              LOG_E("job_ctrl: can to enter SYS_FINISHING status\r\n");
+            }
           }
           break;
         }
@@ -617,6 +583,7 @@ void JobCtrl::do_start(struct JobCtrlReqInfo &jri) {
       DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, ret_sys_status);
     }
     else{
+      _calibrating_print_finish = false;
       DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, SYSTEM_STATUS_XY_CALIBRATING_PRINTING);
     }
   }
@@ -643,12 +610,10 @@ void JobCtrl::do_pause(struct JobCtrlReqInfo &jri) {
 
   switch (jri.req_data.req_pause_data.type) {
     case PAUSE_CLIENT_REQ:
-      // motion_svc.normalstop();
       motion_svc.req_quickstop();
     break;
 
     case PAUSE_FILM_RUNOUT:
-      // motion_svc.normalstop();
       motion_svc.req_quickstop();
     break;
 
@@ -787,8 +752,10 @@ bool JobCtrl::consume_a_gcode(uint8_t *cmd, uint16_t max_len, uint32_t *line) {
   ModuleBase *cur_toolhead;
   uint32_t cmd_len;
 
-  if (SYSTEM_STATUS_PRINTING != smprinter.get_sys_status() && 
-      SYSTEM_STATUS_FINISHING != smprinter.get_sys_status()) {
+  SystemStatus s = smprinter.get_sys_status();
+  if (SYSTEM_STATUS_PRINTING != s && 
+      SYSTEM_STATUS_FINISHING != s &&
+      SYSTEM_STATUS_XY_CALIBRATING_PRINTING != s) {
     return false;
   }
 

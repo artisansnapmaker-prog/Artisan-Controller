@@ -424,12 +424,12 @@ err_code_t ClientNode::get_gcode_info(sacp_hmi_message_t* msg) {
     // dummy data
     _16_TO_LITTLE_STREAM(GCODE_MD5_LENGTH, p);
     p += 2;
-    memset(p, GCODE_MD5_LENGTH, 0);
+    memset(p, 0, GCODE_MD5_LENGTH);
     p += GCODE_MD5_LENGTH;
 
     _16_TO_LITTLE_STREAM(GCODE_FILE_NAME_SIZE, p);
     p += 2;
-    memset(p, GCODE_FILE_NAME_SIZE, 0);
+    memset(p, 0, GCODE_FILE_NAME_SIZE);
     p += GCODE_FILE_NAME_SIZE;
   }
   msg->length = p - msg->data;
@@ -552,5 +552,5 @@ err_code_t ClientNode::req_stop_job(sacp_hmi_message_t* msg) {
 }
 
 err_code_t ClientNode::req_set_feedrate_percentage(sacp_hmi_message_t* msg) {
-
+  return E_SUCCESS;
 }

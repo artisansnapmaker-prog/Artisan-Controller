@@ -306,8 +306,6 @@ static void hmi_event_handler(void *param) {
 }
 
 static void system_thread(void *p) {
-  BaseType_t ret;
-
   TaskHandle_t hmi_recv_task;
   SemaphoreHandle_t hmi_recv_signal = NULL;
 
@@ -415,7 +413,6 @@ void SnapmakerPrinter::pre_init(void) {
 
 
 void SnapmakerPrinter::post_init() {
-  BaseType_t ret;
 
   // enable power
   pinMode(POWER_CTRL_8P, OUTPUT);

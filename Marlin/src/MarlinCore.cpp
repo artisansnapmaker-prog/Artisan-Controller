@@ -253,8 +253,9 @@
   #include "feature/easythreed_ui.h"
 #endif
 
-// Add by snapmaker 747
+#if MB_SNAPMAKER
 #include "../../snapmaker/src/service/motion.h"
+#endif
 
 PGMSTR(M112_KILL_STR, "M112 Shutdown");
 
@@ -1656,7 +1657,7 @@ void loop() {
 
     queue.advance();
 
-    // Add snapmaker 747
+    #if MB_SNAPMAKER
     extern bool req_motion_platform_quickstop;
     extern bool res_motion_platform_quickstop;
     if (req_motion_platform_quickstop) {
@@ -1664,6 +1665,7 @@ void loop() {
       queue.clear();
       res_motion_platform_quickstop = true;
     }
+    #endif
 
     endstops.event_handler();
 

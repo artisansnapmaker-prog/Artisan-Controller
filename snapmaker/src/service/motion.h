@@ -200,6 +200,7 @@ class MotionService {
     bool leveling_active() { return planner.leveling_active; }
     void disable_leveling() {set_bed_leveling_enabled(false);}
     void enable_leveling() {set_bed_leveling_enabled(true);}
+    void set_bed_leveling_state(const bool state) { set_bed_leveling_enabled(state); }
     uint8_t get_leveling_grids();
     void get_leveling_first_point_position(float &x, float &y);
     void set_leveling_grids(uint8_t grids);

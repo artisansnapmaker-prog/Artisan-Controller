@@ -641,6 +641,10 @@ static void fdm_callback_report_hotend_offset(void *obj, uint8_t *data, uint8_t 
   ((uint8_t *)&offset)[3] = data[4];
   LOG_I("axis: %d, offset: %f\n", axis, offset);
   fdm.hotend_offset[axis][1] = offset;
+  if ((axis == 0) && (offset < 10)) {
+    fdm.hotend_offset[0][1] = 24;
+  }
+
   motion_svc.sync_hotend_offset_to_platform(fdm.hotend_offset[X_AXIS][1], fdm.hotend_offset[Y_AXIS][1], fdm.hotend_offset[Z_AXIS][1]);
 }
 

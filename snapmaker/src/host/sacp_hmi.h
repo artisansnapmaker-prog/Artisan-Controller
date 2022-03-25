@@ -94,6 +94,38 @@ class HostSACPHMI: public HostSACP {
       events_normal  = NULL;
       events_blocked_without_motion = NULL;
       events_with_motion = NULL;
+
+      for (int i = 0; i < SACP_HMI_CH_MAX; i++) {
+        channels[i].seq   = 0;
+        channels[i].link  = NULL;
+        channels[i].parser.status = SACP_PARSER_STA_IDLE;
+      }      
+
+      for (int i = 0; i < SACP_V1_CMD_SET_MAX; i++) {
+        cmd_set_handle[i] = NULL;
+      }
+
+      // initialize subscriptions node
+      for (int i = 0; i < SACP_SUBSCRIPTION_NODE_MAX; i++) {
+        // use period of 0xffffffff to indicate if this node is free
+        subscription_nodes[i].handle  = NULL;
+        subscription_nodes[i].cmd_set = SACP_V1_CMD_SET_INVALID;
+        subscription_nodes[i].cmd_id  = SACP_V1_CMD_ID_INVALID;
+      }
+      for (int i = 0; i < SACP_SUBSCRIPTION_HANDLE_MAX; i++) {
+        // use period of 0xffffffff to indicate if this node is free
+        subscription_handles[i].cb   = NULL;
+        subscription_handles[i].obj  = NULL;
+        subscription_handles[i].next = NULL;
+      }
+      for (int i = 0; i < SACP_SUBSCRIPTION_CLIENT_MAX; i++) {
+        // use period of 0xffffffff to indicate if this node is free
+        subscription_clients[i].node = NULL;
+        subscription_clients[i].peer = SACP_V1_HOST_INVALID;
+        subscription_clients[i].ch   = SACP_HMI_CH_MAX;
+        subscription_clients[i].period = portMAX_DELAY;
+        subscription_clients[i].timer  = NULL;
+      }
     }
 
     err_code_t init(TaskHandle_t event_task, SemaphoreHandle_t recv_signal);

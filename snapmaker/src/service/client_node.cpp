@@ -247,7 +247,8 @@ void ClientNode::job_req_start_cb(void *p, uint8_t result) {
     LOG_I("TODO: client_node: send JOB STARTING ACK to client\r\n");
     // host_hmi.send_ack(copy_msg, SACP_RET_EXECUTING);
   }
-  else if(SYSTEM_STATUS_PRINTING == result) {
+  else if(SYSTEM_STATUS_PRINTING == result ||
+          SYSTEM_STATUS_XY_CALIBRATING_PRINTING == result) {
     host_hmi.send_ack(copy_msg, SACP_RET_SUCCESS);
     free_sacp_msg_node(copy_msg);
   }
@@ -303,7 +304,8 @@ void ClientNode::job_req_stop_cb(void *p, uint8_t result) {
     LOG_I("TODO: client_node: send JOB STOPING ACK to client\r\n");
     // host_hmi.send_ack(copy_msg, SACP_RET_EXECUTING);
   }
-  else if(SYSTEM_STATUS_IDLE == result) {
+  else if(SYSTEM_STATUS_IDLE == result || 
+          SYSTEM_STATUS_XY_CALIBRATING == result) {
     host_hmi.send_ack(copy_msg, SACP_RET_SUCCESS);
     free_sacp_msg_node(copy_msg);
   }

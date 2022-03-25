@@ -21,5 +21,12 @@
 #ifndef SNAPMAKER_TYPE_H_
 #define SNAPMAKER_TYPE_H_
 
+#define GCODE_MD5_LENGTH 32
+#define GCODE_FILE_NAME_SIZE 128
+
+struct GcodeFileInfo {
+  uint8_t MD5[GCODE_MD5_LENGTH];
+  uint8_t name[GCODE_FILE_NAME_SIZE];
+};
 
 #endif // SNAPMAKER_TYPE_H_

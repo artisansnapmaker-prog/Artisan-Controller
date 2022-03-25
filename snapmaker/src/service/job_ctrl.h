@@ -60,8 +60,6 @@
 #define E_JOB_ISSUE_RET_IVALID_GCODE_LINE_NUMBER        SACP_JOB_PAUSE_ISSUE_RET_IVALID_GCODE_LINE_NUMBER 
 #define E_JOB_ISSUE_RET_GET_GCODE_FAILURE               SACP_JOB_PAUSE_ISSUE_RET_GET_GCODE_FAILURE        
 
-#define GCODE_MD5_LENGTH 32
-#define GCODE_FILE_NAME_SIZE 128
 #define JOB_LOCK_WAIT_TICK (0xFFFFFFFF)
 #define MODULE_ENV_MAX_SIZE 128
 #define GCODE_RB_SIZE 1024
@@ -70,13 +68,6 @@
 #define JOB_CTRL_LOOP_TIME_MS (100)
 #define JOB_CTRL_REQ_INFO_BUF ((sizeof(struct JobCtrlReqInfo) + 8) * 4)
 #define DO_JOB_REQ_NOTIFY_CB(cb, p, ret)                do{ if(cb) (cb)(p, ret); } while(0)
-
-
-// TODO: this type should define other
-struct GcodeFileInfo {
-  uint8_t MD5[GCODE_MD5_LENGTH];
-  uint8_t name[GCODE_FILE_NAME_SIZE];
-};
 
 enum JobPauseType {
   PAUSE_CLIENT_REQ,

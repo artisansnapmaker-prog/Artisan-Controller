@@ -98,8 +98,9 @@ void JobCtrl::background_thread(void *p) {
   }
   
   // make sure send starting ACK before get gcodes
-  // TODO: uncomment when release
-  if (SYSTEM_STATUS_PRINTING == smprinter.get_sys_status()) {
+  SystemStatus s = smprinter.get_sys_status();
+  if (SYSTEM_STATUS_PRINTING == s &&
+      SYSTEM_STATUS_XY_CALIBRATING_PRINTING == s) {
     keep_printing_cnt++;
     if (keep_printing_cnt >= 3) {
       get_gcodes_from_client();
@@ -249,6 +250,7 @@ err_code_t JobCtrl::req_stop(job_req_notify_cb_t cb/* = NULL*/, void *p/* = NULL
 }
 
 void JobCtrl::print_job_env(struct JobEnv *env) {
+  LOG_I("job_ctrl: ========================= save env =========================\r\n");
   LOG_I("TYPE: %d\r\n", env->type);
   LOG_I("gcode name: %s\r\n", env->gcode_file_info.name);
   LOG_I("req_line_num: %d\r\n", env->req_line_num);
@@ -325,8 +327,7 @@ err_code_t JobCtrl::resum_env(void) {
   if (smprinter.get_toolhead_type() != _env.type) {
     return E_JOB_UNSUPPORT_PARAM;
   }
-
-  LOG_I("TODO: current toolhead resume\r\n");
+  
   if (TH_TYPE_3DP != smprinter.get_toolhead_type()) {
     // TODO: no do resume for 3dp toolhead as 3dp toolhead resume_env has bugs.
     if (E_SUCCESS != cur_toolhead->resume_env(_env.toolhead_env_buf, _env.toolhead_env_buf_size)) {
@@ -334,7 +335,7 @@ err_code_t JobCtrl::resum_env(void) {
       return E_JOB_RESUME_ENV_FAILURE;
     } 
   }
-  
+
   if (TH_TYPE_3DP == _env.type) {
     ModuleBase *bed;
     bed = module_svc.get_module(MODULE_DEVICE_ID_A400_BED, 0);
@@ -349,10 +350,11 @@ err_code_t JobCtrl::resum_env(void) {
             last_ms = millis();
             LOG_I("job_ctrl: wait for bed heat up to target temperature\r\n");
           }
-          if (thermalManager.degTargetBed() < thermalManager.degBed())
+          if (thermalManager.degBed() > 0.0 && thermalManager.degTargetBed() < thermalManager.degBed()) {
             continue;
+          }
           #if ENABLED(SNAPMAKER_DOUBLE_ZONE_BED)
-          if (thermalManager.degTargetChamber() < thermalManager.degChamber())
+          if (thermalManager.degChamber() > 0.0 && thermalManager.degTargetChamber() < thermalManager.degChamber())
             continue;
           #endif
           break;
@@ -362,8 +364,24 @@ err_code_t JobCtrl::resum_env(void) {
     else {
       LOG_E("job_ctrl: can not get bed\r\n");
     }
+
+    // wait for the hotend temperature
+    {
+      uint32_t last_ms = millis();
+      while(1) {
+        if (time_after(millis(), last_ms + 1000)) {
+          last_ms = millis();
+          LOG_I("job_ctrl: wait for hot-end heat up to target temperature\r\n");
+        }
+        // TODO: get the current hotend
+        if (thermalManager.degHotend(0) > 0.0 && thermalManager.degTargetHotend(0) < thermalManager.degHotend(0)) {
+          continue;
+        }
+        break;
+      }
+    }
   }
-  
+
   _env.req_line_num = _env.cur_line_num;
   motion_svc.set_relative_mode(_env.g0g1_relative_mode);
   motion_svc.moveto_xy(_env.current_pos[0], _env.current_pos[1], RESUME_XY_FEEDRATE);
@@ -372,13 +390,15 @@ err_code_t JobCtrl::resum_env(void) {
   motion_svc.set_travl_feedrate(_env.travel_feadrate);
   motion_svc.set_relative_mode(_env.g0g1_relative_mode);
 
-  LOG_I("job_ctrl: req_line_num %d\r\n", _env.req_line_num);
+  LOG_I("job_ctrl: ========================= resume =========================\r\n");
+  LOG_I("job_ctrl: resume req_line_num %d\r\n", _env.req_line_num);
   LOG_I("job_ctrl: resume relative mode %d\r\n", _env.g0g1_relative_mode);  
   LOG_I("job_ctrl: resume xy position %f %f\r\n", _env.current_pos[0], _env.current_pos[1]);
   LOG_I("job_ctrl: resume z position %f\r\n", _env.current_pos[2]);
   LOG_I("job_ctrl: resume print_feadrate %f\r\n", _env.print_feadrate);
   LOG_I("job_ctrl: resume travel_feadrate %f\r\n", _env.travel_feadrate);
   LOG_I("job_ctrl: resume relative mode %d\r\n", _env.g0g1_relative_mode);
+  LOG_I("\r\n");
 
   return E_SUCCESS;
 }
@@ -430,13 +450,13 @@ err_code_t JobCtrl::machine_standby(void) {
   motion_svc.update_position_from_platform();
   t_pos =  motion_svc.sm_current_position;
   t_pos.z = motion_svc.get_max_position(Z_AXIS);
-  motion_svc.moveto(t_pos, 30, true);
+  motion_svc.moveto(t_pos, RESUME_Z_FEEDRATE, true);
 
-  LOG_I("job_ctrl: y move to head\r\n");
+  LOG_I("job_ctrl: y move to fronthead\r\n");
   motion_svc.update_position_from_platform();
   t_pos = motion_svc.sm_current_position;
   t_pos.y = motion_svc.get_max_position(Y_AXIS);
-  motion_svc.moveto(t_pos, 30, true);
+  motion_svc.moveto(t_pos, RESUME_XY_FEEDRATE, true);
 
   LOG_I("job_ctrl: machine standby end\r\n");
   return E_SUCCESS;

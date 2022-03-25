@@ -887,6 +887,8 @@ err_code_t SnapmakerPrinter::set_sys_status(enum SystemStatus req_status, enum S
     *ret_status = sys_status;
   UNLOCK(status_lock);
 
+  LOG_I("snapmaker: system enter %d\r\n", sys_status);
+
   return ret;
 }
 

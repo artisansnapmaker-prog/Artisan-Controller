@@ -235,7 +235,14 @@ static err_code_t hmi_req_callback_exit_level(void *obj, sacp_hmi_message_t *msg
     bedlevel.z_compensation_[0] = bedlevel.hotend_touch_bed_z_[0] - CALIBRATION_PAPER_THICKNESS - bedlevel.hotend_triggered_z_[0];
     bedlevel.z_compensation_[1] = bedlevel.hotend_touch_bed_z_[1] - CALIBRATION_PAPER_THICKNESS - bedlevel.hotend_triggered_z_[1];
     LOG_I("z_compensation[%d]: %f, z_compensation[%d]: %f\n", 0, bedlevel.z_compensation_[0], 1, bedlevel.z_compensation_[1]);
+    // smprinter.fdm->set_hotend_offset_z(bedlevel.hotend_touch_bed_z_[0] - bedlevel.hotend_touch_bed_z_[1]);
+    LOG_I("hotend_offset_z: %f\n", bedlevel.hotend_touch_bed_z_[0] - bedlevel.hotend_touch_bed_z_[1]);
+    smprinter.fdm->set_hotend_offset(bedlevel.hotend_touch_bed_z_[0] - bedlevel.hotend_touch_bed_z_[1], Z_AXIS);
+    motion_svc.save_settings();
     // save to module
+    float x_offset, y_offset, z_offset;
+    smprinter.fdm->get_hotend_offset(x_offset, y_offset, z_offset);
+    smprinter.fdm->save_hotend_offset_to_module(z_offset, Z_AXIS);
     smprinter.fdm->save_z_compensation_to_module(bedlevel.z_compensation_);
     motion_svc.moveto_z(motion_svc.get_current_position(Z_AXIS)+100, 30);
   }

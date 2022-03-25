@@ -634,8 +634,12 @@ static void fdm_callback_report_hotend_offset(void *obj, uint8_t *data, uint8_t 
   ToolHeadFDM &fdm = *(ToolHeadFDM *)obj;
 
   uint8_t axis = data[0];
-  float offset = (float)((data[1] << 24) | (data[2] << 16) | (data[3] << 8) | data[4]) / 1000;
-
+  float offset;
+  ((uint8_t *)&offset)[0] = data[1];
+  ((uint8_t *)&offset)[1] = data[2];
+  ((uint8_t *)&offset)[2] = data[3];
+  ((uint8_t *)&offset)[3] = data[4];
+  LOG_I("axis: %d, offset: %f\n", axis, offset);
   fdm.hotend_offset[axis][1] = offset;
   motion_svc.sync_hotend_offset_to_platform(fdm.hotend_offset[X_AXIS][1], fdm.hotend_offset[Y_AXIS][1], fdm.hotend_offset[Z_AXIS][1]);
 }
@@ -1179,7 +1183,7 @@ err_code_t ToolHeadFDM::tool_change(uint8_t new_tool, bool z_compensation/*=true
     float xdiff = hotend_offset[X_AXIS][new_tool] - hotend_offset[X_AXIS][active_extruder];
     float ydiff = hotend_offset[Y_AXIS][new_tool] - hotend_offset[Y_AXIS][active_extruder];
     float zdiff = hotend_offset[Z_AXIS][new_tool] - hotend_offset[Z_AXIS][active_extruder];
-    SERIAL_ECHOLNPGM("xdiff: ", xdiff, "ydiff: ", ydiff, "zdiff: ", zdiff);
+    SERIAL_ECHOLNPGM("xdiff: ", xdiff, " ydiff: ", ydiff, " zdiff: ", zdiff);
     motion_svc.sm_current_position[X_AXIS] += xdiff;
     motion_svc.sm_current_position[Y_AXIS] += ydiff;
     motion_svc.sm_current_position[Z_AXIS] += zdiff;
@@ -1261,7 +1265,6 @@ err_code_t ToolHeadFDM::save_hotend_offset_to_module(float offset, uint8_t axis)
   err_code_t ret = E_SUCCESS;
   smcan_message_t msg;
   uint8_t buffer[5];
-  int32_t scaled_offset = (int32_t)(offset*1000);
 
   msg.id = get_message_id(MODULE_FUNC_SET_HOTEND_OFFSET);
     if (msg.id == MODULE_MESSAGE_ID_INVALID) {
@@ -1270,10 +1273,10 @@ err_code_t ToolHeadFDM::save_hotend_offset_to_module(float offset, uint8_t axis)
   }
 
   buffer[0]  = axis;
-  buffer[1]  = ((uint8_t *)&scaled_offset)[0];
-  buffer[2]  = ((uint8_t *)&scaled_offset)[1];
-  buffer[3]  = ((uint8_t *)&scaled_offset)[2];
-  buffer[4]  = ((uint8_t *)&scaled_offset)[3];
+  buffer[1]  = ((uint8_t *)&offset)[0];
+  buffer[2]  = ((uint8_t *)&offset)[1];
+  buffer[3]  = ((uint8_t *)&offset)[2];
+  buffer[4]  = ((uint8_t *)&offset)[3];
   msg.ch     = get_channel();
   msg.data   = buffer;
   msg.length = 5;

@@ -138,15 +138,14 @@ err_code_t JobCtrl::req_start(  uint8_t client_id,
                                 toolHeadType th_type, 
                                 job_req_notify_cb_t cb/* = NULL*/, 
                                 void *p/* = NULL*/) {
-  
-    // status check
-  if (SYSTEM_STATUS_IDLE != smprinter.get_sys_status() && 
-      SYSTEM_STATUS_XY_CALIBRATING != smprinter.get_sys_status()) {
+  SystemStatus s = smprinter.get_sys_status();
+  if (SYSTEM_STATUS_IDLE != s && 
+      SYSTEM_STATUS_XY_CALIBRATING != s) {
     LOG_E("can not start job as current status is not idle or calibrating\r\n");
     return E_JOB_NOT_IN_IDLE_STATUS;
   }
 
-  if (SYSTEM_STATUS_XY_CALIBRATING == smprinter.get_sys_status()) {
+  if (SYSTEM_STATUS_XY_CALIBRATING == s) {
     LOG_I("Start a calibration's printing job\r\n");
   }
 
@@ -249,16 +248,13 @@ void JobCtrl::print_job_env(struct JobEnv *env) {
   LOG_I("req_line_num: %d\r\n", env->req_line_num);
   LOG_I("cur_line_num: %d\r\n", env->cur_line_num);
   LOG_I("cur_pos:\r\n");
-  for(uint32_t i = 0; i < AXIS_NUM; i++)
-    LOG_I("cur_pos[%d]: %f\r\n", i, _env.current_pos[i]);
+  for(uint32_t i = 0; i < AXIS_NUM; i++) LOG_I("cur_pos[%d]: %f\r\n", i, _env.current_pos[i]);
   LOG_I("print_feadrate: %f\r\n", env->print_feadrate);
   LOG_I("travel_feadrate: %f\r\n", env->travel_feadrate);
   LOG_I("g0g1_relative_mode: %d\r\n", env->g0g1_relative_mode);
   LOG_I("bed_temp: %d\r\n", env->bed_temp);
   LOG_I("toolhead_env_buf_size: %d\r\n", env->toolhead_env_buf_size);
-  for (uint32_t i; i < env->toolhead_env_buf_size; i++) {
-    LOG_I("%02X ", env->toolhead_env_buf[i]);
-  }
+  for (uint32_t i = 0; i < env->toolhead_env_buf_size; i++) LOG_I("%02X ", env->toolhead_env_buf[i]);
 }
 
 err_code_t JobCtrl::save_env(void) {

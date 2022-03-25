@@ -58,7 +58,6 @@ void JobCtrl::init(void) {
   _statistics_log_interval_ms = 0;
   _statistics_log_last_tick_ms = 0;
   _env.gfi_valid = false;
-  _resume_feedrate = RESUME_FEEDRATE;
 
   ret = xTaskCreate((TaskFunction_t)(job_ctrl_thread_entry), "jobctrl", SYSTEM_TASK_STACK_SIZE,
         (void *)(this), HIGHEST_TASK_PRIORITY,  NULL);
@@ -147,20 +146,18 @@ err_code_t JobCtrl::req_start(  uint8_t client_id,
     return E_JOB_NOT_IN_IDLE_STATUS;
   }
 
-  if (!gcode_file_info_check(gcodeInfo)) {
-    LOG_E("Ivalid gcode file information\r\n");
-    return E_JOB_IVALID_GCODE_FILE;
-  }
-
   if (SYSTEM_STATUS_XY_CALIBRATING == smprinter.get_sys_status()) {
-    // TODO: calibrating print job
     LOG_I("Start a calibration's printing job\r\n");
-    return E_SUCCESS;
   }
 
   if (th_type != smprinter.get_toolhead_type()) {
     LOG_E("job_ctrl: Unmatched toolhead\r\n");
     return E_JOB_UNMATCHED_TOOLHEAD;
+  }
+
+  if (!gcode_file_info_check(gcodeInfo)) {
+    LOG_E("Ivalid gcode file information\r\n");
+    return E_JOB_IVALID_GCODE_FILE;
   }
 
   JobCtrlReqInfo jri;
@@ -224,10 +221,11 @@ err_code_t JobCtrl::req_resume( uint8_t client_id,
 }
 
 err_code_t JobCtrl::req_stop(job_req_notify_cb_t cb/* = NULL*/, void *p/* = NULL*/) {
-  // status check
-  if (SYSTEM_STATUS_PRINTING != smprinter.get_sys_status() && 
-      SYSTEM_STATUS_PAUSED != smprinter.get_sys_status() &&
-      SYSTEM_STATUS_FINISHING != smprinter.get_sys_status()) {
+  SystemStatus s = smprinter.get_sys_status();
+  if (SYSTEM_STATUS_PRINTING != s && 
+      SYSTEM_STATUS_PAUSED != s &&
+      SYSTEM_STATUS_FINISHING != s &&
+      SYSTEM_STATUS_XY_CALIBRATING_PRINTING != s) {
     LOG_E("job_ctrl: Can not stop a job as current status is no working or paused\r\n");
     return E_JOB_NOT_IN_PAUSE_STATUS;
   }
@@ -368,6 +366,7 @@ err_code_t JobCtrl::resum_env(void) {
   _env.req_line_num = _env.cur_line_num;
   LOG_I("job_ctrl: req_line_num %d\r\n", _env.req_line_num);
   
+  /*
   LOG_I("job_ctrl: resume coordinate\r\n");
   if (_env.active_coordinate == -1) {
     motion_svc.run_gcode("G53", true);
@@ -380,16 +379,16 @@ err_code_t JobCtrl::resum_env(void) {
   else {
     LOG_E("job_ctrl: Unknow coordinate\r\n");
   }
+  */
 
   LOG_I("job_ctrl: resume relative mode %d\r\n", _env.g0g1_relative_mode);
   motion_svc.set_relative_mode(_env.g0g1_relative_mode);
-  // motion_svc.set_relative_mode(false);
   
   LOG_I("job_ctrl: resume xy position %f %f\r\n", _env.current_pos[0], _env.current_pos[1]);
-  motion_svc.moveto_xy(_env.current_pos[0], _env.current_pos[1], _resume_feedrate);
+  motion_svc.moveto_xy(_env.current_pos[0], _env.current_pos[1], RESUME_XY_FEEDRATE);
 
   LOG_I("job_ctrl: resume z position %f\r\n", _env.current_pos[2]);
-  motion_svc.moveto_z(_env.current_pos[2], _resume_feedrate);
+  motion_svc.moveto_z(_env.current_pos[2], RESUME_Z_FEEDRATE);
 
   LOG_I("job_ctrl: resume print_feadrate %f\r\n", _env.print_feadrate);
   motion_svc.set_feedrate(_env.print_feadrate);
@@ -490,7 +489,7 @@ void JobCtrl::get_gcodes_from_client(void) {
   
   while(_gcode_rb.free() >= _get_gcode_buffer_req_min) {
     req_batch_gcode.line_num = _env.req_line_num;
-    req_batch_gcode.buf_len = MIN(_gcode_rb.free(), GCODE_RB_SIZE/4);
+    req_batch_gcode.buf_len = (uint16_t) (MIN((uint32_t)_gcode_rb.free(), GCODE_RB_SIZE/4));
     if (req_batch_gcode.buf_len < _get_gcode_buffer_req_min){
       LOG_I("job_ctrl: no large enough buffer for get gcode, minimum request %d, but we juest get %d\r\n", _get_gcode_buffer_req_min, req_batch_gcode.buf_len);
       break;
@@ -588,12 +587,17 @@ void JobCtrl::statistics_output(void) {
 void JobCtrl::do_start(struct JobCtrlReqInfo &jri) {
   enum SystemStatus ret_sys_status;
 
-  if (E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_STARTING, &ret_sys_status)) {
-    LOG_E("job_ctrl: Can not enter to SYS_STARTING status\r\n");
-    DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, ret_sys_status);
-    return;
+  if (SYSTEM_STATUS_XY_CALIBRATING == smprinter.get_sys_status()) {
+    // TODO: ???
   }
-  DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, SYSTEM_STATUS_STARTING);
+  else {
+    if (E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_STARTING, &ret_sys_status)) {
+      LOG_E("job_ctrl: Can not enter to SYS_STARTING status\r\n");
+      DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, ret_sys_status);
+      return;
+    }
+    DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, SYSTEM_STATUS_STARTING);
+  }
 
   _client_id = jri.req_data.req_start_data.client_id;
   _env.type = jri.req_data.req_start_data.th_type;
@@ -608,13 +612,24 @@ void JobCtrl::do_start(struct JobCtrlReqInfo &jri) {
   _env.gfi_valid = true;
   _get_gcode_buffer_req_min = 0;
 
-  if (E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_PRINTING, &ret_sys_status)) {
-    LOG_E("job_ctrl: Can not enter SYS_PRINTING status\r\n");
-    DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, ret_sys_status);
-    return;
+  if (SYSTEM_STATUS_XY_CALIBRATING == smprinter.get_sys_status()) {
+    if( E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_XY_CALIBRATING_PRINTING, &ret_sys_status)) {
+      LOG_E("job_ctrl: Can not enter to SYSTEM_STATUS_XY_CALIBRATING_PRINTING status\r\n");
+      DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, ret_sys_status);
+    }
+    else{
+      DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, SYSTEM_STATUS_XY_CALIBRATING_PRINTING);
+    }
   }
-  LOG_I("job_ctrl: enter SYS_PRINTING status\r\n");
-  DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, SYSTEM_STATUS_PRINTING);
+  else {
+    if (E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_PRINTING, &ret_sys_status)) {
+      LOG_E("job_ctrl: Can not enter SYS_PRINTING status\r\n");
+      DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, ret_sys_status);
+      return;
+    }
+    LOG_I("job_ctrl: enter SYS_PRINTING status\r\n");
+    DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, SYSTEM_STATUS_PRINTING);
+  }
 }
 
 void JobCtrl::do_pause(struct JobCtrlReqInfo &jri) {
@@ -715,12 +730,17 @@ void JobCtrl::do_resume(struct JobCtrlReqInfo &jri) {
 void JobCtrl::do_stop(struct JobCtrlReqInfo &jri) {
   enum SystemStatus ret_sys_status;
 
-  if (E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_STOPING, &ret_sys_status)) {
-    LOG_E("job_ctrl: Can not enter to SYSTEM_STATUS_STOPING status\r\n");
-    DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, ret_sys_status);
-    return;
+  if (SYSTEM_STATUS_XY_CALIBRATING_PRINTING == smprinter.get_sys_status()) {
+    // TODO: do nothing
   }
-  DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, SYSTEM_STATUS_STOPING);
+  else {
+    if (E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_STOPING, &ret_sys_status)) {
+      LOG_E("job_ctrl: Can not enter to SYSTEM_STATUS_STOPING status\r\n");
+      DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, ret_sys_status);
+      return;
+    }
+    DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, SYSTEM_STATUS_STOPING);
+  }
 
   // motion_svc.normalstop();
   motion_svc.req_quickstop();
@@ -731,13 +751,25 @@ void JobCtrl::do_stop(struct JobCtrlReqInfo &jri) {
     return;
   }
 
-  if (E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_IDLE, &ret_sys_status)) {
-    LOG_E("job ctrl: can not enter SYS_IDLE status");
-    smprinter.set_sys_status(SYSTEM_STATUS_IDLE, &ret_sys_status);
-    DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, ret_sys_status);
-    return;
+  if (SYSTEM_STATUS_XY_CALIBRATING_PRINTING == smprinter.get_sys_status()) {
+    if (E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_XY_CALIBRATING, &ret_sys_status)) {
+      LOG_E("job ctrl: can not enter SYSTEM_STATUS_XY_CALIBRATING status");
+      smprinter.set_sys_status(SYSTEM_STATUS_IDLE, &ret_sys_status);
+      DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, ret_sys_status);
+    }
+    else {
+      DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, SYSTEM_STATUS_XY_CALIBRATING);
+    }
   }
-  DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, SYSTEM_STATUS_IDLE);
+  else {
+    if (E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_IDLE, &ret_sys_status)) {
+      LOG_E("job ctrl: can not enter SYS_IDLE status");
+      smprinter.set_sys_status(SYSTEM_STATUS_IDLE, &ret_sys_status);
+      DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, ret_sys_status);
+      return;
+    }
+    DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, SYSTEM_STATUS_IDLE);
+  }
 }
 
 err_code_t JobCtrl::set_env(struct JobEnv &env) {
@@ -795,15 +827,8 @@ bool JobCtrl::consume_a_gcode(uint8_t *cmd, uint16_t max_len, uint32_t *line) {
           ret = false;
           break;
         }
-
         _paused = false;
       }
-      // 747 debug
-      // consume here, do not push this gcode to marlin or other platform      
-      // LOG_I("job_ctrl: consume a gcode: %s\r\n", (char *)cmd);
-      // ret = false;
-      // vTaskDelay(2);
-
       break;
     }
   }

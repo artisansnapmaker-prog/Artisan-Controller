@@ -65,7 +65,8 @@
 #define JOB_LOCK_WAIT_TICK (0xFFFFFFFF)
 #define MODULE_ENV_MAX_SIZE 128
 #define GCODE_RB_SIZE 1024
-#define RESUME_FEEDRATE 30
+#define RESUME_XY_FEEDRATE 50
+#define RESUME_Z_FEEDRATE 30
 #define JOB_CTRL_LOOP_TIME_MS (100)
 #define JOB_CTRL_REQ_INFO_BUF ((sizeof(struct JobCtrlReqInfo) + 8) * 4)
 #define DO_JOB_REQ_NOTIFY_CB(cb, p, ret)                do{ if(cb) (cb)(p, ret); } while(0)
@@ -198,7 +199,6 @@ class JobCtrl {
     RingBuffer<uint8_t> _gcode_rb;                              /** ringbuffer for rx the gcode string                                    */
     uint8_t _client_id;                                         /** A pointer to client node,                                             */
     uint32_t _tick_ms;                                          /** use for periodically main loop                                        */
-    uint32_t _resume_feedrate;                                  /** set the resume move feedrate                                          */
     struct JobEnv _env;                                         /** environment of this job, used to job resume                           */
     RingBuffer<uint8_t> _issue_ret_rb;                          /** ringbuffer for issue code                                             */
     bool _paused;

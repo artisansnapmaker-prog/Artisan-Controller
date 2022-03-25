@@ -1824,7 +1824,10 @@ bool Planner::_buffer_steps(const xyze_long_t &target
     // As there are no queued movements, the Stepper ISR will not touch this
     // variable, so there is no risk setting this here (but it MUST be done
     // before the following line!!)
-    delay_before_delivering = BLOCK_DELAY_FOR_1ST_MOVE;
+    if (smprinter.get_toolhead_type() != TH_TYPE_LASER)
+      delay_before_delivering = BLOCK_DELAY_FOR_1ST_MOVE;
+    else
+      delay_before_delivering = 0;
   }
 
   // Move buffer head
@@ -2868,7 +2871,10 @@ void Planner::buffer_sync_block(TERN_(LASER_SYNCHRONOUS_M106_M107, uint8_t sync_
     // As there are no queued movements, the Stepper ISR will not touch this
     // variable, so there is no risk setting this here (but it MUST be done
     // before the following line!!)
-    delay_before_delivering = BLOCK_DELAY_FOR_1ST_MOVE;
+    if (smprinter.get_toolhead_type() != TH_TYPE_LASER)
+      delay_before_delivering = BLOCK_DELAY_FOR_1ST_MOVE;
+    else
+      delay_before_delivering = 0;
   }
 
   block_buffer_head = next_buffer_head;

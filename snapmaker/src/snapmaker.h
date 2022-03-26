@@ -91,7 +91,7 @@ enum SystemStatus {
 
   // Laser calibraiton
   SYSTEM_STATUS_LASER_CALIBRATING = 63,
-  
+
   // CNC calibration
   SYSTEM_STATUS_CNC_CALIBRATING = 95,
 };
@@ -226,6 +226,12 @@ class SnapmakerPrinter
       return 0;
     }
 
+    void switch_extruder_without_move(uint8_t e) {
+      if (fdm) {
+        fdm->switch_extruder_without_move(e);
+      }
+    }
+
     void switch_extruder(uint8_t e) {
       if (fdm) {
         fdm->switch_extruder(e);
@@ -250,7 +256,7 @@ class SnapmakerPrinter
 
     // ENCLOSURE
     bool enclosure_online_check(void) { return (enclosure && enclosure->check_online()); }
-    void set_enclosure_light_bar(uint8_t new_level); 
+    void set_enclosure_light_bar(uint8_t new_level);
     void set_enclosure_fan_speed(uint8_t new_speed);
     void get_enclosure_status(void);
     void enclosure_hmi_self_test_interface(uint8_t test_type, uint32_t param);

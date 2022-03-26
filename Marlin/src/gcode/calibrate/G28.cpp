@@ -422,7 +422,7 @@ void GcodeSuite::G28() {
       #else
 
         homeaxis(X_AXIS);
-        smprinter.fdm->switch_extruder_without_move(0);
+        smprinter.switch_extruder_without_move(0);
 
       #endif
     }

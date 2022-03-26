@@ -82,6 +82,14 @@ class ModuleService {
       return NULL;
     }
 
+    ModuleBase *get_module(int index) {
+      if (index < MODULE_ACCESSIBLE_MAX)
+        return modules[index];
+      else
+        return NULL;
+    }
+
+
     // background thread
     void background_thread();
 

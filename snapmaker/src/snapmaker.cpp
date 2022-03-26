@@ -414,6 +414,18 @@ void SnapmakerPrinter::pre_init(void) {
 
 void SnapmakerPrinter::post_init() {
 
+  extern uint32_t _sccmram, _eccmram;
+  extern uint32_t __bss_start__, __bss_end__;
+  extern uint32_t _sdata, _edata;
+
+  uint32_t *ccram_start = &_sccmram, *ccram_end = &_eccmram;
+  uint32_t *data_start = &_sdata, *data_end = &_edata;
+  uint32_t *bss_start = &__bss_start__, *bss_end = &__bss_end__;
+
+  LOG_I("\nCCRAM, start: 0x%08x, end: 0x%08x, size: 0x%08x B\n", ccram_start, ccram_end, ccram_end - ccram_start);
+  LOG_I("Data, start: 0x%08x, end: 0x%08x, size: 0x%08x B\n", data_start, data_end, data_end - data_start);
+  LOG_I("BSS, start: 0x%08x, end: 0x%08x, size: 0x%08x B\n\n", bss_start, bss_end, bss_end - bss_start);
+
   // enable power
   pinMode(POWER_CTRL_8P, OUTPUT);
   digitalWrite(POWER_CTRL_8P, POWER_CTRL_ON);

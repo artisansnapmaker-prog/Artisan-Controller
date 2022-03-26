@@ -353,9 +353,9 @@ static err_code_t hmi_req_callback_probe_sensor_calibration(void *obj, sacp_hmi_
     case 0:
       LOG_I("probe sensor calibration left extruder auto detect\n");
       motion_svc.moveto_xy(x, y, 60);
+      smprinter.fdm->tool_change(0, false);
       motion_svc.moveto_z(20, 30);
       motion_svc.enable_z_probe();
-      smprinter.fdm->tool_change(0, false);
       smprinter.fdm->set_probe_sensor(PROBE_SENSOR_LEFT_OPTOCOUPLER);
       bedlevel.hotend_triggered_z_[0] = motion_svc.probe_at_point(x, y, PROBE_PT_RAISE);
       LOG_I("hotend_triggered_z%d: %f\n", 0, bedlevel.hotend_triggered_z_[0]);

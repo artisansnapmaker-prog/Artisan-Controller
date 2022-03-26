@@ -423,8 +423,8 @@ void SnapmakerPrinter::post_init() {
   uint32_t *bss_start = &__bss_start__, *bss_end = &__bss_end__;
 
   LOG_I("\nCCRAM, start: 0x%08x, end: 0x%08x, size: %.3f kBytes\n", ccram_start, ccram_end, (ccram_end - ccram_start) * 4 / 1024.0);
-  LOG_I("Data, start: 0x%08x, end: 0x%08x, size: %.3f k Bytes\n", data_start, data_end, (data_end - data_start) * 4 / 1024.0);
-  LOG_I("BSS, start: 0x%08x, end: 0x%08x, size: %.3f k Bytes\n\n", bss_start, bss_end, (bss_end - bss_start) * 4 / 1024.0);
+  LOG_I("Data, start: 0x%08x, end: 0x%08x, size: %.3f kBytes\n", data_start, data_end, (data_end - data_start) * 4 / 1024.0);
+  LOG_I("BSS, start: 0x%08x, end: 0x%08x, size: %.3f kBytes\n\n", bss_start, bss_end, (bss_end - bss_start) * 4 / 1024.0);
 
   // enable power
   pinMode(POWER_CTRL_8P, OUTPUT);

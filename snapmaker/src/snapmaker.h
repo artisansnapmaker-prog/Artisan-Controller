@@ -268,6 +268,7 @@ class SnapmakerPrinter
     static err_code_t hmi_cb_get_machine_size(void *obj, sacp_hmi_message_t *msg);
     static err_code_t hmi_cb_set_protocol_for_PC(void *obj, sacp_hmi_message_t *msg);
 
+    SnapmakerModel get_model() { return model; }
     void show_sys_info();
 
   private:

@@ -245,6 +245,18 @@ static err_code_t hmi_req_callback_exit_level(void *obj, sacp_hmi_message_t *msg
     smprinter.fdm->save_hotend_offset_to_module(z_offset, Z_AXIS);
     smprinter.fdm->save_z_compensation_to_module(bedlevel.z_compensation_);
     motion_svc.moveto_z(motion_svc.get_current_position(Z_AXIS)+100, 30);
+
+    // level data is available, interpolation needs to be recaculated
+    if (motion_svc.get_leveling_state()) {
+      motion_svc.sync_z_values_to_platform();
+      motion_svc.extrapolate_unprobed_points();
+      motion_svc.interpolate_virt_points();
+      motion_svc.print_leveling_grid();
+      motion_svc.print_leveling_grid_virt();
+      motion_svc.disable_z_probe();
+      motion_svc.save_settings();
+      // motion_svc.enable_leveling();
+    }
   }
 
   bedlevel.set_bedlevel_mode(BEDLEVEL_MODE_IDLE);

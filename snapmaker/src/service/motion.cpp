@@ -598,6 +598,7 @@ void MotionService::sync_hotend_offset_to_platform(float x_offset, float y_offse
   hotend_offset[X_AXIS][1] = x_offset;
   hotend_offset[Y_AXIS][1] = y_offset;
   hotend_offset[Z_AXIS][1] = z_offset;
+  // LOG_I("hotend_offset, T1, X%.2f, Y%.2f, Z%.2f\n", hotend_offset[X_AXIS][1], hotend_offset[Y_AXIS][1], hotend_offset[Z_AXIS][1]);
 }
 
 void MotionService::load_settings() {

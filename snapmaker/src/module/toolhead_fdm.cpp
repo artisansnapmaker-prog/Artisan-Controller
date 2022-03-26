@@ -640,9 +640,20 @@ static void fdm_callback_report_hotend_offset(void *obj, uint8_t *data, uint8_t 
   ((uint8_t *)&offset)[2] = data[3];
   ((uint8_t *)&offset)[3] = data[4];
   LOG_I("axis: %d, offset: %f\n", axis, offset);
-  fdm.hotend_offset[axis][1] = offset;
-  if ((axis == 0) && (offset < 10)) {
-    fdm.hotend_offset[0][1] = 24;
+  if (isnan(offset)) {
+    switch (axis) {
+      case X_AXIS:
+        fdm.hotend_offset[X_AXIS][1] = 24;
+        break;
+      case Y_AXIS:
+        fdm.hotend_offset[Y_AXIS][1] = 0;
+        break;
+      case Z_AXIS:
+        fdm.hotend_offset[Z_AXIS][1] = -1.5;
+        break;
+    }
+  } else {
+    fdm.hotend_offset[axis][1] = offset;
   }
 
   motion_svc.sync_hotend_offset_to_platform(fdm.hotend_offset[X_AXIS][1], fdm.hotend_offset[Y_AXIS][1], fdm.hotend_offset[Z_AXIS][1]);
@@ -1139,7 +1150,7 @@ err_code_t ToolHeadFDM::tool_change(uint8_t new_tool, bool z_compensation/*=true
   float hotend_offset_tmp[3][EXTRUDERS] = {0};
   memset(hotend_offset_tmp, 0, sizeof(hotend_offset_tmp));
   memcpy(hotend_offset_tmp, hotend_offset, sizeof(hotend_offset));
-  LOG_I("hotend_offset_z: %f\n", hotend_offset[Z_AXIS][1]);
+  LOG_I("hotend_offset, x: %f, y: %f, z: %f\n", hotend_offset[X_AXIS][1], hotend_offset[Y_AXIS][1], hotend_offset[Z_AXIS][1]);
 
   err_code_t ret = E_SUCCESS;
   if (new_tool > EXTRUDERS) {
@@ -1190,6 +1201,8 @@ err_code_t ToolHeadFDM::tool_change(uint8_t new_tool, bool z_compensation/*=true
     float xdiff = hotend_offset_tmp[X_AXIS][new_tool] - hotend_offset_tmp[X_AXIS][active_extruder];
     float ydiff = hotend_offset_tmp[Y_AXIS][new_tool] - hotend_offset_tmp[Y_AXIS][active_extruder];
     float zdiff = hotend_offset_tmp[Z_AXIS][new_tool] - hotend_offset_tmp[Z_AXIS][active_extruder];
+    LOG_I("hotend_offset_y%d: %f\n", new_tool, hotend_offset_tmp[Y_AXIS][new_tool]);
+    LOG_I("hotend_offset_y%d: %f\n", active_extruder, hotend_offset_tmp[Y_AXIS][active_extruder]);
     LOG_I("hotend_offset_z%d: %f\n", new_tool, hotend_offset_tmp[Z_AXIS][new_tool]);
     LOG_I("hotend_offset_z%d: %f\n", active_extruder, hotend_offset_tmp[Z_AXIS][active_extruder]);
     motion_svc.sm_current_position[X_AXIS] += xdiff;

@@ -122,6 +122,7 @@ class ToolHeadFDM: public ModuleBase {
       probe_sensor   = PROBE_SENSOR_PROXIMITY_SWITCH;
       extruder_info  = 0;
       active_extruder = 0;
+      memset(hotend_offset, 0, sizeof(hotend_offset));
     }
 
     bool check_online() { return false; }

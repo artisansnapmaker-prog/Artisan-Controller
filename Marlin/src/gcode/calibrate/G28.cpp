@@ -66,6 +66,8 @@
 #define DEBUG_OUT ENABLED(DEBUG_LEVELING_FEATURE)
 #include "../../core/debug_out.h"
 
+#include "../../../snapmaker/src/snapmaker.h"
+
 #if ENABLED(QUICK_HOME)
 
   static void quick_home_xy() {
@@ -316,16 +318,18 @@ void GcodeSuite::G28() {
     motion_state_t saved_motion_state = begin_slow_homing();
   #endif
 
-  // Always home with tool 0 active
-  #if HAS_MULTI_HOTEND
-    #if DISABLED(DELTA) || ENABLED(DELTA_HOME_TO_SAFE_ZONE)
-      const uint8_t old_tool_index = active_extruder;
+  #if !MB_SNAPMAKER
+    // Always home with tool 0 active
+    #if HAS_MULTI_HOTEND
+      #if DISABLED(DELTA) || ENABLED(DELTA_HOME_TO_SAFE_ZONE)
+        const uint8_t old_tool_index = active_extruder;
+      #endif
+      // PARKING_EXTRUDER homing requires different handling of movement / solenoid activation, depending on the side of homing
+      #if ENABLED(PARKING_EXTRUDER)
+        const bool pe_final_change_must_unpark = parking_extruder_unpark_after_homing(old_tool_index, X_HOME_DIR + 1 == old_tool_index * 2);
+      #endif
+      tool_change(0, true);
     #endif
-    // PARKING_EXTRUDER homing requires different handling of movement / solenoid activation, depending on the side of homing
-    #if ENABLED(PARKING_EXTRUDER)
-      const bool pe_final_change_must_unpark = parking_extruder_unpark_after_homing(old_tool_index, X_HOME_DIR + 1 == old_tool_index * 2);
-    #endif
-    tool_change(0, true);
   #endif
 
   TERN_(HAS_DUPLICATION_MODE, set_duplication_enabled(false));
@@ -418,6 +422,7 @@ void GcodeSuite::G28() {
       #else
 
         homeaxis(X_AXIS);
+        smprinter.fdm->switch_extruder_without_move(0);
 
       #endif
     }
@@ -501,9 +506,11 @@ void GcodeSuite::G28() {
 
   restore_feedrate_and_scaling();
 
-  // Restore the active tool after homing
-  #if HAS_MULTI_HOTEND && (DISABLED(DELTA) || ENABLED(DELTA_HOME_TO_SAFE_ZONE))
-    tool_change(old_tool_index, TERN(PARKING_EXTRUDER, !pe_final_change_must_unpark, DISABLED(DUAL_X_CARRIAGE)));   // Do move if one of these
+  #if !MB_SNAPMAKER
+    // Restore the active tool after homing
+    #if HAS_MULTI_HOTEND && (DISABLED(DELTA) || ENABLED(DELTA_HOME_TO_SAFE_ZONE))
+      tool_change(old_tool_index, TERN(PARKING_EXTRUDER, !pe_final_change_must_unpark, DISABLED(DUAL_X_CARRIAGE)));   // Do move if one of these
+    #endif
   #endif
 
   #if HAS_HOMING_CURRENT

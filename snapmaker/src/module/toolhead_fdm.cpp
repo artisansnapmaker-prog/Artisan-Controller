@@ -1111,7 +1111,11 @@ err_code_t ToolHeadFDM::switch_extruder(uint8_t e) {
 }
 
 void ToolHeadFDM::switch_extruder_without_move(uint8_t e) {
-
+  extruder_status_check_ctrl(EXTRUDER_STATUS_IDLE);
+  active_extruder = e;
+  motion_svc.update_active_extruder_to_platform(active_extruder);
+  switch_extruder(active_extruder);
+  extruder_status_check_ctrl(EXTRUDER_STATUS_CHECK);
 }
 
 uint8_t ToolHeadFDM::get_extruder_status(uint8_t e) {

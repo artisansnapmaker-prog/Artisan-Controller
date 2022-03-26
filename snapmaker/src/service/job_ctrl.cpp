@@ -29,7 +29,21 @@
 #include "job_ctrl.h"
 
 
-JobCtrl job_ctrl_svc;
+#if ENABLE_CCRAM
+static __attribute__((section(".ccmram"))) StackType_t stack_jobctrl_thread[SYSTEM_TASK_STACK_SIZE];
+static __attribute__((section(".ccmram"))) StaticTask_t tcb_jobctrl;
+
+static __attribute__((section(".ccmram"))) uint8_t gcode_ring_buffer[GCODE_RB_SIZE];
+static __attribute__((section(".ccmram"))) uint8_t issue_ret_rb[4];
+
+static __attribute__((section(".ccmram"))) uint8_t queue_buffer_jobctrl[JOB_CTRL_REQ_INFO_BUF];
+static __attribute__((section(".ccmram"))) StaticMessageBuffer_t queue_strcut_jobctrl;
+
+JobCtrl __attribute__((section(".ccmram"))) job_ctrl_svc;
+#else
+JobCtrl job_ctrl_svc
+#endif
+
 
 void job_ctrl_thread_entry(void *p) {
   for(;;) {
@@ -38,30 +52,46 @@ void job_ctrl_thread_entry(void *p) {
 }
 
 void JobCtrl::init(void) { 
-  BaseType_t ret;
   uint8_t *rb_buf;
 
   _lock = xSemaphoreCreateMutex();
   configASSERT(_lock);
 
+#if ENABLE_CCRAM
+  _req_queue = xMessageBufferCreateStatic(JOB_CTRL_REQ_INFO_BUF, queue_buffer_jobctrl, &queue_strcut_jobctrl);
+#else
   _req_queue = xMessageBufferCreate(JOB_CTRL_REQ_INFO_BUF);
+#endif
   configASSERT(_req_queue);
 
+#if ENABLE_CCRAM
+  _gcode_rb.init(gcode_ring_buffer, (int32_t)GCODE_RB_SIZE);
+#else
   rb_buf = (uint8_t *)pvPortMalloc(GCODE_RB_SIZE);
   configASSERT(rb_buf);
   _gcode_rb.init(rb_buf, (int32_t)GCODE_RB_SIZE);
+#endif
 
+#if ENABLE_CCRAM
+  _issue_ret_rb.init(issue_ret_rb, 4);
+#else
   rb_buf = (uint8_t *)pvPortMalloc(4);
   configASSERT(rb_buf);
   _issue_ret_rb.init(rb_buf, 4);
-
+#endif
   _statistics_log_interval_ms = 0;
   _statistics_log_last_tick_ms = 0;
   _env.gfi_valid = false;
 
-  ret = xTaskCreate((TaskFunction_t)(job_ctrl_thread_entry), "jobctrl", SYSTEM_TASK_STACK_SIZE,
+#if ENABLE_CCRAM
+  TaskHandle_t jobctrl_task = xTaskCreateStatic((TaskFunction_t)(job_ctrl_thread_entry), "jobctrl", SYSTEM_TASK_STACK_SIZE,
+        (void *)(this), HIGHEST_TASK_PRIORITY,  stack_jobctrl_thread, &tcb_jobctrl);
+  if (!jobctrl_task) {
+#else
+  BaseType_t ret = xTaskCreate((TaskFunction_t)(job_ctrl_thread_entry), "jobctrl", SYSTEM_TASK_STACK_SIZE,
         (void *)(this), HIGHEST_TASK_PRIORITY,  NULL);
   if (ret != pdPASS) {
+#endif
     LOG_E("job_ctrl: cant not create thread\r\n");
     while(1);
   }

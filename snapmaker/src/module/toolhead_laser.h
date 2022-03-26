@@ -194,6 +194,7 @@ class ToolHeadLaser: public ModuleBase {
     err_code_t resume_env(uint8_t *env_buf, uint32_t &len);
     err_code_t standby(void);
     err_code_t resume_finish(void);
+    err_code_t quickstop(void);
 
     // callback for HMI
     static err_code_t hmi_cb_get_info(void *obj, sacp_hmi_message_t *message);

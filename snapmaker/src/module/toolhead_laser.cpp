@@ -1258,3 +1258,9 @@ err_code_t ToolHeadLaser::resume_finish(void) {
 
   return E_SUCCESS;
 }
+
+err_code_t ToolHeadLaser::quickstop(void) {
+  update_output(0);
+
+  return E_SUCCESS;
+}

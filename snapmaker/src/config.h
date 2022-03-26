@@ -4,7 +4,9 @@
 
 #include "MapleFreeRTOS1030.h"
 
-#define ENABLE_CCRAM  (1)
+#ifndef ENABLE_CCRAM
+  #define ENABLE_CCRAM  (1)
+#endif
 
 #define HIGHEST_TASK_PRIORITY         (5)
 

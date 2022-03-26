@@ -1678,11 +1678,14 @@ void Planner::quick_stop() {
   // Make sure to drop any attempt of queuing moves for 1 second
   cleaning_buffer_counter = TEMP_TIMER_FREQUENCY;
 
-  // Reenable Stepper ISR
-  if (was_enabled) stepper.wake_up();
+  // Change by snapmaker: set abort_current_block to true before resume stepper
+  // Make sure the stepper will NOT output the nest pulse.
 
   // And stop the stepper ISR
   stepper.quick_stop();
+
+  // Reenable Stepper ISR
+  if (was_enabled) stepper.wake_up();
 }
 
 #if ENABLED(REALTIME_REPORTING_COMMANDS)

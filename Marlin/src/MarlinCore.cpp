@@ -773,6 +773,16 @@ void idle(bool no_stepper_sleep/*=false*/) {
     if (++idle_depth > 5) SERIAL_ECHOLNPGM("idle() call depth: ", idle_depth);
   #endif
 
+    // #if MB_SNAPMAKER
+    // // If other thread call this idle, need to delay
+    // // to let the marlin has the opportunity to drop 
+    // // current block
+    // extern bool req_motion_platform_quickstop;
+    // if (req_motion_platform_quickstop) {
+    //   vTaskDelay(pdMS_TO_TICKS(1));
+    // }
+    // #endif
+
   // Core Marlin activities
   manage_inactivity(no_stepper_sleep);
 
@@ -1660,6 +1670,7 @@ void loop() {
     #if MB_SNAPMAKER
     extern bool req_motion_platform_quickstop;
     if (req_motion_platform_quickstop) {
+      quickstop_stepper();
       req_motion_platform_quickstop = false;
       queue.clear();
       motion_svc.give_quickstop_sem();

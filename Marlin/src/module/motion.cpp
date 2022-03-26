@@ -74,6 +74,11 @@
 #define DEBUG_OUT ENABLED(DEBUG_LEVELING_FEATURE)
 #include "../core/debug_out.h"
 
+#if MB_SNAPMAKER
+#include "../../snapmaker/src/snapmaker.h"
+#include "../../snapmaker/src/service/motion.h"
+#endif
+
 // Relative Mode. Enable with G91, disable with G90.
 bool relative_mode; // = false;
 
@@ -315,6 +320,10 @@ void home_if_needed(const bool keeplev/*=false*/) {
  */
 void quickstop_stepper() {
   planner.quick_stop();
+  #if MB_SNAPMAKER
+  // motion_svc.stepper_quickstop_finish();
+  motion_svc.stepper_quickstop_cb();
+  #endif
   planner.synchronize();
   set_current_from_steppers_for_axis(ALL_AXES_ENUM);
   sync_plan_position();

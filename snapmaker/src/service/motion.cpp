@@ -459,7 +459,10 @@ void MotionService::req_quickstop(void) {
   while(req_motion_platform_quickstop) vTaskDelay(5);
   req_motion_platform_quickstop = true;
 
-  quickstop_stepper();
+  // quickstop_stepper();
+  // planner.quick_stop();
+  // while (planner.has_blocks_queued())
+  emergency_parser.quickstop_by_M410 = true;
 
   // wait for the current request finish
   // LOG_I("wait for the quickstop finish\r\n");

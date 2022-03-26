@@ -31,8 +31,6 @@ static __attribute__((section(".ccmram"))) StaticTask_t tcb_system;
 static __attribute__((section(".ccmram"))) StaticTask_t tcb_hmi_event;
 static __attribute__((section(".ccmram"))) StaticTask_t tcb_hmi_recv;
 
-static __attribute__((section(".ccmram"))) StackType_t stack_idle[configMINIMAL_STACK_SIZE];
-static __attribute__((section(".ccmram"))) StaticTask_t tcb_idle;
 static __attribute__((section(".ccmram"))) StackType_t stack_timer[configTIMER_TASK_STACK_DEPTH];
 static __attribute__((section(".ccmram"))) StaticTask_t tcb_timer;
 #else
@@ -40,8 +38,10 @@ static  StackType_t stack_idle[configMINIMAL_STACK_SIZE];
 static  StaticTask_t tcb_idle;
 static  StackType_t stack_timer[configTIMER_TASK_STACK_DEPTH];
 static  StaticTask_t tcb_timer;
-
 #endif
+
+static StackType_t stack_idle[configMINIMAL_STACK_SIZE];
+static StaticTask_t tcb_idle;
 
 extern "C" {
   void vApplicationGetIdleTaskMemory(StaticTask_t **ppxIdleTaskTCBBuffer,
@@ -422,9 +422,9 @@ void SnapmakerPrinter::post_init() {
   uint32_t *data_start = &_sdata, *data_end = &_edata;
   uint32_t *bss_start = &__bss_start__, *bss_end = &__bss_end__;
 
-  LOG_I("\nCCRAM, start: 0x%08x, end: 0x%08x, size: 0x%08x B\n", ccram_start, ccram_end, ccram_end - ccram_start);
-  LOG_I("Data, start: 0x%08x, end: 0x%08x, size: 0x%08x B\n", data_start, data_end, data_end - data_start);
-  LOG_I("BSS, start: 0x%08x, end: 0x%08x, size: 0x%08x B\n\n", bss_start, bss_end, bss_end - bss_start);
+  LOG_I("\nCCRAM, start: 0x%08x, end: 0x%08x, size: %.3f kBytes\n", ccram_start, ccram_end, (ccram_end - ccram_start) * 4 / 1024.0);
+  LOG_I("Data, start: 0x%08x, end: 0x%08x, size: %.3f k Bytes\n", data_start, data_end, (data_end - data_start) * 4 / 1024.0);
+  LOG_I("BSS, start: 0x%08x, end: 0x%08x, size: %.3f k Bytes\n\n", bss_start, bss_end, (bss_end - bss_start) * 4 / 1024.0);
 
   // enable power
   pinMode(POWER_CTRL_8P, OUTPUT);

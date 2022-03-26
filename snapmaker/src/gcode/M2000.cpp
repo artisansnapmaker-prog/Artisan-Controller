@@ -485,29 +485,29 @@ void GcodeSuite::M2000() {
           float x = (float)parser.floatval('X', (float)0);
           float y = (float)parser.floatval('Y', (float)0);
           float z = (float)parser.floatval('Z', (float)0);
-          x = x*1000;
-          y = y*1000;
-          z = z*1000;
+          int32_t scaled_x = x*1000;
+          int32_t scaled_y = y*1000;
+          int32_t scaled_z = z*1000;
           buffer[index++] = smprinter.fdm->get_key();
           buffer[index++] = 3;  // array size
           buffer[index++] = 1;  // extruder index
           buffer[index++] = 0;  // axis
-          buffer[index++] = ((uint8_t *)&x)[0];
-          buffer[index++] = ((uint8_t *)&x)[1];
-          buffer[index++] = ((uint8_t *)&x)[2];
-          buffer[index++] = ((uint8_t *)&x)[3];
+          buffer[index++] = scaled_x & 0xff;
+          buffer[index++] = scaled_x >> 8;
+          buffer[index++] = scaled_x >> 16;
+          buffer[index++] = scaled_x >> 24;
           buffer[index++] = 1;  // extruder index
           buffer[index++] = 1;  // axis
-          buffer[index++] = ((uint8_t *)&y)[0];
-          buffer[index++] = ((uint8_t *)&y)[1];
-          buffer[index++] = ((uint8_t *)&y)[2];
-          buffer[index++] = ((uint8_t *)&y)[3];
+          buffer[index++] = scaled_y & 0xff;
+          buffer[index++] = scaled_y >> 8;
+          buffer[index++] = scaled_y >> 16;
+          buffer[index++] = scaled_y >> 24;
           buffer[index++] = 1;  // extruder index
           buffer[index++] = 2;  // axis
-          buffer[index++] = ((uint8_t *)&z)[0];
-          buffer[index++] = ((uint8_t *)&z)[1];
-          buffer[index++] = ((uint8_t *)&z)[2];
-          buffer[index++] = ((uint8_t *)&z)[3];
+          buffer[index++] = scaled_z & 0xff;
+          buffer[index++] = scaled_z >> 8;
+          buffer[index++] = scaled_z >> 16;
+          buffer[index++] = scaled_z >> 24;
           host_hmi.test_interface(SACP_CMD_SET_FDM, FDM_REQ_CMD_ID_SET_HOTEND_OFFSET, buffer, index);
         }
         break;

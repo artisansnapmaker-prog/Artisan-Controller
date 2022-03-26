@@ -441,7 +441,7 @@ static err_code_t hmi_req_callback_set_hotend_offset(void *obj, sacp_hmi_message
   uint8_t array_size;
   uint8_t e;
   uint8_t axis;
-  float offset;
+  int32_t offset;
   uint16_t get_data_index = 0;
 
   LOG_I("hmi request set hotend_offset\n");
@@ -462,8 +462,7 @@ static err_code_t hmi_req_callback_set_hotend_offset(void *obj, sacp_hmi_message
     e = msg->data[get_data_index++];
     axis = msg->data[get_data_index++];
     offset = (msg->data[get_data_index++]) | (msg->data[get_data_index++] << 8) | (msg->data[get_data_index++] << 16) | (msg->data[get_data_index++] << 24);
-    offset = offset / 1000;
-    ret = fdm.set_hotend_offset(offset, axis);
+    ret = fdm.set_hotend_offset(offset/1000, axis);
   }
 
   // e = msg->data[2];

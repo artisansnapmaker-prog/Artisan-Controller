@@ -580,12 +580,12 @@ float MotionService::probe_at_point(float x, float y, ProbePtRaise raise_after) 
   return probe.probe_at_point(x, y, raise_after);
 }
 
-void MotionService::sync_z_values_to_platform() {
+void MotionService::sync_z_values_to_platform(float compensation) {
   memcpy(z_values_raw, bedlevel_svc.z_values_, sizeof(z_values));
   memcpy(z_values, bedlevel_svc.z_values_, sizeof(z_values));
   for (uint32_t i = 0; i < GRID_MAX_NUM; i++) {
     for (uint32_t j = 0; j < GRID_MAX_NUM; j++) {
-      z_values[i][j] += bedlevel_svc.z_compensation_[0];
+      z_values[i][j] += compensation;
     }
   }
 }
@@ -606,7 +606,6 @@ void MotionService::load_settings() {
 }
 
 void MotionService::save_settings() {
-  sync_z_values_to_platform();
   settings.save();
 }
 

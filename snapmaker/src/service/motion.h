@@ -224,7 +224,7 @@ class MotionService {
     void disable_z_probe() {endstops.enable_z_probe(false);}
     float probe_at_point(float x, float y, ProbePtRaise raise_after=PROBE_PT_RAISE);
     void sync_leveling_limit_to_platform(float x_start, float x_end, float y_start, float y_end);
-    void sync_z_values_to_platform();
+    void sync_z_values_to_platform(float compensation);
     void sync_z_values_from_platform();
     void extrapolate_unprobed_points() {extrapolate_unprobed_bed_level();}
     void interpolate_virt_points() {refresh_bed_level();}

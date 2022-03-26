@@ -200,6 +200,18 @@ class MotionService {
     }
     float get_feedrate_percentage() { return feedrate_percentage; }
 
+    xyz_pos_t get_position_shift() {
+      return position_shift;
+    }
+  
+    xyz_pos_t get_active_coordinate_system(int8_t active_id) {
+      xyz_pos_t pos {0};
+      if (active_id < MAX_COORDINATE_SYSTEMS && active_id >= 0)
+        return gcode.coordinate_system[active_id];
+      else
+        return pos;
+    }
+
     // bed leveling API for internal app
     bool leveling_active() { return planner.leveling_active; }
     void disable_leveling() {set_bed_leveling_enabled(false);}

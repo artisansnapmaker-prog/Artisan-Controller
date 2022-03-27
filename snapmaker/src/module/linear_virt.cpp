@@ -1,6 +1,6 @@
 #include "linear_virt.h"
 #include "../host/sacp_hmi.h"
-#include "../service/motion.h"
+#include "../service/motion_platform.h"
 
 extern int16_t X_DETECT_PIN_var;
 extern int16_t Y_DETECT_PIN_var;
@@ -101,9 +101,9 @@ err_code_t LinearVirtual::hmi_cb_get_info(void *obj, sacp_hmi_message_t *message
 
   info = (LinearModuleInfo *)(message->data + 1);
   info->key = linear->get_key();
-  info->is_homed = motion_svc.is_axis_homed((ModuleLinearIndex)linear->get_sub_index());
+  info->is_homed = motion_platform_svc.is_axis_homed((ModuleLinearIndex)linear->get_sub_index());
   info->endstop = digitalRead(linear->endstop_pin);
-  info->endstop_enabled = motion_svc.endstop_status();
+  info->endstop_enabled = motion_platform_svc.endstop_status();
   info->lead = (int32_t)(linear->lead * 1000);
 
   message->length = sizeof(LinearModuleInfo) + 1;
@@ -122,7 +122,7 @@ err_code_t LinearVirtual::hmi_cb_set_endstop(void *obj, sacp_hmi_message_t *mess
   }
 
   LOG_I("hmi_cb_set_endstop[%u]\n", message->data[0]);
-  motion_svc.set_endstop(message->data[0]);
+  motion_platform_svc.set_endstop(message->data[0]);
 
   return host_hmi.send_ack(message, E_SUCCESS);
 }

@@ -4,7 +4,7 @@
 #include "../snapmaker.h"
 #include "../common/debug.h"
 #include "../service/module.h"
-#include "../service/motion.h"
+#include "../service/motion_platform.h"
 
 #include "../../../Marlin/src/core/serial.h"
 

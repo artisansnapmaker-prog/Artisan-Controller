@@ -98,7 +98,7 @@ Stepper stepper; // Singleton
 #include "../HAL/shared/Delay.h"
 #if MB_SNAPMAKER
 #include "../../snapmaker/src/snapmaker.h"
-#include "../../snapmaker/src/service/motion.h"
+#include "../../snapmaker/src/service/motion_platform.h"
 #endif
 
 #if ENABLED(INTEGRATED_BABYSTEPPING)
@@ -1658,8 +1658,8 @@ void Stepper::pulse_phase_isr() {
     abort_current_block = false;
     if (current_block) discard_current_block();
     #if MB_SNAPMAKER
-    // motion_svc.stepper_quickstop_finish();
-    // motion_svc.stepper_quickstop_cb();
+    // motion_platform_svc.stepper_quickstop_finish();
+    // motion_platform_svc.stepper_quickstop_cb();
     #endif
   }
 

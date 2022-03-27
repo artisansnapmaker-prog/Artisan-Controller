@@ -25,7 +25,7 @@
 #include "../snapmaker.h"
 #include "../common/type.h"
 #include "system.h"
-#include "motion.h"
+#include "motion_platform.h"
 #include "job_ctrl.h"
 
 
@@ -328,13 +328,13 @@ err_code_t JobCtrl::save_env(void) {
       LOG_E("job_ctrl: can not get bed\r\n");
     }
   }    
-  _env.active_coordinate = motion_svc.get_active_coordinate_system();
+  _env.active_coordinate = motion_platform_svc.get_active_coordinate_system();
   _env.cur_line_num = smprinter.gcode_file_position;
-  _env.print_feadrate = motion_svc.get_feedrate();
-  _env.travel_feadrate = motion_svc.get_travl_feedrate();
-  _env.g0g1_relative_mode = motion_svc.get_relative_mode();
+  _env.print_feadrate = motion_platform_svc.get_feedrate();
+  _env.travel_feadrate = motion_platform_svc.get_travl_feedrate();
+  _env.g0g1_relative_mode = motion_platform_svc.get_relative_mode();
   for(uint32_t i = 0; i < AXIS_NUM; i++)
-    _env.current_pos[i] = motion_svc.get_current_position(i);
+    _env.current_pos[i] = motion_platform_svc.get_current_position(i);
   
   // LOG_I("job_ctrl: cur_line_num %d\r\n", _env.cur_line_num);
   // print_job_env(&_env);
@@ -411,12 +411,12 @@ err_code_t JobCtrl::resum_env(void) {
   }
 
   _env.req_line_num = _env.cur_line_num;
-  motion_svc.set_relative_mode(_env.g0g1_relative_mode);
-  motion_svc.moveto_xy(_env.current_pos[0], _env.current_pos[1], RESUME_XY_FEEDRATE);
-  motion_svc.moveto_z(_env.current_pos[2], RESUME_Z_FEEDRATE);
-  motion_svc.set_feedrate(_env.print_feadrate);
-  motion_svc.set_travl_feedrate(_env.travel_feadrate);
-  motion_svc.set_relative_mode(_env.g0g1_relative_mode);
+  motion_platform_svc.set_relative_mode(_env.g0g1_relative_mode);
+  motion_platform_svc.moveto_xy(_env.current_pos[0], _env.current_pos[1], RESUME_XY_FEEDRATE);
+  motion_platform_svc.moveto_z(_env.current_pos[2], RESUME_Z_FEEDRATE);
+  motion_platform_svc.set_feedrate(_env.print_feadrate);
+  motion_platform_svc.set_travl_feedrate(_env.travel_feadrate);
+  motion_platform_svc.set_relative_mode(_env.g0g1_relative_mode);
 
   LOG_I("job_ctrl: ========================= resume =========================\r\n");
   LOG_I("job_ctrl: resume req_line_num %d\r\n", _env.req_line_num);
@@ -455,10 +455,10 @@ err_code_t JobCtrl::machine_standby(void) {
   {
   case TH_TYPE_3DP:
     /* code */
-    motion_svc.update_position_from_platform();
-    t_pos =  motion_svc.sm_current_position;
+    motion_platform_svc.update_position_from_platform();
+    t_pos =  motion_platform_svc.sm_current_position;
     t_pos.e -= 10;
-    motion_svc.moveto(t_pos, 10, true);
+    motion_platform_svc.moveto(t_pos, 10, true);
     break;
 
   case TH_TYPE_CNC:
@@ -474,16 +474,16 @@ err_code_t JobCtrl::machine_standby(void) {
   }
 
   // LOG_I("job_ctrl: Z raise to highest\r\n");
-  motion_svc.update_position_from_platform();
-  t_pos =  motion_svc.sm_current_position;
-  t_pos.z = motion_svc.get_max_position(Z_AXIS);
-  motion_svc.moveto(t_pos, RESUME_Z_FEEDRATE, true);
+  motion_platform_svc.update_position_from_platform();
+  t_pos =  motion_platform_svc.sm_current_position;
+  t_pos.z = motion_platform_svc.get_max_position(Z_AXIS);
+  motion_platform_svc.moveto(t_pos, RESUME_Z_FEEDRATE, true);
 
   // LOG_I("job_ctrl: y move to fronthead\r\n");
-  motion_svc.update_position_from_platform();
-  t_pos = motion_svc.sm_current_position;
-  t_pos.y = motion_svc.get_max_position(Y_AXIS);
-  motion_svc.moveto(t_pos, RESUME_XY_FEEDRATE, true);
+  motion_platform_svc.update_position_from_platform();
+  t_pos = motion_platform_svc.sm_current_position;
+  t_pos.y = motion_platform_svc.get_max_position(Y_AXIS);
+  motion_platform_svc.moveto(t_pos, RESUME_XY_FEEDRATE, true);
 
   // LOG_I("job_ctrl: machine standby end\r\n");
   return E_SUCCESS;
@@ -681,11 +681,11 @@ void JobCtrl::do_pause(struct JobCtrlReqInfo &jri) {
 
   switch (jri.req_data.req_pause_data.type) {
     case PAUSE_CLIENT_REQ:
-      motion_svc.req_quickstop();
+      motion_platform_svc.req_quickstop();
     break;
 
     case PAUSE_FILM_RUNOUT:
-      motion_svc.req_quickstop();
+      motion_platform_svc.req_quickstop();
     break;
 
     case PAUSE_POWR_LOSE:
@@ -782,7 +782,7 @@ void JobCtrl::do_stop(struct JobCtrlReqInfo &jri) {
     DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, SYSTEM_STATUS_STOPING);
   }
 
-  motion_svc.req_quickstop();
+  motion_platform_svc.req_quickstop();
   if (E_SUCCESS != machine_standby()) {
     LOG_E("job ctrl: machine standby failure\r\n");
     smprinter.set_sys_status(SYSTEM_STATUS_IDLE, &ret_sys_status);

@@ -24,7 +24,7 @@
 #include "../common/utility.h"
 #include "../snapmaker.h"
 #include "system.h"
-#include "motion.h"
+#include "motion_platform.h"
 #include "client_node.h"
 
 

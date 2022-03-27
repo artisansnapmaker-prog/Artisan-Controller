@@ -22,7 +22,7 @@
 #define SNAPMAKER_BED_LEVEL_SERVICE_H_
 
 #include "../config.h"
-#include "motion.h"
+#include "motion_platform.h"
 
 #define CALIBRATION_PAPER_THICKNESS   0.1
 

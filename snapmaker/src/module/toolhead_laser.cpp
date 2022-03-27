@@ -5,7 +5,7 @@
 #include "../common/debug.h"
 #include "../snapmaker.h"
 #include "../service/module.h"
-#include "../service/motion.h"
+#include "../service/motion_platform.h"
 #include "../HAL/pwm.h"
 #include "Arduino.h"
 
@@ -313,16 +313,16 @@ err_code_t ToolHeadLaser::hmi_cb_do_manual_focusing(void *obj, sacp_hmi_message_
   tmp = (int32_t *)(message->data + 9);
   target_pos[2] = (*tmp / 1000.0);
 
-  if (!motion_svc.is_all_axes_homed()) {
-    motion_svc.home();
+  if (!motion_platform_svc.is_all_axes_homed()) {
+    motion_platform_svc.home();
   }
 
-  motion_svc.synchronize_planner();
+  motion_platform_svc.synchronize_planner();
 
   // TODO: speed to be defined
-  motion_svc.moveto_xy(target_pos[0], target_pos[1], 50);
+  motion_platform_svc.moveto_xy(target_pos[0], target_pos[1], 50);
 
-  motion_svc.moveto_z(target_pos[2], 30, true);
+  motion_platform_svc.moveto_z(target_pos[2], 30, true);
 
   return host_hmi.send_ack(message, E_SUCCESS);
 }
@@ -355,16 +355,16 @@ err_code_t ToolHeadLaser::hmi_cb_do_auto_focusing(void *obj, sacp_hmi_message_t 
   float line_len_short = 5;
   float line_len_long = 10;
 
-  if (!motion_svc.is_all_axes_homed()) {
-    motion_svc.home();
+  if (!motion_platform_svc.is_all_axes_homed()) {
+    motion_platform_svc.home();
   }
 
-  motion_svc.synchronize_planner();
+  motion_platform_svc.synchronize_planner();
 
-  motion_svc.update_position_from_platform();
-  start_pos[X_AXIS] = motion_svc.sm_current_position[X_AXIS];
-  start_pos[Y_AXIS] = motion_svc.sm_current_position[Y_AXIS];
-  start_pos[Z_AXIS] = motion_svc.sm_current_position[Z_AXIS];
+  motion_platform_svc.update_position_from_platform();
+  start_pos[X_AXIS] = motion_platform_svc.sm_current_position[X_AXIS];
+  start_pos[Y_AXIS] = motion_platform_svc.sm_current_position[Y_AXIS];
+  start_pos[Z_AXIS] = motion_platform_svc.sm_current_position[Z_AXIS];
 
   next_x = start_pos[X_AXIS] - (int)(count / 2) * 2;
   next_y = start_pos[Y_AXIS];
@@ -380,8 +380,8 @@ err_code_t ToolHeadLaser::hmi_cb_do_auto_focusing(void *obj, sacp_hmi_message_t 
   do {
     // Move to the start point
     // TODO: speed to be updated
-    motion_svc.moveto_xy(next_x, next_y, 60);
-    motion_svc.synchronize_planner();
+    motion_platform_svc.moveto_xy(next_x, next_y, 60);
+    motion_platform_svc.synchronize_planner();
 
     // Laser on
     laser.set_output((float)70);
@@ -389,29 +389,29 @@ err_code_t ToolHeadLaser::hmi_cb_do_auto_focusing(void *obj, sacp_hmi_message_t 
     // Draw Line
     // TODO: speed to be updated
     if((i % 5) == 0)
-      motion_svc.moveto_xy(next_x, next_y + line_len_long, 5);
+      motion_platform_svc.moveto_xy(next_x, next_y + line_len_long, 5);
     else
-      motion_svc.moveto_xy(next_x, next_y + line_len_short, 5);
+      motion_platform_svc.moveto_xy(next_x, next_y + line_len_short, 5);
 
-    motion_svc.synchronize_planner();
+    motion_platform_svc.synchronize_planner();
 
     // Laser off
     laser.set_output((float)0);
 
     // Move up Z increase
     if(i != (count - 1))
-      motion_svc.moveto_z(motion_svc.sm_current_position[Z_AXIS] + z_interval, 20.0f);
+      motion_platform_svc.moveto_z(motion_platform_svc.sm_current_position[Z_AXIS] + z_interval, 20.0f);
 
     next_x = next_x + line_space;
     i++;
   } while(i < count);
 
-  motion_svc.synchronize_planner();
+  motion_platform_svc.synchronize_planner();
 
   // Move to beginning
-  motion_svc.moveto_z(start_pos[Z_AXIS], 20.0f);
-  motion_svc.moveto_xy(start_pos[X_AXIS], start_pos[Y_AXIS], 20.0f);
-  motion_svc.synchronize_planner();
+  motion_platform_svc.moveto_z(start_pos[Z_AXIS], 20.0f);
+  motion_platform_svc.moveto_xy(start_pos[X_AXIS], start_pos[Y_AXIS], 20.0f);
+  motion_platform_svc.synchronize_planner();
 
   return host_hmi.send_ack(message, E_SUCCESS);
 }

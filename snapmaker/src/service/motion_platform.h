@@ -18,8 +18,8 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#ifndef SNAPMAKER_MOTION_SERVICE_H_
-#define SNAPMAKER_MOTION_SERVICE_H_
+#ifndef SNAPMAKER_MOTION_PLATFORM_SERVICE_H_
+#define SNAPMAKER_MOTION_PLATFORM_SERVICE_H_
 
 #include "../config.h"
 #include "module.h"
@@ -78,9 +78,9 @@ typedef struct __packed MovingCommand {
   extern feedRate_t fast_move_feedrate;
 #endif
 
-class MotionService {
+class MotionPlatformService {
   public:
-    MotionService() {}
+    MotionPlatformService() {}
     void init();
     void pins_post_init();
     err_code_t pause_marlin(uint32_t timeout = 180 * 1000);
@@ -287,6 +287,6 @@ class MotionService {
 };
 
 
-extern MotionService motion_svc;
+extern MotionPlatformService motion_platform_svc;
 
 #endif  // #ifndef SNAPMAKER_MOTION_SERVICE_H_

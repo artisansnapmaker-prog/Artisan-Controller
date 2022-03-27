@@ -8,7 +8,7 @@
 
 #include "service/module.h"
 #include "service/system.h"
-#include "service/motion.h"
+#include "service/motion_platform.h"
 #include "service/bed_level.h"
 
 #include "host/sacp.h"
@@ -236,11 +236,11 @@ err_code_t SnapmakerPrinter::hmi_cb_get_machine_size(void *obj, sacp_hmi_message
 
   msize->home_offset_number = 3;
   msize->home_offset[0].axis = AXIS_KEY_X1;
-  msize->home_offset[0].value = motion_svc.get_home_offset(X_AXIS);
+  msize->home_offset[0].value = motion_platform_svc.get_home_offset(X_AXIS);
   msize->home_offset[1].axis = AXIS_KEY_Y1;
-  msize->home_offset[1].value = motion_svc.get_home_offset(Y_AXIS);
+  msize->home_offset[1].value = motion_platform_svc.get_home_offset(Y_AXIS);
   msize->home_offset[2].axis = AXIS_KEY_Z1;
-  msize->home_offset[2].value = motion_svc.get_home_offset(Z_AXIS);
+  msize->home_offset[2].value = motion_platform_svc.get_home_offset(Z_AXIS);
 
   msg->length = sizeof(MachineSizeInfo) + 1;
 
@@ -352,7 +352,7 @@ static void system_thread(void *p) {
   // module init
   module_svc.init();
 
-  motion_svc.init();
+  motion_platform_svc.init();
   bedlevel_svc.init();
   job_ctrl_svc.init();
   ClientNode::class_init();
@@ -653,7 +653,7 @@ bool SnapmakerPrinter::get_gcode_from_job(uint8_t *cmd, uint16_t max_len, uint32
 }
 
 bool SnapmakerPrinter::get_gcode_from_run_gcode_buffer(uint8_t *cmd, uint16_t max_len, uint32_t *line) {
-  return motion_svc.consume_a_gcode(cmd, max_len, line);
+  return motion_platform_svc.consume_a_gcode(cmd, max_len, line);
 }
 
 ModuleBase *SnapmakerPrinter::get_cur_toolhead(void) {
@@ -902,7 +902,7 @@ err_code_t SnapmakerPrinter::set_sys_status(enum SystemStatus req_status, enum S
 
 void SnapmakerPrinter::show_sys_info() {
   LOG_I("sys state: %u\n", sys_status);
-  motion_svc.show_coordiantes();
+  motion_platform_svc.show_coordiantes();
 }
 
 extern "C" {

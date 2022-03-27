@@ -254,7 +254,7 @@
 #endif
 
 #if MB_SNAPMAKER
-#include "../../snapmaker/src/service/motion.h"
+#include "../../snapmaker/src/service/motion_platform.h"
 #endif
 
 PGMSTR(M112_KILL_STR, "M112 Shutdown");
@@ -1673,7 +1673,7 @@ void loop() {
       quickstop_stepper();
       req_motion_platform_quickstop = false;
       queue.clear();
-      motion_svc.give_quickstop_sem();
+      motion_platform_svc.give_quickstop_sem();
     }
     #endif
 

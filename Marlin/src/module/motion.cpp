@@ -76,7 +76,7 @@
 
 #if MB_SNAPMAKER
 #include "../../snapmaker/src/snapmaker.h"
-#include "../../snapmaker/src/service/motion.h"
+#include "../../snapmaker/src/service/motion_platform.h"
 #endif
 
 // Relative Mode. Enable with G91, disable with G90.
@@ -321,8 +321,8 @@ void home_if_needed(const bool keeplev/*=false*/) {
 void quickstop_stepper() {
   planner.quick_stop();
   #if MB_SNAPMAKER
-  // motion_svc.stepper_quickstop_finish();
-  motion_svc.stepper_quickstop_cb();
+  // motion_platform_svc.stepper_quickstop_finish();
+  motion_platform_svc.stepper_quickstop_cb();
   #endif
   planner.synchronize();
   set_current_from_steppers_for_axis(ALL_AXES_ENUM);

@@ -22,7 +22,7 @@
 #include "../snapmaker.h"
 #include "../common/debug.h"
 
-#include "../service/motion.h"
+#include "../service/motion_platform.h"
 #include "../service/module.h"
 
 #include "../module/toolhead_cnc.h"
@@ -122,12 +122,12 @@ void GcodeSuite::M1006() {
 
 
 void GcodeSuite::M1007() {
-  int8_t active_coor = motion_svc.get_active_coordinate_system();
-  xyz_pos_t pos_shift = motion_svc.get_position_shift();
-  xyz_pos_t acvtive_coordinate = motion_svc.get_active_coordinate_system(active_coor);
+  int8_t active_coor = motion_platform_svc.get_active_coordinate_system();
+  xyz_pos_t pos_shift = motion_platform_svc.get_position_shift();
+  xyz_pos_t acvtive_coordinate = motion_platform_svc.get_active_coordinate_system(active_coor);
 
 
-  LOG_I("Homed: %s\n", motion_svc.is_all_axes_homed()? "YES" : "NO");
+  LOG_I("Homed: %s\n", motion_platform_svc.is_all_axes_homed()? "YES" : "NO");
 
   LOG_I("Selected origin num: %d\n", active_coor + 1);
 

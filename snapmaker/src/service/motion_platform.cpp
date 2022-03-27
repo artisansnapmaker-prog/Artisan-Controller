@@ -1,5 +1,5 @@
 
-#include "motion.h"
+#include "motion_platform.h"
 #include "../common/debug.h"
 #include "Arduino.h"
 #include "../snapmaker.h"
@@ -11,7 +11,7 @@
 #include "job_ctrl.h"
 
 
-MotionService motion_svc;
+MotionPlatformService motion_platform_svc;
 
 #if ENABLE_CCRAM
 static __attribute__((section(".ccmram"))) StackType_t stack_motion_thread[MOTION_TASK_STACK_SIZE];
@@ -32,8 +32,8 @@ struct __packed CoordinateSystemInformation {
 // use to request quickstop
 bool req_motion_platform_quickstop = false;
 
-uint16_t MotionService::hmi_cb_publish_coordinate_info(void *obj, uint8_t *buffer) {
-  MotionService *motion = (MotionService *)obj;
+uint16_t MotionPlatformService::hmi_cb_publish_coordinate_info(void *obj, uint8_t *buffer) {
+  MotionPlatformService *motion = (MotionPlatformService *)obj;
 
   CoordinateSystemInformation *info = (CoordinateSystemInformation *)(buffer + 1);
 
@@ -81,15 +81,15 @@ uint16_t MotionService::hmi_cb_publish_coordinate_info(void *obj, uint8_t *buffe
 }
 
 // HMI event callback
-err_code_t MotionService::hmi_cb_get_coordinate_info(void *obj, sacp_hmi_message_t *msg) {
+err_code_t MotionPlatformService::hmi_cb_get_coordinate_info(void *obj, sacp_hmi_message_t *msg) {
   msg->length = hmi_cb_publish_coordinate_info(obj, msg->data);
 
   return host_hmi.send_ack(msg);
 }
 
-err_code_t MotionService::hmi_cb_set_active_coordinate_system(void *obj, sacp_hmi_message_t *msg) {
+err_code_t MotionPlatformService::hmi_cb_set_active_coordinate_system(void *obj, sacp_hmi_message_t *msg) {
   uint8_t id = msg->data[0];
-  MotionService *motion = (MotionService *)obj;
+  MotionPlatformService *motion = (MotionPlatformService *)obj;
 
   LOG_I("set active coordinate[%u]\n", id);
 
@@ -113,8 +113,8 @@ err_code_t MotionService::hmi_cb_set_active_coordinate_system(void *obj, sacp_hm
   return host_hmi.send_ack(msg, E_SUCCESS);
 }
 
-err_code_t MotionService::hmi_cb_set_origin(void *obj, sacp_hmi_message_t *msg) {
-  MotionService *motion = (MotionService *)obj;
+err_code_t MotionPlatformService::hmi_cb_set_origin(void *obj, sacp_hmi_message_t *msg) {
+  MotionPlatformService *motion = (MotionPlatformService *)obj;
   err_code_t ret = E_SUCCESS;
   uint8_t length = msg->data[0];
 
@@ -143,8 +143,8 @@ err_code_t MotionService::hmi_cb_set_origin(void *obj, sacp_hmi_message_t *msg) 
   return host_hmi.send_ack(msg, ret);
 }
 
-err_code_t MotionService::hmi_cb_move_absoluty(void *obj, sacp_hmi_message_t *msg) {
-  MotionService *motion = (MotionService *)obj;
+err_code_t MotionPlatformService::hmi_cb_move_absoluty(void *obj, sacp_hmi_message_t *msg) {
+  MotionPlatformService *motion = (MotionPlatformService *)obj;
 
   uint8_t number = msg->data[0];
   coordinate_info_t *move_cmd = (coordinate_info_t *)(msg->data + 1);
@@ -207,9 +207,9 @@ enum MotionSACPHomeAxis {
   SACP_HOME_Y,
   SACP_HOME_Z,
 };
-err_code_t MotionService::hmi_cb_request_home(void *obj, sacp_hmi_message_t *msg) {
+err_code_t MotionPlatformService::hmi_cb_request_home(void *obj, sacp_hmi_message_t *msg) {
   err_code_t ret;
-  MotionService *motion = (MotionService *)obj;
+  MotionPlatformService *motion = (MotionPlatformService *)obj;
   uint8_t home_axis;
 
   LOG_I("hmi_cb_request_home[%u]\n", msg->data[0]);
@@ -278,8 +278,8 @@ err_code_t MotionService::hmi_cb_request_home(void *obj, sacp_hmi_message_t *msg
 }
 
 
-void MotionService::motion_background(void *p) {
-  MotionService &motion = *((MotionService *)p);
+void MotionPlatformService::motion_background(void *p) {
+  MotionPlatformService &motion = *((MotionPlatformService *)p);
 
   for (;;) {
     host_hmi.handle_events();
@@ -305,17 +305,17 @@ void MotionService::motion_background(void *p) {
   }
 }
 
-void MotionService::init() {
+void MotionPlatformService::init() {
   load_settings();
 
   set_axis_to_homed(I_AXIS);
   set_axis_to_homed(J_AXIS);
 
   if (get_leveling_state()) {
-    motion_svc.extrapolate_unprobed_points();
-    motion_svc.interpolate_virt_points();
-    motion_svc.print_leveling_grid();
-    motion_svc.print_leveling_grid_virt();
+    motion_platform_svc.extrapolate_unprobed_points();
+    motion_platform_svc.interpolate_virt_points();
+    motion_platform_svc.print_leveling_grid();
+    motion_platform_svc.print_leveling_grid_virt();
   }
 
   gcode_queue = xMessageBufferCreate(MOTION_PLATFORM_QUEUE_SIZE);
@@ -365,7 +365,7 @@ void MotionService::init() {
   marlin_paused = false;
 }
 
-void MotionService::pins_post_init() {
+void MotionPlatformService::pins_post_init() {
   #if HAS_E0_DIR
     E0_DIR_INIT();
   #endif
@@ -392,7 +392,7 @@ void MotionService::pins_post_init() {
   #endif
 }
 
-void MotionService::moveto_xy(float x, float y, float feedrate, bool blocked) {
+void MotionPlatformService::moveto_xy(float x, float y, float feedrate, bool blocked) {
   do_blocking_move_to_xy(x, y, feedrate);
   if (blocked) {
     synchronize_planner();
@@ -400,7 +400,7 @@ void MotionService::moveto_xy(float x, float y, float feedrate, bool blocked) {
   }
 }
 
-void MotionService::moveto_xyz(float x, float y, float z, float feedrate, bool blocked) {
+void MotionPlatformService::moveto_xyz(float x, float y, float z, float feedrate, bool blocked) {
   xy_pos_t xy;
   xy.x = x;
   xy.y = y;
@@ -411,7 +411,7 @@ void MotionService::moveto_xyz(float x, float y, float z, float feedrate, bool b
   }
 }
 
-void MotionService::moveto_x(float x, float feedrate, bool blocked) {
+void MotionPlatformService::moveto_x(float x, float feedrate, bool blocked) {
   do_blocking_move_to_x(x, feedrate);
   if (blocked) {
     synchronize_planner();
@@ -419,7 +419,7 @@ void MotionService::moveto_x(float x, float feedrate, bool blocked) {
   }
 }
 
-void MotionService::moveto_y(float y, float feedrate, bool blocked) {
+void MotionPlatformService::moveto_y(float y, float feedrate, bool blocked) {
   do_blocking_move_to_y(y, feedrate);
   if (blocked) {
     synchronize_planner();
@@ -427,7 +427,7 @@ void MotionService::moveto_y(float y, float feedrate, bool blocked) {
   }
 }
 
-void MotionService::moveto_z(float z, float feedrate, bool blocked) {
+void MotionPlatformService::moveto_z(float z, float feedrate, bool blocked) {
   do_blocking_move_to_z(z, feedrate);
   if (blocked) {
     synchronize_planner();
@@ -435,7 +435,7 @@ void MotionService::moveto_z(float z, float feedrate, bool blocked) {
   }
 }
 
-void MotionService::moveto_e(float e, float feedrate, bool blocked/*=true*/) {
+void MotionPlatformService::moveto_e(float e, float feedrate, bool blocked/*=true*/) {
   current_position[E_AXIS] = e;
   line_to_current_position(feedrate);
   if (blocked) {
@@ -444,14 +444,14 @@ void MotionService::moveto_e(float e, float feedrate, bool blocked/*=true*/) {
   }
 }
 
-void MotionService::sync_leveling_limit_to_platform(float x_start, float x_end, float y_start, float y_end) {
+void MotionPlatformService::sync_leveling_limit_to_platform(float x_start, float x_end, float y_start, float y_end) {
   startx = x_start;
   endx   = x_end;
   starty = y_start;
   endy   = y_end;
 }
 
-void MotionService::req_quickstop(void) {
+void MotionPlatformService::req_quickstop(void) {
 
   // There is a race condition that must be handled: the marlin thread and the caller thread
   // wait for the last request finish
@@ -469,7 +469,7 @@ void MotionService::req_quickstop(void) {
   take_quickstop_sem(0xffffffff);
 }
 
-void MotionService::normalstop(void) {
+void MotionPlatformService::normalstop(void) {
   // There is a race condition that must be handled: the marlin thread and the caller thread
   // stop Scheduling?
   // vTaskSuspendAll();
@@ -487,42 +487,42 @@ void MotionService::normalstop(void) {
   while(planner.busy()) vTaskDelay(1);
 }
 
-err_code_t MotionService::take_quickstop_sem(uint32_t wait_time) {
+err_code_t MotionPlatformService::take_quickstop_sem(uint32_t wait_time) {
   return pdTRUE == xSemaphoreTake(quickstop_binary_sem, wait_time) ? E_SUCCESS : E_FAILURE;
 }
 
-err_code_t MotionService::give_quickstop_sem(void) {
+err_code_t MotionPlatformService::give_quickstop_sem(void) {
   return pdTRUE == xSemaphoreGive(quickstop_binary_sem) ? E_SUCCESS : E_FAILURE;
 }
 
-void MotionService::stepper_quickstop_sem_clear(void) {
+void MotionPlatformService::stepper_quickstop_sem_clear(void) {
   while(pdTRUE == xSemaphoreTake(quickstop_in_stepper_binary_sem, 0));
 }
 
-void MotionService::stepper_quickstop_finish(void) {
+void MotionPlatformService::stepper_quickstop_finish(void) {
   static BaseType_t xHigherPriorityTaskWoken;
   xHigherPriorityTaskWoken = pdTRUE;
   xSemaphoreGiveFromISR(quickstop_in_stepper_binary_sem, &xHigherPriorityTaskWoken);
 }
 
-void MotionService::stepper_quickstop_wait(void) {
+void MotionPlatformService::stepper_quickstop_wait(void) {
   xSemaphoreTake(quickstop_in_stepper_binary_sem, 0xFFFFFFFF);
 }
 
-void MotionService::stepper_quickstop_cb(void) {
+void MotionPlatformService::stepper_quickstop_cb(void) {
   // Call from stepper ISR
   job_ctrl_svc.stepper_quickstop_cb();
 }
 
-float MotionService::get_feedrate(void) {
+float MotionPlatformService::get_feedrate(void) {
   return feedrate_mm_s;
 }
 
-void MotionService::set_feedrate(float fr) {
+void MotionPlatformService::set_feedrate(float fr) {
   feedrate_mm_s = fr;
 }
 
-float MotionService::get_travl_feedrate(void) {
+float MotionPlatformService::get_travl_feedrate(void) {
 #if ENABLED(VARIABLE_G0_FEEDRATE)
   return fast_move_feedrate;
 #else
@@ -530,34 +530,34 @@ float MotionService::get_travl_feedrate(void) {
 #endif
 }
 
-void MotionService::set_travl_feedrate(float tfr) {
+void MotionPlatformService::set_travl_feedrate(float tfr) {
 #if ENABLED(VARIABLE_G0_FEEDRATE)
   fast_move_feedrate = tfr;
 #endif
 }
 
-bool MotionService::get_relative_mode(void) {
+bool MotionPlatformService::get_relative_mode(void) {
   return relative_mode;
 }
 
-void MotionService::set_relative_mode(bool rm) {
+void MotionPlatformService::set_relative_mode(bool rm) {
   relative_mode = rm;
 }
 
-uint16_t MotionService::get_bet_temp(void) {
+uint16_t MotionPlatformService::get_bet_temp(void) {
   return thermalManager.degTargetBed();
 }
 
- bool MotionService::set_bet_temp(uint16_t t) {
+ bool MotionPlatformService::set_bet_temp(uint16_t t) {
   thermalManager.setTargetBed(t);
   return thermalManager.wait_for_bed();
 }
 
-uint8_t MotionService::get_leveling_grids() {
+uint8_t MotionPlatformService::get_leveling_grids() {
   return GRID_MAX_POINTS_X;
 }
 
-void MotionService::set_leveling_grids(uint8_t grids) {
+void MotionPlatformService::set_leveling_grids(uint8_t grids) {
   GRID_MAX_POINTS_X = grids;
   GRID_MAX_POINTS_Y = grids;
   GRID_MAX_CELLS_X  = GRID_MAX_POINTS_X - 1;
@@ -571,16 +571,16 @@ void MotionService::set_leveling_grids(uint8_t grids) {
   bilinear_start[Y_AXIS] = RAW_Y_POSITION(starty);
 }
 
-void MotionService::get_leveling_first_point_position(float &x, float &y) {
+void MotionPlatformService::get_leveling_first_point_position(float &x, float &y) {
   x = RAW_X_POSITION(startx);
   y = RAW_Y_POSITION(starty);
 }
 
-float MotionService::probe_at_point(float x, float y, ProbePtRaise raise_after) {
+float MotionPlatformService::probe_at_point(float x, float y, ProbePtRaise raise_after) {
   return probe.probe_at_point(x, y, raise_after);
 }
 
-void MotionService::sync_z_values_to_platform(float compensation) {
+void MotionPlatformService::sync_z_values_to_platform(float compensation) {
   memcpy(z_values_raw, bedlevel_svc.z_values_, sizeof(z_values));
   memcpy(z_values, bedlevel_svc.z_values_, sizeof(z_values));
   for (uint32_t i = 0; i < GRID_MAX_NUM; i++) {
@@ -590,22 +590,22 @@ void MotionService::sync_z_values_to_platform(float compensation) {
   }
 }
 
-void MotionService::sync_z_values_from_platform() {
+void MotionPlatformService::sync_z_values_from_platform() {
   memcpy(bedlevel_svc.z_values_, z_values_raw, sizeof(z_values));
 }
 
-void MotionService::sync_hotend_offset_to_platform(float x_offset, float y_offset, float z_offset) {
+void MotionPlatformService::sync_hotend_offset_to_platform(float x_offset, float y_offset, float z_offset) {
   hotend_offset[X_AXIS][1] = x_offset;
   hotend_offset[Y_AXIS][1] = y_offset;
   hotend_offset[Z_AXIS][1] = z_offset;
   // LOG_I("hotend_offset, T1, X%.2f, Y%.2f, Z%.2f\n", hotend_offset[X_AXIS][1], hotend_offset[Y_AXIS][1], hotend_offset[Z_AXIS][1]);
 }
 
-void MotionService::load_settings() {
+void MotionPlatformService::load_settings() {
   sync_z_values_from_platform();
 }
 
-void MotionService::save_settings() {
+void MotionPlatformService::save_settings() {
   settings.save();
 }
 
@@ -635,7 +635,7 @@ int16_t target_bed_temp(uint8_t area_id = 0) {
   return target_temp;
 }
 
-err_code_t MotionService::run_gcode(char *gcode_cmd, bool blocked /* = false*/,
+err_code_t MotionPlatformService::run_gcode(char *gcode_cmd, bool blocked /* = false*/,
     uint32_t blocked_timeout/*= 180 * 1000 ms*/) {
 #if 0
   int length = strlen(gcode) + 1;
@@ -706,7 +706,7 @@ err_code_t MotionService::run_gcode(char *gcode_cmd, bool blocked /* = false*/,
   return ret;
 }
 
-bool MotionService::consume_a_gcode(uint8_t *cmd, uint16_t max_len, uint32_t *line) {
+bool MotionPlatformService::consume_a_gcode(uint8_t *cmd, uint16_t max_len, uint32_t *line) {
   char gcode_cmd[MAX_CMD_SIZE + 4];
   size_t gcode_len = 0;
 
@@ -722,7 +722,7 @@ bool MotionService::consume_a_gcode(uint8_t *cmd, uint16_t max_len, uint32_t *li
 }
 
 
-void MotionService::moveto(xyze_pos_t target, float feedrate, bool blocked) {
+void MotionPlatformService::moveto(xyze_pos_t target, float feedrate, bool blocked) {
   if (xTaskGetCurrentTaskHandle() != thandle_marlin) {
     if (pause_marlin() != E_SUCCESS)
       return;
@@ -767,7 +767,7 @@ void MotionService::moveto(xyze_pos_t target, float feedrate, bool blocked) {
   return;
 }
 
-void MotionService::show_coordiantes() {
+void MotionPlatformService::show_coordiantes() {
   LOG_I("active coordinate: %d\n\n", gcode.active_coordinate_system);
 
   LOG_I("home state: all: %u, X%u, Y%u, Z%u, A%u, B%u\n\n", all_axes_homed(), axis_was_homed(X_AXIS),
@@ -794,7 +794,7 @@ void MotionService::show_coordiantes() {
 }
 
 
-err_code_t MotionService::pause_marlin(uint32_t timeout) {
+err_code_t MotionPlatformService::pause_marlin(uint32_t timeout) {
   if (xSemaphoreGive(marlin_signal) != pdPASS) {
     LOG_I("failed to send signal to pause marlin\n");
     return E_NO_RESRC;
@@ -815,7 +815,7 @@ err_code_t MotionService::pause_marlin(uint32_t timeout) {
   return E_SUCCESS;
 }
 
-err_code_t MotionService::resume_marlin() {
+err_code_t MotionPlatformService::resume_marlin() {
   if (xSemaphoreTake(marlin_signal, 0) != pdPASS) {
     LOG_I("failed to take signal for pausing marlin\n");
     return E_FAILURE;

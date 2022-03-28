@@ -213,8 +213,8 @@ extern int16_t E1_ENABLE_PIN_var;
 //
 #define HEATER_0_PIN                        PC13    // fake pin
 #define HEATER_1_PIN                        PC13    // fake pin
-#define HEATER_BED_PIN                      PA7   // Hotbed 2
-#define HEATER_CHAMBER_PIN                  PA6   // Hotbed 1
+#define HEATER_BED_PIN                      PA6   // Hotbed 2
+#define HEATER_CHAMBER_PIN                  PA7   // Hotbed 1
 
 #define TEMP_BOARD_PIN                      PB1     // sensor to detect temperature on board
 

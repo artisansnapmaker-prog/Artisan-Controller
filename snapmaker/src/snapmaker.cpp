@@ -64,22 +64,22 @@ extern "C" {
 
 // dynamic pins defination and default value
 
-int16_t X_STEP_PIN_var = PB4;
-int16_t X_DIR_PIN_var = PB3;
-int16_t X_ENABLE_PIN_var = PB2;
-int16_t X_MIN_PIN_var = PE7;
-int16_t X_UART_PIN_var = PD12;
-int16_t X_STANDBY_PIN_var = PB5;
-int16_t X_DETECT_PIN_var = PC3;
+int16_t Z2_STEP_PIN_var = PB4;
+int16_t Z2_DIR_PIN_var = PB3;
+int16_t Z2_ENABLE_PIN_var = PB2;
+int16_t Z2_MAX_PIN_var = PE7;
+int16_t Z2_UART_PIN_var = PD12;
+int16_t Z2_STANDBY_PIN_var = PB5;
+int16_t Z2_DETECT_PIN_var = PC3;
 
-
-int16_t Y_STEP_PIN_var = PB7;
-int16_t Y_DIR_PIN_var = PB6;
-int16_t Y_ENABLE_PIN_var = PB2;
-int16_t Y_MAX_PIN_var = PE8;
-int16_t Y_UART_PIN_var = PD13;
-int16_t Y_STANDBY_PIN_var = PE3;
-int16_t Y_DETECT_PIN_var = PA0;
+int16_t Z_STEP_PIN_var = PB7;
+int16_t Z_DIR_PIN_var = PB6;
+int16_t Z_ENABLE_PIN_var = PB2;
+int16_t Z_MIN_PIN_var = PC0;     // fake pin
+int16_t Z_MAX_PIN_var = PE8;
+int16_t Z_UART_PIN_var = PD13;
+int16_t Z_STANDBY_PIN_var = PE3;
+int16_t Z_DETECT_PIN_var = PA0;
 
 int16_t Y2_STEP_PIN_var = PE6;
 int16_t Y2_DIR_PIN_var = PE5;
@@ -89,22 +89,21 @@ int16_t Y2_UART_PIN_var = PD14;
 int16_t Y2_STANDBY_PIN_var = PE4;
 int16_t Y2_DETECT_PIN_var = PA1;
 
-int16_t Z_STEP_PIN_var = PC6;
-int16_t Z_DIR_PIN_var = PD15;
-int16_t Z_ENABLE_PIN_var = PB2;
-int16_t Z_MIN_PIN_var = PC0;     // fake pin
-int16_t Z_MAX_PIN_var = PE10;
-int16_t Z_UART_PIN_var = PC8;
-int16_t Z_STANDBY_PIN_var = PC7;
-int16_t Z_DETECT_PIN_var = PA2;
+int16_t Y_STEP_PIN_var = PC6;
+int16_t Y_DIR_PIN_var = PD15;
+int16_t Y_ENABLE_PIN_var = PB2;
+int16_t Y_MAX_PIN_var = PE10;
+int16_t Y_UART_PIN_var = PC8;
+int16_t Y_STANDBY_PIN_var = PC7;
+int16_t Y_DETECT_PIN_var = PA2;
 
-int16_t Z2_STEP_PIN_var = PB14;
-int16_t Z2_DIR_PIN_var = PD9;
-int16_t Z2_ENABLE_PIN_var = PB2;
-int16_t Z2_MAX_PIN_var = PE11;
-int16_t Z2_UART_PIN_var = PC9;
-int16_t Z2_STANDBY_PIN_var = PD8;
-int16_t Z2_DETECT_PIN_var = PA3;
+int16_t X_STEP_PIN_var = PB14;
+int16_t X_DIR_PIN_var = PD9;
+int16_t X_ENABLE_PIN_var = PB2;
+int16_t X_MIN_PIN_var = PE11;
+int16_t X_UART_PIN_var = PC9;
+int16_t X_STANDBY_PIN_var = PD8;
+int16_t X_DETECT_PIN_var = PA3;
 
 int16_t E0_STEP_PIN_var = PE14;
 int16_t E0_DIR_PIN_var = PB10;

@@ -79,71 +79,80 @@ extern int16_t X_STEP_PIN_var;
 extern int16_t X_DIR_PIN_var;
 extern int16_t X_ENABLE_PIN_var;
 extern int16_t X_CS_PIN_var;
+extern int16_t X_UART_PIN_var;
 
 extern int16_t Y_STEP_PIN_var;
 extern int16_t Y_DIR_PIN_var;
 extern int16_t Y_ENABLE_PIN_var;
 extern int16_t Y_CS_PIN_var;
+extern int16_t Y_UART_PIN_var;
 
 extern int16_t Y2_STEP_PIN_var;
 extern int16_t Y2_DIR_PIN_var;
 extern int16_t Y2_ENABLE_PIN_var;
 extern int16_t Y2_CS_PIN_var;
+extern int16_t Y2_UART_PIN_var;
 
 extern int16_t Z_STEP_PIN_var;
 extern int16_t Z_DIR_PIN_var;
 extern int16_t Z_ENABLE_PIN_var;
 extern int16_t Z_CS_PIN_var;
+extern int16_t Z_UART_PIN_var;
 
 extern int16_t Z2_STEP_PIN_var;
 extern int16_t Z2_DIR_PIN_var;
 extern int16_t Z2_ENABLE_PIN_var;
 extern int16_t Z2_CS_PIN_var;
+extern int16_t Z2_UART_PIN_var;
 
 #define X_STEP_PIN                          X_STEP_PIN_var
 #define X_DIR_PIN                           X_DIR_PIN_var
 #define X_ENABLE_PIN                        X_ENABLE_PIN_var
-#define X_CS_PIN                            X_CS_PIN_var
 
 #define Y_STEP_PIN                          Y_STEP_PIN_var
 #define Y_DIR_PIN                           Y_DIR_PIN_var
 #define Y_ENABLE_PIN                        Y_ENABLE_PIN_var
-#define Y_CS_PIN                            Y_CS_PIN_var
 
 #define Y2_STEP_PIN                          Y2_STEP_PIN_var
 #define Y2_DIR_PIN                           Y2_DIR_PIN_var
 #define Y2_ENABLE_PIN                        Y2_ENABLE_PIN_var
-#define Y2_CS_PIN                            Y2_CS_PIN_var
 
 #define Z_STEP_PIN                          Z_STEP_PIN_var
 #define Z_DIR_PIN                           Z_DIR_PIN_var
 #define Z_ENABLE_PIN                        Z_ENABLE_PIN_var
-#define Z_CS_PIN                            Z_CS_PIN_var
 
 #define Z2_STEP_PIN                          Z2_STEP_PIN_var
 #define Z2_DIR_PIN                           Z2_DIR_PIN_var
 #define Z2_ENABLE_PIN                        Z2_ENABLE_PIN_var
-#define Z2_CS_PIN                            Z2_CS_PIN_var
 
 #if HAS_TMC_UART
   //
   // Software serial
   // No Hardware serial for steppers
   //
-  #define X_SERIAL_TX_PIN                   PD12
-  #define X_SERIAL_RX_PIN                   PD12
 
-  #define Y_SERIAL_TX_PIN                   PD13
-  #define Y_SERIAL_RX_PIN                   PD13
+  /*
+    int16_t Z2_UART_PIN_var = PD12;
+    int16_t Z_UART_PIN_var = PD13;
+    int16_t Y2_UART_PIN_var = PD14;
+    int16_t Y_UART_PIN_var = PC8;
+    int16_t X_UART_PIN_var = PC9;
+  */
+
+  #define X_SERIAL_TX_PIN                   PC9
+  #define X_SERIAL_RX_PIN                   PC9
+
+  #define Y_SERIAL_TX_PIN                   PC8
+  #define Y_SERIAL_RX_PIN                   PC8
 
   #define Y2_SERIAL_TX_PIN                  PD14
   #define Y2_SERIAL_RX_PIN                  PD14
 
-  #define Z_SERIAL_TX_PIN                   PC8
-  #define Z_SERIAL_RX_PIN                   PC8
+  #define Z_SERIAL_TX_PIN                   PD13
+  #define Z_SERIAL_RX_PIN                   PD13
 
-  #define Z2_SERIAL_TX_PIN                  PC9
-  #define Z2_SERIAL_RX_PIN                  PC9
+  #define Z2_SERIAL_TX_PIN                  PD12
+  #define Z2_SERIAL_RX_PIN                  PD12
 
   // Reduce baud rate to improve software serial reliability
   #define TMC_BAUD_RATE                    115200

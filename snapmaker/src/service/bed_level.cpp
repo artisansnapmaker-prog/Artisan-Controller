@@ -381,6 +381,10 @@ static err_code_t hmi_req_callback_probe_sensor_calibration(void *obj, sacp_hmi_
   uint8_t action = msg->data[0];
   float x, y;
   uint8_t x_index, y_index;
+
+  if (GRID_MAX_POINTS_X == 0 || GRID_MAX_POINTS_Y == 0 || bilinear_grid_spacing.x == 0 || bilinear_grid_spacing.y == 0) {
+    motion_platform_svc.set_leveling_grids(3);
+  }
   x_index = GRID_MAX_POINTS_X / 2;
   y_index = GRID_MAX_POINTS_Y / 2;
   x = _GET_MESH_X(x_index);

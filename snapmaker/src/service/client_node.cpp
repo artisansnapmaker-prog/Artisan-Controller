@@ -175,8 +175,8 @@ err_code_t ClientNode::issue_client(uint8_t peer, uint8_t issue_ret) {
 
   sacp_hmi_message_t msg;
   uint8_t tx_buf[1];
-  uint8_t rx_buf[1];
-  uint16_t rx_len;
+  uint8_t rx_buf[8];
+  uint16_t rx_len = 8;
   msg.cmd_set = CMD_SET_JOB_CTRL;
   msg.cmd_id = CMD_ID_JOB_CTRL_ISSUE;
   msg.ch = cn->_ch;
@@ -186,8 +186,6 @@ err_code_t ClientNode::issue_client(uint8_t peer, uint8_t issue_ret) {
   msg.attr = 0;
   tx_buf[0] = issue_ret;
 
-  // host_hmi.send(&msg);
-  // TODO: send_sync need to verify
   if (E_SUCCESS != host_hmi.send_sync(&msg, rx_buf, &rx_len, 100, 3)) {
     LOG_E("Client node: Issue failure\r\n");
     return E_FAILURE;

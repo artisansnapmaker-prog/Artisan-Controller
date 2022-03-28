@@ -177,7 +177,7 @@ xyz_pos_t cartes;
 #if HAS_HOME_OFFSET
   // This offset is added to the configured home position.
   // Set by M206, M428, or menu item. Saved to EEPROM.
-  xyz_pos_t home_offset{0};
+  xyz_pos_t home_offset{-41, 0, -17};
 #endif
 #if HAS_HOME_OFFSET && HAS_POSITION_SHIFT
   // The above two are combined to save on computes

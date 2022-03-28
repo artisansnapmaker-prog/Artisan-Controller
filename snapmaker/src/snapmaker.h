@@ -128,6 +128,9 @@ class SnapmakerPrinter
     void pre_init();
     void post_init();
 
+    // API for home
+    void reset_home_offset();
+
     // API for gcode
     bool get_gcode_from_job(uint8_t *cmd, uint16_t max_len, uint32_t *line);
     bool get_gcode_from_run_gcode_buffer(uint8_t *cmd, uint16_t max_len, uint32_t *line);

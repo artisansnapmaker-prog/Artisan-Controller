@@ -155,6 +155,7 @@ class MotionPlatformService {
     err_code_t home_z(bool block = true) { return run_gcode((char *)"G28 Z ", block); }
     void set_axis_to_homed(AxisEnum axis) { set_axis_homed(axis); }
     float get_home_offset(AxisEnum axis) { return home_offset[axis]; }
+    void home_offset_init();
 
     // speed control API
     float get_feedrate(void);
@@ -205,7 +206,7 @@ class MotionPlatformService {
     xyz_pos_t get_position_shift() {
       return position_shift;
     }
-  
+
     xyz_pos_t get_active_coordinate_system(int8_t active_id) {
       xyz_pos_t pos {0};
       if (active_id < MAX_COORDINATE_SYSTEMS && active_id >= 0)

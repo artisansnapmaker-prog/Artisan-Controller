@@ -645,6 +645,12 @@ void SnapmakerPrinter::enclosure_hmi_self_test_interface(uint8_t test_type, uint
     enclosure->enclosure_hmi_self_test_interface(test_type, param);
 }
 
+// API for home
+void SnapmakerPrinter::reset_home_offset() {
+  home_offset[X_AXIS] = -41;
+  home_offset[Y_AXIS] = 0;
+  home_offset[Z_AXIS] = -17;
+}
 
 // API for gcode
 bool SnapmakerPrinter::get_gcode_from_job(uint8_t *cmd, uint16_t max_len, uint32_t *line) {
@@ -751,8 +757,8 @@ err_code_t SnapmakerPrinter::set_sys_status(enum SystemStatus req_status, enum S
     break;
 
   case SYSTEM_STATUS_STOPING:
-    if (SYSTEM_STATUS_PRINTING == sys_status || 
-        SYSTEM_STATUS_PAUSED == sys_status || 
+    if (SYSTEM_STATUS_PRINTING == sys_status ||
+        SYSTEM_STATUS_PAUSED == sys_status ||
         SYSTEM_STATUS_FINISHING == sys_status) {
       sys_status = req_status;
       ret = E_SUCCESS;
@@ -822,7 +828,7 @@ err_code_t SnapmakerPrinter::set_sys_status(enum SystemStatus req_status, enum S
   break;
 
   case SYSTEM_STATUS_XY_CALIBRATING:
-    if (sys_status == SYSTEM_STATUS_IDLE || 
+    if (sys_status == SYSTEM_STATUS_IDLE ||
         SYSTEM_STATUS_XY_CALIBRATING_PRINTING == sys_status) {
       sys_status = req_status;
       ret = E_SUCCESS;

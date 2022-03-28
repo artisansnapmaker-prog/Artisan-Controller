@@ -2756,6 +2756,7 @@ void MarlinSettings::reset() {
     scara_home_offset.reset();
   #elif HAS_HOME_OFFSET
     home_offset.reset();
+    smprinter.reset_home_offset();
   #endif
 
   TERN_(HAS_HOTEND_OFFSET, reset_hotend_offsets());

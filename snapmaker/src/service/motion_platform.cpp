@@ -311,6 +311,8 @@ void MotionPlatformService::init() {
   set_axis_to_homed(I_AXIS);
   set_axis_to_homed(J_AXIS);
 
+  home_offset_init();
+
   if (get_leveling_state()) {
     motion_platform_svc.extrapolate_unprobed_points();
     motion_platform_svc.interpolate_virt_points();
@@ -513,6 +515,12 @@ void MotionPlatformService::stepper_quickstop_wait(void) {
 void MotionPlatformService::stepper_quickstop_cb(void) {
   // Call from stepper ISR
   job_ctrl_svc.stepper_quickstop_cb();
+}
+
+void MotionPlatformService::home_offset_init() {
+  home_offset[X_AXIS] = -41;
+  home_offset[Y_AXIS] = 0;
+  home_offset[Z_AXIS] = -17;
 }
 
 float MotionPlatformService::get_feedrate(void) {

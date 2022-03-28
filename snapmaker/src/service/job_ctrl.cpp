@@ -151,15 +151,13 @@ void JobCtrl::background_thread(void *p) {
   // TODO: check other event such as temperature protetion, stall protection
   if (SYSTEM_STATUS_FINISHING == smprinter.get_sys_status() && _gcode_rb.is_empty() ){
     LOG_I("push all gcodes to marlin or other 3D printer\r\n");
-    issue_nodify(E_JOB_ISSUE_RET_FINISH);
-    req_stop();
+    req_stop(STOP_NORMAL, E_JOB_ISSUE_RET_FINISH);
   }
 
   if (SYSTEM_STATUS_XY_CALIBRATING_PRINTING == smprinter.get_sys_status() && _calibrating_print_finish){
     _calibrating_print_finish = false;
     LOG_I("push all gcodes to marlin or other 3D printer\r\n");
-    issue_nodify(E_JOB_ISSUE_RET_FINISH);
-    req_stop();
+    req_stop(STOP_NORMAL, E_JOB_ISSUE_RET_FINISH);
   }
 
   uint8_t issue_ret;
@@ -256,7 +254,10 @@ err_code_t JobCtrl::req_resume( uint8_t client_id,
   return E_SUCCESS;
 }
 
-err_code_t JobCtrl::req_stop(job_req_notify_cb_t cb/* = NULL*/, void *p/* = NULL*/) {
+err_code_t JobCtrl::req_stop( enum JobStopType st, 
+                              uint8_t reason,
+                              job_req_notify_cb_t cb/* = NULL*/, 
+                              void *p/* = NULL*/) {
   SystemStatus s = smprinter.get_sys_status();
   if (SYSTEM_STATUS_PRINTING != s && 
       SYSTEM_STATUS_PAUSED != s &&
@@ -268,6 +269,8 @@ err_code_t JobCtrl::req_stop(job_req_notify_cb_t cb/* = NULL*/, void *p/* = NULL
 
   JobCtrlReqInfo jri;
   jri.req_action = REQ_STOP;
+  jri.req_data.req_stop_data.type = st;
+  jri.req_data.req_stop_data.reason = reason;
   jri.cb = cb;
   jri.param = p;
 
@@ -435,7 +438,7 @@ err_code_t JobCtrl::machine_standby(void) {
   ModuleBase *cur_toolhead;
   xyze_pos_t t_pos;
 
-  // LOG_I("%d job_ctrl: machine standby begin\r\n", millis());
+  LOG_I("%d job_ctrl: machine standby begin\r\n", millis());
   if (!(cur_toolhead = smprinter.get_cur_toolhead())) {
     LOG_E("job_ctrl: can not get toolhead\r\n");
     return E_JOB_RESUME_ENV_FAILURE;
@@ -473,19 +476,20 @@ err_code_t JobCtrl::machine_standby(void) {
     break;
   }
 
-  // LOG_I("job_ctrl: Z raise to highest\r\n");
+  LOG_I("job_ctrl: Z raise to highest\r\n");
   motion_platform_svc.update_position_from_platform();
   t_pos =  motion_platform_svc.sm_current_position;
+  LOG_I("job_ctrl: z from %f to %f\r\n", t_pos.z, motion_platform_svc.get_max_position(Z_AXIS));
   t_pos.z = motion_platform_svc.get_max_position(Z_AXIS);
   motion_platform_svc.moveto(t_pos, RESUME_Z_FEEDRATE, true);
 
-  // LOG_I("job_ctrl: y move to fronthead\r\n");
+  LOG_I("job_ctrl: y move to fronthead\r\n");
   motion_platform_svc.update_position_from_platform();
   t_pos = motion_platform_svc.sm_current_position;
   t_pos.y = motion_platform_svc.get_max_position(Y_AXIS);
   motion_platform_svc.moveto(t_pos, RESUME_XY_FEEDRATE, true);
 
-  // LOG_I("job_ctrl: machine standby end\r\n");
+  LOG_I("job_ctrl: machine standby end\r\n");
   return E_SUCCESS;
 }
 
@@ -513,8 +517,7 @@ void JobCtrl::get_gcodes_from_client(void) {
 
       if(res_batch_gcode.start_line_num != req_batch_gcode.line_num) {
         LOG_E("start line number not match, drop this batch gcode\r\n");
-        _issue_ret_rb.insert_one(SACP_JOB_PAUSE_ISSUE_RET_IVALID_GCODE_LINE_NUMBER);
-        req_stop();
+        req_stop(STOP_EXCEPTION, SACP_JOB_PAUSE_ISSUE_RET_IVALID_GCODE_LINE_NUMBER);
         break;
       }
       // shoule we check the line number?
@@ -545,8 +548,7 @@ void JobCtrl::get_gcodes_from_client(void) {
 
         if (rx_line_num != ((res_batch_gcode.end_line_num - res_batch_gcode.start_line_num) + 1)) {
           LOG_E("line number not match, drop this batch gcode, expect %d, but get %d\r\n", rx_line_num, ((res_batch_gcode.end_line_num - res_batch_gcode.start_line_num) + 1));
-          _issue_ret_rb.insert_one(SACP_JOB_PAUSE_ISSUE_RET_IVALID_GCODE_LINE_NUMBER);
-          req_stop();
+          req_stop(STOP_EXCEPTION, SACP_JOB_PAUSE_ISSUE_RET_IVALID_GCODE_LINE_NUMBER);
           break;
         }
         // gcode ringbuffer guarantee to hold all the gcode string.
@@ -577,8 +579,7 @@ void JobCtrl::get_gcodes_from_client(void) {
 
   if (_err_get_batch_gcode_cnt > 3) {
     LOG_W("can not get batch gcode from clinet for 3 times, exit working return to idle\r\n");
-    _issue_ret_rb.insert_one(E_JOB_ISSUE_RET_GET_GCODE_FAILURE);
-    req_stop();
+    req_stop(STOP_EXCEPTION, SACP_JOB_PAUSE_ISSUE_RET_IVALID_GCODE_LINE_NUMBER);
   }
 }
 
@@ -688,7 +689,7 @@ void JobCtrl::do_pause(struct JobCtrlReqInfo &jri) {
       motion_platform_svc.req_quickstop();
     break;
 
-    case PAUSE_POWR_LOSE:
+    case PAUSE_POWER_LOSE:
       LOG_I("TODO: quickstop\r\n");
     break;
 
@@ -704,6 +705,7 @@ void JobCtrl::do_pause(struct JobCtrlReqInfo &jri) {
       LOG_E("job_ctrl: unknow pause type\r\n");
       smprinter.set_sys_status(SYSTEM_STATUS_IDLE, &ret_sys_status);
       DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, ret_sys_status);
+      _issue_ret_rb.insert_one(SACP_JOB_PAUSE_ISSUE_RET_PAUSE_PARAM_ERR);
       return;
     break;
   }
@@ -712,6 +714,7 @@ void JobCtrl::do_pause(struct JobCtrlReqInfo &jri) {
   if (E_SUCCESS != save_env()) {
     smprinter.set_sys_status(SYSTEM_STATUS_IDLE, &ret_sys_status);
     DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, ret_sys_status);
+    _issue_ret_rb.insert_one(SACP_JOB_PAUSE_ISSUE_RET_SAVE_ENV_FAILURE);
     return;
   }
   end_millis = millis();
@@ -723,6 +726,7 @@ void JobCtrl::do_pause(struct JobCtrlReqInfo &jri) {
   if (E_SUCCESS != machine_standby()) {
     smprinter.set_sys_status(SYSTEM_STATUS_IDLE, &ret_sys_status);
     DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, ret_sys_status);
+    _issue_ret_rb.insert_one(SACP_JOB_PAUSE_ISSUE_RET_STOP_FAILURE);
     return;
   }
 
@@ -762,6 +766,7 @@ void JobCtrl::do_resume(struct JobCtrlReqInfo &jri) {
     LOG_E("job ctrl: can not enter SYS_PRINTING status");
     smprinter.set_sys_status(SYSTEM_STATUS_IDLE, &ret_sys_status);
     DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, ret_sys_status);
+    _issue_ret_rb.insert_one(SACP_JOB_PAUSE_ISSUE_RET_PAUSE_FAILURE);
     return;
   }
   DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, SYSTEM_STATUS_PRINTING);
@@ -777,16 +782,44 @@ void JobCtrl::do_stop(struct JobCtrlReqInfo &jri) {
     if (E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_STOPING, &ret_sys_status)) {
       LOG_E("job_ctrl: Can not enter to SYSTEM_STATUS_STOPING status\r\n");
       DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, ret_sys_status);
+      _issue_ret_rb.insert_one(SACP_JOB_PAUSE_ISSUE_RET_STOP_FAILURE);
       return;
     }
     DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, SYSTEM_STATUS_STOPING);
   }
 
-  motion_platform_svc.req_quickstop();
+  switch(jri.req_data.req_stop_data.type) {
+    case STOP_NORMAL:
+      motion_platform_svc.normalstop();
+    break;
+
+    case STOP_CLIENT_REQ:
+      motion_platform_svc.req_quickstop();
+    break;
+
+    case STOP_EXCEPTION:
+      motion_platform_svc.req_quickstop();
+    break;
+
+    case STOP_EMERGENCY:
+      motion_platform_svc.req_quickstop();
+    break;
+
+    default:
+      LOG_E("Unknow stop type");
+      smprinter.set_sys_status(SYSTEM_STATUS_IDLE, NULL);
+      _issue_ret_rb.insert_one(SACP_JOB_PAUSE_ISSUE_RET_STOP_PARAM_ERR);
+      return;
+    break;
+  }
+  
+  // TODO: emergency 
+
   if (E_SUCCESS != machine_standby()) {
     LOG_E("job ctrl: machine standby failure\r\n");
     smprinter.set_sys_status(SYSTEM_STATUS_IDLE, &ret_sys_status);
     DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, ret_sys_status);
+    _issue_ret_rb.insert_one(SACP_JOB_PAUSE_ISSUE_RET_STOP_FAILURE);
     return;
   }
 
@@ -794,10 +827,12 @@ void JobCtrl::do_stop(struct JobCtrlReqInfo &jri) {
     if (E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_XY_CALIBRATING, &ret_sys_status)) {
       LOG_E("job ctrl: can not enter SYSTEM_STATUS_XY_CALIBRATING status");
       smprinter.set_sys_status(SYSTEM_STATUS_IDLE, &ret_sys_status);
+      _issue_ret_rb.insert_one(SACP_JOB_PAUSE_ISSUE_RET_STOP_FAILURE);
       DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, ret_sys_status);
     }
     else {
       DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, SYSTEM_STATUS_XY_CALIBRATING);
+      _issue_ret_rb.insert_one(jri.req_data.req_stop_data.reason);
     }
   }
   else {
@@ -805,9 +840,11 @@ void JobCtrl::do_stop(struct JobCtrlReqInfo &jri) {
       LOG_E("job ctrl: can not enter SYS_IDLE status");
       smprinter.set_sys_status(SYSTEM_STATUS_IDLE, &ret_sys_status);
       DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, ret_sys_status);
+      _issue_ret_rb.insert_one(SACP_JOB_PAUSE_ISSUE_RET_STOP_FAILURE);
       return;
     }
     DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, SYSTEM_STATUS_IDLE);
+    _issue_ret_rb.insert_one(jri.req_data.req_stop_data.reason);
   }
 }
 
@@ -857,14 +894,12 @@ bool JobCtrl::consume_a_gcode(uint8_t *cmd, uint16_t max_len, uint32_t *line) {
       if (_paused){
         if (!(cur_toolhead = smprinter.get_cur_toolhead())) {
           // LOG_E("job_ctrl: can NOT get toolhead\r\n");
-          _issue_ret_rb.insert_one(SACP_JOB_PAUSE_ISSUE_RET_STALL_PROTECTION);
-          req_stop();
+          req_stop(STOP_EXCEPTION, SACP_JOB_PAUSE_ISSUE_RET_STALL_PROTECTION);
           ret = false;
           break;
         }
         if(E_SUCCESS != cur_toolhead->resume_finish()) {
-          _issue_ret_rb.insert_one(SACP_JOB_PAUSE_ISSUE_RET_STALL_PROTECTION);
-          req_stop();
+          req_stop(STOP_EXCEPTION, SACP_JOB_PAUSE_ISSUE_RET_STALL_PROTECTION);
           ret = false;
           break;
         }

@@ -72,9 +72,16 @@
 enum JobPauseType {
   PAUSE_CLIENT_REQ,
   PAUSE_FILM_RUNOUT,
-  PAUSE_POWR_LOSE,
+  PAUSE_POWER_LOSE,
   PAUSE_DOOR_OPEN,
   PAUSE_EXCEPTION,
+};
+
+enum JobStopType {
+  STOP_NORMAL,
+  STOP_CLIENT_REQ,
+  STOP_EMERGENCY,
+  STOP_EXCEPTION,
 };
 
 typedef float xyzijk_position_t[AXIS_NUM];
@@ -128,6 +135,8 @@ struct JobCtrlReqInfo {
     } req_resume_data;
 
     struct {
+      enum JobStopType type;
+      uint8_t reason;
     } req_stop_data;
   } req_data;
 
@@ -154,7 +163,9 @@ class JobCtrl {
     err_code_t req_resume(uint8_t client_id, 
                           job_req_notify_cb_t cb = NULL, 
                           void *p = NULL);
-    err_code_t req_stop(  job_req_notify_cb_t cb = NULL, 
+    err_code_t req_stop(  enum JobStopType pt, 
+                          uint8_t reason,
+                          job_req_notify_cb_t cb = NULL, 
                           void *p = NULL);
     void print_job_env(struct JobEnv *env);
 

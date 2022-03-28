@@ -98,6 +98,15 @@
 #define SACP_JOB_PAUSE_ISSUE_RET_ABNORMAL_TEMP_PROTECTION       (5)
 #define SACP_JOB_PAUSE_ISSUE_RET_IVALID_GCODE_LINE_NUMBER       (6)
 #define SACP_JOB_PAUSE_ISSUE_RET_GET_GCODE_FAILURE              (7)
+#define SACP_JOB_PAUSE_ISSUE_RET_EMERGENCY_STOP                 (8)
+#define SACP_JOB_PAUSE_ISSUE_RET_TOOLHEAD_RESUME_FAILURE        (9)
+#define SACP_JOB_PAUSE_ISSUE_RET_STOP_PARAM_ERR                 (10)
+#define SACP_JOB_PAUSE_ISSUE_RET_STOP_FAILURE                   (11)
+#define SACP_JOB_PAUSE_ISSUE_RET_STOP_CLIENT_REQ                (12)
+#define SACP_JOB_PAUSE_ISSUE_RET_PAUSE_PARAM_ERR                (13)
+#define SACP_JOB_PAUSE_ISSUE_RET_SAVE_ENV_FAILURE               (14)
+#define SACP_JOB_PAUSE_ISSUE_RET_PAUSE_FAILURE                  (15)
+#define SACP_JOB_PAUSE_ISSUE_RET_UNKNOW_ERR                     (255)
 
 //Types of event function callbacks
 typedef std::function<err_code_t(sacp_hmi_message_t&)> evevnt_cb_f;

@@ -795,6 +795,17 @@ void MotionPlatformService::show_coordiantes() {
 
 
 err_code_t MotionPlatformService::pause_marlin(uint32_t timeout) {
+  while (uxSemaphoreGetCount(marlin_signal) > 0) {
+    vTaskDelay(pdMS_TO_TICKS(10));
+    if (timeout > 10) {
+      timeout -= 10;
+    }
+    else {
+      LOG_I("timeout to wait another thread release marlin\n");
+      return E_TIMEOUT;
+    }
+  }
+
   if (xSemaphoreGive(marlin_signal) != pdPASS) {
     LOG_I("failed to send signal to pause marlin\n");
     return E_NO_RESRC;

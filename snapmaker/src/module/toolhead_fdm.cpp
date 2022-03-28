@@ -462,26 +462,8 @@ static err_code_t hmi_req_callback_set_hotend_offset(void *obj, sacp_hmi_message
     e = msg->data[get_data_index++];
     axis = msg->data[get_data_index++];
     offset = (msg->data[get_data_index++]) | (msg->data[get_data_index++] << 8) | (msg->data[get_data_index++] << 16) | (msg->data[get_data_index++] << 24);
-    ret = fdm.set_hotend_offset(offset/1000, axis);
+    ret = fdm.set_hotend_offset((float)offset/1000, axis);
   }
-
-  // e = msg->data[2];
-  // axis = msg->data[3];
-  // offset = msg->data[4] << 24 | msg->data[5] << 16 | msg->data[6] << 8 | msg->data[7];
-  // offset = offset / 1000;
-  // ret = fdm.set_hotend_offset(offset, axis);
-
-  // e = msg->data[8];
-  // axis = msg->data[9];
-  // offset = msg->data[10] << 24 | msg->data[11] << 16 | msg->data[12] << 8 | msg->data[13];
-  // offset = offset / 1000;
-  // ret = fdm.set_hotend_offset(offset, axis);
-
-  // e = msg->data[14];
-  // axis = msg->data[15];
-  // offset = msg->data[16] << 24 | msg->data[17] << 16 | msg->data[18] << 8 | msg->data[19];
-  // offset = offset / 1000;
-  // ret = fdm.set_hotend_offset(offset, axis);
 
 EXIT:
   uint16_t index = 0;

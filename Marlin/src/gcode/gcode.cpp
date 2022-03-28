@@ -69,6 +69,10 @@ GcodeSuite gcode;
   #include "../feature/fancheck.h"
 #endif
 
+#if MB_SNAPMAKER
+  #include "../../snapmaker/src/service/motion_platform.h"
+#endif
+
 #include "../MarlinCore.h" // for idle, kill
 
 // Inactivity shutdown
@@ -376,7 +380,15 @@ void GcodeSuite::process_parsed_command(const bool no_ok/*=false*/) {
         case 27: G27(); break;                                    // G27: Nozzle Park
       #endif
 
-      case 28: G28(); break;                                      // G28: Home one or more axes
+      case 28: 
+      #if MB_SNAPMAKER
+      motion_platform_svc.homing_now = true;
+      #endif
+      G28(); 
+      #if MB_SNAPMAKER
+      motion_platform_svc.homing_now = false;
+      #endif
+      break;                                      // G28: Home one or more axes
 
       #if HAS_LEVELING
         case 29:                                                  // G29: Bed leveling calibration

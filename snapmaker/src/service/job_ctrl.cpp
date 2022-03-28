@@ -794,6 +794,9 @@ void JobCtrl::do_stop(struct JobCtrlReqInfo &jri) {
     break;
 
     case STOP_CLIENT_REQ:
+      // if homing now, use normalstop
+      // else use quickstop
+      while(motion_platform_svc.homing_now) vTaskDelay(5);
       motion_platform_svc.req_quickstop();
     break;
 

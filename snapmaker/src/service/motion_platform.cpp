@@ -363,6 +363,7 @@ void MotionPlatformService::init() {
   quickstop_binary_sem = xSemaphoreCreateBinary();
   configASSERT(quickstop_binary_sem);
   marlin_paused = false;
+  homing_now = false;
 }
 
 void MotionPlatformService::pins_post_init() {

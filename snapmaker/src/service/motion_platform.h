@@ -80,6 +80,8 @@ typedef struct __packed MovingCommand {
 
 class MotionPlatformService {
   public:
+    bool homing_now;
+
     MotionPlatformService() {}
     void init();
     void pins_post_init();

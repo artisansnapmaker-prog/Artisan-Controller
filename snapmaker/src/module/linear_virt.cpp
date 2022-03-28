@@ -62,7 +62,7 @@ err_code_t LinearVirtual::post_init() {
 
   pinMode(detect_pin, INPUT_ANALOG);
 
-  LOG_I("axis[%u], vol: %d mV\n", get_sub_index(), analogRead(detect_pin));
+  LOG_I("axis[%u], vol: %.3f mV\n", get_sub_index(), (analogRead(detect_pin) * 3.3 / 4096) );
 
   set_status(MODULE_STATUS_NORMAL);
 

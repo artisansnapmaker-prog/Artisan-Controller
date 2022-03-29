@@ -306,14 +306,14 @@ err_code_t JobCtrl::save_env(void) {
     return E_JOB_SAVE_ENV_FAILURE;
   }
 
-  // if (TH_TYPE_3DP != smprinter.get_toolhead_type()) {
+  if (TH_TYPE_3DP != smprinter.get_toolhead_type()) {
     // TODO: no do save_env for 3dp toolhead as 3dp toolhead save_env has bugs.
     _env.toolhead_env_buf_size = MODULE_ENV_MAX_SIZE;
     if (E_SUCCESS != cur_toolhead->save_env(_env.toolhead_env_buf, _env.toolhead_env_buf_size)) {
       LOG_E("Toolhead save env error\r\n");
       return E_JOB_SAVE_ENV_FAILURE;
     }
-  // }
+  }
 
   if (TH_TYPE_3DP == _env.type){
     ModuleBase *bed;
@@ -359,13 +359,13 @@ err_code_t JobCtrl::resum_env(void) {
     return E_JOB_UNSUPPORT_PARAM;
   }
 
-  // if (TH_TYPE_3DP != smprinter.get_toolhead_type()) {
+  if (TH_TYPE_3DP != smprinter.get_toolhead_type()) {
     // TODO: no do resume for 3dp toolhead as 3dp toolhead resume_env has bugs.
     if (E_SUCCESS != cur_toolhead->resume_env(_env.toolhead_env_buf, _env.toolhead_env_buf_size)) {
       LOG_E("job_ctrl: can not resume toolhead\r\n");
       return E_JOB_RESUME_ENV_FAILURE;
     }
-  // }
+  }
 
   if (TH_TYPE_3DP == _env.type) {
     ModuleBase *bed;
@@ -375,18 +375,19 @@ err_code_t JobCtrl::resum_env(void) {
         LOG_E("job_ctrl: bed resume env failure\r\n");
       }
       else {
-        uint32_t last_ms = millis();
         while(1) {
-          if (time_after(millis(), last_ms + 1000)) {
-            last_ms = millis();
-            LOG_I("job_ctrl: wait for bed heat up to target temperature\r\n");
-          }
-          if (thermalManager.degBed() > 0.0 && thermalManager.degTargetBed() < thermalManager.degBed()) {
+          vTaskDelay(pdMS_TO_TICKS(1000));
+          LOG_I("job_ctrl: wait for bed heat up to target temperature, zone_1: c%f@t%f, zone_2: c %f@t%f\r\n", 
+            thermalManager.degBed(), thermalManager.degTargetBed(),
+            thermalManager.degChamber(), thermalManager.degTargetChamber);
+
+          if ((thermalManager.degBed() > 0.0) && (thermalManager.degBed() < thermalManager.degTargetBed())) {
             continue;
           }
           #if ENABLED(SNAPMAKER_DOUBLE_ZONE_BED)
-          if (thermalManager.degChamber() > 0.0 && thermalManager.degTargetChamber() < thermalManager.degChamber())
+          if ((thermalManager.degChamber() > 0.0) && (thermalManager.degChamber() < thermalManager.degTargetChamber())) {
             continue;
+          }
           #endif
           break;
         }

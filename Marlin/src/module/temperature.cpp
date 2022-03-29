@@ -3776,6 +3776,12 @@ void Temperature::isr() {
         }
 
         idle();
+        // #if MB_SNAPMAKER
+        // extern bool req_motion_platform_quickstop;
+        // if (req_motion_platform_quickstop) {
+        //   break;
+        // }
+        // #endif
         gcode.reset_stepper_timeout(); // Keep steppers powered
 
         const celsius_float_t temp = degHotend(target_extruder);

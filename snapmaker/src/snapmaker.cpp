@@ -647,9 +647,12 @@ void SnapmakerPrinter::enclosure_hmi_self_test_interface(uint8_t test_type, uint
 
 // API for home
 void SnapmakerPrinter::reset_home_offset() {
-  home_offset[X_AXIS] = -41;
+  // home_offset[X_AXIS] = -41;
+  // home_offset[Y_AXIS] = 0;
+  // home_offset[Z_AXIS] = -17;
+  home_offset[X_AXIS] = 0;
   home_offset[Y_AXIS] = 0;
-  home_offset[Z_AXIS] = -17;
+  home_offset[Z_AXIS] = 0;
 }
 
 // API for gcode

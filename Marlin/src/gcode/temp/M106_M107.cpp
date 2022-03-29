@@ -27,6 +27,7 @@
 #include "../gcode.h"
 #include "../../module/motion.h"
 #include "../../module/temperature.h"
+#include "../../../../snapmaker/src/snapmaker.h"
 
 #if ENABLED(LASER_SYNCHRONOUS_M106_M107)
   #include "../../module/planner.h"
@@ -60,11 +61,22 @@
  */
 void GcodeSuite::M106() {
   #if (MB_SNAPMAKER)
+    bool seen_p = parser.seenval('P');
     uint8_t p = parser.byteval('P', 0);
     uint16_t s = parser.ushortval('S', 255);
     NOMORE(p, 3);
     NOMORE(s, 255U);
-    thermalManager.set_fan_speed(p, s);
+    uint8_t extruders = smprinter.fdm->get_extruders_count();
+    if (seen_p) {
+      thermalManager.set_fan_speed(p, s);
+    } else {
+      if (extruders == 1) {
+        thermalManager.set_fan_speed(0, s);
+      } else if (extruders == 2) {
+        thermalManager.set_fan_speed(0, s);
+        thermalManager.set_fan_speed(1, s);
+      }
+    }
   #else
     const uint8_t pfan = parser.byteval('P', _ALT_P);
     if (pfan >= _CNT_P) return;
@@ -109,8 +121,23 @@ void GcodeSuite::M106() {
  */
 void GcodeSuite::M107() {
   #if (MB_SNAPMAKER)
+    bool seen_p = parser.seenval('P');
     uint8_t p = parser.byteval('P', 0);
+    NOMORE(p, 3);
     thermalManager.set_fan_speed(p, 0);
+    uint8_t extruders = smprinter.fdm->get_extruders_count();
+    if (seen_p) {
+      thermalManager.set_fan_speed(p, 0);
+    } else {
+      if (extruders == 1) {
+        thermalManager.set_fan_speed(0, 0);
+        thermalManager.set_fan_speed(1, 0);
+      } else if (extruders == 2) {
+        thermalManager.set_fan_speed(0, 0);
+        thermalManager.set_fan_speed(1, 0);
+        thermalManager.set_fan_speed(2, 0);
+      }
+    }
   #else
     const uint8_t pfan = parser.byteval('P', _ALT_P);
     if (pfan >= _CNT_P) return;

@@ -51,7 +51,7 @@ void job_ctrl_thread_entry(void *p) {
   }
 }
 
-void JobCtrl::init(void) { 
+void JobCtrl::init(void) {
   uint8_t *rb_buf;
 
   _lock = xSemaphoreCreateMutex();
@@ -121,12 +121,12 @@ void JobCtrl::background_thread(void *p) {
     case REQ_STOP:
       do_stop(jri);
       break;
-    
+
     default:
       break;
     }
   }
-  
+
   // make sure send starting ACK before get gcodes
   SystemStatus s = smprinter.get_sys_status();
   if (SYSTEM_STATUS_PRINTING == s ||
@@ -147,7 +147,7 @@ void JobCtrl::background_thread(void *p) {
       _statistics_log_last_tick_ms = system_svc.millis();
     }
   }
-  
+
   // TODO: check other event such as temperature protetion, stall protection
   if (SYSTEM_STATUS_FINISHING == smprinter.get_sys_status() && _gcode_rb.is_empty() ){
     LOG_I("push all gcodes to marlin or other 3D printer\r\n");
@@ -168,13 +168,13 @@ void JobCtrl::background_thread(void *p) {
   }
 }
 
-err_code_t JobCtrl::req_start(  uint8_t client_id, 
-                                struct GcodeFileInfo *gcodeInfo, 
-                                toolHeadType th_type, 
-                                job_req_notify_cb_t cb/* = NULL*/, 
+err_code_t JobCtrl::req_start(  uint8_t client_id,
+                                struct GcodeFileInfo *gcodeInfo,
+                                toolHeadType th_type,
+                                job_req_notify_cb_t cb/* = NULL*/,
                                 void *p/* = NULL*/) {
   SystemStatus s = smprinter.get_sys_status();
-  if (SYSTEM_STATUS_IDLE != s && 
+  if (SYSTEM_STATUS_IDLE != s &&
       SYSTEM_STATUS_XY_CALIBRATING != s) {
     LOG_E("can not start job as current status is not idle or calibrating\r\n");
     return E_JOB_NOT_IN_IDLE_STATUS;
@@ -210,7 +210,7 @@ err_code_t JobCtrl::req_start(  uint8_t client_id,
   return E_SUCCESS;
 }
 
-err_code_t JobCtrl::req_pause( enum JobPauseType pt, 
+err_code_t JobCtrl::req_pause( enum JobPauseType pt,
                                       job_req_notify_cb_t cb/* = NULL*/, void *p/* = NULL*/) {
   if (SYSTEM_STATUS_PRINTING != smprinter.get_sys_status()) {
     LOG_E("job client: can not pause a job as current status is no printing\r\n");
@@ -231,8 +231,8 @@ err_code_t JobCtrl::req_pause( enum JobPauseType pt,
   return E_SUCCESS;
 }
 
-err_code_t JobCtrl::req_resume( uint8_t client_id, 
-                                job_req_notify_cb_t cb/* = NULL*/, 
+err_code_t JobCtrl::req_resume( uint8_t client_id,
+                                job_req_notify_cb_t cb/* = NULL*/,
                                 void *p/* = NULL*/) {
   // status check
   if (SYSTEM_STATUS_PAUSED != smprinter.get_sys_status()) {
@@ -254,12 +254,12 @@ err_code_t JobCtrl::req_resume( uint8_t client_id,
   return E_SUCCESS;
 }
 
-err_code_t JobCtrl::req_stop( enum JobStopType st, 
+err_code_t JobCtrl::req_stop( enum JobStopType st,
                               uint8_t reason,
-                              job_req_notify_cb_t cb/* = NULL*/, 
+                              job_req_notify_cb_t cb/* = NULL*/,
                               void *p/* = NULL*/) {
   SystemStatus s = smprinter.get_sys_status();
-  if (SYSTEM_STATUS_PRINTING != s && 
+  if (SYSTEM_STATUS_PRINTING != s &&
       SYSTEM_STATUS_PAUSED != s &&
       SYSTEM_STATUS_FINISHING != s &&
       SYSTEM_STATUS_XY_CALIBRATING_PRINTING != s) {
@@ -306,15 +306,15 @@ err_code_t JobCtrl::save_env(void) {
     return E_JOB_SAVE_ENV_FAILURE;
   }
 
-  if (TH_TYPE_3DP != smprinter.get_toolhead_type()) {
+  // if (TH_TYPE_3DP != smprinter.get_toolhead_type()) {
     // TODO: no do save_env for 3dp toolhead as 3dp toolhead save_env has bugs.
     _env.toolhead_env_buf_size = MODULE_ENV_MAX_SIZE;
     if (E_SUCCESS != cur_toolhead->save_env(_env.toolhead_env_buf, _env.toolhead_env_buf_size)) {
       LOG_E("Toolhead save env error\r\n");
       return E_JOB_SAVE_ENV_FAILURE;
     }
-  }
-  
+  // }
+
   if (TH_TYPE_3DP == _env.type){
     ModuleBase *bed;
     bed = module_svc.get_module(MODULE_DEVICE_ID_A400_BED, 0);
@@ -330,7 +330,7 @@ err_code_t JobCtrl::save_env(void) {
     else {
       LOG_E("job_ctrl: can not get bed\r\n");
     }
-  }    
+  }
   _env.active_coordinate = motion_platform_svc.get_active_coordinate_system();
   _env.cur_line_num = smprinter.gcode_file_position;
   _env.print_feadrate = motion_platform_svc.get_feedrate();
@@ -338,7 +338,7 @@ err_code_t JobCtrl::save_env(void) {
   _env.g0g1_relative_mode = motion_platform_svc.get_relative_mode();
   for(uint32_t i = 0; i < AXIS_NUM; i++)
     _env.current_pos[i] = motion_platform_svc.get_current_position(i);
-  
+
   // LOG_I("job_ctrl: cur_line_num %d\r\n", _env.cur_line_num);
   // print_job_env(&_env);
   return E_SUCCESS;
@@ -358,14 +358,14 @@ err_code_t JobCtrl::resum_env(void) {
   if (smprinter.get_toolhead_type() != _env.type) {
     return E_JOB_UNSUPPORT_PARAM;
   }
-  
-  if (TH_TYPE_3DP != smprinter.get_toolhead_type()) {
+
+  // if (TH_TYPE_3DP != smprinter.get_toolhead_type()) {
     // TODO: no do resume for 3dp toolhead as 3dp toolhead resume_env has bugs.
     if (E_SUCCESS != cur_toolhead->resume_env(_env.toolhead_env_buf, _env.toolhead_env_buf_size)) {
       LOG_E("job_ctrl: can not resume toolhead\r\n");
       return E_JOB_RESUME_ENV_FAILURE;
-    } 
-  }
+    }
+  // }
 
   if (TH_TYPE_3DP == _env.type) {
     ModuleBase *bed;
@@ -423,7 +423,7 @@ err_code_t JobCtrl::resum_env(void) {
 
   LOG_I("job_ctrl: ========================= resume =========================\r\n");
   LOG_I("job_ctrl: resume req_line_num %d\r\n", _env.req_line_num);
-  LOG_I("job_ctrl: resume relative mode %d\r\n", _env.g0g1_relative_mode);  
+  LOG_I("job_ctrl: resume relative mode %d\r\n", _env.g0g1_relative_mode);
   LOG_I("job_ctrl: resume xy position %f %f\r\n", _env.current_pos[0], _env.current_pos[1]);
   LOG_I("job_ctrl: resume z position %f\r\n", _env.current_pos[2]);
   LOG_I("job_ctrl: resume print_feadrate %f\r\n", _env.print_feadrate);
@@ -497,7 +497,7 @@ void JobCtrl::get_gcodes_from_client(void) {
   req_batch_gcode_t req_batch_gcode;
   res_batch_gcode_t res_batch_gcode;
   uint8_t batch_gcode_buf[GCODE_RB_SIZE/4];
-  
+
   while((uint32_t)_gcode_rb.free() >= _get_gcode_buffer_req_min) {
     req_batch_gcode.line_num = _env.req_line_num;
     req_batch_gcode.buf_len = (uint16_t) (MIN((uint32_t)_gcode_rb.free(), GCODE_RB_SIZE/4));
@@ -542,7 +542,7 @@ void JobCtrl::get_gcodes_from_client(void) {
 
         if (0 == rx_line_num) {
           LOG_I("job_ctrl: get 0 line gcode, perhaps no large buffer for the next gcode, break and wait for the next large gcode buffer\r\n");
-          // update 
+          // update
           _get_gcode_buffer_req_min = req_batch_gcode.buf_len + 1;
         }
 
@@ -599,7 +599,7 @@ void JobCtrl::statistics_output(void) {
 
 void JobCtrl::stepper_quickstop_cb(void) {
   ModuleBase *cur_toolhead;
-  
+
   // Call from stepper ISR
   SystemStatus s = smprinter.get_sys_status();
   if (SYSTEM_STATUS_PAUSING != s &&
@@ -718,9 +718,9 @@ void JobCtrl::do_pause(struct JobCtrlReqInfo &jri) {
     return;
   }
   end_millis = millis();
-  LOG_I("quick stop to standby take %d milliseconds\r\n", 
-      end_millis >= start_millis? 
-      end_millis - start_millis : 
+  LOG_I("quick stop to standby take %d milliseconds\r\n",
+      end_millis >= start_millis?
+      end_millis - start_millis :
       ((int)end_millis - (int)start_millis));
 
   if (E_SUCCESS != machine_standby()) {
@@ -815,8 +815,8 @@ void JobCtrl::do_stop(struct JobCtrlReqInfo &jri) {
       return;
     break;
   }
-  
-  // TODO: emergency 
+
+  // TODO: emergency
 
   if (E_SUCCESS != machine_standby()) {
     LOG_E("job ctrl: machine standby failure\r\n");
@@ -868,7 +868,7 @@ bool JobCtrl::consume_a_gcode(uint8_t *cmd, uint16_t max_len, uint32_t *line) {
   uint32_t cmd_len;
 
   SystemStatus s = smprinter.get_sys_status();
-  if (SYSTEM_STATUS_PRINTING != s && 
+  if (SYSTEM_STATUS_PRINTING != s &&
       SYSTEM_STATUS_FINISHING != s &&
       SYSTEM_STATUS_XY_CALIBRATING_PRINTING != s) {
     return false;

@@ -3010,7 +3010,7 @@
     #define MAX_BED_POWER 255
   #endif
   #ifndef HEATER_BED_INVERTING
-    #define HEATER_BED_INVERTING false
+    #define HEATER_BED_INVERTING true
   #endif
   #define WRITE_HEATER_BED(v) WRITE(HEATER_BED_PIN, (v) ^ HEATER_BED_INVERTING)
 #endif
@@ -3026,7 +3026,7 @@
     #define MAX_CHAMBER_POWER 255
   #endif
   #ifndef HEATER_CHAMBER_INVERTING
-    #define HEATER_CHAMBER_INVERTING false
+    #define HEATER_CHAMBER_INVERTING true
   #endif
   #define WRITE_HEATER_CHAMBER(v) WRITE(HEATER_CHAMBER_PIN, (v) ^ HEATER_CHAMBER_INVERTING)
 #endif

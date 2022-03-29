@@ -285,6 +285,7 @@ err_code_t JobCtrl::req_stop( enum JobStopType st,
 void JobCtrl::print_job_env(struct JobEnv *env) {
   LOG_I("job_ctrl: ========================= save env =========================\r\n");
   LOG_I("TYPE: %d\r\n", env->type);
+  LOG_I("active_coordinate: %d\r\n", env->active_coordinate);
   LOG_I("gcode name: %s\r\n", env->gcode_file_info.name);
   LOG_I("req_line_num: %d\r\n", env->req_line_num);
   LOG_I("cur_line_num: %d\r\n", env->cur_line_num);
@@ -306,14 +307,14 @@ err_code_t JobCtrl::save_env(void) {
     return E_JOB_SAVE_ENV_FAILURE;
   }
 
-  if (TH_TYPE_3DP != smprinter.get_toolhead_type()) {
+  // if (TH_TYPE_3DP != smprinter.get_toolhead_type()) {
     // TODO: no do save_env for 3dp toolhead as 3dp toolhead save_env has bugs.
     _env.toolhead_env_buf_size = MODULE_ENV_MAX_SIZE;
     if (E_SUCCESS != cur_toolhead->save_env(_env.toolhead_env_buf, _env.toolhead_env_buf_size)) {
       LOG_E("Toolhead save env error\r\n");
       return E_JOB_SAVE_ENV_FAILURE;
     }
-  }
+  //}
 
   if (TH_TYPE_3DP == _env.type){
     ModuleBase *bed;
@@ -359,13 +360,13 @@ err_code_t JobCtrl::resum_env(void) {
     return E_JOB_UNSUPPORT_PARAM;
   }
 
-  if (TH_TYPE_3DP != smprinter.get_toolhead_type()) {
+  // if (TH_TYPE_3DP != smprinter.get_toolhead_type()) {
     // TODO: no do resume for 3dp toolhead as 3dp toolhead resume_env has bugs.
     if (E_SUCCESS != cur_toolhead->resume_env(_env.toolhead_env_buf, _env.toolhead_env_buf_size)) {
       LOG_E("job_ctrl: can not resume toolhead\r\n");
       return E_JOB_RESUME_ENV_FAILURE;
     }
-  }
+  // }
 
   if (TH_TYPE_3DP == _env.type) {
     ModuleBase *bed;
@@ -396,41 +397,25 @@ err_code_t JobCtrl::resum_env(void) {
     else {
       LOG_E("job_ctrl: can not get bed\r\n");
     }
-
-    // wait for the hotend temperature
-    // {
-    //   uint32_t last_ms = millis();
-    //   while(1) {
-    //     if (time_after(millis(), last_ms + 1000)) {
-    //       last_ms = millis();
-    //       LOG_I("job_ctrl: wait for hot-end heat up to target temperature\r\n");
-    //     }
-    //     // TODO: get the current hotend
-    //     if (thermalManager.degHotend(0) > 0.0 && thermalManager.degTargetHotend(0) < thermalManager.degHotend(0)) {
-    //       continue;
-    //     }
-    //     break;
-    //   }
-    // }
   }
 
   _env.req_line_num = _env.cur_line_num;
-  motion_platform_svc.set_relative_mode(_env.g0g1_relative_mode);
   motion_platform_svc.moveto_xy(_env.current_pos[0], _env.current_pos[1], RESUME_XY_FEEDRATE);
   motion_platform_svc.moveto_z(_env.current_pos[2], RESUME_Z_FEEDRATE);
   motion_platform_svc.set_feedrate(_env.print_feadrate);
   motion_platform_svc.set_travl_feedrate(_env.travel_feadrate);
   motion_platform_svc.set_relative_mode(_env.g0g1_relative_mode);
 
-  LOG_I("job_ctrl: ========================= resume =========================\r\n");
-  LOG_I("job_ctrl: resume req_line_num %d\r\n", _env.req_line_num);
-  LOG_I("job_ctrl: resume relative mode %d\r\n", _env.g0g1_relative_mode);
-  LOG_I("job_ctrl: resume xy position %f %f\r\n", _env.current_pos[0], _env.current_pos[1]);
-  LOG_I("job_ctrl: resume z position %f\r\n", _env.current_pos[2]);
-  LOG_I("job_ctrl: resume print_feadrate %f\r\n", _env.print_feadrate);
-  LOG_I("job_ctrl: resume travel_feadrate %f\r\n", _env.travel_feadrate);
-  LOG_I("job_ctrl: resume relative mode %d\r\n", _env.g0g1_relative_mode);
-  LOG_I("\r\n");
+  // LOG_I("job_ctrl: ========================= resume =========================\r\n");
+  // LOG_I("job_ctrl: resume active coordinate_system %d\r\n", motion_platform_svc.get_active_coordinate_system());
+  // LOG_I("job_ctrl: resume req_line_num %d\r\n", _env.req_line_num);
+  // LOG_I("job_ctrl: resume relative mode %d\r\n", _env.g0g1_relative_mode);
+  // LOG_I("job_ctrl: resume xy position %f %f\r\n", _env.current_pos[0], _env.current_pos[1]);
+  // LOG_I("job_ctrl: resume z position %f\r\n", _env.current_pos[2]);
+  // LOG_I("job_ctrl: resume print_feadrate %f\r\n", _env.print_feadrate);
+  // LOG_I("job_ctrl: resume travel_feadrate %f\r\n", _env.travel_feadrate);
+  // LOG_I("job_ctrl: resume relative mode %d\r\n", _env.g0g1_relative_mode);
+  // LOG_I("\r\n");
 
   return E_SUCCESS;
 }
@@ -479,15 +464,15 @@ err_code_t JobCtrl::machine_standby(void) {
 
   LOG_I("job_ctrl: Z raise to highest\r\n");
   motion_platform_svc.update_position_from_platform();
-  t_pos =  motion_platform_svc.sm_current_position;
-  LOG_I("job_ctrl: z from %f to %f\r\n", t_pos.z, motion_platform_svc.get_max_position(Z_AXIS));
-  t_pos.z = motion_platform_svc.get_max_position(Z_AXIS);
+  t_pos = motion_platform_svc.sm_current_position;
+  // LOG_I("job_ctrl: z from %f to %f\r\n", t_pos.z, motion_platform_svc.after_home_z_max_pos);
+  t_pos.z = 395;
   motion_platform_svc.moveto(t_pos, RESUME_Z_FEEDRATE, true);
 
   LOG_I("job_ctrl: y move to fronthead\r\n");
   motion_platform_svc.update_position_from_platform();
   t_pos = motion_platform_svc.sm_current_position;
-  t_pos.y = motion_platform_svc.get_max_position(Y_AXIS);
+  t_pos.y = 395;
   motion_platform_svc.moveto(t_pos, RESUME_XY_FEEDRATE, true);
 
   LOG_I("job_ctrl: machine standby end\r\n");
@@ -503,15 +488,15 @@ void JobCtrl::get_gcodes_from_client(void) {
     req_batch_gcode.line_num = _env.req_line_num;
     req_batch_gcode.buf_len = (uint16_t) (MIN((uint32_t)_gcode_rb.free(), GCODE_RB_SIZE/4));
     if (req_batch_gcode.buf_len < _get_gcode_buffer_req_min){
-      LOG_I("job_ctrl: no large enough buffer for get gcode, minimum request %d, but we juest get %d\r\n", _get_gcode_buffer_req_min, req_batch_gcode.buf_len);
+      // LOG_I("job_ctrl: no large enough buffer for get gcode, minimum request %d, but we juest get %d\r\n", _get_gcode_buffer_req_min, req_batch_gcode.buf_len);
       break;
     }
     res_batch_gcode.gcode_str = batch_gcode_buf;
-    LOG_I("job_ctrl: get gcode from client %d, startline %d, buffer %d\r\n", _client_id, req_batch_gcode.line_num, req_batch_gcode.buf_len);
+    // LOG_I("job_ctrl: get gcode from client %d, startline %d, buffer %d\r\n", _client_id, req_batch_gcode.line_num, req_batch_gcode.buf_len);
     if(ClientNode::get_batch_gcode(_client_id, req_batch_gcode, res_batch_gcode)) {
       if (E_SUCCESS != res_batch_gcode.result &&
           E_JOB_LAST_GCODE_PACK != res_batch_gcode.result) {
-        LOG_I("job_ctrl: get gcode's result error\r\n");
+        LOG_E("job_ctrl: get gcode's result error\r\n");
         _err_get_batch_gcode_cnt++;
         continue;
       }
@@ -542,7 +527,7 @@ void JobCtrl::get_gcodes_from_client(void) {
         }
 
         if (0 == rx_line_num) {
-          LOG_I("job_ctrl: get 0 line gcode, perhaps no large buffer for the next gcode, break and wait for the next large gcode buffer\r\n");
+          // LOG_I("job_ctrl: get 0 line gcode, perhaps no large buffer for the next gcode, break and wait for the next large gcode buffer\r\n");
           // update
           _get_gcode_buffer_req_min = req_batch_gcode.buf_len + 1;
         }

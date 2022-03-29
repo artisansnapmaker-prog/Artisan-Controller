@@ -366,6 +366,7 @@ void MotionPlatformService::init() {
   configASSERT(quickstop_binary_sem);
   marlin_paused = false;
   homing_now = false;
+  after_home_z_max_pos = Z_MAX_POS;
 }
 
 void MotionPlatformService::pins_post_init() {
@@ -771,7 +772,6 @@ void MotionPlatformService::moveto(xyze_pos_t target, float feedrate, bool block
 
   if (blocked)
     planner.synchronize();
-
   if (xTaskGetCurrentTaskHandle() != thandle_marlin) {
     resume_marlin();
   }

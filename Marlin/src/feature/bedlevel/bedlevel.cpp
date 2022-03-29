@@ -46,6 +46,10 @@
   #include "../../lcd/extui/ui_api.h"
 #endif
 
+#if MB_SNAPMAKER
+  #include "../../snapmaker/src/service/motion_platform.h"
+#endif
+
 uint8_t GRID_MAX_POINTS_X;
 uint8_t GRID_MAX_POINTS_Y;
 uint8_t GRID_MAX_CELLS_X;    // #define GRID_MAX_CELLS_X (GRID_MAX_POINTS_X - 1)

@@ -62,8 +62,8 @@ extern int16_t Z2_MAX_PIN_var;
 #define Z_MIN_PIN                           Z_MIN_PIN_var
 #define Z_MAX_PIN                           Z_MAX_PIN_var
 #define Z2_MAX_PIN                          Z2_MAX_PIN_var
-#define I_MAX_PIN                           -1
-#define J_MAX_PIN                           -1
+#define I_MIN_PIN                           -1
+#define J_MIN_PIN                           -1
 
 //
 // Steppers

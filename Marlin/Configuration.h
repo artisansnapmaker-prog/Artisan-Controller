@@ -788,14 +788,14 @@
 #define USE_XMIN_PLUG
 // #define USE_YMIN_PLUG
 #define USE_ZMIN_PLUG
-//#define USE_IMIN_PLUG
-//#define USE_JMIN_PLUG
+#define USE_IMIN_PLUG
+#define USE_JMIN_PLUG
 //#define USE_KMIN_PLUG
 #define USE_XMAX_PLUG
 #define USE_YMAX_PLUG
 #define USE_ZMAX_PLUG
-#define USE_IMAX_PLUG
-#define USE_JMAX_PLUG
+// #define USE_IMAX_PLUG
+// #define USE_JMAX_PLUG
 //#define USE_KMAX_PLUG
 
 // Enable pullup for all endstops to prevent a floating state
@@ -935,14 +935,14 @@
  * Override with M92
  *                                      X, Y, Z [, I [, J [, K]]], E0 [, E1[, E2...]]
  */
-#define DEFAULT_AXIS_STEPS_PER_UNIT   { 80, 80, 400, 400, 400, 119.84 }
+#define DEFAULT_AXIS_STEPS_PER_UNIT   { 80, 80, 400, 400, 888.89, 119.84 }
 
 /**
  * Default Max Feed Rate (mm/s)
  * Override with M203
  *                                      X, Y, Z [, I [, J [, K]]], E0 [, E1[, E2...]]
  */
-#define DEFAULT_MAX_FEEDRATE          { 300, 300, 40, 300, 300, 25 }
+#define DEFAULT_MAX_FEEDRATE          { 300, 300, 40, 300, 45, 25 }
 
 //#define LIMITED_MAX_FR_EDITING        // Limit edit via M203 or LCD to DEFAULT_MAX_FEEDRATE * 2
 #if ENABLED(LIMITED_MAX_FR_EDITING)
@@ -1379,8 +1379,8 @@
 #define X_HOME_DIR -1
 #define Y_HOME_DIR 1
 #define Z_HOME_DIR 1
-#define I_HOME_DIR 1
-#define J_HOME_DIR 1
+#define I_HOME_DIR -1
+#define J_HOME_DIR -1
 //#define K_HOME_DIR -1
 
 // @section machine

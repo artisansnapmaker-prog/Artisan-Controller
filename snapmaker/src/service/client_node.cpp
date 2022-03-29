@@ -329,8 +329,6 @@ bool ClientNode::sacp_get_batch_gcode(req_batch_gcode_t &req_batch_gcode, res_ba
     return false;
   }
 
-  // peer id? and send id?
-  // seq not change
   s_msg.ch = _ch;
   s_msg.peer = SACP_HOST_ID_SCREEN;
   s_msg.attr = 0;
@@ -341,7 +339,7 @@ bool ClientNode::sacp_get_batch_gcode(req_batch_gcode_t &req_batch_gcode, res_ba
   _16_TO_LITTLE_STREAM(req_batch_gcode.buf_len, buf + 4);
   s_msg.length = 6;
   out_len = SEND_BUF_SIZE;
-  ret = host_hmi.send_sync(&s_msg, buf, &out_len, 200, 1);
+  ret = host_hmi.send_sync(&s_msg, buf, &out_len, 2000, 2);
   if (E_SUCCESS == ret) {
     if(out_len < 8){
       LOG_E("Client node: batch gcode response lenght error, must > 8, but get %d\r\n", out_len);

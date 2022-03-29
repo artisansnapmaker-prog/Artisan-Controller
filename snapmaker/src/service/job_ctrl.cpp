@@ -533,7 +533,8 @@ void JobCtrl::get_gcodes_from_client(void) {
         }
 
         if (rx_line_num != ((res_batch_gcode.end_line_num - res_batch_gcode.start_line_num) + 1)) {
-          LOG_E("line number not match, drop this batch gcode, expect %d, but get %d\r\n", rx_line_num, ((res_batch_gcode.end_line_num - res_batch_gcode.start_line_num) + 1));
+          LOG_E("line number not match, drop this batch gcode, expect %d, but get %d\r\n", 
+          rx_line_num, ((res_batch_gcode.end_line_num - res_batch_gcode.start_line_num) + 1));
           req_stop(STOP_EXCEPTION, SACP_JOB_PAUSE_ISSUE_RET_IVALID_GCODE_LINE_NUMBER);
           break;
         }
@@ -564,7 +565,7 @@ void JobCtrl::get_gcodes_from_client(void) {
   }
 
   if (_err_get_batch_gcode_cnt > 3) {
-    LOG_W("can not get batch gcode from clinet for 3 times, exit working return to idle\r\n");
+    LOG_W("can not get batch gcode from client for 3 times, exit working return to idle\r\n");
     req_stop(STOP_EXCEPTION, SACP_JOB_PAUSE_ISSUE_RET_IVALID_GCODE_LINE_NUMBER);
   }
 }

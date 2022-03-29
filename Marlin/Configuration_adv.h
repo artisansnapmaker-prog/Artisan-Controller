@@ -3013,10 +3013,10 @@
    */
   #define HYBRID_THRESHOLD
 
-  #define X_HYBRID_THRESHOLD     200  // [mm/s]
-  #define X2_HYBRID_THRESHOLD    200
-  #define Y_HYBRID_THRESHOLD     200
-  #define Y2_HYBRID_THRESHOLD    200
+  #define X_HYBRID_THRESHOLD     220  // [mm/s]
+  #define X2_HYBRID_THRESHOLD    220
+  #define Y_HYBRID_THRESHOLD     220
+  #define Y2_HYBRID_THRESHOLD    220
   #define Z_HYBRID_THRESHOLD     50
   #define Z2_HYBRID_THRESHOLD    50
   #define Z3_HYBRID_THRESHOLD      3

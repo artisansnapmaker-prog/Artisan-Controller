@@ -992,7 +992,6 @@ err_code_t ToolHeadFDM::set_hotend_temp(uint16_t temp, uint8_t e) {
     buffer[2*i + 1] = (uint8_t)hotend_temp[i].target;
   }
 
-  fan_e module_fan_index = SINGLE_EXTRUDER_MODULE_FAN;
   fan_e nozzle_fan_index = SINGLE_EXTRUDER_NOZZLE_FAN;
   uint8_t fan_speed = 0;
   uint8_t fan_delay = 0;
@@ -1016,20 +1015,12 @@ err_code_t ToolHeadFDM::set_hotend_temp(uint16_t temp, uint8_t e) {
   }
 
   if (get_device_id() == MODULE_DEVICE_ID_FDM_1EXTRUDER_2019) {
-    module_fan_index = SINGLE_EXTRUDER_MODULE_FAN;
     nozzle_fan_index = SINGLE_EXTRUDER_NOZZLE_FAN;
   }
   else if (get_device_id() == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
-    if (e == 0) {
-      module_fan_index = DUAL_EXTRUDER_LEFT_MODULE_FAN;
-    }
-    else if (e == 1) {
-      module_fan_index = DUAL_EXTRUDER_RIGHT_MODULE_FAN;
-    }
     nozzle_fan_index = DUAL_EXTRUDER_NOZZLE_FAN;
   }
 
-  set_fan_speed((uint8_t)module_fan_index, fan_speed, fan_delay);
   set_fan_speed((uint8_t)nozzle_fan_index, fan_speed, fan_delay);
 
   err_code_t ret;

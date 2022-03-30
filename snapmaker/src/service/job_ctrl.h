@@ -195,6 +195,8 @@ class JobCtrl {
     err_code_t machine_standby(void);                           /** set the machine in standby status                                     */
     void issue_nodify(uint8_t issue_ret);
     void get_gcodes_from_client(void);
+    bool can_start_work(SystemStatus s);
+    bool can_stop_work(SystemStatus s);
 
     SemaphoreHandle_t _lock;                                    /** lock, TODO:should use the snapmaker's API, not the freeRTOS           */
     MessageBufferHandle_t _req_queue;                           /** job control request enqueue this queue, the background thread outqueue requst and do it            */
@@ -205,6 +207,7 @@ class JobCtrl {
     RingBuffer<uint8_t> _issue_ret_rb;                          /** ringbuffer for issue code                                             */
     bool _paused;
     bool _calibrating_print_finish;
+    SystemStatus status_before_start;
 
     // use for state of self-inspection
     uint32_t _err_get_batch_gcode_cnt;

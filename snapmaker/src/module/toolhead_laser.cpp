@@ -430,11 +430,9 @@ err_code_t ToolHeadLaser::hmi_cb_set_cali_mode(void *obj, sacp_hmi_message_t *me
     return host_hmi.send_ack(message, E_PARAM);
   }
 
-  if (smprinter.get_sys_status() != SYSTEM_STATUS_LASER_CALIBRATING) {
-    if (E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_LASER_CALIBRATING, NULL)) {
-      LOG_E("failed to enter SYSTEM_STATUS_LASER_CALIBRATING status\r\n");
-      return host_hmi.send_ack(message, E_INVALID_STATE);
-    }
+  if (E_SUCCESS != smprinter.set_sys_status((SystemStatus)(message->data[0] + SYSTEM_STATUS_LASER_CALI_START), NULL)) {
+    LOG_E("failed to enter SYSTEM_STATUS_LASER_CALIBRATING status\r\n");
+    return host_hmi.send_ack(message, E_INVALID_STATE);
   }
 
   LOG_I("hmi_cb_set_cali_mode [%u]\n", message->data[0]);
@@ -448,21 +446,24 @@ err_code_t ToolHeadLaser::hmi_cb_set_cali_mode(void *obj, sacp_hmi_message_t *me
 err_code_t ToolHeadLaser::hmi_cb_exit_calibraion(void *obj, sacp_hmi_message_t *message) {
   ToolHeadLaser &laser = *(ToolHeadLaser *)obj;
 
-  if (laser.get_status() != MODULE_STATUS_NORMAL) {
-    LOG_E("invalid module state[%u] in calibration\n", laser.get_status());
-    return host_hmi.send_ack(message, E_INVALID_STATE);
-  }
+  // if (laser.get_status() != MODULE_STATUS_NORMAL) {
+  //   LOG_E("invalid module state[%u] in calibration\n", laser.get_status());
+  //   return host_hmi.send_ack(message, E_INVALID_STATE);
+  // }
 
   if (laser.cali_status >= LASER_CALI_STATUS_INVALID) {
     LOG_E("didn't in cali mode\n");
     return host_hmi.send_ack(message, E_INVALID_STATE);
   }
 
-  if (smprinter.get_sys_status() == SYSTEM_STATUS_LASER_CALIBRATING) {
-    smprinter.set_sys_status(SYSTEM_STATUS_IDLE, NULL);
+  if (smprinter.get_sys_status() == SYSTEM_STATUS_LASER_CALIBRATION_PRINTING) {
+    LOG_E("now we are printing in laser calibration mode\n");
+    return host_hmi.send_ack(message, E_INVALID_STATE);
   }
-  else {
-    LOG_E("system isn't in laser cali mode!!!");
+
+  if (smprinter.set_sys_status(SYSTEM_STATUS_IDLE, NULL) != E_SUCCESS) {
+    LOG_E("failed to exit laser calibration\n");
+    return host_hmi.send_ack(message, E_FAILURE);
   }
 
   LOG_I("hmi_cb_exit_calibraion [%u]\n", message->data[0]);
@@ -563,7 +564,7 @@ void ToolHeadLaser::can_cb_handle_security_status(void *obj, uint8_t *data, uint
   laser.laser_temp = data[5];
   laser.imu_temp   = data[6];
 
-  LOG_V("laser sta[%u], pitch[%d], roll[%d], tube temp[%d], imu temp[%d]\n", laser.safety_state, 
+  LOG_V("laser sta[%u], pitch[%d], roll[%d], tube temp[%d], imu temp[%d]\n", laser.safety_state,
         laser.pitch, laser.roll, laser.laser_temp, laser.imu_temp);
 }
 

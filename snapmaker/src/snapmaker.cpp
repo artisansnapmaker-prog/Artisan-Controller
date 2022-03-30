@@ -809,13 +809,27 @@ err_code_t SnapmakerPrinter::set_sys_status(enum SystemStatus req_status, enum S
   // job control end
   /*********************************************************************************/
 
-  case SYSTEM_STATUS_LASER_CALIBRATING:
+  case SYSTEM_STATUS_LASER_DETECT_THICKNESS_AUTO:
+  case SYSTEM_STATUS_LASER_DETECT_PLATFORM_POSITION:
+  case SYSTEM_STATUS_LASER_CAMERA_CAPTURE:
+  case SYSTEM_STATUS_LASER_DETECT_FOCAL_LENGTH:
+  case SYSTEM_STATUS_LASER_DETECT_4AXIS_CENTER_POSITION:
     if (sys_status != SYSTEM_STATUS_IDLE) {
       ret = E_FAILURE;
     }
     else {
       sys_status = req_status;
       ret = E_SUCCESS;
+    }
+    break;
+
+  case SYSTEM_STATUS_LASER_CALIBRATION_PRINTING:
+    if (sys_status <= SYSTEM_STATUS_LASER_CALI_END && sys_status >= SYSTEM_STATUS_LASER_CALI_START) {
+      sys_status = req_status;
+      ret = E_SUCCESS;
+    }
+    else {
+      ret = E_FAILURE;
     }
     break;
 

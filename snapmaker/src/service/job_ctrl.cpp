@@ -83,6 +83,8 @@ void JobCtrl::init(void) {
   _statistics_log_last_tick_ms = 0;
   _env.gfi_valid = false;
 
+  status_before_start = SYSTEM_STATUS_IDLE;
+
 #if ENABLE_CCRAM
   TaskHandle_t jobctrl_task = xTaskCreateStatic((TaskFunction_t)(job_ctrl_thread_entry), "jobctrl", SYSTEM_TASK_STACK_SIZE,
         (void *)(this), HIGHEST_TASK_PRIORITY,  stack_jobctrl_thread, &tcb_jobctrl);
@@ -168,21 +170,34 @@ void JobCtrl::background_thread(void *p) {
   }
 }
 
+
+bool JobCtrl::can_start_work(SystemStatus s) {
+  switch (s) {
+    case SYSTEM_STATUS_IDLE:
+    case SYSTEM_STATUS_XY_CALIBRATING:
+    case SYSTEM_STATUS_LASER_CAMERA_CAPTURE:
+    case SYSTEM_STATUS_LASER_DETECT_FOCAL_LENGTH:
+    case SYSTEM_STATUS_LASER_DETECT_4AXIS_CENTER_POSITION:
+      return true;
+
+    default:
+      return false;
+  }
+}
+
 err_code_t JobCtrl::req_start(  uint8_t client_id,
                                 struct GcodeFileInfo *gcodeInfo,
                                 toolHeadType th_type,
                                 job_req_notify_cb_t cb/* = NULL*/,
                                 void *p/* = NULL*/) {
   SystemStatus s = smprinter.get_sys_status();
-  if (SYSTEM_STATUS_IDLE != s &&
-      SYSTEM_STATUS_XY_CALIBRATING != s) {
+  if (!can_start_work(s)) {
     LOG_E("can not start job as current status is not idle or calibrating\r\n");
     return E_JOB_NOT_IN_IDLE_STATUS;
   }
 
-  if (SYSTEM_STATUS_XY_CALIBRATING == s) {
-    LOG_I("Start a calibration's printing job\r\n");
-  }
+  LOG_I("Start a printing job at status: %u\r\n", s);
+  status_before_start = s;
 
   if (th_type != smprinter.get_toolhead_type()) {
     LOG_E("job_ctrl: Unmatched toolhead\r\n");
@@ -254,15 +269,26 @@ err_code_t JobCtrl::req_resume( uint8_t client_id,
   return E_SUCCESS;
 }
 
+bool JobCtrl::can_stop_work(SystemStatus s) {
+  switch (s) {
+    case SYSTEM_STATUS_PRINTING:
+    case SYSTEM_STATUS_PAUSED:
+    case SYSTEM_STATUS_FINISHING:
+    case SYSTEM_STATUS_XY_CALIBRATING_PRINTING:
+    case SYSTEM_STATUS_LASER_CALIBRATION_PRINTING:
+      return true;
+
+    default:
+      return false;
+  }
+}
+
 err_code_t JobCtrl::req_stop( enum JobStopType st,
                               uint8_t reason,
                               job_req_notify_cb_t cb/* = NULL*/,
                               void *p/* = NULL*/) {
   SystemStatus s = smprinter.get_sys_status();
-  if (SYSTEM_STATUS_PRINTING != s &&
-      SYSTEM_STATUS_PAUSED != s &&
-      SYSTEM_STATUS_FINISHING != s &&
-      SYSTEM_STATUS_XY_CALIBRATING_PRINTING != s) {
+  if (!can_stop_work(s)) {
     LOG_E("job_ctrl: Can not stop a job as current status is no working or paused\r\n");
     return E_JOB_NOT_IN_PAUSE_STATUS;
   }
@@ -609,17 +635,19 @@ void JobCtrl::stepper_quickstop_cb(void) {
 
 void JobCtrl::do_start(struct JobCtrlReqInfo &jri) {
   enum SystemStatus ret_sys_status;
+  enum SystemStatus next_status;
 
-  if (SYSTEM_STATUS_XY_CALIBRATING == smprinter.get_sys_status()) {
-    // TODO: ???
-  }
-  else {
+  if (SYSTEM_STATUS_IDLE == smprinter.get_sys_status()) {
+    // if start work from idle:
     if (E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_STARTING, &ret_sys_status)) {
-      LOG_E("job_ctrl: Can not enter to SYS_STARTING status\r\n");
+      LOG_E("job_ctrl: Can not enter to SYS_STARTING at status: %u\r\n", ret_sys_status);
       DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, ret_sys_status);
       return;
     }
     DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, SYSTEM_STATUS_STARTING);
+  }
+  else {
+    // TODO: ???
   }
 
   _client_id = jri.req_data.req_start_data.client_id;
@@ -635,25 +663,52 @@ void JobCtrl::do_start(struct JobCtrlReqInfo &jri) {
   _env.gfi_valid = true;
   _get_gcode_buffer_req_min = 0;
 
-  if (SYSTEM_STATUS_XY_CALIBRATING == smprinter.get_sys_status()) {
-    if( E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_XY_CALIBRATING_PRINTING, &ret_sys_status)) {
-      LOG_E("job_ctrl: Can not enter to SYSTEM_STATUS_XY_CALIBRATING_PRINTING status\r\n");
-      DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, ret_sys_status);
-    }
-    else{
-      _calibrating_print_finish = false;
-      DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, SYSTEM_STATUS_XY_CALIBRATING_PRINTING);
-    }
+  // get next status we should enter
+  switch (status_before_start) {
+  case SYSTEM_STATUS_XY_CALIBRATING:
+    next_status = SYSTEM_STATUS_XY_CALIBRATING_PRINTING;
+    break;
+  
+  case SYSTEM_STATUS_LASER_CAMERA_CAPTURE:
+  case SYSTEM_STATUS_LASER_DETECT_FOCAL_LENGTH:
+  case SYSTEM_STATUS_LASER_DETECT_4AXIS_CENTER_POSITION:
+    next_status = SYSTEM_STATUS_LASER_CALIBRATION_PRINTING;
+    break;
+  
+  default:
+    next_status = SYSTEM_STATUS_PRINTING;
+    break;
   }
-  else {
-    if (E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_PRINTING, &ret_sys_status)) {
-      LOG_E("job_ctrl: Can not enter SYS_PRINTING status\r\n");
-      DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, ret_sys_status);
-      return;
-    }
-    LOG_I("job_ctrl: enter SYS_PRINTING status\r\n");
-    DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, SYSTEM_STATUS_PRINTING);
+
+  // requst enter next status
+  if( E_SUCCESS != smprinter.set_sys_status(next_status, &ret_sys_status)) {
+    LOG_E("job_ctrl: Can not enter to printing mode[%u] at current status[%u]\r\n", next_status, ret_sys_status);
+    DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, ret_sys_status);
   }
+  else{
+    _calibrating_print_finish = false;
+    DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, next_status);
+  }
+
+  // if (SYSTEM_STATUS_XY_CALIBRATING == status_before_start) {
+  //   if( E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_XY_CALIBRATING_PRINTING, &ret_sys_status)) {
+  //     LOG_E("job_ctrl: Can not enter to SYSTEM_STATUS_XY_CALIBRATING_PRINTING status\r\n");
+  //     DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, ret_sys_status);
+  //   }
+  //   else{
+  //     _calibrating_print_finish = false;
+  //     DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, SYSTEM_STATUS_XY_CALIBRATING_PRINTING);
+  //   }
+  // }
+  // else {
+  //   if (E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_PRINTING, &ret_sys_status)) {
+  //     LOG_E("job_ctrl: Can not enter SYS_PRINTING at status: %u\r\n", ret_sys_status);
+  //     DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, ret_sys_status);
+  //     return;
+  //   }
+  //   LOG_I("job_ctrl: enter SYS_PRINTING status\r\n");
+  //   DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, SYSTEM_STATUS_PRINTING);
+  // }
 }
 
 void JobCtrl::do_pause(struct JobCtrlReqInfo &jri) {
@@ -762,10 +817,7 @@ void JobCtrl::do_resume(struct JobCtrlReqInfo &jri) {
 void JobCtrl::do_stop(struct JobCtrlReqInfo &jri) {
   enum SystemStatus ret_sys_status;
 
-  if (SYSTEM_STATUS_XY_CALIBRATING_PRINTING == smprinter.get_sys_status()) {
-    // TODO: do nothing
-  }
-  else {
+  if (SYSTEM_STATUS_PRINTING == smprinter.get_sys_status()) {
     if (E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_STOPING, &ret_sys_status)) {
       LOG_E("job_ctrl: Can not enter to SYSTEM_STATUS_STOPING status\r\n");
       DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, ret_sys_status);
@@ -773,6 +825,9 @@ void JobCtrl::do_stop(struct JobCtrlReqInfo &jri) {
       return;
     }
     DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, SYSTEM_STATUS_STOPING);
+  }
+  else {
+    // TODO: do nothing
   }
 
   switch(jri.req_data.req_stop_data.type) {
@@ -813,15 +868,15 @@ void JobCtrl::do_stop(struct JobCtrlReqInfo &jri) {
     return;
   }
 
-  if (SYSTEM_STATUS_XY_CALIBRATING_PRINTING == smprinter.get_sys_status()) {
-    if (E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_XY_CALIBRATING, &ret_sys_status)) {
-      LOG_E("job ctrl: can not enter SYSTEM_STATUS_XY_CALIBRATING status");
+  if (SYSTEM_STATUS_PRINTING != smprinter.get_sys_status()) {
+    if (E_SUCCESS != smprinter.set_sys_status(status_before_start, &ret_sys_status)) {
+      LOG_E("job ctrl: can not enter status: %u\n", status_before_start);
       smprinter.set_sys_status(SYSTEM_STATUS_IDLE, &ret_sys_status);
       _issue_ret_rb.insert_one(SACP_JOB_PAUSE_ISSUE_RET_STOP_FAILURE);
       DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, ret_sys_status);
     }
     else {
-      DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, SYSTEM_STATUS_XY_CALIBRATING);
+      DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, status_before_start);
       _issue_ret_rb.insert_one(jri.req_data.req_stop_data.reason);
     }
   }
@@ -836,6 +891,9 @@ void JobCtrl::do_stop(struct JobCtrlReqInfo &jri) {
     DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, SYSTEM_STATUS_IDLE);
     _issue_ret_rb.insert_one(jri.req_data.req_stop_data.reason);
   }
+
+  // reset the status
+  status_before_start = SYSTEM_STATUS_IDLE;
 }
 
 err_code_t JobCtrl::set_env(struct JobEnv &env) {

@@ -26,7 +26,7 @@
 #define EXTRUDERS 2
 #define TOOL_CHANGE_SAFE_SPACE 30
 #define EXTRUDER0_SWITCH_POSITION 0
-#define EXTRUDER1_SWITCH_POSITION 400
+#define EXTRUDER1_SWITCH_POSITION 410
 #define GRID_MAX_NUM 11
 
 /****************************************************************************************

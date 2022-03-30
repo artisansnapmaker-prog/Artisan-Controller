@@ -502,7 +502,11 @@ void GcodeSuite::G28() {
   // Move to a height where we can use the full xy-area
   TERN_(DELTA_HOME_TO_SAFE_ZONE, do_blocking_move_to_z(delta_clip_start_height));
 
-  TERN_(CAN_SET_LEVELING_AFTER_G28, if (leveling_restore_state) set_bed_leveling_enabled());
+  #if MB_SNAPMAKER
+    if (smprinter.get_toolhead_type() == TH_TYPE_3DP) {
+      TERN_(CAN_SET_LEVELING_AFTER_G28, if (leveling_restore_state) set_bed_leveling_enabled());
+    }
+  #endif
 
   restore_feedrate_and_scaling();
 

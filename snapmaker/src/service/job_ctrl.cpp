@@ -151,13 +151,7 @@ void JobCtrl::background_thread(void *p) {
   }
 
   // TODO: check other event such as temperature protetion, stall protection
-  if (SYSTEM_STATUS_FINISHING == smprinter.get_sys_status() && _gcode_rb.is_empty() ){
-    LOG_I("push all gcodes to marlin or other 3D printer\r\n");
-    req_stop(STOP_NORMAL, E_JOB_ISSUE_RET_FINISH);
-  }
-
-  if (SYSTEM_STATUS_XY_CALIBRATING_PRINTING == smprinter.get_sys_status() && _calibrating_print_finish){
-    _calibrating_print_finish = false;
+  if (got_last_gcode_packet && _gcode_rb.is_empty() ){
     LOG_I("push all gcodes to marlin or other 3D printer\r\n");
     req_stop(STOP_NORMAL, E_JOB_ISSUE_RET_FINISH);
   }
@@ -572,7 +566,7 @@ void JobCtrl::get_gcodes_from_client(void) {
         if (E_JOB_LAST_GCODE_PACK == res_batch_gcode.result) {
           LOG_I("job_ctrl: Job control get last gcode packe\r\n");
           if (SYSTEM_STATUS_XY_CALIBRATING_PRINTING == smprinter.get_sys_status()) {
-            _calibrating_print_finish = true;
+            got_last_gcode_packet = true;
           }
           else {
             if (E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_FINISHING, NULL)) {
@@ -637,6 +631,12 @@ void JobCtrl::do_start(struct JobCtrlReqInfo &jri) {
   enum SystemStatus ret_sys_status;
   enum SystemStatus next_status;
 
+  if (!can_start_work((ret_sys_status = smprinter.get_sys_status()))) {
+    LOG_E("can not start job as current status is not idle or calibrating\r\n");
+    DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, ret_sys_status);
+    return;
+  }
+
   if (SYSTEM_STATUS_IDLE == smprinter.get_sys_status()) {
     // if start work from idle:
     if (E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_STARTING, &ret_sys_status)) {
@@ -662,6 +662,7 @@ void JobCtrl::do_start(struct JobCtrlReqInfo &jri) {
   _err_get_batch_gcode_cnt = 0;
   _env.gfi_valid = true;
   _get_gcode_buffer_req_min = 0;
+  got_last_gcode_packet = false;
 
   // get next status we should enter
   switch (status_before_start) {
@@ -686,7 +687,6 @@ void JobCtrl::do_start(struct JobCtrlReqInfo &jri) {
     DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, ret_sys_status);
   }
   else{
-    _calibrating_print_finish = false;
     DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, next_status);
   }
 }

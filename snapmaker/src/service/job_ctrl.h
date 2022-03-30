@@ -206,8 +206,8 @@ class JobCtrl {
     struct JobEnv _env;                                         /** environment of this job, used to job resume                           */
     RingBuffer<uint8_t> _issue_ret_rb;                          /** ringbuffer for issue code                                             */
     bool _paused;
-    bool _calibrating_print_finish;
     SystemStatus status_before_start;
+    bool got_last_gcode_packet;
 
     // use for state of self-inspection
     uint32_t _err_get_batch_gcode_cnt;

@@ -503,17 +503,18 @@ err_code_t JobCtrl::machine_standby(void) {
 void JobCtrl::get_gcodes_from_client(void) {
   req_batch_gcode_t req_batch_gcode;
   res_batch_gcode_t res_batch_gcode;
-  uint8_t batch_gcode_buf[GCODE_RB_SIZE/4];
+  uint8_t batch_gcode_buf[GCODE_REQ_BUFFER_MIN];
 
-  while((uint32_t)_gcode_rb.free() >= _get_gcode_buffer_req_min) {
+  // while((uint32_t)_gcode_rb.free() >= _get_gcode_buffer_req_min) {
+  while((uint32_t)_gcode_rb.free() >= GCODE_REQ_BUFFER_MIN) {
     req_batch_gcode.line_num = _env.req_line_num;
-    req_batch_gcode.buf_len = (uint16_t) (MIN((uint32_t)_gcode_rb.free(), GCODE_RB_SIZE/4));
-    if (req_batch_gcode.buf_len < _get_gcode_buffer_req_min){
+    req_batch_gcode.buf_len = (uint16_t) (MIN((uint32_t)_gcode_rb.free(), GCODE_REQ_BUFFER_MIN));
+    //if (req_batch_gcode.buf_len < _get_gcode_buffer_req_min){
       // LOG_I("job_ctrl: no large enough buffer for get gcode, minimum request %d, but we juest get %d\r\n", _get_gcode_buffer_req_min, req_batch_gcode.buf_len);
-      break;
-    }
+      //break;
+    //}
     res_batch_gcode.gcode_str = batch_gcode_buf;
-    // LOG_I("job_ctrl: get gcode from client %d, startline %d, buffer %d\r\n", _client_id, req_batch_gcode.line_num, req_batch_gcode.buf_len);
+    LOG_I("job_ctrl: get gcode from client %d, startline %d, buffer %d\r\n", _client_id, req_batch_gcode.line_num, req_batch_gcode.buf_len);
     if(ClientNode::get_batch_gcode(_client_id, req_batch_gcode, res_batch_gcode)) {
       if (E_SUCCESS != res_batch_gcode.result &&
           E_JOB_LAST_GCODE_PACK != res_batch_gcode.result) {
@@ -524,12 +525,15 @@ void JobCtrl::get_gcodes_from_client(void) {
 
       if(res_batch_gcode.start_line_num != req_batch_gcode.line_num) {
         LOG_E("start line number not match, drop this batch gcode\r\n");
-        req_stop(STOP_EXCEPTION, SACP_JOB_PAUSE_ISSUE_RET_IVALID_GCODE_LINE_NUMBER);
+        _err_get_batch_gcode_cnt++;
+        // req_stop(STOP_EXCEPTION, SACP_JOB_PAUSE_ISSUE_RET_IVALID_GCODE_LINE_NUMBER);
         break;
       }
       // shoule we check the line number?
       uint8_t *p, *ls;
       p = ls = res_batch_gcode.gcode_str;
+      LOG_I("SART: %d ~ STOP: %d\r\n", res_batch_gcode.start_line_num, res_batch_gcode.end_line_num);
+      LOG_I("get gcode:\r\n %s\r\n", p);
       // uint8_t str_temp[MAX_CMD_SIZE];
       uint32_t rx_line_num = 0;
       {
@@ -554,9 +558,9 @@ void JobCtrl::get_gcodes_from_client(void) {
         }
 
         if (rx_line_num != ((res_batch_gcode.end_line_num - res_batch_gcode.start_line_num) + 1)) {
-          LOG_E("line number not match, drop this batch gcode, expect %d, but get %d\r\n", 
-          rx_line_num, ((res_batch_gcode.end_line_num - res_batch_gcode.start_line_num) + 1));
-          req_stop(STOP_EXCEPTION, SACP_JOB_PAUSE_ISSUE_RET_IVALID_GCODE_LINE_NUMBER);
+          LOG_E("line number not match, drop this batch gcode, expect %d, but get %d\r\n", rx_line_num, ((res_batch_gcode.end_line_num - res_batch_gcode.start_line_num) + 1));
+          // req_stop(STOP_EXCEPTION, SACP_JOB_PAUSE_ISSUE_RET_IVALID_GCODE_LINE_NUMBER);
+          _err_get_batch_gcode_cnt++;
           break;
         }
         // gcode ringbuffer guarantee to hold all the gcode string.
@@ -586,8 +590,9 @@ void JobCtrl::get_gcodes_from_client(void) {
   }
 
   if (_err_get_batch_gcode_cnt > 3) {
-    LOG_W("can not get batch gcode from client for 3 times, exit working return to idle\r\n");
-    req_stop(STOP_EXCEPTION, SACP_JOB_PAUSE_ISSUE_RET_IVALID_GCODE_LINE_NUMBER);
+    LOG_W("can not get batch gcode from clinet for 3 times\r\n");
+    _err_get_batch_gcode_cnt = 0;
+    // req_stop(STOP_EXCEPTION, SACP_JOB_PAUSE_ISSUE_RET_IVALID_GCODE_LINE_NUMBER);
   }
 }
 

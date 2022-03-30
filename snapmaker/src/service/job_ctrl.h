@@ -68,6 +68,7 @@
 #define JOB_CTRL_LOOP_TIME_MS (100)
 #define JOB_CTRL_REQ_INFO_BUF ((sizeof(struct JobCtrlReqInfo) + 8) * 4)
 #define DO_JOB_REQ_NOTIFY_CB(cb, p, ret)                do{ if(cb) (cb)(p, ret); } while(0)
+#define GCODE_REQ_BUFFER_MIN 512
 
 enum JobPauseType {
   PAUSE_CLIENT_REQ,

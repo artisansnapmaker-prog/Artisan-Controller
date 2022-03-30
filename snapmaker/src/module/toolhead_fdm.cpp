@@ -158,6 +158,13 @@ err_code_t ToolHeadFDM::post_init() {
     LOG_I("fdm dual extruder ready\n");
   }
 
+  if (get_device_id() == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
+    motion_platform_svc.set_home_offset(-30, -6, 0);
+  } else if (get_device_id() == MODULE_DEVICE_ID_FDM_1EXTRUDER_2019) {
+    // todo
+    motion_platform_svc.set_home_offset(-30, -6, 0);
+  }
+
   hotend_type_sync();
   probe_state_sync();
   filament_state_sync();

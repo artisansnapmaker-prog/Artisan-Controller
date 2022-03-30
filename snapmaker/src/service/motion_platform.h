@@ -156,6 +156,7 @@ class MotionPlatformService {
     void set_axis_to_homed(AxisEnum axis) { set_axis_homed(axis); }
     float get_home_offset(AxisEnum axis) { return home_offset[axis]; }
     void home_offset_init();
+    void set_home_offset(float x, float y, float z);
 
     // speed control API
     float get_feedrate(void);

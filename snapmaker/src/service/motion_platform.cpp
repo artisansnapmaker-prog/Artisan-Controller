@@ -518,6 +518,10 @@ void MotionPlatformService::stepper_quickstop_cb(void) {
   job_ctrl_svc.stepper_quickstop_cb();
 }
 
+void MotionPlatformService::set_home_offset(float x, float y, float z) {
+
+}
+
 void MotionPlatformService::home_offset_init() {
   home_offset[X_AXIS] = -30;
   home_offset[Y_AXIS] = -6;

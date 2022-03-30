@@ -689,26 +689,6 @@ void JobCtrl::do_start(struct JobCtrlReqInfo &jri) {
     _calibrating_print_finish = false;
     DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, next_status);
   }
-
-  // if (SYSTEM_STATUS_XY_CALIBRATING == status_before_start) {
-  //   if( E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_XY_CALIBRATING_PRINTING, &ret_sys_status)) {
-  //     LOG_E("job_ctrl: Can not enter to SYSTEM_STATUS_XY_CALIBRATING_PRINTING status\r\n");
-  //     DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, ret_sys_status);
-  //   }
-  //   else{
-  //     _calibrating_print_finish = false;
-  //     DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, SYSTEM_STATUS_XY_CALIBRATING_PRINTING);
-  //   }
-  // }
-  // else {
-  //   if (E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_PRINTING, &ret_sys_status)) {
-  //     LOG_E("job_ctrl: Can not enter SYS_PRINTING at status: %u\r\n", ret_sys_status);
-  //     DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, ret_sys_status);
-  //     return;
-  //   }
-  //   LOG_I("job_ctrl: enter SYS_PRINTING status\r\n");
-  //   DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, SYSTEM_STATUS_PRINTING);
-  // }
 }
 
 void JobCtrl::do_pause(struct JobCtrlReqInfo &jri) {

@@ -647,11 +647,8 @@ void SnapmakerPrinter::enclosure_hmi_self_test_interface(uint8_t test_type, uint
 
 // API for home
 void SnapmakerPrinter::reset_home_offset() {
-  // home_offset[X_AXIS] = -41;
-  // home_offset[Y_AXIS] = 0;
-  // home_offset[Z_AXIS] = -17;
-  home_offset[X_AXIS] = 0;
-  home_offset[Y_AXIS] = 0;
+  home_offset[X_AXIS] = -30;
+  home_offset[Y_AXIS] = -6;
   home_offset[Z_AXIS] = 0;
 }
 
@@ -814,7 +811,7 @@ err_code_t SnapmakerPrinter::set_sys_status(enum SystemStatus req_status, enum S
   case SYSTEM_STATUS_LASER_CAMERA_CAPTURE:
   case SYSTEM_STATUS_LASER_DETECT_FOCAL_LENGTH:
   case SYSTEM_STATUS_LASER_DETECT_4AXIS_CENTER_POSITION:
-    if (sys_status != SYSTEM_STATUS_IDLE && 
+    if (sys_status != SYSTEM_STATUS_IDLE &&
         sys_status != SYSTEM_STATUS_LASER_CALIBRATION_PRINTING) {
       ret = E_FAILURE;
     }

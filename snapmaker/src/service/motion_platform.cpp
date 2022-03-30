@@ -519,11 +519,8 @@ void MotionPlatformService::stepper_quickstop_cb(void) {
 }
 
 void MotionPlatformService::home_offset_init() {
-  // home_offset[X_AXIS] = -41;
-  // home_offset[Y_AXIS] = 0;
-  // home_offset[Z_AXIS] = -17;
-  home_offset[X_AXIS] = 0;
-  home_offset[Y_AXIS] = 0;
+  home_offset[X_AXIS] = -30;
+  home_offset[Y_AXIS] = -6;
   home_offset[Z_AXIS] = 0;
 }
 

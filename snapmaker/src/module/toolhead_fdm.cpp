@@ -1134,9 +1134,9 @@ err_code_t ToolHeadFDM::tool_change(uint8_t new_tool, bool z_compensation/*=true
 
   if (new_tool != active_extruder) {
     motion_platform_svc.update_position_from_platform();
-    if (motion_platform_svc.sm_current_position[X_AXIS] < X_MIN_POS + TOOL_CHANGE_SAFE_SPACE) {
+    if ((new_tool == 1) && (motion_platform_svc.sm_current_position[X_AXIS] < X_MIN_POS + TOOL_CHANGE_SAFE_SPACE)) {
       motion_platform_svc.moveto_x(X_MIN_POS + TOOL_CHANGE_SAFE_SPACE, 50);
-    } else if (motion_platform_svc.sm_current_position[X_AXIS] > X_MAX_POS - TOOL_CHANGE_SAFE_SPACE) {
+    } else if ((new_tool == 0) && (motion_platform_svc.sm_current_position[X_AXIS] > X_MAX_POS - TOOL_CHANGE_SAFE_SPACE)) {
       motion_platform_svc.moveto_x(X_MAX_POS - TOOL_CHANGE_SAFE_SPACE, 50);
     }
 

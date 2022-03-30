@@ -131,11 +131,9 @@ void GcodeSuite::M107() {
     } else {
       if (extruders == 1) {
         thermalManager.set_fan_speed(0, 0);
-        thermalManager.set_fan_speed(1, 0);
       } else if (extruders == 2) {
         thermalManager.set_fan_speed(0, 0);
         thermalManager.set_fan_speed(1, 0);
-        thermalManager.set_fan_speed(2, 0);
       }
     }
   #else

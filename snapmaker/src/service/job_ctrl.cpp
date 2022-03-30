@@ -131,8 +131,8 @@ void JobCtrl::background_thread(void *p) {
 
   // make sure send starting ACK before get gcodes
   SystemStatus s = smprinter.get_sys_status();
-  if (SYSTEM_STATUS_PRINTING == s ||
-      SYSTEM_STATUS_XY_CALIBRATING_PRINTING == s) {
+  if (!got_last_gcode_packet && 
+      SYSTEM_STATUS_PRINTING == s ) {
     keep_printing_cnt++;
     if (keep_printing_cnt >= 3) {
       get_gcodes_from_client();
@@ -570,15 +570,7 @@ void JobCtrl::get_gcodes_from_client(void) {
 
         if (E_JOB_LAST_GCODE_PACK == res_batch_gcode.result) {
           LOG_I("job_ctrl: Job control get last gcode packe\r\n");
-          if (SYSTEM_STATUS_XY_CALIBRATING_PRINTING == smprinter.get_sys_status()) {
-            got_last_gcode_packet = true;
-          }
-          else {
-            if (E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_FINISHING, NULL)) {
-              // we will continue to request the client to send gcodes
-              LOG_E("job_ctrl: can to enter SYS_FINISHING status\r\n");
-            }
-          }
+          got_last_gcode_packet = true;
           break;
         }
       }

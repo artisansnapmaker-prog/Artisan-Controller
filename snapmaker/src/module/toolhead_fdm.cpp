@@ -158,8 +158,8 @@ err_code_t ToolHeadFDM::post_init() {
     LOG_I("fdm dual extruder ready\n");
   }
 
-  probe_state_sync();
   hotend_type_sync();
+  probe_state_sync();
   filament_state_sync();
   hotend_offset_sync();
   z_compensation_sync();
@@ -831,6 +831,7 @@ void ToolHeadFDM::set_hotend_type(uint8_t *data) {
     if (hotend_type[i] != (hotend_type_t)data[i]) {
       hotend_type[i] = (hotend_type_t)data[i];
     }
+    LOG_I("nozzle_index: %d, type: %d\n", i, hotend_type[i]);
   }
 }
 

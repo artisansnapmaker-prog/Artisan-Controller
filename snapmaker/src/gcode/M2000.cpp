@@ -551,6 +551,11 @@ void GcodeSuite::M2000() {
           host_hmi.test_interface(SACP_CMD_SET_FDM, FDM_SUBSCRIPT_CMD_ID_EXTRUDER_INFO, buffer, index);
         }
         break;
+      case 9:
+        {
+          smprinter.fdm->hotend_type_sync();
+        }
+        break;
       default:
         break;
     }

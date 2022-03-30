@@ -632,9 +632,9 @@ err_code_t BedLevelService::start_manual_bed_leveling(uint8_t grids) {
     return E_PARAM;
   }
 
+  LOG_I("start manual bed level, grids: %d\n", grids);
+
   motion_platform_svc.set_leveling_grids(grids);
-  bedlevel_svc.z_compensation_[0] = 0;
-  bedlevel_svc.z_compensation_[1] = 0;
   manual_leveling_point_index_ = 25;
 
   // go home

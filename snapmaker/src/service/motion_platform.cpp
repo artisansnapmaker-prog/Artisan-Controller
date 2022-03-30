@@ -770,8 +770,13 @@ void MotionPlatformService::moveto(xyze_pos_t target, float feedrate, bool block
       }
     #endif
 
-  if (blocked)
-    planner.synchronize();
+  if (blocked) {
+    while (planner.busy()) {
+      idle();
+      vTaskDelay(pdMS_TO_TICKS(1));
+    }
+  }
+
   if (xTaskGetCurrentTaskHandle() != thandle_marlin) {
     resume_marlin();
   }

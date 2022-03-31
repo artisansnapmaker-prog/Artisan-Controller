@@ -35,10 +35,10 @@
   #include "../../../lcd/extui/ui_api.h"
 #endif
 
-float startx = 60;
-float endx   = 380;
-float starty = 40;
-float endy   = 350;
+float startx = 37.5;
+float endx   = 337;
+float starty = 50;
+float endy   = 351;
 xy_pos_t bilinear_grid_spacing, bilinear_start;
 xy_float_t bilinear_grid_factor;
 bed_mesh_t z_values;

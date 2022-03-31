@@ -130,9 +130,7 @@ void JobCtrl::background_thread(void *p) {
   }
 
   // make sure send starting ACK before get gcodes
-  SystemStatus s = smprinter.get_sys_status();
-  if (!got_last_gcode_packet && 
-      SYSTEM_STATUS_PRINTING == s ) {
+  if (!got_last_gcode_packet && smprinter.on_printing()) {
     keep_printing_cnt++;
     if (keep_printing_cnt >= 3) {
       get_gcodes_from_client();
@@ -165,28 +163,13 @@ void JobCtrl::background_thread(void *p) {
   }
 }
 
-
-bool JobCtrl::can_start_work(SystemStatus s) {
-  switch (s) {
-    case SYSTEM_STATUS_IDLE:
-    case SYSTEM_STATUS_XY_CALIBRATING:
-    case SYSTEM_STATUS_LASER_CAMERA_CAPTURE:
-    case SYSTEM_STATUS_LASER_DETECT_FOCAL_LENGTH:
-    case SYSTEM_STATUS_LASER_DETECT_4AXIS_CENTER_POSITION:
-      return true;
-
-    default:
-      return false;
-  }
-}
-
 err_code_t JobCtrl::req_start(  uint8_t client_id,
                                 struct GcodeFileInfo *gcodeInfo,
                                 toolHeadType th_type,
                                 job_req_notify_cb_t cb/* = NULL*/,
                                 void *p/* = NULL*/) {
   SystemStatus s = smprinter.get_sys_status();
-  if (!can_start_work(s)) {
+  if (!smprinter.can_start_work()) {
     LOG_E("can not start job as current status is not idle or calibrating\r\n");
     return E_JOB_NOT_IN_IDLE_STATUS;
   }
@@ -264,26 +247,12 @@ err_code_t JobCtrl::req_resume( uint8_t client_id,
   return E_SUCCESS;
 }
 
-bool JobCtrl::can_stop_work(SystemStatus s) {
-  switch (s) {
-    case SYSTEM_STATUS_PRINTING:
-    case SYSTEM_STATUS_PAUSED:
-    case SYSTEM_STATUS_FINISHING:
-    case SYSTEM_STATUS_XY_CALIBRATING_PRINTING:
-    case SYSTEM_STATUS_LASER_CALIBRATION_PRINTING:
-      return true;
-
-    default:
-      return false;
-  }
-}
-
 err_code_t JobCtrl::req_stop( enum JobStopType st,
                               uint8_t reason,
                               job_req_notify_cb_t cb/* = NULL*/,
                               void *p/* = NULL*/) {
   SystemStatus s = smprinter.get_sys_status();
-  if (!can_stop_work(s)) {
+  if (!smprinter.can_stop_work()) {
     LOG_E("job_ctrl: Can not stop a job as current status is no working or paused\r\n");
     return E_JOB_NOT_IN_PAUSE_STATUS;
   }
@@ -629,7 +598,8 @@ void JobCtrl::do_start(struct JobCtrlReqInfo &jri) {
   enum SystemStatus ret_sys_status;
   enum SystemStatus next_status;
 
-  if (!can_start_work((ret_sys_status = smprinter.get_sys_status()))) {
+  ret_sys_status = smprinter.get_sys_status();
+  if (!smprinter.can_start_work()) {
     LOG_E("can not start job as current status is not idle or calibrating\r\n");
     DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, ret_sys_status);
     return;

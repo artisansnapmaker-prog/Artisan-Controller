@@ -285,6 +285,9 @@ class SnapmakerPrinter
 
     enum SystemStatus get_sys_status(void);
     err_code_t set_sys_status(enum SystemStatus req_status, enum SystemStatus *ret_status);
+    bool can_start_work(void);
+    bool can_stop_work(void);
+    bool on_printing(void);
 
     // callbacks for HMI
     static uint16_t hmi_cb_publish_system_status(void *obj, uint8_t *buffer);

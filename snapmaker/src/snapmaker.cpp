@@ -920,6 +920,46 @@ err_code_t SnapmakerPrinter::set_sys_status(enum SystemStatus req_status, enum S
   return ret;
 }
 
+bool SnapmakerPrinter::can_start_work(void) {
+  switch (sys_status) {
+    case SYSTEM_STATUS_IDLE:
+    case SYSTEM_STATUS_XY_CALIBRATING:
+    case SYSTEM_STATUS_LASER_CAMERA_CAPTURE:
+    case SYSTEM_STATUS_LASER_DETECT_FOCAL_LENGTH:
+    case SYSTEM_STATUS_LASER_DETECT_4AXIS_CENTER_POSITION:
+      return true;
+
+    default:
+      return false;
+  }
+}
+
+bool SnapmakerPrinter::can_stop_work(void) {
+  switch (sys_status) {
+    case SYSTEM_STATUS_PRINTING:
+    case SYSTEM_STATUS_PAUSED:
+    case SYSTEM_STATUS_FINISHING:
+    case SYSTEM_STATUS_XY_CALIBRATING_PRINTING:
+    case SYSTEM_STATUS_LASER_CALIBRATION_PRINTING:
+      return true;
+
+    default:
+      return false;
+  }
+}
+
+bool SnapmakerPrinter::on_printing(void) {
+  switch (sys_status) {
+    case SYSTEM_STATUS_PRINTING:
+    case SYSTEM_STATUS_XY_CALIBRATING_PRINTING:
+    case SYSTEM_STATUS_LASER_CALIBRATION_PRINTING:
+      return true;
+
+    default:
+      return false;
+  }
+}
+
 void SnapmakerPrinter::show_sys_info() {
   LOG_I("sys state: %u\n", sys_status);
   motion_platform_svc.show_coordiantes();

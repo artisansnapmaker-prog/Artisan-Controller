@@ -516,6 +516,9 @@ err_code_t laser_routine(void *obj) {
 
   if (laser.tell_mac > 0) {
     laser.tell_mac--;
+    if (laser.bt_mac[0] != 0) {
+      laser.get_bt_mac();
+    }
     laser.report_bt_mac();
   }
 

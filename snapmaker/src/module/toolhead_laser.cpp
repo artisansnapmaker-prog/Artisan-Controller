@@ -825,6 +825,8 @@ err_code_t ToolHeadLaser::post_init() {
 
   get_bt_mac();
 
+  motion_platform_svc.set_home_offset(0, 0, 0);
+
   next_ms = millis();
 
   return E_SUCCESS;

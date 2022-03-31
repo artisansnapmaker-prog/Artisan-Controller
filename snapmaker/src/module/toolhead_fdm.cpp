@@ -165,6 +165,7 @@ err_code_t ToolHeadFDM::post_init() {
     motion_platform_svc.set_home_offset(-30, -6, 0);
   }
 
+  hotend_pid_sync();
   hotend_type_sync();
   probe_state_sync();
   filament_state_sync();
@@ -758,6 +759,29 @@ err_code_t ToolHeadFDM::z_compensation_sync() {
   return E_SUCCESS;
 }
 
+err_code_t ToolHeadFDM::hotend_pid_sync() {
+  err_code_t ret;
+  smcan_message_t msg;
+
+  msg.id = get_message_id(MODULE_FUNC_REPORT_3DP_PID);
+    if (msg.id == MODULE_MESSAGE_ID_INVALID) {
+    LOG_E("invalid message to get hotend pid\n");
+    return E_FAILURE;
+  }
+
+  msg.ch     = get_channel();
+  msg.data   = NULL;
+  msg.length = 0;
+  ret = host_can_rou.send(&msg);
+
+  if (ret != E_SUCCESS) {
+    LOG_E("failed to get hotend pid, ret: %u\n", ret);
+    return ret;
+  }
+
+  return E_SUCCESS;
+}
+
 void ToolHeadFDM::set_probe_state(uint8_t state[]) {
   if (get_device_id() == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
     if (!state[0]) {
@@ -823,12 +847,15 @@ void ToolHeadFDM::report_pid(uint8_t *data) {
   switch (param) {
     case 0:
       LOG_I("P: %f\n", val);
+      pid[0] = val;
       break;
     case 1:
       LOG_I("I: %f\n", val);
+      pid[1] = val;
       break;
     case 2:
       LOG_I("D: %f\n", val);
+      pid[2] = val;
       break;
   }
 }
@@ -890,23 +917,22 @@ uint8_t ToolHeadFDM::get_fan_speed(uint8_t fan_index) {
 err_code_t ToolHeadFDM::set_pid(float p, float i, float d) {
   err_code_t ret;
   smcan_message_t msg;
-  uint8_t buffer[4];
+  uint8_t buffer[5];
   uint32_t val[3];
 
+  pid[0] = p;
+  pid[1] = i;
+  pid[2] = d;
   val[0] = (uint32_t)(p*1000);
   val[1] = (uint32_t)(i*1000);
   val[2] = (uint32_t)(d*1000);
 
-  msg.id = get_message_id(MODULE_FUNC_SET_NOZZLE_TEMP);
-    if (msg.id == MODULE_MESSAGE_ID_INVALID) {
-    LOG_E("invalid message to set drybox temp\n");
+  msg.id = get_message_id(MODULE_FUNC_SET_3DP_PID);
+
+  if (msg.id == MODULE_MESSAGE_ID_INVALID) {
+    LOG_E("invalid message to set fdm fan speed\n");
     return E_FAILURE;
   }
-
-  msg.ch     = get_channel();
-  msg.data   = buffer;
-  msg.length = 4;
-
 
   for (int32_t i = 0; i < 3; i++) {
     buffer[0] = i;
@@ -914,10 +940,13 @@ err_code_t ToolHeadFDM::set_pid(float p, float i, float d) {
     buffer[2] = (uint8_t)(val[i]>>16);
     buffer[3] = (uint8_t)(val[i]>>8);
     buffer[4] = (uint8_t)(val[i]);
+    msg.ch     = get_channel();
+    msg.data   = buffer;
+    msg.length = 5;
     ret = host_can_rou.send(&msg);
 
     if (ret != E_SUCCESS) {
-      LOG_E("failed to set drybox temp, ret: %u\n", ret);
+      LOG_E("failed to set hotend pid, ret: %u\n", ret);
       return ret;
     }
   }

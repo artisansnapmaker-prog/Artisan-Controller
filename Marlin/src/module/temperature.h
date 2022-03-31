@@ -929,6 +929,13 @@ class Temperature {
         static constexpr bool adaptive_fan_slowing = true;
       #endif
 
+      void getHeaterPID(uint8_t e) {
+        float * pid = smprinter.get_hotend_pid(e);
+        PID_PARAM(Kp, 0) = pid[0];
+        PID_PARAM(Ki, 0) = pid[1];
+        PID_PARAM(Kd, 0) = pid[2];
+      }
+
       /**
        * Update the temp manager when PID values change
        */

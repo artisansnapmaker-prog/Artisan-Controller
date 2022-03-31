@@ -56,7 +56,7 @@ void GcodeSuite::M301() {
   if (e == -1) e = 0;
 
   if (e < HOTENDS) { // catch bad input value
-
+    thermalManager.getHeaterPID(e);
     if (parser.seenval('P')) PID_PARAM(Kp, e) = parser.value_float();
     if (parser.seenval('I')) PID_PARAM(Ki, e) = scalePID_i(parser.value_float());
     if (parser.seenval('D')) PID_PARAM(Kd, e) = scalePID_d(parser.value_float());
@@ -73,6 +73,9 @@ void GcodeSuite::M301() {
     #endif
 
     thermalManager.updatePID();
+    #if MB_SNAPMAKER
+      smprinter.fdm->set_pid(PID_PARAM(Kp, e), PID_PARAM(Ki, e), PID_PARAM(Kd, e));
+    #endif
   }
   else
     SERIAL_ERROR_MSG(STR_INVALID_EXTRUDER);

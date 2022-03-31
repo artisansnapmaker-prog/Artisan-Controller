@@ -254,6 +254,14 @@ class SnapmakerPrinter
       }
     }
 
+    float * get_hotend_pid(uint8_t e) {
+      if (fdm) {
+        return fdm->get_hotend_pid(e);
+      }
+
+      return NULL;
+    }
+
     // LASER
     void set_laser_fan_speed(uint16_t speed) {}
 

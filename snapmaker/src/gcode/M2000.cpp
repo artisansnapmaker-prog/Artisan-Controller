@@ -556,6 +556,20 @@ void GcodeSuite::M2000() {
           smprinter.fdm->hotend_type_sync();
         }
         break;
+      case 10:
+        {
+          smprinter.fdm->hotend_pid_sync();
+        }
+        break;
+      case 11:
+        {
+          float p = (float)parser.floatval('P', (float)13);
+          float i = (float)parser.floatval('I', (float)0.016);
+          float d = (float)parser.floatval('D', (float)106.25);
+          LOG_I("p: %f, i: %f, d: %f\n", p, i, d);
+          smprinter.fdm->set_pid(p, i, d);
+        }
+        break;
       default:
         break;
     }

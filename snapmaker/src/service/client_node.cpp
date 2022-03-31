@@ -540,7 +540,8 @@ err_code_t ClientNode::req_stop_job(sacp_hmi_message_t* msg) {
     return host_hmi.send_ack(msg, SACP_RET_NO_RESC);
   }
   *msg_cp = *msg;
-  ret = job_ctrl_svc.req_stop(STOP_CLIENT_REQ, SACP_JOB_PAUSE_ISSUE_RET_STOP_CLIENT_REQ, job_req_stop_cb, msg_cp);
+  // ret = job_ctrl_svc.req_stop(STOP_CLIENT_REQ, SACP_JOB_PAUSE_ISSUE_RET_STOP_CLIENT_REQ, job_req_stop_cb, msg_cp);
+  ret = job_ctrl_svc.req_stop(STOP_CLIENT_REQ, SACP_JOB_PAUSE_ISSUE_RET_FINISH, job_req_stop_cb, msg_cp);
   if (E_SUCCESS != ret) {
     free_sacp_msg_node(msg_cp);
     return host_hmi.send_ack(msg, ret);

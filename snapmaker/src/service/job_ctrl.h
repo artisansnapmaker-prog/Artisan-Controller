@@ -33,6 +33,7 @@
 #include "../common/type.h"
 #include "../snapmaker.h"
 #include "client_node.h"
+#include "motion_platform.h"
 
 
 #define E_JOB_FAILURE                                   SACP_RET_FAILURE

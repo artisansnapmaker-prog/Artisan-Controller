@@ -816,19 +816,8 @@ void JobCtrl::do_stop(struct JobCtrlReqInfo &jri) {
     return;
   }
 
-  if (SYSTEM_STATUS_PRINTING != smprinter.get_sys_status()) {
-    if (E_SUCCESS != smprinter.set_sys_status(status_before_start, &ret_sys_status)) {
-      LOG_E("job ctrl: can not enter status: %u\n", status_before_start);
-      smprinter.set_sys_status(SYSTEM_STATUS_IDLE, &ret_sys_status);
-      _issue_ret_rb.insert_one(SACP_JOB_PAUSE_ISSUE_RET_STOP_FAILURE);
-      DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, ret_sys_status);
-    }
-    else {
-      DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, status_before_start);
-      _issue_ret_rb.insert_one(jri.req_data.req_stop_data.reason);
-    }
-  }
-  else {
+  // normal printing
+  if (SYSTEM_STATUS_PRINTING == smprinter.get_sys_status()) {
     if (E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_IDLE, &ret_sys_status)) {
       LOG_E("job ctrl: can not enter SYS_IDLE status");
       smprinter.set_sys_status(SYSTEM_STATUS_IDLE, &ret_sys_status);
@@ -836,12 +825,27 @@ void JobCtrl::do_stop(struct JobCtrlReqInfo &jri) {
       _issue_ret_rb.insert_one(SACP_JOB_PAUSE_ISSUE_RET_STOP_FAILURE);
       return;
     }
+
     DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, SYSTEM_STATUS_IDLE);
     _issue_ret_rb.insert_one(jri.req_data.req_stop_data.reason);
+    return;
   }
 
-  // reset the status
-  status_before_start = SYSTEM_STATUS_IDLE;
+  // other printing
+  {
+    if (E_SUCCESS != smprinter.set_sys_status(status_before_start, &ret_sys_status)) {
+      LOG_E("job ctrl: can not enter status: %u\n", status_before_start);
+      smprinter.set_sys_status(SYSTEM_STATUS_IDLE, &ret_sys_status);
+      _issue_ret_rb.insert_one(SACP_JOB_PAUSE_ISSUE_RET_STOP_FAILURE);
+      DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, ret_sys_status);
+      return;
+    }
+ 
+    DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, status_before_start);
+    _issue_ret_rb.insert_one(jri.req_data.req_stop_data.reason);
+    // reset the status
+    status_before_start = SYSTEM_STATUS_IDLE;
+  }
 }
 
 err_code_t JobCtrl::set_env(struct JobEnv &env) {
@@ -860,15 +864,9 @@ bool JobCtrl::consume_a_gcode(uint8_t *cmd, uint16_t max_len, uint32_t *line) {
   ModuleBase *cur_toolhead;
   uint32_t cmd_len;
 
-  SystemStatus s = smprinter.get_sys_status();
-  if (SYSTEM_STATUS_PRINTING != s &&
-      SYSTEM_STATUS_FINISHING != s &&
-      SYSTEM_STATUS_XY_CALIBRATING_PRINTING != s) {
+  if (!smprinter.on_printing()) {
     return false;
   }
-
-  // TODO: check the emergency event here
-  // If need to stop quickly, now do it
 
   ret = false;
   cmd_len = 0;

@@ -172,6 +172,12 @@ err_code_t ToolHeadFDM::post_init() {
   hotend_offset_sync();
   z_compensation_sync();
 
+  if (get_device_id() == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
+    motion_platform_svc.set_hotend_maxtemp(0, 315);
+    motion_platform_svc.set_hotend_maxtemp(1, 315);
+  } else if (get_device_id() == MODULE_DEVICE_ID_FDM_1EXTRUDER_2019) {
+    motion_platform_svc.set_hotend_maxtemp(0, 275);
+  }
   motion_platform_svc.pins_post_init();
   extruders_feedrate_percentage[0] = motion_platform_svc.get_feedrate_percentage();
   extruders_feedrate_percentage[1] = motion_platform_svc.get_feedrate_percentage();

@@ -660,6 +660,17 @@ void MotionPlatformService::sync_hotend_offset_to_platform(float x_offset, float
   // LOG_I("hotend_offset, T1, X%.2f, Y%.2f, Z%.2f\n", hotend_offset[X_AXIS][1], hotend_offset[Y_AXIS][1], hotend_offset[Z_AXIS][1]);
 }
 
+void MotionPlatformService::set_hotend_maxtemp(uint8_t e, int16_t temp) {
+  switch (e) {
+    case 0:
+      thermalManager.hotend_maxtemp[0] = temp;
+      break;
+    case 1:
+      thermalManager.hotend_maxtemp[1] = temp;
+      break;
+  }
+}
+
 void MotionPlatformService::load_settings() {
   sync_z_values_from_platform();
 }

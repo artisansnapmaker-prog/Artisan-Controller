@@ -140,6 +140,9 @@ err_code_t MotionPlatformService::hmi_cb_set_origin(void *obj, sacp_hmi_message_
     }
   }
 
+  // save origin
+  motion->save_settings();
+
   return host_hmi.send_ack(msg, ret);
 }
 
@@ -310,8 +313,6 @@ void MotionPlatformService::init() {
 
   set_axis_to_homed(I_AXIS);
   set_axis_to_homed(J_AXIS);
-
-  home_offset_init();
 
   if (get_leveling_state()) {
     motion_platform_svc.extrapolate_unprobed_points();
@@ -524,12 +525,6 @@ void MotionPlatformService::set_home_offset(float x, float y, float z) {
   home_offset[Z_AXIS] = z;
 }
 
-void MotionPlatformService::home_offset_init() {
-  home_offset[X_AXIS] = -30;
-  home_offset[Y_AXIS] = -6;
-  home_offset[Z_AXIS] = 0;
-}
-
 float MotionPlatformService::get_feedrate(void) {
   return feedrate_mm_s;
 }
@@ -622,7 +617,7 @@ void MotionPlatformService::load_settings() {
 }
 
 void MotionPlatformService::save_settings() {
-  settings.save();
+  run_gcode((char*)"M500");
 }
 
 float current_bed_temp(uint8_t area_id = 0) {

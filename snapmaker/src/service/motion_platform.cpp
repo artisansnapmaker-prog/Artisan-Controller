@@ -367,7 +367,6 @@ void MotionPlatformService::init() {
   configASSERT(quickstop_binary_sem);
   marlin_paused = false;
   homing_now = false;
-  after_home_z_max_pos = Z_MAX_POS;
 }
 
 void MotionPlatformService::pins_post_init() {
@@ -564,6 +563,55 @@ uint16_t MotionPlatformService::get_bet_temp(void) {
   return thermalManager.wait_for_bed();
 }
 
+bool MotionPlatformService::bed_heatup_to_target(void) {
+  ModuleBase *bed = module_svc.get_module(MODULE_DEVICE_ID_A400_BED, 0);
+  if (!bed)
+    return true;
+
+  LOG_I("job_ctrl: wait for bed heat up to target temperature, zone_1: c%f@t%f, zone_2: c %f@t%f\r\n", 
+    thermalManager.degBed(), thermalManager.degTargetBed(),
+    thermalManager.degChamber(), thermalManager.degTargetChamber);
+
+  if ((thermalManager.degBed() > 0.0) && (thermalManager.degBed() < thermalManager.degTargetBed())) {
+    return false;
+  }
+
+  #if ENABLED(SNAPMAKER_DOUBLE_ZONE_BED)
+  if ((thermalManager.degChamber() > 0.0) && (thermalManager.degChamber() < thermalManager.degTargetChamber())) {
+    return false;
+  }
+  #endif
+
+  return true;
+}
+
+bool MotionPlatformService::hotends_heatup_to_target(void) {
+  ModuleBase *fdm = module_svc.get_module(MODULE_DEVICE_ID_FDM_2EXTRUDER_2021, 0);
+  if (fdm == NULL) {
+    fdm = module_svc.get_module(MODULE_DEVICE_ID_FDM_1EXTRUDER_2019, 0);
+  }
+
+  if (!fdm) {
+    return true;
+  }
+
+  LOG_I("job_ctrl: wait for hotend heat up to target temperature, zone_1: c%f@t%f, zone_2: c %f@t%f\r\n", 
+        thermalManager.degHotend(0), thermalManager.degTargetHotend(0), 
+        thermalManager.degHotend(1), thermalManager.degTargetHotend(1));
+
+  if ((thermalManager.degHotend(0) > 0.0) && (thermalManager.degHotend(0) < thermalManager.degTargetHotend(0))) {
+    return false;
+  }
+
+  if (fdm->get_device_id() == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
+    if ((thermalManager.degHotend(1) > 0.0) && (thermalManager.degHotend(1) < thermalManager.degTargetHotend(1))) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 uint8_t MotionPlatformService::get_leveling_grids() {
   return GRID_MAX_POINTS_X;
 }
@@ -732,6 +780,16 @@ bool MotionPlatformService::consume_a_gcode(uint8_t *cmd, uint16_t max_len, uint
   return true;
 }
 
+bool MotionPlatformService::is_original_position_offset() {
+  bool result = true;
+  LOOP_LINEAR_AXES(i) {
+    if (position_shift[i] != gcode.coordinate_system[i]) {
+      result = false;
+    }
+  }
+  return result;
+}
+
 
 void MotionPlatformService::moveto(xyze_pos_t target, float feedrate, bool blocked) {
   if (xTaskGetCurrentTaskHandle() != thandle_marlin) {
@@ -780,6 +838,95 @@ void MotionPlatformService::moveto(xyze_pos_t target, float feedrate, bool block
   }
 
   return;
+}
+
+void MotionPlatformService::synchronize_planner() {
+  while (planner.busy()) {
+    vTaskDelay(pdMS_TO_TICKS(10));
+  }
+}
+
+bool MotionPlatformService::is_axis_homed(ModuleLinearIndex axis) {
+  switch (axis) {
+  case MODULE_LINEAR_X1:
+    return axis_was_homed(X_AXIS);
+
+  case MODULE_LINEAR_Y1:
+    return axis_was_homed(Y_AXIS);
+
+  case MODULE_LINEAR_Z1:
+    return axis_was_homed(Z_AXIS);
+
+  case MODULE_LINEAR_Z2:
+    return axis_was_homed(Z_AXIS);
+
+  case MODULE_LINEAR_Y2:
+    return axis_was_homed(Y_AXIS);
+
+  case MODULE_LINEAR_X2:
+    return axis_was_homed(X_AXIS);
+
+  default:
+    return false;
+  }
+}
+
+void MotionPlatformService::set_endstop(bool status) {
+  endstops.enable_globally(status);
+  soft_endstop._enabled = status;
+}
+
+
+void  MotionPlatformService::update_position_from_platform() {
+  sm_current_position = current_position;
+}
+
+float MotionPlatformService::get_current_position(uint8_t axis) {
+  update_position_from_platform();
+  return current_position[axis];
+}
+
+void MotionPlatformService::sync_plan_position_to_platform() {
+  current_position = sm_current_position;
+  sync_plan_position();
+}
+
+float MotionPlatformService::get_max_position(uint8_t axis) {
+  switch (axis) {
+  case X_AXIS:
+    return X_MAX_POS;
+
+  case Y_AXIS:
+    return Y_MAX_POS;
+
+  case Z_AXIS:
+    return Z_MAX_POS;
+
+  case I_AXIS:
+    return I_MAX_POS;
+
+  case J_AXIS:
+    return J_MAX_POS;
+
+  default:
+    return 0;
+  }
+}
+
+float MotionPlatformService::get_feedrate_percentage() {
+   return feedrate_percentage; 
+}
+
+xyz_pos_t MotionPlatformService::get_position_shift() {
+  return position_shift;
+}
+
+xyz_pos_t MotionPlatformService::get_active_coordinate_system(int8_t active_id) {
+  xyz_pos_t pos {0};
+  if (active_id < MAX_COORDINATE_SYSTEMS && active_id >= 0)
+    return gcode.coordinate_system[active_id];
+  else
+    return pos;
 }
 
 void MotionPlatformService::show_coordiantes() {

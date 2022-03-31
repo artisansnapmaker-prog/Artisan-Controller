@@ -100,41 +100,10 @@ class MotionPlatformService {
     void moveto_e(float e, float feedrate, bool blocked=true);
     void moveto_e(float e, uint8_t extruder, float feedrate, bool blocked=true) {}
     void moveto(xyze_pos_t target, float feedrate, bool blocked=true);
-    void synchronize_planner() {
-      while (planner.busy()) {
-        vTaskDelay(pdMS_TO_TICKS(10));
-      }
-    }
-
-    bool is_axis_homed(ModuleLinearIndex axis) {
-      switch (axis) {
-      case MODULE_LINEAR_X1:
-        return axis_was_homed(X_AXIS);
-
-      case MODULE_LINEAR_Y1:
-        return axis_was_homed(Y_AXIS);
-
-      case MODULE_LINEAR_Z1:
-        return axis_was_homed(Z_AXIS);
-
-      case MODULE_LINEAR_Z2:
-        return axis_was_homed(Z_AXIS);
-
-      case MODULE_LINEAR_Y2:
-        return axis_was_homed(Y_AXIS);
-
-      case MODULE_LINEAR_X2:
-        return axis_was_homed(X_AXIS);
-
-      default:
-        return false;
-      }
-    }
+    void synchronize_planner(void);
+    bool is_axis_homed(ModuleLinearIndex axis);
     bool endstop_status() { return endstops.global_enabled(); }
-    void set_endstop(bool status) {
-      endstops.enable_globally(status);
-      soft_endstop._enabled = status;
-    }
+    void set_endstop(bool status);
     void sync_feedrate_percentage_to_platform(int16_t percentage) { feedrate_percentage = percentage; }
 
     void req_quickstop(void);
@@ -170,51 +139,13 @@ class MotionPlatformService {
     // position info API
     xyze_pos_t sm_current_position;
     xyze_pos_t sm_destination_position;
-    void  update_position_from_platform() {
-      sm_current_position = current_position;
-    }
-    float get_current_position(uint8_t axis) {
-      update_position_from_platform();
-      return current_position[axis];
-    }
-    void sync_plan_position_to_platform() {
-      current_position = sm_current_position;
-      sync_plan_position();
-    }
-    float get_max_position(uint8_t axis) {
-      switch (axis) {
-      case X_AXIS:
-        return X_MAX_POS;
-
-      case Y_AXIS:
-        return Y_MAX_POS;
-
-      case Z_AXIS:
-        return Z_MAX_POS;
-
-      case I_AXIS:
-        return I_MAX_POS;
-
-      case J_AXIS:
-        return J_MAX_POS;
-
-      default:
-        return 0;
-      }
-    }
-    float get_feedrate_percentage() { return feedrate_percentage; }
-
-    xyz_pos_t get_position_shift() {
-      return position_shift;
-    }
-
-    xyz_pos_t get_active_coordinate_system(int8_t active_id) {
-      xyz_pos_t pos {0};
-      if (active_id < MAX_COORDINATE_SYSTEMS && active_id >= 0)
-        return gcode.coordinate_system[active_id];
-      else
-        return pos;
-    }
+    void  update_position_from_platform();
+    float get_current_position(uint8_t axis);
+    void sync_plan_position_to_platform();
+    float get_max_position(uint8_t axis);
+    float get_feedrate_percentage();
+    xyz_pos_t get_position_shift();
+    xyz_pos_t get_active_coordinate_system(int8_t active_id);
 
     // bed leveling API for internal app
     bool leveling_active() { return planner.leveling_active; }
@@ -247,6 +178,8 @@ class MotionPlatformService {
     int16_t target_bed_temp(uint8_t area_id = 0);
     uint16_t get_bet_temp(void);
     bool set_bet_temp(uint16_t);
+    bool bed_heatup_to_target(void);
+    bool hotends_heatup_to_target(void);
 
     // fdm API
     bool runout_state(uint8_t extruder = 0) { return false; }
@@ -261,16 +194,7 @@ class MotionPlatformService {
     bool consume_a_gcode(uint8_t *cmd, uint16_t max_len, uint32_t *line);
 
     int8_t get_active_coordinate_system() { return gcode.active_coordinate_system; }
-    bool is_original_position_offset() {
-      bool result = true;
-      LOOP_LINEAR_AXES(i) {
-        if (position_shift[i] != gcode.coordinate_system[i]) {
-          result = false;
-        }
-      }
-      return result;
-    }
-
+    bool is_original_position_offset();
     static void motion_background(void *p);
     static uint16_t hmi_cb_publish_coordinate_info(void *obj, uint8_t *buffer);
     static err_code_t hmi_cb_get_coordinate_info(void *obj, sacp_hmi_message_t *msg);
@@ -280,8 +204,6 @@ class MotionPlatformService {
     static err_code_t hmi_cb_request_home(void *obj, sacp_hmi_message_t *msg);
 
     void show_coordiantes();
-    float after_home_z_max_pos;
-
 
   private:
     MessageBufferHandle_t gcode_queue;

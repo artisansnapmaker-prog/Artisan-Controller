@@ -82,7 +82,7 @@ void JobCtrl::init(void) {
   _statistics_log_interval_ms = 0;
   _statistics_log_last_tick_ms = 0;
   _env.gfi_valid = false;
-
+  abort_resume = false;
   status_before_start = SYSTEM_STATUS_IDLE;
 
 #if ENABLE_CCRAM
@@ -257,6 +257,8 @@ err_code_t JobCtrl::req_stop( enum JobStopType st,
     return E_JOB_NOT_IN_PAUSE_STATUS;
   }
 
+  abort_resume = true;
+
   JobCtrlReqInfo jri;
   jri.req_action = REQ_STOP;
   jri.req_data.req_stop_data.type = st;
@@ -350,42 +352,17 @@ err_code_t JobCtrl::resum_env(void) {
     return E_JOB_UNSUPPORT_PARAM;
   }
 
-  // if (TH_TYPE_3DP != smprinter.get_toolhead_type()) {
-    // TODO: no do resume for 3dp toolhead as 3dp toolhead resume_env has bugs.
-    if (E_SUCCESS != cur_toolhead->resume_env(_env.toolhead_env_buf, _env.toolhead_env_buf_size)) {
-      LOG_E("job_ctrl: can not resume toolhead\r\n");
-      return E_JOB_RESUME_ENV_FAILURE;
-    }
-  // }
+  if (E_SUCCESS != cur_toolhead->resume_env(_env.toolhead_env_buf, _env.toolhead_env_buf_size)) {
+    LOG_E("job_ctrl: can not resume toolhead\r\n");
+    return E_JOB_RESUME_ENV_FAILURE;
+  }
 
   if (TH_TYPE_3DP == _env.type) {
-    ModuleBase *bed;
-    bed = module_svc.get_module(MODULE_DEVICE_ID_A400_BED, 0);
-    if (bed) {
-      if (E_SUCCESS != bed->resume_env(_env.bed_env_buf, _env.bed_env_buf_size)) {
-        LOG_E("job_ctrl: bed resume env failure\r\n");
-      }
-      else {
-        while(1) {
-          vTaskDelay(pdMS_TO_TICKS(1000));
-          LOG_I("job_ctrl: wait for bed heat up to target temperature, zone_1: c%f@t%f, zone_2: c %f@t%f\r\n", 
-            thermalManager.degBed(), thermalManager.degTargetBed(),
-            thermalManager.degChamber(), thermalManager.degTargetChamber);
-
-          if ((thermalManager.degBed() > 0.0) && (thermalManager.degBed() < thermalManager.degTargetBed())) {
-            continue;
-          }
-          #if ENABLED(SNAPMAKER_DOUBLE_ZONE_BED)
-          if ((thermalManager.degChamber() > 0.0) && (thermalManager.degChamber() < thermalManager.degTargetChamber())) {
-            continue;
-          }
-          #endif
-          break;
-        }
-      }
-    }
-    else {
-      LOG_E("job_ctrl: can not get bed\r\n");
+    while(!abort_resume && 
+          motion_platform_svc.bed_heatup_to_target() && 
+          motion_platform_svc.hotends_heatup_to_target()) {
+      LOG_I("job_ctrl: wait for bed and hotends heatup to target\r\n");
+      vTaskDelay(pdMS_TO_TICKS(1000));
     }
   }
 
@@ -455,7 +432,6 @@ err_code_t JobCtrl::machine_standby(void) {
   LOG_I("job_ctrl: Z raise to highest\r\n");
   motion_platform_svc.update_position_from_platform();
   t_pos = motion_platform_svc.sm_current_position;
-  // LOG_I("job_ctrl: z from %f to %f\r\n", t_pos.z, motion_platform_svc.after_home_z_max_pos);
   t_pos.z = 395;
   motion_platform_svc.moveto(t_pos, RESUME_Z_FEEDRATE, true);
 

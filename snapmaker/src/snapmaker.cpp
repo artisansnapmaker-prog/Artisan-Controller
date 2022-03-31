@@ -937,6 +937,7 @@ bool SnapmakerPrinter::can_start_work(void) {
 bool SnapmakerPrinter::can_stop_work(void) {
   switch (sys_status) {
     case SYSTEM_STATUS_PRINTING:
+    case SYSTEM_STATUS_RESUMING:
     case SYSTEM_STATUS_PAUSED:
     case SYSTEM_STATUS_FINISHING:
     case SYSTEM_STATUS_XY_CALIBRATING_PRINTING:

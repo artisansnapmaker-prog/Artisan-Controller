@@ -216,6 +216,7 @@ class JobCtrl {
 
     // use for get gcode
     uint32_t _get_gcode_buffer_req_min;                       /** the minimum buffer use to get gcode                                       */
+    bool abort_resume;
 };
 
 extern JobCtrl job_ctrl_svc;

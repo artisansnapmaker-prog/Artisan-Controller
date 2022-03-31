@@ -456,11 +456,7 @@ static err_code_t hmi_req_callback_set_live_z_offset(void *obj, sacp_hmi_message
   err_code_t ret = E_SUCCESS;
   uint8_t e = msg->data[1];
   float offset;
-  ((uint8_t *)&offset)[0] = msg->data[2];
-  ((uint8_t *)&offset)[1] = msg->data[3];
-  ((uint8_t *)&offset)[2] = msg->data[4];
-  ((uint8_t *)&offset)[3] = msg->data[5];
-  offset = offset / 1000;
+  offset = (float)(msg->data[2] | (msg->data[3] << 8) | (msg->data[4] << 16) | (msg->data[5] << 24)) / 1000;
 
   LOG_I("hmi request set live z offset, e: %d, offset: %f\n", e, offset);
 
@@ -474,15 +470,7 @@ static err_code_t hmi_req_callback_set_live_z_offset(void *obj, sacp_hmi_message
     goto EXIT;
   }
 
-  if (e == smprinter.fdm->get_active_extruder()) {
-    motion_platform_svc.synchronize_planner();
-    float cur_z = motion_platform_svc.get_current_position(Z_AXIS);
-    motion_platform_svc.moveto_z(cur_z + (offset - bedlevel.live_z_offset[e]), 5);
-    motion_platform_svc.sm_current_position[Z_AXIS] = cur_z;
-    motion_platform_svc.sync_plan_position_to_platform();
-  }
-
-  bedlevel.live_z_offset[e] = offset;
+  bedlevel.set_live_z_offset(e, offset);
 
 EXIT:
   uint8_t index = 0;
@@ -869,4 +857,23 @@ err_code_t BedLevelService::unapply_live_z_offset(uint8_t e) {
   motion_platform_svc.sync_plan_position_to_platform();
   LOG_I("Unapply Z offset: %.2f\n", live_z_offset[e]);
   return E_SUCCESS;
+}
+
+void BedLevelService::set_live_z_offset(uint8_t e, float offset) {
+  if (live_z_offset[e] != offset) {
+    live_z_offset_changed = true;
+    if (e == smprinter.fdm->get_active_extruder()) {
+      motion_platform_svc.synchronize_planner();
+      float cur_z = motion_platform_svc.get_current_position(Z_AXIS);
+      motion_platform_svc.moveto_z(cur_z + (offset - live_z_offset[e]), 5);
+      motion_platform_svc.sm_current_position[Z_AXIS] = cur_z;
+      motion_platform_svc.sync_plan_position_to_platform();
+    }
+
+    live_z_offset[e] = offset;
+    if (smprinter.get_sys_status() == SYSTEM_STATUS_IDLE) {
+      live_z_offset_changed = false;
+      motion_platform_svc.save_settings();
+    }
+  }
 }

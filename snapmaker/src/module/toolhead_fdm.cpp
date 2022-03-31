@@ -1362,15 +1362,22 @@ err_code_t ToolHeadFDM::save_env(uint8_t *env_buf, uint32_t &len) {
   fdm_recovery_data_t recovery_data;
 
   recovery_data.active_extruder = active_extruder;
+  LOG_I("save env, active_extruder: %d\n", active_extruder);
   recovery_data.feedrate_percentage[0] = extruders_feedrate_percentage[0];
   recovery_data.feedrate_percentage[1] = extruders_feedrate_percentage[1];
+  LOG_I("save env, feedrate_percentage: %f, %f\n", recovery_data.feedrate_percentage[0], recovery_data.feedrate_percentage[1]);
   recovery_data.live_z_offset[0] = bedlevel_svc.live_z_offset[0];
   recovery_data.live_z_offset[1] = bedlevel_svc.live_z_offset[1];
+  LOG_I("save env, live_z_offset: %f, %f\n", recovery_data.live_z_offset[0], recovery_data.live_z_offset[1]);
+  recovery_data.live_z_offset_changed = bedlevel_svc.live_z_offset_changed;
+  LOG_I("save env, live_z_offset_changed: %d\n", recovery_data.live_z_offset_changed);
   recovery_data.fan_speed[0] = fan_speed[0];
   recovery_data.fan_speed[1] = fan_speed[1];
   recovery_data.fan_speed[2] = fan_speed[2];
+  LOG_I("save env, fan speed: %d, %d, %d\n", recovery_data.fan_speed[0], recovery_data.fan_speed[1], recovery_data.fan_speed[2]);
   recovery_data.target_temp[0] = hotend_temp[0].target;
   recovery_data.target_temp[1] = hotend_temp[1].target;
+  LOG_I("save env, target_temp: %f, %f\n", recovery_data.target_temp[0], recovery_data.target_temp[1]);
 
   len = sizeof(fdm_recovery_data_t);
   memcpy(env_buf, (uint8_t *)&recovery_data, len);
@@ -1388,21 +1395,64 @@ err_code_t ToolHeadFDM::resume_env(uint8_t *env_buf, uint32_t &len) {
   memcpy((uint8_t *)&recovery_data, env_buf, sizeof(fdm_recovery_data_t));
 
   active_extruder = recovery_data.active_extruder;
-  set_fan_speed(0, recovery_data.fan_speed[0]);
-  set_fan_speed(1, recovery_data.fan_speed[1]);
-  set_fan_speed(2, recovery_data.fan_speed[2]);
-  set_hotend_temp(recovery_data.target_temp[0], 0);
-  set_hotend_temp(recovery_data.target_temp[1], 1);
+  LOG_I("resume env, active_extruder: %d\n", active_extruder);
+
+  if (get_device_id() == MODULE_DEVICE_ID_FDM_1EXTRUDER_2019) {
+    // fan
+    set_fan_speed(0, recovery_data.fan_speed[0]);
+    set_fan_speed(1, recovery_data.fan_speed[1]);
+
+    // hotend temp
+    char buf[32];
+    snprintf(buf, 32, "M104 S%d", recovery_data.target_temp[0]);
+    motion_platform_svc.run_gcode(buf);
+  } else if (get_device_id() == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
+    // fan
+    set_fan_speed(0, recovery_data.fan_speed[0]);
+    set_fan_speed(1, recovery_data.fan_speed[1]);
+    set_fan_speed(2, recovery_data.fan_speed[2]);
+    LOG_I("resume env, fan speed: %d, %d, %d\n", recovery_data.fan_speed[0], recovery_data.fan_speed[1], recovery_data.fan_speed[2]);
+    // hotend temp
+    LOG_I("resume env, target_temp: %d, %d", recovery_data.target_temp[0], recovery_data.target_temp[1]);
+    char buf[32];
+    snprintf(buf, 32, "M104 T0 S%d", recovery_data.target_temp[0]);
+    motion_platform_svc.run_gcode(buf);
+    snprintf(buf, 32, "M104 T1 S%d", recovery_data.target_temp[1]);
+    motion_platform_svc.run_gcode(buf);
+    tool_change(active_extruder);
+  }
+
+  // feedrate percentage
   extruders_feedrate_percentage[0] = recovery_data.feedrate_percentage[0];
   extruders_feedrate_percentage[1] = recovery_data.feedrate_percentage[1];
   motion_platform_svc.sync_feedrate_percentage_to_platform(extruders_feedrate_percentage[active_extruder]);
+  LOG_I("resume env, feedrate_percentage: %f, %f\n", recovery_data.feedrate_percentage[0], recovery_data.feedrate_percentage[1]);
+
+  // live z offset
   bedlevel_svc.live_z_offset[0] = recovery_data.live_z_offset[0];
   bedlevel_svc.live_z_offset[1] = recovery_data.live_z_offset[1];
+  LOG_I("resume env, live_z_offset: %f, %f\n", recovery_data.live_z_offset[0], recovery_data.live_z_offset[1]);
+  bedlevel_svc.live_z_offset_changed = recovery_data.live_z_offset_changed;
+  LOG_I("resume env, live_z_offset_changed: %d\n", recovery_data.live_z_offset_changed);
+  if (bedlevel_svc.live_z_offset_changed) {
+    bedlevel_svc.live_z_offset_changed = false;
+    motion_platform_svc.save_settings();
+  }
   motion_platform_svc.synchronize_planner();
   float cur_z = motion_platform_svc.get_current_position(Z_AXIS);
   motion_platform_svc.moveto_z(cur_z + bedlevel_svc.live_z_offset[active_extruder], 5);
   motion_platform_svc.sm_current_position[Z_AXIS] = cur_z;
   motion_platform_svc.sync_plan_position_to_platform();
+
+  return E_SUCCESS;
+}
+
+err_code_t ToolHeadFDM::standby(void) {
+  if (bedlevel_svc.live_z_offset_changed) {
+    bedlevel_svc.live_z_offset_changed = false;
+    motion_platform_svc.save_settings();
+  }
+
   return E_SUCCESS;
 }
 

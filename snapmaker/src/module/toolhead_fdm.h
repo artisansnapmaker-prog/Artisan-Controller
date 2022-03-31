@@ -101,6 +101,7 @@ typedef struct {
   uint8_t active_extruder;
   float feedrate_percentage[EXTRUDERS];
   float live_z_offset[EXTRUDERS];
+  float live_z_offset_changed;
   uint8_t fan_speed[3];
   float target_temp[EXTRUDERS];
 } __attribute__((packed)) fdm_recovery_data_t;
@@ -131,6 +132,7 @@ class ToolHeadFDM: public ModuleBase {
     err_code_t deinit() { return E_SUCCESS; }
     err_code_t save_env(uint8_t *env_buf, uint32_t &len);
     err_code_t resume_env(uint8_t *env_buf, uint32_t &len);
+    err_code_t standby(void);
 
     err_code_t probe_state_sync();
     err_code_t hotend_type_sync();
@@ -199,8 +201,6 @@ class ToolHeadFDM: public ModuleBase {
     int16_t extruders_feedrate_percentage[EXTRUDERS];
     uint8_t filament_detect_state[EXTRUDERS];
     float pid[3];
-
-
 };
 
 #endif  // #ifndef SNAPMAKER_TOOLHEAD_FDM_H_

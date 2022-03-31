@@ -358,8 +358,8 @@ err_code_t JobCtrl::resum_env(void) {
   }
 
   if (TH_TYPE_3DP == _env.type) {
-    while(!abort_resume && 
-          motion_platform_svc.bed_heatup_to_target() && 
+    while(!abort_resume &&
+          motion_platform_svc.bed_heatup_to_target() &&
           motion_platform_svc.hotends_heatup_to_target()) {
       LOG_I("job_ctrl: wait for bed and hotends heatup to target\r\n");
       vTaskDelay(pdMS_TO_TICKS(1000));
@@ -613,13 +613,13 @@ void JobCtrl::do_start(struct JobCtrlReqInfo &jri) {
   case SYSTEM_STATUS_XY_CALIBRATING:
     next_status = SYSTEM_STATUS_XY_CALIBRATING_PRINTING;
     break;
-  
+
   case SYSTEM_STATUS_LASER_CAMERA_CAPTURE:
   case SYSTEM_STATUS_LASER_DETECT_FOCAL_LENGTH:
   case SYSTEM_STATUS_LASER_DETECT_4AXIS_CENTER_POSITION:
     next_status = SYSTEM_STATUS_LASER_CALIBRATION_PRINTING;
     break;
-  
+
   default:
     next_status = SYSTEM_STATUS_PRINTING;
     break;
@@ -816,7 +816,7 @@ void JobCtrl::do_stop(struct JobCtrlReqInfo &jri) {
       DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, ret_sys_status);
       return;
     }
- 
+
     DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, status_before_start);
     _issue_ret_rb.insert_one(jri.req_data.req_stop_data.reason);
     // reset the status

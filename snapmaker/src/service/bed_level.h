@@ -61,6 +61,7 @@ class BedLevelService {
       bedlevel_mode = BEDLEVEL_MODE_IDLE;
       z_compensation_[0] = 1.5;
       z_compensation_[1] = 1.5;
+      live_z_offset_changed = false;
     }
 
     void init();
@@ -84,6 +85,7 @@ class BedLevelService {
     bool get_end_leveling_process_status();
     err_code_t apply_live_z_offset(uint8_t e);
     err_code_t unapply_live_z_offset(uint8_t e);
+    void set_live_z_offset(uint8_t e, float offset);
 
 
     float z_values_[GRID_MAX_NUM][GRID_MAX_NUM];
@@ -92,6 +94,7 @@ class BedLevelService {
     float hotend_triggered_z_[EXTRUDERS];
     float hotend_touch_bed_z_[EXTRUDERS];
     float live_z_offset[EXTRUDERS];
+    bool live_z_offset_changed;
   private:
     uint8_t bedlevel_mode;
     uint8_t manual_leveling_point_index_;

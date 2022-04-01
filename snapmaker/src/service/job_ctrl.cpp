@@ -755,6 +755,10 @@ void JobCtrl::do_stop(struct JobCtrlReqInfo &jri) {
     // TODO: do nothing
   }
 
+  LOCK(_lock, JOB_LOCK_WAIT_TICK);
+  _gcode_rb.reset();
+  UNLOCK(_lock);
+
   switch(jri.req_data.req_stop_data.type) {
     case STOP_NORMAL:
       motion_platform_svc.normalstop();

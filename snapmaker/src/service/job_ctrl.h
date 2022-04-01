@@ -89,7 +89,6 @@ enum JobStopType {
   STOP_EXCEPTION,
 };
 
-typedef float xyzijk_position_t[AXIS_NUM];
 
 struct JobEnv {
   toolHeadType type;                                          /** job type :                                                            */
@@ -98,7 +97,7 @@ struct JobEnv {
   uint32_t req_line_num;                                      /** request line number                                                   */
   uint32_t cur_line_num;                                      /** current linenumber, use with gcode file to save the job point         */
   uint32_t time_elape;                                        /** time elaps from the job starting, in second                           */
-  xyzijk_position_t current_pos;
+  xyze_pos_t current_pos;
   float print_feadrate;
   float travel_feadrate;
   bool g0g1_relative_mode;
@@ -172,11 +171,16 @@ class JobCtrl {
                           uint8_t reason,
                           job_req_notify_cb_t cb = NULL,
                           void *p = NULL);
+    err_code_t req_stop_from_isr(  enum JobStopType pt, 
+                          uint8_t reason,
+                          job_req_notify_cb_t cb = NULL, 
+                          void *p = NULL);
     void print_job_env(struct JobEnv *env);
 
     // set & get
     err_code_t set_env(struct JobEnv &env);
-    struct JobEnv get_env(void);
+    struct JobEnv *get_env(void);
+    err_code_t update_env(void);
     toolHeadType get_type(void) { return _env.type; }
     struct GcodeFileInfo *get_gcode_info(void) { return _env.gfi_valid? &_env.gcode_file_info : NULL; }
     uint32_t get_cur_linenum(void) { return _env.cur_line_num; }

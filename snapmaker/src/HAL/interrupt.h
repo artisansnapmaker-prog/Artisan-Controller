@@ -18,13 +18,12 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#ifndef SNAPMAKER_HAL_FLASH_H_
-#define SNAPMAKER_HAL_FLASH_H_
+#ifndef SNAPMAKER_HAL_INTERRUPT_H_
+#define SNAPMAKER_HAL_INTERRUPT_H_
 
 #include "../common/error.h"
 #include "../config.h"
 
-err_code_t flash_erase_sector(int sector_num);
-void flash_write_buffer(uint8_t *buffer, size_t length, uint32_t start_address);
-
+void disable_interrupts();
+void enable_interrupts();
 #endif

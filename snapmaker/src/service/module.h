@@ -97,6 +97,10 @@ class ModuleService {
     static err_code_t handle_fw_request(void *obj, sacp_module_message_t &message);
     static err_code_t report_module_info(void *obj, sacp_hmi_message_t *message);
 
+    void standby_all();
+    void quick_stop_all();
+    void emergency_stop_all();
+
   // private methods
   private:
     // callbacks

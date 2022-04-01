@@ -69,9 +69,9 @@ void ClientNode::class_init(void) {
 
   // register subscibtion
   LOG_I("Client node: register SACP subscription callback\r\n");
-  ret |= host_hmi.register_subscription(  CMD_SET_JOB_CTRL, 
-                                          SUB_ID_JOB_CTRL_CUR_LINE_NUM, 
-                                          (void *)job_ctrl_linenum_sub_cb, 
+  ret |= host_hmi.register_subscription(  CMD_SET_JOB_CTRL,
+                                          SUB_ID_JOB_CTRL_CUR_LINE_NUM,
+                                          (void *)job_ctrl_linenum_sub_cb,
                                           job_ctrl_linenum_sub_cb);
 
   if (E_SUCCESS != ret) {
@@ -106,6 +106,18 @@ ClientNode *ClientNode::find_client_node(uint32_t peer) {
     }
   }
   return NULL;
+}
+
+ClientNode *ClientNode::touch_client(uint32_t peer, uint8_t ch) {
+  ClientNode *cn = find_client_node(peer);
+  if (cn) {
+    cn->_ch = ch;
+    return cn;
+  }
+  else {
+    return malloc_client_node(peer, ch);
+  }
+
 }
 
 ClientNode * ClientNode::malloc_client_node(uint32_t peer, uint8_t ch) {
@@ -165,7 +177,7 @@ bool ClientNode::get_batch_gcode(uint8_t client_id, req_batch_gcode_t &req_batch
 uint16_t ClientNode::job_ctrl_linenum_sub_cb(void *obj, uint8_t *buffer) {
   uint32_t ln;
   ln = job_ctrl_svc.get_cur_linenum();
-  
+
   buffer[0] = E_SUCCESS;              // result
   _32_TO_LITTLE_STREAM(ln, buffer+1);   // line number
   return 5;

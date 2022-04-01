@@ -27,6 +27,7 @@
 #include "system.h"
 #include "motion_platform.h"
 #include "job_ctrl.h"
+#include "emergency_handler.h"
 
 
 static AT_CCRAM StackType_t stack_jobctrl_thread[SYSTEM_TASK_STACK_SIZE];
@@ -202,7 +203,8 @@ err_code_t JobCtrl::req_resume( uint8_t client_id,
                                 job_req_notify_cb_t cb/* = NULL*/,
                                 void *p/* = NULL*/) {
   // status check
-  if (SYSTEM_STATUS_PAUSED != smprinter.get_sys_status()) {
+  if (SYSTEM_STATUS_PAUSED != smprinter.get_sys_status() &&
+      SYSTEM_STATUS_RECOVERING != smprinter.get_sys_status()) {
     LOG_E("job_ctrl: Can not resume a job as current status is no pause\r\n");
     return E_JOB_NOT_IN_PAUSE_STATUS;
   }
@@ -244,6 +246,32 @@ err_code_t JobCtrl::req_stop( enum JobStopType st,
     LOG_E("job_ctrl: can not submit a job ctrl request\r\n");
     return E_NO_RESRC;
   }
+
+  return E_SUCCESS;
+}
+
+err_code_t JobCtrl::req_stop_from_isr( enum JobStopType st,
+                              uint8_t reason,
+                              job_req_notify_cb_t cb/* = NULL*/,
+                              void *p/* = NULL*/) {
+  BaseType_t need_switch_task;
+  SystemStatus s = smprinter.get_sys_status();
+  if (!smprinter.can_stop_work()) {
+    return E_JOB_NOT_IN_PAUSE_STATUS;
+  }
+
+  JobCtrlReqInfo jri;
+  jri.req_action = REQ_STOP;
+  jri.req_data.req_stop_data.type = st;
+  jri.req_data.req_stop_data.reason = reason;
+  jri.cb = cb;
+  jri.param = p;
+
+  if (sizeof(jri) != xMessageBufferSendFromISR(_req_queue, &jri, sizeof(jri), &need_switch_task)) {
+    return E_NO_RESRC;
+  }
+
+  portYIELD_FROM_ISR( need_switch_task );
 
   return E_SUCCESS;
 }
@@ -291,7 +319,8 @@ err_code_t JobCtrl::save_env(void) {
         LOG_E("job_ctrl: bed save env failure\r\n");
       }
       else {
-        LOG_I("job_ctrl: bed_temp save\r\n");
+        // save_env() maybe called from ISR, so comment the log
+        // LOG_I("job_ctrl: bed_temp save\r\n");
       }
     }
     else {
@@ -303,8 +332,8 @@ err_code_t JobCtrl::save_env(void) {
   _env.print_feadrate = motion_platform_svc.get_feedrate();
   _env.travel_feadrate = motion_platform_svc.get_travl_feedrate();
   _env.g0g1_relative_mode = motion_platform_svc.get_relative_mode();
-  for(uint32_t i = 0; i < AXIS_NUM; i++)
-    _env.current_pos[i] = motion_platform_svc.get_current_position(i);
+  motion_platform_svc.update_position_from_platform();
+  _env.current_pos = motion_platform_svc.sm_current_position;
 
   // LOG_I("job_ctrl: save cur_line_num %d\r\n", _env.cur_line_num);
   // print_job_env(&_env);
@@ -332,7 +361,7 @@ err_code_t JobCtrl::resume_env(void) {
   }
 
   if (TH_TYPE_3DP == _env.type) {
-    while(!abort_resume && 
+    while(!abort_resume &&
           (!motion_platform_svc.bed_heatup_to_target() ||
           !motion_platform_svc.hotends_heatup_to_target())) {
       LOG_I("job_ctrl: wait for bed and hotends heatup to target\r\n");
@@ -571,6 +600,8 @@ void JobCtrl::do_start(struct JobCtrlReqInfo &jri) {
   else {
     // TODO: ???
   }
+
+  emergency_hdl.prepare_flash();
 
   _client_id = jri.req_data.req_start_data.client_id;
   _env.type = jri.req_data.req_start_data.th_type;
@@ -817,6 +848,10 @@ err_code_t JobCtrl::set_env(struct JobEnv &env) {
 
 struct JobEnv *JobCtrl::get_env(void) {
   return &_env;
+}
+
+err_code_t JobCtrl::update_env(void) {
+  return save_env();
 }
 
 bool JobCtrl::consume_a_gcode(uint8_t *cmd, uint16_t max_len, uint32_t *line) {

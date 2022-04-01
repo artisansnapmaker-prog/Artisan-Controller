@@ -175,6 +175,7 @@ class HostSACPHMI: public HostSACP {
   private:
     // LinkUART *links[SACP_HMI_CH_MAX];
     // sacp_parser_t parsers[SACP_HMI_CH_MAX];
+    uint32_t  peers[SACP_HMI_CH_MAX];
     sacp_channel_t channels[SACP_HMI_CH_MAX];
     SemaphoreHandle_t ch_recv_signal;
 

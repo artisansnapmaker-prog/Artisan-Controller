@@ -10,6 +10,7 @@
 #include "service/system.h"
 #include "service/motion_platform.h"
 #include "service/bed_level.h"
+#include "service/emergency_handler.h"
 
 #include "host/sacp.h"
 #include "service/client_node.h"
@@ -338,6 +339,8 @@ static void system_thread(void *p) {
   job_ctrl_svc.init();
   ClientNode::class_init();
 
+  emergency_hdl.init();
+
   host_hmi.register_callback(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_SUBSCRIPT,
       (void *)&host_hmi, HostSACPHMI::handle_subscript);
   host_hmi.register_callback(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_UNSUBSCRIPT,
@@ -357,6 +360,7 @@ static void system_thread(void *p) {
   for (;;) {
     module_svc.background_thread();
     system_svc.background_thread();
+    emergency_hdl.background();
 
     host_hmi.handle_events();
 
@@ -777,7 +781,7 @@ err_code_t SnapmakerPrinter::set_sys_status(enum SystemStatus req_status, enum S
     break;
 
   case SYSTEM_STATUS_RESUMING:
-    if (SYSTEM_STATUS_PAUSED == sys_status) {
+    if (SYSTEM_STATUS_PAUSED == sys_status || SYSTEM_STATUS_RECOVERING == sys_status) {
       sys_status = req_status;
       ret = E_SUCCESS;
     }
@@ -788,6 +792,41 @@ err_code_t SnapmakerPrinter::set_sys_status(enum SystemStatus req_status, enum S
   // job control end
   /*********************************************************************************/
 
+  // emergency handler start
+  /*********************************************************************************/
+  case SYSTEM_STATUS_RECOVERING:
+    if (SYSTEM_STATUS_IDLE == sys_status) {
+      sys_status = req_status;
+      ret = E_SUCCESS;
+    }
+    else {
+      ret = E_BUSY;
+    }
+    break;
+
+  case SYSTEM_STATUS_EMERGENCY_STOP:
+    if (!on_working()) {
+      // when system is working, we request it enter stop firstly
+      // then set system to this status
+      sys_status = req_status;
+      ret = E_SUCCESS;
+    }
+    else {
+      ret = E_BUSY;
+    }
+    break;
+
+  case SYSTEM_STATUS_POWER_LOSS:
+    sys_status = req_status;
+    ret = E_SUCCESS;
+    break;
+
+  // emergency handler end
+  /*********************************************************************************/
+
+
+  // laser calibration start
+  /*********************************************************************************/
   case SYSTEM_STATUS_LASER_DETECT_THICKNESS_AUTO:
   case SYSTEM_STATUS_LASER_DETECT_PLATFORM_POSITION:
   case SYSTEM_STATUS_LASER_CAMERA_CAPTURE:
@@ -812,6 +851,9 @@ err_code_t SnapmakerPrinter::set_sys_status(enum SystemStatus req_status, enum S
       ret = E_FAILURE;
     }
     break;
+  // laser calibration end
+  /*********************************************************************************/
+
 
   case SYSTEM_STATUS_CNC_CALIBRATING:
     // TODO: more situations to consider
@@ -943,9 +985,75 @@ bool SnapmakerPrinter::on_printing(void) {
   }
 }
 
+bool SnapmakerPrinter::on_working() {
+  switch (sys_status) {
+    case SYSTEM_STATUS_STARTING:
+    case SYSTEM_STATUS_PAUSING:
+    case SYSTEM_STATUS_PAUSED:
+    case SYSTEM_STATUS_RESUMING:
+    case SYSTEM_STATUS_PRINTING:
+      return true;
+
+    default:
+      return false;
+  }
+}
+
 void SnapmakerPrinter::show_sys_info() {
   LOG_I("sys state: %u\n", sys_status);
   motion_platform_svc.show_coordiantes();
+}
+
+void SnapmakerPrinter::disable_power_domain(uint32_t domains) {
+  if (domains & POWER_DOMAIN_MOTIVE_POWER) {
+    digitalWrite(POWER_CTRL_MOTION, POWER_CTRL_OFF);
+  }
+
+  if (domains & POWER_DOMAIN_8P_TOOLHEAD) {
+    digitalWrite(POWER_CTRL_8P, POWER_CTRL_OFF);
+  }
+
+  if (domains & POWER_DOMAIN_8P_MOTOR) {
+    digitalWrite(POWER_CTRL_MOTOR, POWER_CTRL_OFF);
+  }
+
+  if (domains & POWER_DOMAIN_4P_ADDON) {
+    digitalWrite(POWER_CTRL_4P, POWER_CTRL_OFF);
+  }
+
+  if (domains & POWER_DOMAIN_BED) {
+    digitalWrite(POWER_CTRL_BED, POWER_CTRL_OFF);
+  }
+
+  if (domains & POWER_DOMAIN_HMI) {
+    digitalWrite(POWER_CTRL_HMI, POWER_CTRL_OFF);
+  }
+}
+
+void SnapmakerPrinter::enable_power_domain(uint32_t domains) {
+  if (domains & POWER_DOMAIN_MOTIVE_POWER) {
+    digitalWrite(POWER_CTRL_MOTION, POWER_CTRL_ON);
+  }
+
+  if (domains & POWER_DOMAIN_8P_TOOLHEAD) {
+    digitalWrite(POWER_CTRL_8P, POWER_CTRL_ON);
+  }
+
+  if (domains & POWER_DOMAIN_8P_MOTOR) {
+    digitalWrite(POWER_CTRL_MOTOR, POWER_CTRL_ON);
+  }
+
+  if (domains & POWER_DOMAIN_4P_ADDON) {
+    digitalWrite(POWER_CTRL_4P, POWER_CTRL_ON);
+  }
+
+  if (domains & POWER_DOMAIN_BED) {
+    digitalWrite(POWER_CTRL_BED, POWER_CTRL_ON);
+  }
+
+  if (domains & POWER_DOMAIN_HMI) {
+    digitalWrite(POWER_CTRL_HMI, POWER_CTRL_ON);
+  }
 }
 
 extern "C" {

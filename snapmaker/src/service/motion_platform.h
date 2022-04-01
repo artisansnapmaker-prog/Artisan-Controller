@@ -106,6 +106,8 @@ class MotionPlatformService {
     void set_endstop(bool status);
     void sync_feedrate_percentage_to_platform(int16_t percentage) { feedrate_percentage = percentage; }
 
+    // emergency_handle will call this API in ISR to stop motion platform
+    void req_emergency_stop();
     void req_quickstop(void);
     void normalstop(void);
     // This api use for wait planner quickstop

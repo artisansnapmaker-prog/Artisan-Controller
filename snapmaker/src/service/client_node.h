@@ -50,8 +50,12 @@
 #define CMD_ID_JOB_CTRL_PAUSE                         (0x04)
 #define CMD_ID_JOB_CTRL_RESUME                        (0x05)
 #define CMD_ID_JOB_CTRL_STOP                          (0x06)
+#define CMD_ID_JOB_CTRL_REQ_POWERLOSS_INFO            (0x07)
+#define CMD_ID_JOB_CTRL_REQ_POWERLOSS_RECOVERY        (0x08)
+#define CMD_ID_JOB_CTRL_REQ_POWERLOSS_CLEAR           (0x09)
+
 #define CMD_ID_JOB_SET_FEEDRATE_PERCENTAGE            (0x0e)
-#define CMD_ID_JOB_CTRL_NUM                           (11)
+#define CMD_ID_JOB_CTRL_NUM                           (15)
 #define SUB_ID_JOB_CTRL_CUR_LINE_NUM                  (0xA0)
 
 #define CMD_SET_SYS                                   (1)
@@ -129,6 +133,7 @@ class ClientNode {
     static void class_init(void);
 
     static ClientNode *find_client_node(uint32_t peer);
+    static ClientNode *touch_client(uint32_t peer, uint8_t ch);
     static ClientNode *malloc_client_node(uint32_t peer, uint8_t ch);
     static err_code_t del_client_node(uint32_t peer);
     static err_code_t del_client_node(ClientNode *cn);

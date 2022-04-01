@@ -727,3 +727,21 @@ err_code_t ModuleService::get_module_info(ModuleBase &module) {
   module.set_fw_version((char *)(recv_buffer + 2));
   return ret;
 }
+
+void ModuleService::standby_all() {
+  for (int i = 0; i < configured_module; i++) {
+    modules[i]->standby();
+  }
+}
+
+void ModuleService::quick_stop_all() {
+  for (int i = 0; i < configured_module; i++) {
+    modules[i]->quickstop();
+  }
+}
+
+void ModuleService::emergency_stop_all() {
+  for (int i = 0; i < configured_module; i++) {
+    modules[i]->emergency_stop();
+  }
+}

@@ -321,6 +321,7 @@ class ModuleBase {
     virtual err_code_t resume_finish(void) { return E_SUCCESS; }
     // quickstop call from stepper ISR, do it quickly as possible.
     virtual err_code_t quickstop(void) { return E_SUCCESS; }
+    virtual err_code_t emergency_stop(void) { return E_SUCCESS; }
 
     virtual bool check_online() = 0;
 

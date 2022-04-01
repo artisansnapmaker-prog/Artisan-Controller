@@ -93,6 +93,8 @@ enum SACPCommandSet {
 #define SACP_CMD_ID_GLOABL_REQ_HOME                   (0x35)
 #define SACP_CMD_ID_GLOABL_REQ_REPORT_HOME_RESULT     (0x36)
 
+#define SACP_CMD_ID_GLOABL_REQ_NOTIFY_EMERGENCY_STOP  (0x39)
+
 #define SACP_CMD_ID_GLOABL_REQ_HEARTBEAT          (0xa0)
 #define SACP_CMD_ID_GLOABL_REQ_SUB_COORDINATE     (0xa2)
 
@@ -230,13 +232,13 @@ class HostSACP: public HostBase {
   public:
     HostSACP(): HostBase() {}
 
+    uint16_t calculate_checksum(uint8_t *buffer, uint16_t length);
 
   // private methods
   protected:
     err_code_t package(sacp_module_message_t *message, uint8_t *pdu, uint16_t *pdu_len);
     err_code_t package(sacp_message_t *message, uint8_t *pdu, uint16_t *pdu_len);
 
-    uint16_t calculate_checksum(uint8_t *buffer, uint16_t length);
     uint8_t calc_crc8(uint8_t *data, uint16_t length);
 
   private:

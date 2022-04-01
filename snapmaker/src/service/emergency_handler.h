@@ -1,37 +1,50 @@
-/*
- * Snapmaker2-Controller Firmware
- * Copyright (C) 2019-2020 Snapmaker [https://github.com/Snapmaker]
- *
- * This file is part of Snapmaker2-Controller
- * (see https://github.com/Snapmaker/Snapmaker2-Controller)
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- */
 #ifndef SNAPMAKER_EMERGENCY_HANDLER_SERVICE_H_
 #define SNAPMAKER_EMERGENCY_HANDLER_SERVICE_H_
 
 #include "../common/debug.h"
 #include "../common/error.h"
+#include "../host/sacp_hmi.h"
+
+#define EMERGENCY_ENV_SIZE                    (4 *1024)
+
+enum EmergencyStopSource {
+  EMERGENCY_STOP_SOURCE_BUTTON,
+  EMERGENCY_STOP_SOURCE_POWER_LOSS,
+
+  EMERGENCY_STOP_SOURCE_MAX
+};
 
 class EmergencyHandler {
   public:
     void init();
 
-    err_code_t prepare_flash();
+    void prepare_flash();
 
-    err_code_t write_flash();
+    uint8_t read_button();
+    void emergency_stop(uint8_t stop_source);
 
+    void power_loss();
+
+    void background();
+
+    void req_stop_job();
+
+    static err_code_t hmi_cb_check_recovery_info(void *obj, sacp_hmi_message_t *msg);
+    static err_code_t hmi_cb_req_recovery_job(void *obj, sacp_hmi_message_t *msg);
+    static err_code_t hmi_cb_clear_record(void *obj, sacp_hmi_message_t *msg);
+
+    static void job_cb_notify_emergency_stop(void *p, uint8_t result);
+    static void job_cb_notify_recovery(void *p, uint8_t result);
+  private:
+    bool check_record();
+
+    static sacp_hmi_message_t notify_msg;
+    uint8_t button_state;
+    bool record_avail;
+
+    uint8_t env[EMERGENCY_ENV_SIZE];
 };
+
+extern EmergencyHandler emergency_hdl;
 
 #endif

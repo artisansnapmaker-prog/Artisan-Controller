@@ -358,13 +358,14 @@ err_code_t JobCtrl::resum_env(void) {
   }
 
   if (TH_TYPE_3DP == _env.type) {
-    while(!abort_resume &&
-          motion_platform_svc.bed_heatup_to_target() &&
-          motion_platform_svc.hotends_heatup_to_target()) {
+    while(!abort_resume && 
+          (!motion_platform_svc.bed_heatup_to_target() ||
+          !motion_platform_svc.hotends_heatup_to_target())) {
       LOG_I("job_ctrl: wait for bed and hotends heatup to target\r\n");
       vTaskDelay(pdMS_TO_TICKS(1000));
     }
   }
+  abort_resume = false;
 
   _env.req_line_num = _env.cur_line_num;
   motion_platform_svc.moveto_xy(_env.current_pos[0], _env.current_pos[1], RESUME_XY_FEEDRATE);

@@ -185,6 +185,8 @@ class MotionPlatformService {
     // fdm API
     bool runout_state(uint8_t extruder = 0) { return false; }
     void sync_hotend_offset_to_platform(float x_offset, float y_offset, float z_offset);
+    void enable_filament_runout();
+    void disable_filament_runout();
 
     // settings control
     void reset_settings() {}

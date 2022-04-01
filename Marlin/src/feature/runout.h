@@ -34,10 +34,12 @@
 
 #include "../inc/MarlinConfig.h"
 
-#include "../../../snapmaker/src/snapmaker.h"
-
 #if ENABLED(EXTENSIBLE_UI)
   #include "../lcd/extui/ui_api.h"
+#endif
+
+#if MB_SNAPMAKER
+#include "../../../snapmaker/src/snapmaker.h"
 #endif
 
 //#define FILAMENT_RUNOUT_SENSOR_DEBUG
@@ -68,6 +70,7 @@ extern FilamentMonitor runout;
 class FilamentMonitorBase {
   public:
     static bool enabled, filament_ran_out;
+    static millis_t ranout_timer;
 
     #if ENABLED(HOST_ACTION_COMMANDS)
       static bool host_handling;
@@ -117,7 +120,7 @@ class TFilamentMonitor : public FilamentMonitorBase {
 
     // Give the response a chance to update its counter.
     static inline void run() {
-      if (enabled && !filament_ran_out && (printingIsActive() || did_pause_print) && (smprinter.get_sys_status() == SYSTEM_STATUS_PRINTING || smprinter.get_sys_status() == SYSTEM_STATUS_XY_CALIBRATING)) {
+      if (enabled && !filament_ran_out && (smprinter.get_sys_status() == SYSTEM_STATUS_PRINTING || smprinter.get_sys_status() == SYSTEM_STATUS_XY_CALIBRATING)) {
         TERN_(HAS_FILAMENT_RUNOUT_DISTANCE, cli()); // Prevent RunoutResponseDelayed::block_completed from accumulating here
         response.run();
         sensor.run();
@@ -159,16 +162,27 @@ class TFilamentMonitor : public FilamentMonitorBase {
           planner.synchronize();
 
         }
+      } else if (enabled/*&& (system fault)*/) {
+        if (is_filament_runout()) {
+          ranout_timer = millis() + 1000;
+        } else {
+          if (millis() - ranout_timer > 0) {
+            filament_ran_out = false;
+          }
+        }
       }
-    } //else if () {
-      // todo
-      // dither filter
+    }
 
-    // }
-
-
-
-
+    // query current state of sensor
+    // return true -> no filament
+    // return false -> filament is exist
+    static bool is_filament_runout() {
+      if (enabled) {
+        return sensor.poll_runout_states();
+      }
+      else
+        return enabled;
+    }
 };
 
 /*************************** FILAMENT PRESENCE SENSORS ***************************/

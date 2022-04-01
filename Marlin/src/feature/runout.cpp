@@ -34,6 +34,7 @@ FilamentMonitor runout;
 
 bool FilamentMonitorBase::enabled = true,
      FilamentMonitorBase::filament_ran_out;  // = false
+millis_t FilamentMonitorBase::ranout_timer = 0;
 
 #if ENABLED(HOST_ACTION_COMMANDS)
   bool FilamentMonitorBase::host_handling; // = false
@@ -74,8 +75,7 @@ bool FilamentMonitorBase::enabled = true,
 
 void event_filament_runout(const uint8_t extruder) {
   #if MB_SNAPMAKER
-    // todo
-    // smprinter.pause_trigger(TRIGGER_SOURCE_RUNOUT);
+    smprinter.pause_trigger(1);
   #else
     if (did_pause_print) return;  // Action already in progress. Purge triggered repeated runout.
 

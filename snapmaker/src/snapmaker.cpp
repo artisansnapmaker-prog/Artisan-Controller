@@ -645,6 +645,11 @@ void SnapmakerPrinter::enclosure_hmi_self_test_interface(uint8_t test_type, uint
     enclosure->enclosure_hmi_self_test_interface(test_type, param);
 }
 
+// API for puase
+void SnapmakerPrinter::pause_trigger(uint8_t pause_reason) {
+  job_ctrl_svc.req_pause((enum JobPauseType)pause_reason, NULL, NULL);
+}
+
 // API for home
 void SnapmakerPrinter::reset_home_offset() {
   home_offset[X_AXIS] = -30;

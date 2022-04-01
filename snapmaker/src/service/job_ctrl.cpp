@@ -205,7 +205,7 @@ err_code_t JobCtrl::req_start(  uint8_t client_id,
 
 err_code_t JobCtrl::req_pause( enum JobPauseType pt,
                                       job_req_notify_cb_t cb/* = NULL*/, void *p/* = NULL*/) {
-  if (SYSTEM_STATUS_PRINTING != smprinter.get_sys_status()) {
+  if ((SYSTEM_STATUS_PRINTING != smprinter.get_sys_status()) && (SYSTEM_STATUS_XY_CALIBRATING_PRINTING != smprinter.get_sys_status())) {
     LOG_E("job client: can not pause a job as current status is no printing\r\n");
     return E_JOB_NOT_IN_WORKING_STATUS;
   }

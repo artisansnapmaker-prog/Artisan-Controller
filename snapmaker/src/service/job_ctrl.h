@@ -31,7 +31,7 @@
 #include "../common/error.h"
 #include "../common/ring_buffer.h"
 #include "../common/type.h"
-#include "../snapmaker.h"
+// #include "../snapmaker.h"
 #include "client_node.h"
 #include "motion_platform.h"
 
@@ -52,14 +52,14 @@
 #define E_JOB_UNSUPPORT_PARAM                           SACP_RET_UNSUPPORT_PARAM
 #define E_JOB_UNMATCHED_TOOLHEAD                        SACP_RET_JOB_UNMATCHED_TOOLHEAD
 
-#define E_JOB_ISSUE_RET_FINISH                          SACP_JOB_PAUSE_ISSUE_RET_FINISH                   
-#define E_JOB_ISSUE_RET_GCODE_PAUSE                     SACP_JOB_PAUSE_ISSUE_RET_GCODE_PAUSE              
-#define E_JOB_ISSUE_RET_GCODE_FILAMENT_RUNOUT           SACP_JOB_PAUSE_ISSUE_RET_GCODE_FILAMENT_RUNOUT    
-#define E_JOB_ISSUE_RET_FILAMENT_RUNOUT                 SACP_JOB_PAUSE_ISSUE_RET_FILAMENT_RUNOUT          
-#define E_JOB_ISSUE_RET_STALL_PROTECTION                SACP_JOB_PAUSE_ISSUE_RET_STALL_PROTECTION         
-#define E_JOB_ISSUE_RET_ABNORMAL_TEMP_PROTECTION        SACP_JOB_PAUSE_ISSUE_RET_ABNORMAL_TEMP_PROTECTION 
-#define E_JOB_ISSUE_RET_IVALID_GCODE_LINE_NUMBER        SACP_JOB_PAUSE_ISSUE_RET_IVALID_GCODE_LINE_NUMBER 
-#define E_JOB_ISSUE_RET_GET_GCODE_FAILURE               SACP_JOB_PAUSE_ISSUE_RET_GET_GCODE_FAILURE        
+#define E_JOB_ISSUE_RET_FINISH                          SACP_JOB_PAUSE_ISSUE_RET_FINISH
+#define E_JOB_ISSUE_RET_GCODE_PAUSE                     SACP_JOB_PAUSE_ISSUE_RET_GCODE_PAUSE
+#define E_JOB_ISSUE_RET_GCODE_FILAMENT_RUNOUT           SACP_JOB_PAUSE_ISSUE_RET_GCODE_FILAMENT_RUNOUT
+#define E_JOB_ISSUE_RET_FILAMENT_RUNOUT                 SACP_JOB_PAUSE_ISSUE_RET_FILAMENT_RUNOUT
+#define E_JOB_ISSUE_RET_STALL_PROTECTION                SACP_JOB_PAUSE_ISSUE_RET_STALL_PROTECTION
+#define E_JOB_ISSUE_RET_ABNORMAL_TEMP_PROTECTION        SACP_JOB_PAUSE_ISSUE_RET_ABNORMAL_TEMP_PROTECTION
+#define E_JOB_ISSUE_RET_IVALID_GCODE_LINE_NUMBER        SACP_JOB_PAUSE_ISSUE_RET_IVALID_GCODE_LINE_NUMBER
+#define E_JOB_ISSUE_RET_GET_GCODE_FAILURE               SACP_JOB_PAUSE_ISSUE_RET_GET_GCODE_FAILURE
 
 #define JOB_LOCK_WAIT_TICK (0xFFFFFFFF)
 #define MODULE_ENV_MAX_SIZE 128
@@ -101,9 +101,9 @@ struct JobEnv {
   bool g0g1_relative_mode;
   uint16_t bed_temp;
   int8_t active_coordinate;
-  uint32_t toolhead_env_buf_size; 
+  uint32_t toolhead_env_buf_size;
   uint8_t toolhead_env_buf[MODULE_ENV_MAX_SIZE];
-  uint32_t bed_env_buf_size; 
+  uint32_t bed_env_buf_size;
   uint8_t bed_env_buf[MODULE_ENV_MAX_SIZE];
 };
 
@@ -124,7 +124,7 @@ struct JobCtrlReqInfo {
   {
     struct {
       uint8_t client_id;
-      struct GcodeFileInfo gcodeInfo; 
+      struct GcodeFileInfo gcodeInfo;
       toolHeadType th_type;
     } req_start_data;
 
@@ -154,20 +154,20 @@ class JobCtrl {
     void background_thread(void *p);                               /** main loop, to check all the event from system which will change current job status */
 
     // job control
-    err_code_t req_start( uint8_t client_id, 
-                          struct GcodeFileInfo *gcodeInfo, 
-                          toolHeadType th_type, 
-                          job_req_notify_cb_t cb = NULL, 
+    err_code_t req_start( uint8_t client_id,
+                          struct GcodeFileInfo *gcodeInfo,
+                          toolHeadType th_type,
+                          job_req_notify_cb_t cb = NULL,
                           void *p = NULL);
-    err_code_t req_pause( enum JobPauseType pt, 
-                          job_req_notify_cb_t cb = NULL, 
+    err_code_t req_pause( enum JobPauseType pt,
+                          job_req_notify_cb_t cb = NULL,
                           void *p = NULL);
-    err_code_t req_resume(uint8_t client_id, 
-                          job_req_notify_cb_t cb = NULL, 
+    err_code_t req_resume(uint8_t client_id,
+                          job_req_notify_cb_t cb = NULL,
                           void *p = NULL);
-    err_code_t req_stop(  enum JobStopType pt, 
+    err_code_t req_stop(  enum JobStopType pt,
                           uint8_t reason,
-                          job_req_notify_cb_t cb = NULL, 
+                          job_req_notify_cb_t cb = NULL,
                           void *p = NULL);
     void print_job_env(struct JobEnv *env);
 

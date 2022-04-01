@@ -377,7 +377,7 @@ static err_code_t hmi_req_callback_set_filament_detect_ctrl(void *obj, sacp_hmi_
   ToolHeadFDM &fdm = *(ToolHeadFDM *)obj;
   err_code_t ret = E_SUCCESS;
 
-  if (msg->data[1] > fdm.get_extruders_count()) {
+  if (msg->data[1] > fdm.get_extruders_count() - 1) {
     ret = E_PARAM;
     goto EXIT;
   }
@@ -828,22 +828,22 @@ void ToolHeadFDM::update_filament_state(uint8_t *data) {
     else
       filament_state &= ~0x02;
 
-    if (filament_detect_state[0]) {
-      filament_state &= ~0x01;
-    }
+    // if (filament_detect_state[0]) {
+    //   filament_state &= ~0x01;
+    // }
 
-    if (filament_detect_state[1]) {
-      filament_state &= ~0x01;
-    }
+    // if (filament_detect_state[1]) {
+    //   filament_state &= ~0x01;
+    // }
   } else if (get_device_id() == MODULE_DEVICE_ID_FDM_1EXTRUDER_2019) {
     if (data[0])
       filament_state |= 0x01;
     else
       filament_state &= ~0x01;
 
-    if (filament_detect_state[0]) {
-      filament_state &= ~0x01;
-    }
+    // if (filament_detect_state[0]) {
+    //   filament_state &= ~0x01;
+    // }
   }
 }
 
@@ -1265,6 +1265,11 @@ err_code_t ToolHeadFDM::filament_detect_ctrl(uint8_t state, uint8_t e) {
   }
 
   filament_detect_state[e] = state;
+  if (state == 1) {
+    motion_platform_svc.enable_filament_runout();
+  } else if (state == 0) {
+    motion_platform_svc.disable_filament_runout();
+  }
 
   return E_SUCCESS;
 }

@@ -9,6 +9,7 @@
 #include "../../Marlin/src/module/motion.h"
 #include "../Marlin/src/module/stepper.h"
 #include "job_ctrl.h"
+#include "../../Marlin/src/feature/runout.h"
 
 
 MotionPlatformService motion_platform_svc;
@@ -568,7 +569,7 @@ bool MotionPlatformService::bed_heatup_to_target(void) {
   if (!bed)
     return true;
 
-  LOG_I("job_ctrl: wait for bed heat up to target temperature, zone_1: c%f@t%f, zone_2: c %f@t%f\r\n", 
+  LOG_I("job_ctrl: wait for bed heat up to target temperature, zone_1: c%f@t%f, zone_2: c %f@t%f\r\n",
     thermalManager.degBed(), thermalManager.degTargetBed(),
     thermalManager.degChamber(), thermalManager.degTargetChamber);
 
@@ -595,8 +596,8 @@ bool MotionPlatformService::hotends_heatup_to_target(void) {
     return true;
   }
 
-  LOG_I("job_ctrl: wait for hotend heat up to target temperature, zone_1: c%f@t%f, zone_2: c %f@t%f\r\n", 
-        thermalManager.degHotend(0), thermalManager.degTargetHotend(0), 
+  LOG_I("job_ctrl: wait for hotend heat up to target temperature, zone_1: c%f@t%f, zone_2: c %f@t%f\r\n",
+        thermalManager.degHotend(0), thermalManager.degTargetHotend(0),
         thermalManager.degHotend(1), thermalManager.degTargetHotend(1));
 
   if ((thermalManager.degHotend(0) > 0.0) && (thermalManager.degHotend(0) < thermalManager.degTargetHotend(0))) {
@@ -658,6 +659,14 @@ void MotionPlatformService::sync_hotend_offset_to_platform(float x_offset, float
   hotend_offset[Y_AXIS][1] = y_offset;
   hotend_offset[Z_AXIS][1] = z_offset;
   // LOG_I("hotend_offset, T1, X%.2f, Y%.2f, Z%.2f\n", hotend_offset[X_AXIS][1], hotend_offset[Y_AXIS][1], hotend_offset[Z_AXIS][1]);
+}
+
+void MotionPlatformService::enable_filament_runout() {
+  runout.enabled = true;
+}
+
+void MotionPlatformService::disable_filament_runout() {
+  runout.enabled = false;
 }
 
 void MotionPlatformService::set_hotend_maxtemp(uint8_t e, int16_t temp) {
@@ -925,7 +934,7 @@ float MotionPlatformService::get_max_position(uint8_t axis) {
 }
 
 float MotionPlatformService::get_feedrate_percentage() {
-   return feedrate_percentage; 
+   return feedrate_percentage;
 }
 
 xyz_pos_t MotionPlatformService::get_position_shift() {

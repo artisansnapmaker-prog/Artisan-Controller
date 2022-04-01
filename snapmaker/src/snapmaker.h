@@ -135,6 +135,9 @@ class SnapmakerPrinter
     void pre_init();
     void post_init();
 
+    // API for pause
+    void pause_trigger(uint8_t pause_reason);
+
     // API for home
     void reset_home_offset();
 

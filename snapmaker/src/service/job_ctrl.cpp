@@ -859,7 +859,7 @@ bool JobCtrl::consume_a_gcode(uint8_t *cmd, uint16_t max_len, uint32_t *line) {
     if('\n' == c) {
       *line = _env.cur_line_num++;
       cmd[cmd_len] = 0;
-      // LOG_I("job_ctrl: marlin consume a gcode: %s\r\n", cmd);
+      LOG_I("job_ctrl: marlin consume a gcode: %s\r\n", cmd);
       ret = true;
 
       if (_paused){

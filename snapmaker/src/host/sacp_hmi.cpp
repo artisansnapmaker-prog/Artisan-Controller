@@ -1,31 +1,26 @@
 #include "sacp_hmi.h"
 #include "snapmaker.h"
 
-#if ENABLE_CCRAM
-static __attribute__((section(".ccmram"))) uint8_t queue_buffer_to_marlin[SACP_PDU_MAX_SIZE];
-static __attribute__((section(".ccmram"))) StaticMessageBuffer_t queue_strcut_to_marlin;
+static AT_CCRAM uint8_t queue_buffer_to_marlin[SACP_PDU_MAX_SIZE];
+static AT_CCRAM StaticMessageBuffer_t queue_strcut_to_marlin;
 
-static __attribute__((section(".ccmram"))) uint8_t queue_buffer_to_system[SACP_PDU_MAX_SIZE];
-static __attribute__((section(".ccmram"))) StaticMessageBuffer_t queue_strcut_to_system;
+static AT_CCRAM uint8_t queue_buffer_to_system[SACP_PDU_MAX_SIZE];
+static AT_CCRAM StaticMessageBuffer_t queue_strcut_to_system;
 
-static __attribute__((section(".ccmram"))) uint8_t queue_buffer_to_event[SACP_PDU_MAX_SIZE];
-static __attribute__((section(".ccmram"))) StaticMessageBuffer_t queue_strcut_to_event;
+static AT_CCRAM uint8_t queue_buffer_to_event[SACP_PDU_MAX_SIZE];
+static AT_CCRAM StaticMessageBuffer_t queue_strcut_to_event;
 
-static __attribute__((section(".ccmram"))) uint8_t queue_buffer_to_wait_node[SACP_HMI_WAITING_NODE_MAX][SACP_PDU_MAX_SIZE];
-static __attribute__((section(".ccmram"))) StaticMessageBuffer_t queue_strcut_to_wait_node[SACP_HMI_WAITING_NODE_MAX];
+static AT_CCRAM uint8_t queue_buffer_to_wait_node[SACP_HMI_WAITING_NODE_MAX][SACP_PDU_MAX_SIZE];
+static AT_CCRAM StaticMessageBuffer_t queue_strcut_to_wait_node[SACP_HMI_WAITING_NODE_MAX];
 
-static __attribute__((section(".ccmram"))) uint8_t serial_tx_buffer_pc[SACP_PDU_MAX_SIZE];
-static __attribute__((section(".ccmram"))) uint8_t serial_rx_buffer_pc[SACP_PDU_MAX_SIZE];
+static AT_CCRAM uint8_t serial_tx_buffer_pc[SACP_PDU_MAX_SIZE];
+static AT_CCRAM uint8_t serial_rx_buffer_pc[SACP_PDU_MAX_SIZE];
 
-static __attribute__((section(".ccmram"))) uint8_t serial_tx_buffer_screen[SACP_PDU_MAX_SIZE];
-static __attribute__((section(".ccmram"))) uint8_t serial_rx_buffer_screen[SACP_PDU_MAX_SIZE];
-#endif
+static AT_CCRAM uint8_t serial_tx_buffer_screen[SACP_PDU_MAX_SIZE];
+static AT_CCRAM uint8_t serial_rx_buffer_screen[SACP_PDU_MAX_SIZE];
 
-#if ENABLE_CCRAM
-HostSACPHMI __attribute__((section(".ccmram"))) host_hmi(SACP_VER_1, SACP_HOST_ID_CONTROLLER);
-#else
-HostSACPHMI host_hmi(SACP_VER_1, SACP_HOST_ID_CONTROLLER);
-#endif
+HostSACPHMI AT_CCRAM host_hmi(SACP_VER_1, SACP_HOST_ID_CONTROLLER);
+
 
 err_code_t HostSACPHMI::init(TaskHandle_t event_task, SemaphoreHandle_t recv_signal) {
   uint8_t *buffer = NULL;
@@ -34,12 +29,8 @@ err_code_t HostSACPHMI::init(TaskHandle_t event_task, SemaphoreHandle_t recv_sig
   configASSERT(waiting_lock);
 
   for (int i = 0; i < SACP_HMI_WAITING_NODE_MAX; i++) {
-    #if ENABLE_CCRAM
       waiting_nodes[i].queue = xMessageBufferCreateStatic(SACP_PDU_MAX_SIZE, queue_buffer_to_wait_node[i],
                                                           &queue_strcut_to_wait_node[i]);
-    #else
-      waiting_nodes[i].queue = xMessageBufferCreate(SACP_V1_PDU_MAX_SIZE);
-    #endif
     configASSERT(waiting_nodes[i].queue);
     waiting_nodes[i].status = SACP_WAITING_NODE_STA_IDLE;
   }
@@ -57,70 +48,34 @@ err_code_t HostSACPHMI::init(TaskHandle_t event_task, SemaphoreHandle_t recv_sig
   link_pc.set_serial(&MSerial1);
 
   // setup RX
-#if ENABLE_CCRAM
   link_pc.set_sec_rx_buffer(serial_rx_buffer_pc, SACP_PDU_MAX_SIZE);
-#else
-  // setup RX
-  buffer = (uint8_t *)pvPortMalloc(SACP_PDU_MAX_SIZE);
-  configASSERT(buffer);
-  link_pc.set_sec_rx_buffer(buffer, SACP_PDU_MAX_SIZE);
-#endif
   link_pc.set_sec_rx_waiting(SACP_V1_PDU_MIN_SIZE);
 
   // setup TX
-#if ENABLE_CCRAM
   link_pc.set_sec_tx_buffer(serial_tx_buffer_pc, SACP_PDU_MAX_SIZE);
-#else
-  buffer = (uint8_t *)pvPortMalloc(SACP_PDU_MAX_SIZE);
-  configASSERT(buffer);
-  link_pc.set_sec_tx_buffer(buffer, SACP_PDU_MAX_SIZE);
-#endif
 
   // initialize HMI
   MSerial2.begin(115200);
   link_screen.set_serial(&MSerial2);
   // setup RX
-#if ENABLE_CCRAM
   link_screen.set_sec_rx_buffer(serial_rx_buffer_screen, SACP_PDU_MAX_SIZE);
-#else
-  buffer = (uint8_t *)pvPortMalloc(SACP_PDU_MAX_SIZE);
-  configASSERT(buffer);
-  link_screen.set_sec_rx_buffer(buffer, SACP_PDU_MAX_SIZE);
-#endif
   link_screen.set_sec_rx_waiting(SACP_V1_PDU_MIN_SIZE);
   // setup TX
-#if ENABLE_CCRAM
   link_screen.set_sec_tx_buffer(serial_tx_buffer_screen, SACP_PDU_MAX_SIZE);
-#else
-  buffer = (uint8_t *)pvPortMalloc(SACP_PDU_MAX_SIZE);
-  configASSERT(buffer);
-  link_screen.set_sec_tx_buffer(buffer, SACP_PDU_MAX_SIZE);
-#endif
+
   // active second channel
   link_screen.set_active_channel(MARLIN_SERIAL_CHANNEL_SECOND);
 
   add_channel(SACP_HMI_CH_PC, &link_pc);
   add_channel(SACP_HMI_CH_SCREEN, &link_screen);
 
-  #if ENABLE_CCRAM
-    events_normal = xMessageBufferCreateStatic(SACP_PDU_MAX_SIZE, queue_buffer_to_event, &queue_strcut_to_event);
-  #else
-    events_normal = xMessageBufferCreate(SACP_PDU_MAX_SIZE);
-  #endif
+  events_normal = xMessageBufferCreateStatic(SACP_PDU_MAX_SIZE, queue_buffer_to_event, &queue_strcut_to_event);
   configASSERT(events_normal);
 
-  #if ENABLE_CCRAM
-    events_blocked_without_motion = xMessageBufferCreateStatic(SACP_PDU_MAX_SIZE, queue_buffer_to_system, &queue_strcut_to_system);
-  #else
-    events_blocked_without_motion = xMessageBufferCreate(SACP_PDU_MAX_SIZE);
-  #endif
+  events_blocked_without_motion = xMessageBufferCreateStatic(SACP_PDU_MAX_SIZE, queue_buffer_to_system, &queue_strcut_to_system);
   configASSERT(events_blocked_without_motion);
 
-  #if ENABLE_CCRAM
-    events_with_motion = xMessageBufferCreateStatic(SACP_PDU_MAX_SIZE, queue_buffer_to_marlin, &queue_strcut_to_marlin);
-  #else
-    events_with_motion = xMessageBufferCreate(SACP_PDU_MAX_SIZE);
-  #endif
+  events_with_motion = xMessageBufferCreateStatic(SACP_PDU_MAX_SIZE, queue_buffer_to_marlin, &queue_strcut_to_marlin);
   configASSERT(events_with_motion);
 
   return E_SUCCESS;

@@ -14,10 +14,8 @@
 
 MotionPlatformService motion_platform_svc;
 
-#if ENABLE_CCRAM
-static __attribute__((section(".ccmram"))) StackType_t stack_motion_thread[MOTION_TASK_STACK_SIZE];
-static __attribute__((section(".ccmram"))) StaticTask_t taskcb_marlin;
-#endif
+static AT_CCRAM StackType_t stack_motion_thread[MOTION_TASK_STACK_SIZE];
+static AT_CCRAM StaticTask_t taskcb_marlin;
 
 // subscription callback
 struct __packed CoordinateSystemInformation {
@@ -344,15 +342,9 @@ void MotionPlatformService::init() {
             (void *)this, hmi_cb_request_home);
 
   LOG_I("Creating marlin task...");
-#if ENABLE_CCRAM
   thandle_marlin = xTaskCreateStatic((TaskFunction_t)motion_background, "marlin", MOTION_TASK_STACK_SIZE, (void *)this,
         MOTION_TASK_PRIORITY, stack_motion_thread , &taskcb_marlin);
     if (!thandle_marlin) {
-#else
-  BaseType_t ret = xTaskCreate((TaskFunction_t)motion_background, "marlin", MOTION_TASK_STACK_SIZE, (void *)this,
-        MOTION_TASK_PRIORITY, &thandle_marlin);
-  if (ret != pdPASS) {
-#endif
     LOG_E(LOG_RESULT_FAIL);
     while(1);
   }
@@ -454,6 +446,12 @@ void MotionPlatformService::sync_leveling_limit_to_platform(float x_start, float
   endx   = x_end;
   starty = y_start;
   endy   = y_end;
+}
+
+// emergency_handle will call this API in ISR to stop motion platform
+void MotionPlatformService::req_emergency_stop() {
+  emergency_parser.quickstop_by_M410 = true;
+  stepper.quick_stop();
 }
 
 void MotionPlatformService::req_quickstop(void) {

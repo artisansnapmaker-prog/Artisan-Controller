@@ -22,23 +22,16 @@ TaskHandle_t thandle_marlin = NULL;
 TaskHandle_t thandle_system = NULL;
 TaskHandle_t thandle_hmi_event = NULL;
 
-#if ENABLE_CCRAM
-static __attribute__((section(".ccmram"))) StackType_t stack_system_thread[SYSTEM_TASK_STACK_SIZE];
-static __attribute__((section(".ccmram"))) StackType_t stack_hmi_event_thread[HMI_EVENT_TASK_STACK_SIZE];
-static __attribute__((section(".ccmram"))) StackType_t stack_hmi_recv_thread[HMI_RECV_TASK_STACK_SIZE];
+static AT_CCRAM StackType_t stack_system_thread[SYSTEM_TASK_STACK_SIZE];
+static AT_CCRAM StackType_t stack_hmi_event_thread[HMI_EVENT_TASK_STACK_SIZE];
+static AT_CCRAM StackType_t stack_hmi_recv_thread[HMI_RECV_TASK_STACK_SIZE];
 
-static __attribute__((section(".ccmram"))) StaticTask_t tcb_system;
-static __attribute__((section(".ccmram"))) StaticTask_t tcb_hmi_event;
-static __attribute__((section(".ccmram"))) StaticTask_t tcb_hmi_recv;
+static AT_CCRAM StaticTask_t tcb_system;
+static AT_CCRAM StaticTask_t tcb_hmi_event;
+static AT_CCRAM StaticTask_t tcb_hmi_recv;
 
-static __attribute__((section(".ccmram"))) StackType_t stack_timer[configTIMER_TASK_STACK_DEPTH];
-static __attribute__((section(".ccmram"))) StaticTask_t tcb_timer;
-#else
-static  StackType_t stack_idle[configMINIMAL_STACK_SIZE];
-static  StaticTask_t tcb_idle;
-static  StackType_t stack_timer[configTIMER_TASK_STACK_DEPTH];
-static  StaticTask_t tcb_timer;
-#endif
+static AT_CCRAM StackType_t stack_timer[configTIMER_TASK_STACK_DEPTH];
+static AT_CCRAM StaticTask_t tcb_timer;
 
 static StackType_t stack_idle[configMINIMAL_STACK_SIZE];
 static StaticTask_t tcb_idle;
@@ -311,15 +304,9 @@ static void system_thread(void *p) {
   hmi_recv_signal = xSemaphoreCreateCounting(65535, 0);
 
   LOG_I("Creating HMI receive task...");
-#if ENABLE_CCRAM
   hmi_recv_task = xTaskCreateStatic((TaskFunction_t)hmi_recv_handler, "hmi_recv", HMI_RECV_TASK_STACK_SIZE,
         hmi_recv_signal, HMI_RECV_TASK_PRIORITY, stack_hmi_recv_thread, &tcb_hmi_recv);
   if (!hmi_recv_task) {
-#else
-  ret = xTaskCreate((TaskFunction_t)hmi_recv_handler, "hmi_recv", HMI_RECV_TASK_STACK_SIZE,
-        hmi_recv_signal, HMI_RECV_TASK_PRIORITY, &hmi_recv_task);
-  if (ret != pdPASS) {
-#endif
     LOG_E(LOG_RESULT_FAIL);
     while(1);
   }
@@ -328,15 +315,10 @@ static void system_thread(void *p) {
   }
 
   LOG_I("Creating HMI event task...");
-#if ENABLE_CCRAM
   thandle_hmi_event = xTaskCreateStatic((TaskFunction_t)hmi_event_handler, "hmi_event", HMI_EVENT_TASK_STACK_SIZE,
         NULL, HMI_EVENT_TASK_PRIORITY, stack_hmi_event_thread, &tcb_hmi_event);
   if (!thandle_hmi_event) {
-#else
-  ret = xTaskCreate((TaskFunction_t)hmi_event_handler, "hmi_event", HMI_EVENT_TASK_STACK_SIZE,
-        NULL, HMI_EVENT_TASK_PRIORITY, &thandle_hmi_event);
-  if (ret != pdPASS) {
-#endif
+
     LOG_E(LOG_RESULT_FAIL);
     while(1);
   }
@@ -443,15 +425,9 @@ void SnapmakerPrinter::post_init() {
 
   debug.init();
 
-#if ENABLE_CCRAM
   thandle_system = xTaskCreateStatic((TaskFunction_t)system_thread, "system", SYSTEM_TASK_STACK_SIZE,
         (void *)(this), SYSTEM_TASK_PRIORITY,  stack_system_thread, &tcb_system);
   if (!thandle_system) {
-#else
-  ret = xTaskCreate((TaskFunction_t)system_thread, "system", SYSTEM_TASK_STACK_SIZE,
-        (void *)(this), SYSTEM_TASK_PRIORITY,  &thandle_system);
-  if (ret != pdPASS) {
-#endif
     // LOG_E(LOG_RESULT_FAIL);
     while(1);
   }

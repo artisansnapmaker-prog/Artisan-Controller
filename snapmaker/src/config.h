@@ -8,6 +8,12 @@
   #define ENABLE_CCRAM  (1)
 #endif
 
+#ifdef ENABLE_CCRAM
+  #define AT_CCRAM  __attribute__((section(".ccmram")))
+#else
+  #define AT_CCRAM
+#endif
+
 #define HIGHEST_TASK_PRIORITY         (5)
 
 // parameters for system task

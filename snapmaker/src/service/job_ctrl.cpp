@@ -332,12 +332,12 @@ err_code_t JobCtrl::save_env(void) {
   for(uint32_t i = 0; i < AXIS_NUM; i++)
     _env.current_pos[i] = motion_platform_svc.get_current_position(i);
 
-  // LOG_I("job_ctrl: cur_line_num %d\r\n", _env.cur_line_num);
+  // LOG_I("job_ctrl: save cur_line_num %d\r\n", _env.cur_line_num);
   // print_job_env(&_env);
   return E_SUCCESS;
 }
 
-err_code_t JobCtrl::resum_env(void) {
+err_code_t JobCtrl::resume_env(void) {
   ModuleBase *cur_toolhead;
 
   LOG_I("job_ctrl: get current toolhead pointer\r\n");
@@ -374,6 +374,7 @@ err_code_t JobCtrl::resum_env(void) {
   motion_platform_svc.set_travl_feedrate(_env.travel_feadrate);
   motion_platform_svc.set_relative_mode(_env.g0g1_relative_mode);
 
+  // LOG_I("job_ctrl: resume cur_line_num %d\r\n", _env.cur_line_num);
   // LOG_I("job_ctrl: ========================= resume =========================\r\n");
   // LOG_I("job_ctrl: resume active coordinate_system %d\r\n", motion_platform_svc.get_active_coordinate_system());
   // LOG_I("job_ctrl: resume req_line_num %d\r\n", _env.req_line_num);
@@ -430,17 +431,19 @@ err_code_t JobCtrl::machine_standby(void) {
     break;
   }
 
-  LOG_I("job_ctrl: Z raise to highest\r\n");
-  motion_platform_svc.update_position_from_platform();
-  t_pos = motion_platform_svc.sm_current_position;
-  t_pos.z = 395;
-  motion_platform_svc.moveto(t_pos, RESUME_Z_FEEDRATE, true);
+  if (TH_TYPE_3DP == _env.type || TH_TYPE_CNC == _env.type) {
+    LOG_I("job_ctrl: Z raise to highest\r\n");
+    motion_platform_svc.update_position_from_platform();
+    t_pos = motion_platform_svc.sm_current_position;
+    t_pos.z = 395;
+    motion_platform_svc.moveto(t_pos, RESUME_Z_FEEDRATE, true);
 
-  LOG_I("job_ctrl: y move to fronthead\r\n");
-  motion_platform_svc.update_position_from_platform();
-  t_pos = motion_platform_svc.sm_current_position;
-  t_pos.y = 395;
-  motion_platform_svc.moveto(t_pos, RESUME_XY_FEEDRATE, true);
+    LOG_I("job_ctrl: y move to fronthead\r\n");
+    motion_platform_svc.update_position_from_platform();
+    t_pos = motion_platform_svc.sm_current_position;
+    t_pos.y = 395;
+    motion_platform_svc.moveto(t_pos, RESUME_XY_FEEDRATE, true);
+  }
 
   LOG_I("job_ctrl: machine standby end\r\n");
   return E_SUCCESS;
@@ -608,6 +611,7 @@ void JobCtrl::do_start(struct JobCtrlReqInfo &jri) {
   _env.gfi_valid = true;
   _get_gcode_buffer_req_min = 0;
   got_last_gcode_packet = false;
+  _paused = false;
 
   // get next status we should enter
   switch (status_before_start) {
@@ -647,6 +651,7 @@ void JobCtrl::do_pause(struct JobCtrlReqInfo &jri) {
   }
   DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, SYSTEM_STATUS_PAUSING);
 
+  start_millis = millis();
   switch (jri.req_data.req_pause_data.type) {
     case PAUSE_CLIENT_REQ:
       motion_platform_svc.req_quickstop();
@@ -718,7 +723,7 @@ void JobCtrl::do_resume(struct JobCtrlReqInfo &jri) {
   }
   DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, SYSTEM_STATUS_RESUMING);
 
-  if (E_SUCCESS != resum_env()) {
+  if (E_SUCCESS != resume_env()) {
     LOG_E("job ctrl: resume failed\r\n");
     smprinter.set_sys_status(SYSTEM_STATUS_IDLE, &ret_sys_status);
     DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, SYSTEM_STATUS_IDLE);
@@ -728,6 +733,7 @@ void JobCtrl::do_resume(struct JobCtrlReqInfo &jri) {
   LOCK(_lock, JOB_LOCK_WAIT_TICK);
   _gcode_rb.reset();
   UNLOCK(_lock);
+  got_last_gcode_packet = false;
 
   if (E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_PRINTING, NULL)) {
     LOG_E("job ctrl: can not enter SYS_PRINTING status");

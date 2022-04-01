@@ -1221,6 +1221,7 @@ void ToolHeadLaser::show_status() {
 typedef struct __packed LaserEnv {
   float power_current;
   uint16_t power_pwm;
+  ToolHeadLaserTubeStatus tube_status;
 } laser_env_t;
 
 err_code_t ToolHeadLaser::save_env(uint8_t *env_buf, uint32_t &len) {
@@ -1232,6 +1233,9 @@ err_code_t ToolHeadLaser::save_env(uint8_t *env_buf, uint32_t &len) {
 
   env->power_current = power_current;
   env->power_pwm = power_pwm;
+  env->tube_status = tube_status;
+
+  len = sizeof(laser_env_t);
 
   return E_SUCCESS;
 }
@@ -1245,6 +1249,7 @@ err_code_t ToolHeadLaser::resume_env(uint8_t *env_buf, uint32_t &len) {
 
   power_current = env->power_current;
   power_pwm = env->power_pwm;
+  tube_status = env->tube_status;
 
   len = sizeof(laser_env_t);
 
@@ -1252,13 +1257,17 @@ err_code_t ToolHeadLaser::resume_env(uint8_t *env_buf, uint32_t &len) {
 }
 
 err_code_t ToolHeadLaser::standby(void) {
+  if (get_status() == MODULE_STATUS_QUICKSTOP) {
+    set_status(MODULE_STATUS_NORMAL);
+  }
+
   update_output(0);
 
   return E_SUCCESS;
 }
 
 err_code_t ToolHeadLaser::resume_finish(void) {
-  if (power_pwm > 0) {
+  if (LASER_TUBE_STA_ON == tube_status) {
     update_output(power_pwm);
   }
 
@@ -1266,7 +1275,7 @@ err_code_t ToolHeadLaser::resume_finish(void) {
 }
 
 err_code_t ToolHeadLaser::quickstop(void) {
-  update_output(0);
-
+  pwm_controller.set_duty(pwm_index, 0);
+  set_status(MODULE_STATUS_QUICKSTOP);
   return E_SUCCESS;
 }

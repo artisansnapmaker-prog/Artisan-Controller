@@ -1630,7 +1630,6 @@ void Planner::check_axes_activity() {
             fade_scaling_factor ? fade_scaling_factor * bilinear_z_offset(raw) : 0.0
           #endif
         );
-
       #endif
     }
   }

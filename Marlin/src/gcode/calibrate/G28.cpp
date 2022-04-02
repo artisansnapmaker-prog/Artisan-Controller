@@ -247,15 +247,16 @@ void GcodeSuite::G28() {
   SET_SOFT_ENDSTOP_LOOSE(false);  // Reset a leftover 'loose' motion state
 
   // Disable the leveling matrix before homing
-  #if CAN_SET_LEVELING_AFTER_G28
-    const bool leveling_restore_state = parser.boolval('L', TERN1(RESTORE_LEVELING_AFTER_G28, planner.leveling_active));
-  #endif
+  // #if CAN_SET_LEVELING_AFTER_G28
+  //   const bool leveling_restore_state = parser.boolval('L', TERN1(RESTORE_LEVELING_AFTER_G28, planner.leveling_active));
+  // #endif
 
   // Cancel any prior G29 session
   TERN_(PROBE_MANUALLY, g29_in_progress = false);
 
   // Disable leveling before homing
-  TERN_(HAS_LEVELING, set_bed_leveling_enabled(false));
+  // TERN_(HAS_LEVELING, set_bed_leveling_enabled(false));
+  set_bed_leveling_enabled(false);
 
   // Reset to the XY plane
   TERN_(CNC_WORKSPACE_PLANES, workspace_plane = PLANE_XY);
@@ -504,9 +505,11 @@ void GcodeSuite::G28() {
 
   #if MB_SNAPMAKER
     if (smprinter.get_toolhead_type() == TH_TYPE_3DP) {
-      TERN_(CAN_SET_LEVELING_AFTER_G28, if (leveling_restore_state) set_bed_leveling_enabled());
+      // TERN_(CAN_SET_LEVELING_AFTER_G28, if (leveling_restore_state) set_bed_leveling_enabled());
+      set_bed_leveling_enabled(true);
     }
   #endif
+
 
   restore_feedrate_and_scaling();
 

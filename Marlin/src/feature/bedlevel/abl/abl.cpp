@@ -35,8 +35,10 @@
   #include "../../../lcd/extui/ui_api.h"
 #endif
 
-float startx = 37.5;
-float endx   = 337;
+// float startx = 37.5;
+// float endx   = 337;
+float startx = 50;
+float endx   = 349.5;
 float starty = 50;
 float endy   = 351;
 xy_pos_t bilinear_grid_spacing, bilinear_start;

@@ -159,7 +159,7 @@ err_code_t ToolHeadFDM::post_init() {
   }
 
   if (get_device_id() == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
-    motion_platform_svc.set_home_offset(-30, -6, 0);
+    motion_platform_svc.set_home_offset(-17.5, -6, 0);
   } else if (get_device_id() == MODULE_DEVICE_ID_FDM_1EXTRUDER_2019) {
     // todo
     motion_platform_svc.set_home_offset(-30, -6, 0);

@@ -652,7 +652,7 @@ void SnapmakerPrinter::pause_trigger(uint8_t pause_reason) {
 
 // API for home
 void SnapmakerPrinter::reset_home_offset() {
-  home_offset[X_AXIS] = -30;
+  home_offset[X_AXIS] = -17.5;
   home_offset[Y_AXIS] = -6;
   home_offset[Z_AXIS] = 0;
 }

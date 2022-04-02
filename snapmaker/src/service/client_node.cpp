@@ -138,6 +138,17 @@ err_code_t ClientNode::del_client_node(ClientNode *cn) {
   return E_SUCCESS;
 }
 
+ClientNode *ClientNode::touch_client(uint32_t peer, uint8_t ch) {
+  ClientNode *cn = find_client_node(peer);
+  if (cn) {
+    return cn;
+  }
+  else {
+    return malloc_client_node(peer, ch);
+  }
+  
+}
+
 bool ClientNode::get_batch_gcode(uint8_t client_id, req_batch_gcode_t &req_batch_gcode, res_batch_gcode_t &res_batch_gcode) {
   ClientNode *cn;
 

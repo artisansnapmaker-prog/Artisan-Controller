@@ -132,13 +132,13 @@ class ClientNode {
     static ClientNode *malloc_client_node(uint32_t peer, uint8_t ch);
     static err_code_t del_client_node(uint32_t peer);
     static err_code_t del_client_node(ClientNode *cn);
+    static ClientNode *touch_client(uint32_t peer, uint8_t ch);
 
     static err_code_t sacp_cb(void *obj, sacp_hmi_message_t *);
     static bool get_batch_gcode(uint8_t client_id, req_batch_gcode_t &req_batch_gcode, res_batch_gcode_t &res_batch_gcode);
     static uint16_t job_ctrl_linenum_sub_cb(void *obj, uint8_t *buffer);
     static uint16_t sys_hardtick_sub_cb(void *obj, uint8_t *buffer);
     static err_code_t issue_client(uint8_t peer, uint8_t issue_ret);
-
 
     static SemaphoreHandle_t sacp_msg_copy_lock;
     static sacp_hmi_message_t sacp_msg_copy[MAX_SACP_MSG_COPY];

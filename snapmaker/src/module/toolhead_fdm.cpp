@@ -6,8 +6,10 @@
 #include "../service/module.h"
 #include "../service/motion_platform.h"
 #include "../service/bed_level.h"
+#include "../service/job_ctrl.h"
 
 #include "../../../Marlin/src/core/serial.h"
+
 
 // hmi subscribe callback
 static uint16_t hmi_subscript_callback_extruder_info(void *obj, uint8_t *buffer);
@@ -606,8 +608,8 @@ static void fdm_callback_hotend_type(void *obj, uint8_t *data, uint8_t length) {
 }
 
 static void fdm_callback_extruder_info(void *obj, uint8_t *data, uint8_t length) {
-  // ToolHeadFDM &fdm = *(ToolHeadFDM *)obj;
-
+  ToolHeadFDM &fdm = *(ToolHeadFDM *)obj;
+  fdm.report_extruder_info(data);
 }
 
 static void fdm_callback_report_hotend_offset(void *obj, uint8_t *data, uint8_t length) {
@@ -875,6 +877,17 @@ void ToolHeadFDM::set_hotend_type(uint8_t *data) {
   }
 }
 
+void ToolHeadFDM::report_extruder_info(uint8_t *data) {
+  // uint8_t extruder_state = data[0];
+  active_extruder = data[1];
+  LOG_I("actul active extruder: %d\n", active_extruder);
+  if (active_extruder != target_extruder) {
+    fdm_exception_trigger(FDM_FAULT_EXTRUDER_STATE);
+  } else {
+    fdm_exception_clear(FDM_FAULT_EXTRUDER_STATE);
+  }
+}
+
 void ToolHeadFDM::update_hotend_temp(uint8_t *data) {
   hotend_temp[0].current = data[0] << 8 | data[1];
   if (get_device_id() == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
@@ -1133,7 +1146,7 @@ err_code_t ToolHeadFDM::extruder_status_check_ctrl(extruder_status_e status) {
     return E_FAILURE;
   }
 
-  buffer[0]  = status;
+  buffer[0]  = (uint8_t)status;
   msg.ch     = get_channel();
   msg.data   = buffer;
   msg.length = 1;
@@ -1144,7 +1157,12 @@ err_code_t ToolHeadFDM::extruder_status_check_ctrl(extruder_status_e status) {
     return ret;
   }
 
+  extruder_check_state = status;
   return ret;
+}
+
+uint8_t ToolHeadFDM::get_extruder_check_state() {
+  return (uint8_t)extruder_check_state;
 }
 
 err_code_t ToolHeadFDM::tool_change(uint8_t new_tool, bool z_compensation/*=true*/) {
@@ -1162,6 +1180,8 @@ err_code_t ToolHeadFDM::tool_change(uint8_t new_tool, bool z_compensation/*=true
     ret = E_PARAM;
     goto EXIT;
   }
+
+  target_extruder = new_tool;
 
   if (!motion_platform_svc.is_all_axes_homed()) {
     LOG_E("need go home before ");
@@ -1185,6 +1205,7 @@ err_code_t ToolHeadFDM::tool_change(uint8_t new_tool, bool z_compensation/*=true
     // z raise
     motion_platform_svc.moveto_z(motion_platform_svc.get_current_position(Z_AXIS) + 3, 10);
 
+    uint8_t extruder_check_state = get_extruder_check_state();
     extruder_status_check_ctrl(EXTRUDER_STATUS_IDLE);
     motion_platform_svc.update_position_from_platform();
     motion_platform_svc.sm_destination_position[X_AXIS] = motion_platform_svc.sm_current_position[X_AXIS];
@@ -1219,7 +1240,7 @@ err_code_t ToolHeadFDM::tool_change(uint8_t new_tool, bool z_compensation/*=true
     active_extruder = new_tool;
     motion_platform_svc.update_active_extruder_to_platform(active_extruder);
     switch_extruder(active_extruder);
-    extruder_status_check_ctrl(EXTRUDER_STATUS_CHECK);
+    extruder_status_check_ctrl((extruder_status_e)extruder_check_state);
 
     // z down
     motion_platform_svc.moveto_z(motion_platform_svc.get_current_position(Z_AXIS) - 3, 10);
@@ -1459,5 +1480,33 @@ err_code_t ToolHeadFDM::standby(void) {
   }
 
   return E_SUCCESS;
+}
+
+void ToolHeadFDM::fdm_exception_trigger(fdm_fault_e fault) {
+  fdm_state |= 1 << fault;
+  LOG_E("set fdm_sate: %x\n", fdm_state);
+
+  enum SystemStatus system_state = smprinter.get_sys_status();
+  if (system_state == SYSTEM_STATUS_PRINTING || system_state == SYSTEM_STATUS_XY_CALIBRATING_PRINTING) {
+    switch (fault) {
+      case FDM_FAULT_EXTRUDER_STATE:
+        job_ctrl_svc.req_pause(PAUSE_WRONG_EXTRUDER, NULL, NULL);
+        break;
+      case FDM_FAULT_NOZZLE_IDENTIFY:
+        job_ctrl_svc.req_pause(PAUSE_WRONG_NOZZLE, NULL, NULL);
+        break;
+      case FDM_FAULT_NOZZLE_TEMP:
+        job_ctrl_svc.req_pause(PAUSE_NOZZLE_TEMP, NULL, NULL);
+        break;
+      case FDM_FAULT_FILAMENT:
+        job_ctrl_svc.req_pause(PAUSE_FILM_RUNOUT, NULL, NULL);
+        break;
+    }
+  }
+}
+
+void ToolHeadFDM::fdm_exception_clear(fdm_fault_e fault) {
+  fdm_state &= ~(1 << fault);
+  LOG_E("clear fdm_sate: %x\n", fdm_state);
 }
 

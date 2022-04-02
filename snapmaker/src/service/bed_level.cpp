@@ -297,6 +297,7 @@ static err_code_t hmi_req_callback_exit_level(void *obj, sacp_hmi_message_t *msg
   }
 
   bedlevel.set_bedlevel_mode(BEDLEVEL_MODE_IDLE);
+  smprinter.fdm->extruder_status_check_ctrl(EXTRUDER_STATUS_CHECK);
 
 EXIT:
   uint8_t index = 0;
@@ -341,6 +342,8 @@ static err_code_t hmi_req_callback_bed_position_detection(void *obj, sacp_hmi_me
     parser.parse("G28");
     gcode.process_parsed_command();
   }
+
+  smprinter.fdm->extruder_status_check_ctrl(EXTRUDER_STATUS_IDLE);
 
   motion_platform_svc.disable_leveling();
   motion_platform_svc.get_leveling_first_point_position(x, y);
@@ -405,6 +408,8 @@ static err_code_t hmi_req_callback_probe_sensor_calibration(void *obj, sacp_hmi_
     parser.parse("G28");
     gcode.process_parsed_command();
   }
+
+  smprinter.fdm->extruder_status_check_ctrl(EXTRUDER_STATUS_IDLE);
 
   motion_platform_svc.disable_leveling();
 
@@ -685,6 +690,8 @@ err_code_t BedLevelService::start_auto_bed_leveling(uint8_t grids) {
   // motion_platform_svc.run_gcode((char *)"G28\n", true);
   parser.parse("G28");
   gcode.process_parsed_command();
+
+  smprinter.fdm->extruder_status_check_ctrl(EXTRUDER_STATUS_IDLE);
 
   motion_platform_svc.disable_leveling();
   motion_platform_svc.enable_z_probe();

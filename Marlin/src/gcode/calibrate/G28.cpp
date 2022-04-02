@@ -422,8 +422,10 @@ void GcodeSuite::G28() {
 
       #else
 
+        uint8_t extruder_check_status = smprinter.get_extruder_check_state();
         homeaxis(X_AXIS);
         smprinter.switch_extruder_without_move(0);
+        smprinter.set_extruder_check_state(extruder_check_status);
 
       #endif
     }

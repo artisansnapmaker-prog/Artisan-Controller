@@ -94,8 +94,11 @@ typedef enum {
 }extruder_status_e;
 
 typedef enum {
-
-}toolhead_status_e;
+  FDM_FAULT_EXTRUDER_STATE,
+  FDM_FAULT_NOZZLE_IDENTIFY,
+  FDM_FAULT_NOZZLE_TEMP,
+  FDM_FAULT_FILAMENT,
+}fdm_fault_e;
 
 typedef struct {
   uint8_t active_extruder;
@@ -112,6 +115,8 @@ class ToolHeadFDM: public ModuleBase {
     // construtor to do pre-init
     ToolHeadFDM(uint8_t extruder, uint32_t mac, uint8_t key, uint8_t sub_index):
     ModuleBase(mac, key, sub_index) {
+      fdm_state = 0;
+      extruder_check_state = EXTRUDER_STATUS_CHECK;
       for (int i = 0; i < EXTRUDERS; i++) {
         hotend_type[i] = HOTEND_TYPE_IDLE;
       }
@@ -123,6 +128,7 @@ class ToolHeadFDM: public ModuleBase {
       probe_sensor   = PROBE_SENSOR_PROXIMITY_SWITCH;
       extruder_info  = 0;
       active_extruder = 0;
+      target_extruder = 0;
       memset(hotend_offset, 0, sizeof(hotend_offset));
     }
 
@@ -143,6 +149,7 @@ class ToolHeadFDM: public ModuleBase {
     void set_probe_state(uint8_t state[]);
     void report_pid(uint8_t *data);
     void set_hotend_type(uint8_t *data);
+    void report_extruder_info(uint8_t *data);
     hotend_type_t get_hotend_type(uint8_t e);
     float get_hotend_diameter(uint8_t e);
     void set_probe_sensor(probe_sensor_t sensor);
@@ -161,6 +168,7 @@ class ToolHeadFDM: public ModuleBase {
     uint8_t get_filament_detection_state(uint8_t e);
     uint8_t get_extruder_status(uint8_t e);
     err_code_t extruder_status_check_ctrl(extruder_status_e status);
+    uint8_t get_extruder_check_state();
     err_code_t tool_change(uint8_t new_tool, bool z_compensation=true);
     err_code_t switch_extruder(uint8_t e);
     void switch_extruder_without_move(uint8_t e);
@@ -174,6 +182,8 @@ class ToolHeadFDM: public ModuleBase {
     err_code_t save_hotend_offset_to_module(float offset, uint8_t axis);
     err_code_t save_z_compensation_to_module(float *compensation);
     float *get_hotend_pid(uint8_t e) { return pid; }
+    void fdm_exception_trigger(fdm_fault_e fault);
+    void fdm_exception_clear(fdm_fault_e fault);
 
   // private methods
   private:
@@ -186,6 +196,8 @@ class ToolHeadFDM: public ModuleBase {
 
   // private properties
   private:
+    uint32_t fdm_state;
+    extruder_status_e extruder_check_state;
     uint8_t probe_state;
     probe_sensor_t probe_sensor;
     uint8_t extruder_info;
@@ -193,6 +205,7 @@ class ToolHeadFDM: public ModuleBase {
     hotend_temp_t hotend_temp[EXTRUDERS];
     uint8_t filament_state;
     uint8_t active_extruder;
+    uint8_t target_extruder;
     probe_sensor_t active_probe_sensor;
     uint8_t filament_detect_mask;
     uint8_t extruder_status[EXTRUDERS];

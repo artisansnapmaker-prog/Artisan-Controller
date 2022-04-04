@@ -18,7 +18,6 @@ class EmergencyHandler {
   public:
     void init();
 
-    void prepare_flash();
 
     uint8_t read_button();
     void emergency_stop(uint8_t stop_source);
@@ -35,6 +34,8 @@ class EmergencyHandler {
 
     static void job_cb_notify_emergency_stop(void *p, uint8_t result);
     static void job_cb_notify_recovery(void *p, uint8_t result);
+
+    static void prepare_flash();
   private:
     bool check_record();
 

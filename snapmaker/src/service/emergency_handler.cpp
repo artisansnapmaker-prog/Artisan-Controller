@@ -124,9 +124,12 @@ uint8_t EmergencyHandler::read_button() {
 
 void EmergencyHandler::prepare_flash() {
   LOG_I("EmergencyHandler::prepare_flash\n");
-  taskENTER_CRITICAL();
-  eeprom_buffer_fill();
-  taskEXIT_CRITICAL();
+
+  if ((*(uint32_t *)(ENV_START_IN_FLASH) == 0xFFFFFFFF) &&
+  (*(uint32_t *)(ENV_VALID_FLAG_ADDR_FLASH) == 0xFFFFFFFF)) {
+    LOG_I("flash has been ready\n");
+    return;
+  }
 
   // clear eeprom
   for (int i = 0; i < EMERGENCY_ENV_SIZE; i++) {
@@ -134,10 +137,12 @@ void EmergencyHandler::prepare_flash() {
   }
 
   // erase flash and write eeprom buffer into flash
-  // eeprom_buffer_flush();
   vTaskDelay(pdMS_TO_TICKS(500));
   do {
-    flash_erase_sector(2);
+    // flash_erase_sector(2);
+    disable_interrupts();
+    eeprom_buffer_flush();
+    enable_interrupts();
 
     vTaskDelay(pdMS_TO_TICKS(500));
 
@@ -439,6 +444,7 @@ void EmergencyHandler::job_cb_notify_recovery(void *p, uint8_t result) {
 
   if (SYSTEM_STATUS_PRINTING == result) {
     host_hmi.send_ack(msg, E_SUCCESS);
+    EmergencyHandler::prepare_flash();
   }
 
   if (SYSTEM_STATUS_IDLE == result) {
@@ -463,6 +469,14 @@ void EmergencyHandler::background() {
         (smprinter.get_sys_status() == SYSTEM_STATUS_EMERGENCY_STOP)) {
     if (smprinter.set_sys_status(SYSTEM_STATUS_IDLE, NULL) != E_SUCCESS) {
       LOG_E("failed to set system to SYSTEM_STATUS_IDLE\n");
+      return;
     }
+
+    // rescan modules
+    vTaskDelay(pdMS_TO_TICKS(1000));
+    if (read_button() == PIN_STATE_TRIGGERED)
+      return;
+    
+    module_svc.scan_modules();
   }
 }

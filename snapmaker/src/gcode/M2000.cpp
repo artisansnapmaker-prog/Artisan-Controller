@@ -5,6 +5,7 @@
 #include "../service/bed_level.h"
 #include "../common/utility.h"
 #include "../src/service/client_node.h"
+#include "../src/service/emergency_handler.h"
 
 
 #if MB_SNAPMAKER
@@ -203,6 +204,13 @@ void GcodeSuite::M2000() {
       msg.cmd_id = SACP_CMD_ID_GLOABL_REQ_GET_MACHINE_SIZE;
       msg.length = 0;
       smprinter.hmi_cb_get_machine_size(&smprinter, &msg);
+    }
+    break;
+
+  case 9:
+    // power loss emergency recovery test
+    {
+      emergency_hdl.prepare_flash();
     }
     break;
 

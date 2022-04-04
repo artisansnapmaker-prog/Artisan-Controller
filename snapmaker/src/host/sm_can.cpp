@@ -94,10 +94,6 @@ err_code_t HostSMCAN::send_sync(smcan_message_t *message, uint8_t *out, uint8_t 
       break;
   }
 
-  // if try <retry> times and result is not success, return error
-  if (retry == 0 && ret != E_SUCCESS)
-    return ret;
-
   // else got success
   *out_len = recv_len;
 

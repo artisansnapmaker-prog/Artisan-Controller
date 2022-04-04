@@ -1809,9 +1809,19 @@ void prepare_line_to_destination() {
     //
     // Fast move towards endstop until triggered
     //
-    const float move_length = 1.5f * max_length(TERN(DELTA, Z_AXIS, axis)) * axis_home_dir;
-    if (DEBUGGING(LEVELING)) DEBUG_ECHOLNPGM("Home Fast: ", move_length, "mm");
-    do_homing_move(axis, move_length, 0.0, !use_probe_bump);
+    if (axis == J_AXIS) {
+      float move_length = planner.get_axis_position_mm(J_AXIS);
+      move_length = fmod(move_length, 360) * axis_home_dir;
+      if (move_length > 180) {
+        move_length -= 360;
+      }
+      if (DEBUGGING(LEVELING)) DEBUG_ECHOLNPGM("Home Fast: ", move_length, "mm");
+      do_homing_move(axis, move_length);
+    } else {
+      const float move_length = 1.5f * max_length(TERN(DELTA, Z_AXIS, axis)) * axis_home_dir;
+      if (DEBUGGING(LEVELING)) DEBUG_ECHOLNPGM("Home Fast: ", move_length, "mm");
+      do_homing_move(axis, move_length, 0.0, !use_probe_bump);
+    }
 
     #if BOTH(HOMING_Z_WITH_PROBE, BLTOUCH)
       if (axis == Z_AXIS && !bltouch.high_speed_mode) bltouch.stow(); // Intermediate STOW (in LOW SPEED MODE)

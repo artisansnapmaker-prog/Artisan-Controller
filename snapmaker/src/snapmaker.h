@@ -13,6 +13,7 @@
 #include "module/enclosure.h"
 #include "module/enclosure_a400.h"
 #include "module/bed_virt.h"
+#include "module/rotary.h"
 
 #define EVENT_GROUP_MODULE_READY      (0x00000001)
 #define EVENT_GROUP_WAIT_FOR_HEATING  (0X00000002)
@@ -289,6 +290,15 @@ class SnapmakerPrinter
       }
     }
 
+    // Rotary
+    enum ModuleStatus rotary_status() {
+      if (rotary) {
+        return rotary->get_status();
+      }
+
+      return MODULE_STATUS_OFFLINE;
+    }
+
     // ENCLOSURE
     bool enclosure_online_check(void) { return (enclosure && enclosure->check_online()); }
     void set_enclosure_light_bar(uint8_t new_level);
@@ -320,6 +330,8 @@ class SnapmakerPrinter
     SemaphoreHandle_t status_lock;
 
     SnapmakerModel model = SNAPMAKER_MODEL_MAX;
+
+    Rotary *rotary = NULL;
 
   public:
     /* ToolHeadFDM *_3dp = NULL; */

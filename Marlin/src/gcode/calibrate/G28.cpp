@@ -452,7 +452,20 @@ void GcodeSuite::G28() {
       if (doI) homeaxis(I_AXIS);
     #endif
     #if LINEAR_AXES >= 5
-      if (doJ) homeaxis(J_AXIS);
+      // if (doJ) homeaxis(J_AXIS);
+      if (smprinter.rotary_status() == MODULE_STATUS_NORMAL) {
+        if (home_all || homeJ) {
+          if (!axis_was_homed(J_AXIS)) {
+            // Home J axis, directly set J axis as homed
+            set_axis_is_at_home(J_AXIS);
+            destination[J_AXIS] = current_position[J_AXIS];
+          } else {
+            homeaxis(J_AXIS);
+          }
+        }
+      } else {
+        set_axis_is_at_home(J_AXIS);
+      }
     #endif
     #if LINEAR_AXES >= 6
       if (doK) homeaxis(K_AXIS);

@@ -8,6 +8,7 @@
 #include "drybox.h"
 #include "enclosure.h"
 #include "enclosure_a400.h"
+#include "rotary.h"
 
 int ModuleBase::get_function_priority(uint16_t function_id) {
   if (!function_prio_map) {
@@ -69,6 +70,7 @@ ModuleBase *module_factory(uint32_t mac, uint8_t key, uint8_t sub_index) {
     break;
 
   case MODULE_DEVICE_ID_ROTARY_2020:
+    return new Rotary(mac, key, sub_index);
     break;
 
   case MODULE_DEVICE_ID_PURIFIER_2021:

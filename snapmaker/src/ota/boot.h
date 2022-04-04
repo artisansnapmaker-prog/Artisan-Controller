@@ -26,8 +26,36 @@
 #include <stdio.h>
 #include <string.h>
 
+#define BOOT_MODE_FACTORY_BURNING     (0xAA01)
+#define BOOT_MODE_APP                 (0xAA02)
+#define BOOT_MODE_COPY                (0xAA03)                
+#define BOOT_MODE_UPDATING            (0xAA04)
+#define BOOT_DELAY_SECODE             (6)
+#define BOOT_INFO_ADDR                (1024 * 16)
 
+
+typedef struct __attribute__ ((packed)) {
+  uint8_t magic_str[21];
+  uint8_t ver;
+  uint8_t type;
+  uint16_t start_index;
+  uint16_t end_index;
+  uint8_t fw_ver_str[32];
+  uint8_t timestamp_str[20];
+  uint16_t boot_mode;
+  uint32_t fw_len;
+  uint32_t fw_checksum;
+  uint32_t fw_runaddr;
+  uint32_t boot_head_checksum; 
+} boot_info_t;
+
+typedef void (*pf)(void);
+
+
+bool load_boot_info(void);
 void setup(void);
+void boot_app(void);
+void trans_fw();
 void loop(void);
 
 

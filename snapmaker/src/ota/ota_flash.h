@@ -27,4 +27,5 @@
 #include <string.h>
 
 
+
 #endif  // SNAPMAKER_OTA_FLASH_H_

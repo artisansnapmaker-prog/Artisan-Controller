@@ -51,6 +51,7 @@
 #define HEADER_LEN                    (7)
 #define PAYLOAD_ADDITION_LEN          (6)
 #define FRAME_MIN_LEN                 (13)
+#define PAYLOAD_POS                   (11)
 #define VERSION                       (0x01)
 
 
@@ -67,7 +68,8 @@ typedef enum{
   STATE_CRC,
   STATE_SENDER,
   STATE_ATTR,
-  STATE_SEQ,
+  STATE_SEQ1,
+  STATE_SEQ2,
   STATE_DATA,
   STATE_CHECKSUM1,
   STATE_CHECKSUM2,
@@ -85,6 +87,8 @@ typedef struct{
   uint16_t checksum;
   uint16_t have_rx_len;
   uint8_t frame[FRAME_MAX_SIZE];
+  uint8_t *payload;
+  uint16_t payload_len;
 } fsm_info_t;
 
 typedef struct{

@@ -96,6 +96,7 @@ bool protocol_push_char(fsm_info_t &fsm, uint8_t c)
     case STATE_LEN2:
       fsm.len |= c<<8;
       fsm.frame[fsm.have_rx_len++] = c;
+      fsm.payload_len = fsm.len - PAYLOAD_ADDITION_LEN;
       fsm.s = STATE_VER;
     break;
 
@@ -137,12 +138,6 @@ bool protocol_push_char(fsm_info_t &fsm, uint8_t c)
       fsm.attr = c;
       fsm.frame[fsm.have_rx_len++] = c;
       fsm.s = STATE_ATTR;
-    break;
-
-    case STATE_SEQ:
-      fsm.seq = c;
-      fsm.frame[fsm.have_rx_len++] = c;
-      fsm.s = STATE_DATA;
     break;
 
     case STATE_DATA:

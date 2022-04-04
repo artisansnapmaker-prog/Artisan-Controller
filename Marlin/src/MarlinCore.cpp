@@ -1670,7 +1670,7 @@ void loop() {
     #if MB_SNAPMAKER
     extern bool req_motion_platform_quickstop;
     if (req_motion_platform_quickstop) {
-      // quickstop_stepper();
+      quickstop_stepper();
       req_motion_platform_quickstop = false;
       queue.clear();
       motion_platform_svc.give_quickstop_sem();

@@ -514,14 +514,6 @@ err_code_t laser_routine(void *obj) {
   if ((int)(millis() - laser.next_ms) < 0)
     return E_SUCCESS;
 
-  if (laser.tell_mac > 0) {
-    laser.tell_mac--;
-    if (laser.bt_mac[0] != 0) {
-      laser.get_bt_mac();
-    }
-    laser.report_bt_mac();
-  }
-
   if (!laser.pwm_normal) {
     if (laser.confirm_pwm_pin_state(laser.output_pin) == E_SUCCESS)
       laser.pwm_normal = true;
@@ -539,13 +531,41 @@ err_code_t laser_routine(void *obj) {
       laser.set_status(MODULE_STATUS_NORMAL);
     }
 
+    // check PWM pin every 500ms
     laser.next_ms = millis() + 500;
     return E_SUCCESS;
+  }
+
+  if (laser.get_status() != MODULE_STATUS_NORMAL)
+    return E_INVALID_STATE;
+
+  if (laser.tell_mac > 0) {
+    laser.tell_mac--;
+    if (laser.bt_mac[0] != 0) {
+      laser.get_bt_mac();
+    }
+    laser.report_bt_mac();
   }
 
   // run every 100ms
   laser.if_close_fan();
   laser.if_disable_switch();
+
+  // check every second
+  if (++laser.check_online_tick > 10) {
+    laser.check_online_tick = 0;
+    
+    if (laser.read_focal_length() != E_SUCCESS) {
+      if (++laser.offline_count > 3) {
+        laser.offline_count = 0;
+
+        LOG_I("Laser offline!\n");
+        laser.deinit();
+
+        // TODO: trigger stop
+      }
+    }
+  }
 
   laser.next_ms = millis() + 100;
 
@@ -799,8 +819,6 @@ err_code_t ToolHeadLaser::post_init() {
   host_hmi.register_callback(SACP_CMD_SET_CALIBRATE_LASER, SACP_CMD_ID_LASER_CALI_REQ_EXIT, (void *)this,
     hmi_cb_exit_calibraion);
 
-  read_focal_length();
-
   tube_status = LASER_TUBE_STA_OFF;
 
   module_svc.register_routine( (void *)this, laser_routine);
@@ -831,6 +849,9 @@ err_code_t ToolHeadLaser::post_init() {
   motion_platform_svc.set_home_offset(0, 0, 0);
 
   next_ms = millis();
+
+  check_online_tick = 0;
+  offline_count = 0;
 
   return E_SUCCESS;
 }
@@ -907,7 +928,7 @@ err_code_t ToolHeadLaser::get_bt_mac() {
     bt_mac[i] = recv_buff[1 + i];
   }
 
-  LOG_I("BT MAC: \n");
+  LOG_I("BT MAC: ");
   for (int i = 1; i < 7; i++) {
     LOG_I("%02X, ", bt_mac[i]);
   }
@@ -917,8 +938,20 @@ err_code_t ToolHeadLaser::get_bt_mac() {
 }
 
 err_code_t ToolHeadLaser::deinit() {
+  LOG_I("ToolHeadLaser::deinit()\n");
   update_power(0);
   update_output(0);
+  power_limit = 0;
+
+  fan_state = LASER_FAN_STATE_CLOSED;
+  fan_tick = 0;
+  set_fan(0);
+
+  master_switch_state = LASER_SWITCH_STATE_CLOSED;
+  master_switch_tick = 0;
+  set_master_switch(SWITCH_STATE_OFF);
+
+  set_status(MODULE_STATUS_OFFLINE);
 
   return E_SUCCESS;
 }
@@ -927,14 +960,25 @@ err_code_t ToolHeadLaser::deinit() {
 err_code_t ToolHeadLaser::write_focal_length(uint16_t len) {
   err_code_t ret = E_SUCCESS;
   smcan_message_t msg;
-  uint8_t buffer[2] = {0};
+  uint8_t buffer[4] = {0};
 
   buffer[0] = (uint8_t)(len >> 8);
   buffer[1] = (uint8_t)(len & 0xFF);
 
+  ModuleBase *rotary = module_svc.get_module(MODULE_DEVICE_ID_ROTARY_2020, 0);
+  if (rotary && rotary->get_status() == MODULE_STATUS_NORMAL) {
+    // get focal_length in 4-axis condition
+    LOG_I("write focal len with rotary\n");
+    buffer[2] = 1;
+  }
+  else {
+    LOG_I("write focal len without rotary\n");
+    buffer[2] = 0;
+  }
+
   msg.id     = get_message_id(MODULE_FUNC_SET_LASER_FOCUS);
   msg.ch     = get_channel();
-  msg.length = 2;
+  msg.length = 3;
   msg.data   = buffer;
 
   // ret = host_can_rou.send(&msg);
@@ -961,9 +1005,11 @@ err_code_t ToolHeadLaser::read_focal_length() {
   ModuleBase *rotary = module_svc.get_module(MODULE_DEVICE_ID_ROTARY_2020, 0);
   if (rotary && rotary->get_status() == MODULE_STATUS_NORMAL) {
     // get focal_length in 4-axis condition
+    // LOG_I("read focal len with rotary\n");
     buffer[0] = 1;
   }
   else {
+    // LOG_I("read focal len without rotary\n");
     buffer[0] = 0;
   }
 
@@ -972,14 +1018,13 @@ err_code_t ToolHeadLaser::read_focal_length() {
   msg.length = 1;
   msg.data   = buffer;
 
-  // ret = host_can_rou.send(&msg);
-  ret = host_can_rou.send_sync(&msg, recv_buffer, &recv_len, 2000);
+  ret = host_can_rou.send_sync(&msg, recv_buffer, &recv_len, 500);
   if (ret != E_SUCCESS) {
     LOG_E("failed to get focal_length! ret: %u\n", ret);
   }
   else {
     focal_length = (recv_buffer[0]<<8 | recv_buffer[1]);
-    LOG_I("got focal length from moduel: %d\n", focal_length);
+    // LOG_I("got focal length from moduel: %d\n", focal_length);
   }
 
   return ret;
@@ -1278,4 +1323,9 @@ err_code_t ToolHeadLaser::quickstop(void) {
   pwm_controller.set_duty(pwm_index, 0);
   set_status(MODULE_STATUS_QUICKSTOP);
   return E_SUCCESS;
+}
+
+bool ToolHeadLaser::prepare_start(void) {
+  if (get_status() != MODULE_STATUS_NORMAL)
+    return false;
 }

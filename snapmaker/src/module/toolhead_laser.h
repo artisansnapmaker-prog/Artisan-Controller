@@ -195,6 +195,7 @@ class ToolHeadLaser: public ModuleBase {
     err_code_t standby(void);
     err_code_t resume_finish(void);
     err_code_t quickstop(void);
+    bool prepare_start(void);
 
     // callback for HMI
     static err_code_t hmi_cb_get_info(void *obj, sacp_hmi_message_t *message);
@@ -232,6 +233,8 @@ class ToolHeadLaser: public ModuleBase {
 
   private:
     ToolHeadLaserTubeStatus tube_status;
+    uint16_t check_online_tick;
+    uint8_t  offline_count;
 
     float    power_current;
     float    power_limit;

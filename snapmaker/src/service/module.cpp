@@ -742,6 +742,11 @@ void ModuleService::quick_stop_all() {
 
 void ModuleService::emergency_stop_all() {
   for (int i = 0; i < configured_module; i++) {
-    modules[i]->emergency_stop();
+    modules[i]->deinit();
   }
+}
+
+void ModuleService::scan_modules() {
+  LOG_I("starting scan modules...\n");
+  host_mac.send(MODULE_MAC_CMD_SCAN);
 }

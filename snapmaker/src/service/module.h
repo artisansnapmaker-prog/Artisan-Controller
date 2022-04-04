@@ -100,6 +100,7 @@ class ModuleService {
     void standby_all();
     void quick_stop_all();
     void emergency_stop_all();
+    void scan_modules();
 
   // private methods
   private:

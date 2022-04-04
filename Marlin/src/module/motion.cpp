@@ -858,15 +858,17 @@ void restore_feedrate_and_scaling() {
         #endif
       }
     #endif
-    #if LINEAR_AXES >= 5
-      if (axis_was_homed(J_AXIS)) {
-        #if !HAS_SOFTWARE_ENDSTOPS || ENABLED(MIN_SOFTWARE_ENDSTOP_J)
-          NOLESS(target.j, soft_endstop.min.j);
-        #endif
-        #if !HAS_SOFTWARE_ENDSTOPS || ENABLED(MAX_SOFTWARE_ENDSTOP_J)
-          NOMORE(target.j, soft_endstop.max.j);
-        #endif
-      }
+    #if !MB_SNAPMAKER
+      #if LINEAR_AXES >= 5
+        if (axis_was_homed(J_AXIS)) {
+          #if !HAS_SOFTWARE_ENDSTOPS || ENABLED(MIN_SOFTWARE_ENDSTOP_J)
+            NOLESS(target.j, soft_endstop.min.j);
+          #endif
+          #if !HAS_SOFTWARE_ENDSTOPS || ENABLED(MAX_SOFTWARE_ENDSTOP_J)
+            NOMORE(target.j, soft_endstop.max.j);
+          #endif
+        }
+      #endif
     #endif
     #if LINEAR_AXES >= 6
       if (axis_was_homed(K_AXIS)) {
@@ -1596,7 +1598,13 @@ void prepare_line_to_destination() {
         if (axis == Z_AXIS && final_approach) probe.set_probing_paused(false);
       #endif
 
-      endstops.validate_homing_move();
+      #if !MB_SNAPMAKER
+        endstops.validate_homing_move();
+      #else
+        if (axis != J_AXIS) {
+          endstops.validate_homing_move();
+        }
+      #endif
 
       // Re-enable stealthChop if used. Disable diag1 pin on driver.
       TERN_(SENSORLESS_HOMING, end_sensorless_homing_per_axis(axis, stealth_states));
@@ -1740,19 +1748,24 @@ void prepare_line_to_destination() {
       if (axis != Z_AXIS) { BUZZ(100, 880); return; }
     #else
       #define _CAN_HOME(A) (axis == _AXIS(A) && ( \
-           ENABLED(A##_SPI_SENSORLESS) \
+          ENABLED(A##_SPI_SENSORLESS) \
         || TERN0(HAS_Z_AXIS, TERN0(HOMING_Z_WITH_PROBE, _AXIS(A) == Z_AXIS)) \
         || TERN0(A##_HOME_TO_MIN, A##_MIN_PIN > -1) \
         || TERN0(A##_HOME_TO_MAX, A##_MAX_PIN > -1) \
       ))
-      if (LINEAR_AXIS_GANG(
-           !_CAN_HOME(X),
-        && !_CAN_HOME(Y),
-        && !_CAN_HOME(Z),
-        && !_CAN_HOME(I),
-        && !_CAN_HOME(J),
-        && !_CAN_HOME(K))
-      ) return;
+      #if !MB_SNAPMAKER
+        if (LINEAR_AXIS_GANG(
+            !_CAN_HOME(X),
+          && !_CAN_HOME(Y),
+          && !_CAN_HOME(Z),
+          && !_CAN_HOME(I),
+          && !_CAN_HOME(J),
+          && !_CAN_HOME(K))
+        ) return;
+      #endif
+      #if MB_SNAPMAKER
+        if (axis == I_AXIS) return;
+      #endif
     #endif
 
     if (DEBUGGING(LEVELING)) DEBUG_ECHOLNPGM(">>> homeaxis(", AS_CHAR(AXIS_CHAR(axis)), ")");
@@ -1802,26 +1815,33 @@ void prepare_line_to_destination() {
     // Determine if a homing bump will be done and the bumps distance
     // When homing Z with probe respect probe clearance
     const bool use_probe_bump = TERN0(HOMING_Z_WITH_PROBE, axis == Z_AXIS && home_bump_mm(axis));
-    const float bump = axis_home_dir * (
+    float bump = axis_home_dir * (
       use_probe_bump ? _MAX(TERN0(HOMING_Z_WITH_PROBE, Z_CLEARANCE_BETWEEN_PROBES), home_bump_mm(axis)) : home_bump_mm(axis)
     );
 
     //
     // Fast move towards endstop until triggered
     //
-    if (axis == J_AXIS) {
-      float move_length = planner.get_axis_position_mm(J_AXIS);
-      move_length = fmod(move_length, 360) * axis_home_dir;
-      if (move_length > 180) {
-        move_length -= 360;
-      }
-      if (DEBUGGING(LEVELING)) DEBUG_ECHOLNPGM("Home Fast: ", move_length, "mm");
-      do_homing_move(axis, move_length);
-    } else {
+    #if !MB_SNAPMAKER
       const float move_length = 1.5f * max_length(TERN(DELTA, Z_AXIS, axis)) * axis_home_dir;
       if (DEBUGGING(LEVELING)) DEBUG_ECHOLNPGM("Home Fast: ", move_length, "mm");
       do_homing_move(axis, move_length, 0.0, !use_probe_bump);
-    }
+    #else
+      if (axis == J_AXIS) {
+        bump = 0;
+        float move_length = planner.get_axis_position_mm(J_AXIS);
+        move_length = fmod(move_length, 360) * axis_home_dir;
+        if (move_length > 180) {
+          move_length -= 360;
+        }
+        if (DEBUGGING(LEVELING)) DEBUG_ECHOLNPGM("Home Fast: ", move_length, "mm");
+        do_homing_move(axis, move_length);
+      } else {
+        const float move_length = 1.5f * max_length(TERN(DELTA, Z_AXIS, axis)) * axis_home_dir;
+        if (DEBUGGING(LEVELING)) DEBUG_ECHOLNPGM("Home Fast: ", move_length, "mm");
+        do_homing_move(axis, move_length, 0.0, !use_probe_bump);
+      }
+    #endif
 
     #if BOTH(HOMING_Z_WITH_PROBE, BLTOUCH)
       if (axis == Z_AXIS && !bltouch.high_speed_mode) bltouch.stow(); // Intermediate STOW (in LOW SPEED MODE)

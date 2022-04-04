@@ -209,6 +209,7 @@
  *  X   Home to the X endstop
  *  Y   Home to the Y endstop
  *  Z   Home to the Z endstop
+ *  B   Home to the B origin position
  */
 void GcodeSuite::G28() {
   DEBUG_SECTION(log_G28, "G28", DEBUGGING(LEVELING));
@@ -452,20 +453,23 @@ void GcodeSuite::G28() {
       if (doI) homeaxis(I_AXIS);
     #endif
     #if LINEAR_AXES >= 5
-      // if (doJ) homeaxis(J_AXIS);
-      if (smprinter.rotary_status() == MODULE_STATUS_NORMAL) {
-        if (home_all || homeJ) {
-          if (!axis_was_homed(J_AXIS)) {
-            // Home J axis, directly set J axis as homed
-            set_axis_is_at_home(J_AXIS);
-            destination[J_AXIS] = current_position[J_AXIS];
-          } else {
-            homeaxis(J_AXIS);
+      #if !MB_SNAPMAKER
+        if (doJ) homeaxis(J_AXIS);
+      #else
+        if (smprinter.rotary_status() == MODULE_STATUS_NORMAL) {
+          if (home_all || doJ) {
+            if (!axis_was_homed(J_AXIS)) {
+              // Home J axis, directly set J axis as homed
+              set_axis_is_at_home(J_AXIS);
+              destination[J_AXIS] = current_position[J_AXIS];
+            } else {
+              homeaxis(J_AXIS);
+            }
           }
+        } else {
+          set_axis_is_at_home(J_AXIS);
         }
-      } else {
-        set_axis_is_at_home(J_AXIS);
-      }
+      #endif
     #endif
     #if LINEAR_AXES >= 6
       if (doK) homeaxis(K_AXIS);

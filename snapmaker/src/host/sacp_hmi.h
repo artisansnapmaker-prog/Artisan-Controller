@@ -99,7 +99,7 @@ class HostSACPHMI: public HostSACP {
         channels[i].seq   = 0;
         channels[i].link  = NULL;
         channels[i].parser.status = SACP_PARSER_STA_IDLE;
-      }      
+      }
 
       for (int i = 0; i < SACP_V1_CMD_SET_MAX; i++) {
         cmd_set_handle[i] = NULL;

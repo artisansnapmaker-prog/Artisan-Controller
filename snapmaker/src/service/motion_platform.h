@@ -124,10 +124,11 @@ class MotionPlatformService {
     err_code_t home_x(bool block = true) { return run_gcode((char *)"G28 X  ", block); }
     err_code_t home_y(bool block = true) { return run_gcode((char *)"G28 Y", block); }
     err_code_t home_z(bool block = true) { return run_gcode((char *)"G28 Z ", block); }
+    err_code_t home_b(bool block = true) { return run_gcode((char *)"G28 B ", block); }
     void set_axis_to_homed(AxisEnum axis) { set_axis_homed(axis); }
     float get_home_offset(AxisEnum axis) { return home_offset[axis]; }
     void home_offset_init();
-    void set_home_offset(float x, float y, float z);
+    void set_home_offset(float x, float y, float z, float i=0, float j=0);
 
     // speed control API
     float get_feedrate(void);

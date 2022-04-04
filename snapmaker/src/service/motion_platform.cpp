@@ -54,9 +54,9 @@ uint16_t MotionPlatformService::hmi_cb_publish_coordinate_info(void *obj, uint8_
   info->current_pos[2].axis  = AXIS_KEY_Z1;
   info->current_pos[2].value = (int32_t)(NATIVE_TO_LOGICAL(current_position[Z_AXIS], Z_AXIS) * 1000);
   info->current_pos[3].axis  = AXIS_KEY_A1;
-  info->current_pos[3].value = (int32_t)(NATIVE_TO_LOGICAL(current_position[A_AXIS], A_AXIS) * 1000);
+  info->current_pos[3].value = (int32_t)(NATIVE_TO_LOGICAL(current_position[I_AXIS], I_AXIS) * 1000);
   info->current_pos[4].axis  = AXIS_KEY_B1;
-  info->current_pos[4].value = (int32_t)(NATIVE_TO_LOGICAL(current_position[B_AXIS], B_AXIS) * 1000);
+  info->current_pos[4].value = (int32_t)(NATIVE_TO_LOGICAL(current_position[J_AXIS], J_AXIS) * 1000);
   info->current_pos_num      = 5;
   LOG_V("coor: X: %d, Y:%d, Z:%d, A: %d, B:%d\n", info->current_pos[0].value, info->current_pos[1].value,
     info->current_pos[2].value, info->current_pos[3].value, info->current_pos[4].value);
@@ -68,9 +68,9 @@ uint16_t MotionPlatformService::hmi_cb_publish_coordinate_info(void *obj, uint8_
   info->origin_offset[2].axis  = AXIS_KEY_Z1;
   info->origin_offset[2].value = (int32_t)(position_shift[Z_AXIS] * 1000);
   info->origin_offset[3].axis  = AXIS_KEY_A1;
-  info->origin_offset[3].value = (int32_t)(position_shift[A_AXIS] * 1000);
+  info->origin_offset[3].value = (int32_t)(position_shift[I_AXIS] * 1000);
   info->origin_offset[4].axis  = AXIS_KEY_B1;
-  info->origin_offset[4].value = (int32_t)(position_shift[B_AXIS] * 1000);
+  info->origin_offset[4].value = (int32_t)(position_shift[J_AXIS] * 1000);
   info->origin_offset_num      = 5;
 
   LOG_V("pos offset: X: %d, Y:%d, Z:%d, A: %d, B:%d\n", info->current_pos[0].value, info->current_pos[1].value,
@@ -171,11 +171,11 @@ err_code_t MotionPlatformService::hmi_cb_move_absoluty(void *obj, sacp_hmi_messa
       break;
 
     case AXIS_KEY_A1:
-      dest.i = LOGICAL_TO_NATIVE((move_cmd[i].value / 1000.0), A_AXIS);
+      dest.i = LOGICAL_TO_NATIVE((move_cmd[i].value / 1000.0), I_AXIS);
       break;
 
     case AXIS_KEY_B1:
-      dest.j = LOGICAL_TO_NATIVE((move_cmd[i].value / 1000.0), B_AXIS);
+      dest.j = LOGICAL_TO_NATIVE((move_cmd[i].value / 1000.0), J_AXIS);
       break;
 
     default:
@@ -208,6 +208,7 @@ enum MotionSACPHomeAxis {
   SACP_HOME_X,
   SACP_HOME_Y,
   SACP_HOME_Z,
+  SACP_HOME_B,
 };
 err_code_t MotionPlatformService::hmi_cb_request_home(void *obj, sacp_hmi_message_t *msg) {
   err_code_t ret;
@@ -245,6 +246,10 @@ err_code_t MotionPlatformService::hmi_cb_request_home(void *obj, sacp_hmi_messag
 
   case SACP_HOME_Z:
     ret = motion->home_z();
+    break;
+
+  case SACP_HOME_B:
+    ret = motion->home_b();
     break;
 
   default:
@@ -517,10 +522,12 @@ void MotionPlatformService::stepper_quickstop_cb(void) {
   job_ctrl_svc.stepper_quickstop_cb();
 }
 
-void MotionPlatformService::set_home_offset(float x, float y, float z) {
-  home_offset[X_AXIS] = x;
-  home_offset[Y_AXIS] = y;
-  home_offset[Z_AXIS] = z;
+void MotionPlatformService::set_home_offset(float x, float y, float z, float i/*=0*/, float j/*=8*/) {
+  home_offset.x = x;
+  home_offset.y = y;
+  home_offset.z = z;
+  home_offset.i = i;
+  home_offset.j = j;
 }
 
 float MotionPlatformService::get_feedrate(void) {
@@ -833,6 +840,12 @@ void MotionPlatformService::moveto(xyze_pos_t target, float feedrate, bool block
       }
     #endif
 
+    Rotary *rotary = (Rotary *)module_svc.get_module(MODULE_DEVICE_ID_ROTARY_2020);
+    if (rotary) {
+      current_position.set(current_position.x, current_position.y, current_position.z, current_position.i, target.j);
+      line_to_current_position(xy_feedrate);
+    }
+
     current_position.set(target.x, target.y);
     line_to_current_position(xy_feedrate);
 
@@ -956,26 +969,26 @@ void MotionPlatformService::show_coordiantes() {
   LOG_I("active coordinate: %d\n\n", gcode.active_coordinate_system);
 
   LOG_I("home state: all: %u, X%u, Y%u, Z%u, A%u, B%u\n\n", all_axes_homed(), axis_was_homed(X_AXIS),
-      axis_was_homed(Y_AXIS), axis_was_homed(Z_AXIS), axis_was_homed(A_AXIS), axis_was_homed(B_AXIS));
+      axis_was_homed(Y_AXIS), axis_was_homed(Z_AXIS), axis_was_homed(I_AXIS), axis_was_homed(J_AXIS));
 
   LOG_I("home offset: X%.3f, Y%.3f, Z%.3f, A%.3f, B%.3f\n\n", home_offset[X_AXIS],
-      home_offset[Y_AXIS], home_offset[Z_AXIS], home_offset[A_AXIS], home_offset[B_AXIS]);
+      home_offset[Y_AXIS], home_offset[Z_AXIS], home_offset[I_AXIS], home_offset[J_AXIS]);
 
   // position offset = offset between current coordiante and original coordinate
   LOG_I("position offset: X%.3f, Y%.3f, Z%.3f, A%.3f, B%.3f\n\n", position_shift[X_AXIS],
-      position_shift[Y_AXIS], position_shift[Z_AXIS], position_shift[A_AXIS], position_shift[B_AXIS]);
+      position_shift[Y_AXIS], position_shift[Z_AXIS], position_shift[I_AXIS], position_shift[J_AXIS]);
 
   // work offset = home offset + position offset
   LOG_I("work offset: X%.3f, Y%.3f, Z%.3f, A%.3f, B%.3f\n\n", workspace_offset[X_AXIS],
-      workspace_offset[Y_AXIS], workspace_offset[Z_AXIS], workspace_offset[A_AXIS], workspace_offset[B_AXIS]);
+      workspace_offset[Y_AXIS], workspace_offset[Z_AXIS], workspace_offset[I_AXIS], workspace_offset[J_AXIS]);
 
   LOG_I("machine position: X%.3f, Y%.3f, Z%.3f, A%.3f, B%.3f\n\n", current_position[X_AXIS],
-      current_position[Y_AXIS], current_position[Z_AXIS], current_position[A_AXIS], current_position[B_AXIS]);
+      current_position[Y_AXIS], current_position[Z_AXIS], current_position[I_AXIS], current_position[J_AXIS]);
 
   // logical position = machine position + work offset
   LOG_I("logical position: X%.3f, Y%.3f, Z%.3f, A%.3f, B%.3f\n\n", NATIVE_TO_LOGICAL(current_position[X_AXIS], X_AXIS),
       NATIVE_TO_LOGICAL(current_position[Y_AXIS], Y_AXIS), NATIVE_TO_LOGICAL(current_position[Z_AXIS], Z_AXIS),
-      NATIVE_TO_LOGICAL(current_position[A_AXIS], A_AXIS), NATIVE_TO_LOGICAL(current_position[B_AXIS], B_AXIS));
+      NATIVE_TO_LOGICAL(current_position[I_AXIS], I_AXIS), NATIVE_TO_LOGICAL(current_position[J_AXIS], J_AXIS));
 }
 
 

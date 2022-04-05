@@ -3,10 +3,10 @@
 
 #include "cmsis_gcc.h"
 
-void disable_interrupts() {
+void disable_all_interrupts() {
   __disable_irq();
 }
 
-void enable_interrupts() {
+void enable_all_interrupts() {
   __enable_irq();
 }

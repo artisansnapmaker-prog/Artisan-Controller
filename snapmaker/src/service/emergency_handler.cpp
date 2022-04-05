@@ -44,7 +44,6 @@ static void interrupt_cb_power_loss() {
   emergency_hdl.power_loss();
 }
 
-
 void EmergencyHandler::init() {
   pinMode(stop_button, INPUT);
   pinMode(power_loss_det, INPUT);
@@ -94,7 +93,6 @@ void EmergencyHandler::init() {
     hmi_cb_clear_record);
 
 }
-
 
 bool EmergencyHandler::check_record() {
   volatile uint32_t *flag, *checksum_saved;
@@ -146,9 +144,9 @@ void EmergencyHandler::prepare_flash() {
   vTaskDelay(pdMS_TO_TICKS(500));
   do {
     // flash_erase_sector(2);
-    disable_interrupts();
+    disable_all_interrupts();
     eeprom_buffer_flush();
-    enable_interrupts();
+    enable_all_interrupts();
 
     vTaskDelay(pdMS_TO_TICKS(500));
 
@@ -171,7 +169,7 @@ void EmergencyHandler::power_loss() {
   volatile uint32_t checksum;
 
   // - disable All ISR
-  disable_interrupts();
+  disable_all_interrupts();
 
   // need to check if we need save env and write flash
   if (smprinter.on_working()) {
@@ -201,8 +199,9 @@ void EmergencyHandler::power_loss() {
     flash_write_buffer(env, EMERGENCY_ENV_SIZE, ENV_START_IN_FLASH);
   }
 
-  enable_interrupts();
+  enable_all_interrupts();
 
+  // TODO: reboot the machine
   LOG_I("powerloss\n");
   while(1);
 }
@@ -213,7 +212,7 @@ void EmergencyHandler::emergency_stop() {
   volatile uint32_t *flag, *checksum;
 
   // - disable All ISR
-  disable_interrupts();
+  disable_all_interrupts();
 
   // need to check if we need save env and write flash
   // - get env
@@ -243,7 +242,7 @@ void EmergencyHandler::emergency_stop() {
     req_stop_job();
   }
 
-  enable_interrupts();
+  enable_all_interrupts();
 }
 
 void EmergencyHandler::req_stop_job() {

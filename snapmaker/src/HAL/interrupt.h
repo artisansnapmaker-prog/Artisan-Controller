@@ -24,6 +24,6 @@
 #include "../common/error.h"
 #include "../config.h"
 
-void disable_interrupts();
-void enable_interrupts();
+void disable_all_interrupts();
+void enable_all_interrupts();
 #endif

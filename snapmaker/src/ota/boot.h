@@ -25,13 +25,13 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include "ota_flash.h"
 
 #define BOOT_MODE_FACTORY_BURNING     (0xAA01)
 #define BOOT_MODE_APP                 (0xAA02)
 #define BOOT_MODE_COPY                (0xAA03)                
 #define BOOT_MODE_UPDATING            (0xAA04)
 #define BOOT_DELAY_SECODE             (6)
-#define BOOT_INFO_ADDR                (1024 * 16)
 
 
 typedef struct __attribute__ ((packed)) {
@@ -55,7 +55,8 @@ typedef void (*pf)(void);
 bool load_boot_info(void);
 void setup(void);
 void boot_app(void);
-void trans_fw();
+void copy_to_run_slot(void);
+void trans_fw_loop(void);
 void loop(void);
 
 

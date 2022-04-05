@@ -6,8 +6,9 @@
 #include "../common/ring_buffer.h"
 #include "../common/type.h"
 #include "../common/utility.h"
-#include "print.h"
+// #include "print.h"
 #include "sacp_protocol.h"
+#include "ota_flash.h"
 #include "boot.h"
 
 
@@ -24,6 +25,7 @@ boot_info_t *boot_info;
 /********************************************************************************/
 bool load_boot_info(void) {
   boot_info = (boot_info_t *)BOOT_INFO_ADDR;
+  // TODO: check
 }
 
 void setup() {
@@ -46,7 +48,8 @@ void protocol_loop() {
 
 void jump_to(uint32_t addr)
 {
-  __disable_irq();
+  // __disable_irq();
+  // SCB->VTOR = addr;
   uint32_t jump_addr = *(__IO uint32_t*)(addr+4); 
   pf p = (pf)jump_addr;
   __set_MSP(*(__IO uint32_t*)addr);
@@ -61,7 +64,7 @@ void boot_app(void) {
   while(1) {
     if(time_after(millis(), 1000 + time_ms)) {
       time_ms = millis();
-      snap_print("boot: boot in %d second\r\n", delay_time_s);
+      // snap_print("boot: boot in %d second\r\n", delay_time_s);
       if (delay_time_s)
         delay_time_s--;
       else
@@ -76,13 +79,40 @@ void boot_app(void) {
 
   }
 
-  snap_print("boot: boot to app\r\n");
+  // snap_print("boot: boot to app\r\n");
   jump_to(boot_info->fw_runaddr);
 }
 
+void copy_to_run_slot(void) {
+
+}
+
+void trans_fw_loop(void) {
+  // 
+  while(1);
+}
+
+uint32_t test_data[4 * 1024];
 void loop() {
-  
-  load_boot_info();
+
+  for(uint32_t i = 0; i < 512; i++) {
+    test_data[i] = i;
+  }
+  flash_erase_boot_data();
+  if (!flash_word_write(BOOT_INFO_ADDR, test_data, 512)) {
+    while(1);
+  }
+  uint32_t v;
+  for(uint32_t i = 0; i < 512; i++) {
+    v = *((uint32_t *)(BOOT_INFO_ADDR) + i);
+    Serial.println(v);
+  }
+
+  Serial.print("Jump to ");
+  Serial.println(DOWNLOAD_SLOT_ADDR);
+  jump_to(DOWNLOAD_SLOT_ADDR);
+
+  // load_boot_info();
 
   switch(boot_info->boot_mode) {
     case BOOT_MODE_FACTORY_BURNING:
@@ -99,7 +129,9 @@ void loop() {
     break;
 
     default:
-      snap_print("boot: unkown boot mode 0x%04x\r\n", boot_info->boot_mode);
+      // snap_print("boot: unkown boot mode 0x%04x\r\n", boot_info->boot_mode);
+      Serial.print("boot: unkown boot mode ");
+      Serial.print(boot_info->boot_mode);
     break;
   }
 

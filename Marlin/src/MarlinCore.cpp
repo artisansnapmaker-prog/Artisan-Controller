@@ -1127,6 +1127,10 @@ inline void tmc_standby_setup() {
  *  - Set Marlin to RUNNING State
  */
 void setup() {
+
+  // Add by 747
+  __enable_irq();
+
   #ifdef FASTIO_INIT
     FASTIO_INIT();
   #endif

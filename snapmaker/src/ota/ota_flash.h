@@ -18,14 +18,29 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#ifndef SNAPMAKER_OTA_FLASH_H_
-#define SNAPMAKER_OTA_FLASH_H_
+
+#ifndef OTA_FLASH_H
+#define OTA_FLASH_H
 
 
-#include <stdlib.h>
 #include <stdio.h>
-#include <string.h>
+#include <stdlib.h>
+#include <stdbool.h>
 
 
+#define BOOT_INFO_ADDR                (16 * 1024 + FLASH_BASE)
+#define BOOT_INFO_SIZE                (16 * 1024)
+#define DOWNLOAD_SLOT_ADDR            (48 * 1024 + FLASH_BASE)
+#define DOWNLOAD_SLOT_SZIE            (464 * 1024)
+#define FLASH_TAB_SIZE                (12)
 
-#endif  // SNAPMAKER_OTA_FLASH_H_
+struct flash_item {
+  uint32_t  start_addr;
+  uint32_t  end_addr;
+};
+
+bool flash_erase_boot_data(void);
+bool flash_word_write(uint32_t addr, uint32_t *data, uint32_t word_len);
+void flash_word_read(uint32_t addr, uint32_t *data, uint32_t word_len);
+
+#endif

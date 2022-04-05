@@ -31,10 +31,16 @@ sacp_hmi_message_t EmergencyHandler::notify_msg;
 // EXTI_IRQ_SUBPRIO
 // EXTI_IRQ_PRIO
 static void interrupt_cb_stop_button() {
-  emergency_hdl.emergency_stop(EMERGENCY_STOP_SOURCE_BUTTON);
+  if (digitalRead(stop_button) != PIN_STATE_TRIGGERED)
+    return;
+
+  emergency_hdl.emergency_stop();
 }
 
 static void interrupt_cb_power_loss() {
+  if (digitalRead(power_loss_det) != PIN_STATE_TRIGGERED)
+    return;
+
   emergency_hdl.power_loss();
 }
 
@@ -147,24 +153,12 @@ void EmergencyHandler::prepare_flash() {
     vTaskDelay(pdMS_TO_TICKS(500));
 
     if (*(uint32_t *)(ENV_START_IN_FLASH) != 0xFFFFFFFF) {
-      LOG_I("didn't erase flash\n");
+      LOG_W("didn't erase flash\n");
     }
     else
       break;
   } while (1);
 
-  // // memcpy(env, (uint8_t *)(ENV_START_IN_FLASH), EMERGENCY_ENV_SIZE);
-  // LOG_I("EmergencyHandler: start 0x%08x, 0x%08x, 0x%08x, 0x%08x\n", *(uint32_t *)(ENV_START_IN_FLASH),
-  //         *(uint32_t *)(ENV_START_IN_FLASH + 4), *(uint32_t *)(ENV_START_IN_FLASH + 8), *(uint32_t *)(ENV_START_IN_FLASH + 12));
-
-  // vTaskDelay(pdMS_TO_TICKS(500));
-
-  // // eeprom_buffer_flush();
-  // flash_erase_sector(2);
-  // vTaskDelay(pdMS_TO_TICKS(10));
-
-  // LOG_I("EmergencyHandler: start 0x%08x, 0x%08x, 0x%08x, 0x%08x\n", *(uint32_t *)(ENV_START_IN_FLASH),
-  //         *(uint32_t *)(ENV_START_IN_FLASH + 4), *(uint32_t *)(ENV_START_IN_FLASH + 8), *(uint32_t *)(ENV_START_IN_FLASH + 12));
 }
 
 #define POWER_DOMAIN_POWERLOSS (POWER_DOMAIN_MOTIVE_POWER | POWER_DOMAIN_8P_TOOLHEAD | \
@@ -213,7 +207,7 @@ void EmergencyHandler::power_loss() {
 }
 
 
-void EmergencyHandler::emergency_stop(uint8_t stop_source) {
+void EmergencyHandler::emergency_stop() {
   JobEnv   *job_env = (JobEnv *)env;
   volatile uint32_t *flag, *checksum;
 

@@ -20,8 +20,7 @@ class EmergencyHandler {
 
 
     uint8_t read_button();
-    void emergency_stop(uint8_t stop_source);
-
+    void emergency_stop();
     void power_loss();
 
     void background();

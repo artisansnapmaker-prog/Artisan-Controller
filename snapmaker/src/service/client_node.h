@@ -133,7 +133,6 @@ class ClientNode {
     static void class_init(void);
 
     static ClientNode *find_client_node(uint32_t peer);
-    static ClientNode *touch_client(uint32_t peer, uint8_t ch);
     static ClientNode *malloc_client_node(uint32_t peer, uint8_t ch);
     static err_code_t del_client_node(uint32_t peer);
     static err_code_t del_client_node(ClientNode *cn);

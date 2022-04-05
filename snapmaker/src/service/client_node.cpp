@@ -108,18 +108,6 @@ ClientNode *ClientNode::find_client_node(uint32_t peer) {
   return NULL;
 }
 
-ClientNode *ClientNode::touch_client(uint32_t peer, uint8_t ch) {
-  ClientNode *cn = find_client_node(peer);
-  if (cn) {
-    cn->_ch = ch;
-    return cn;
-  }
-  else {
-    return malloc_client_node(peer, ch);
-  }
-
-}
-
 ClientNode * ClientNode::malloc_client_node(uint32_t peer, uint8_t ch) {
   ClientNode *ret = NULL;
 

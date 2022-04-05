@@ -361,6 +361,7 @@ static void system_thread(void *p) {
     module_svc.background_thread();
     system_svc.background_thread();
     emergency_hdl.background();
+	smprinter.security_check();
 
     host_hmi.handle_events();
 
@@ -612,7 +613,7 @@ void SnapmakerPrinter::set_enclosure_fan_speed(uint8_t new_speed) {
   }
 }
 
-void SnapmakerPrinter::get_enclosure_status() {
+void SnapmakerPrinter::report_enclosure_status() {
   if (enclosure_online_check()) {
     enclosure->report_enclosure_status();
   }
@@ -626,8 +627,33 @@ void SnapmakerPrinter::enclosure_hmi_self_test_interface(uint8_t test_type, uint
     enclosure->enclosure_hmi_self_test_interface(test_type, param);
 }
 
+uint8_t SnapmakerPrinter::get_enclosure_door_status(void) {
+  uint8_t door_sta = 0;
+  if (enclosure) 
+    door_sta = enclosure->get_door_check();
+  return door_sta;
+}
+void SnapmakerPrinter::security_check() {
+  uint8_t door_sta = 0;
+
+  if (enclosure) {
+    door_sta = enclosure->get_door_check();
+  }
+
+  if (laser) {
+    float limit_power = LASER_POWER_NORMA_LIMIT;
+
+    if (door_sta)
+      limit_power = LASER_POWER_SAFE_LIMIT;
+  
+    if (laser->get_power_limit() !=  limit_power)
+      laser->set_power_limit(limit_power);
+  }
+}
 // API for puase
 void SnapmakerPrinter::pause_trigger(uint8_t pause_reason) {
+  if (PAUSE_DOOR_OPEN == pause_reason && TH_TYPE_LASER != get_toolhead_type())
+    return;  
   job_ctrl_svc.req_pause((enum JobPauseType)pause_reason, NULL, NULL);
 }
 
@@ -958,6 +984,21 @@ bool SnapmakerPrinter::can_start_work(void) {
     default:
       return false;
   }
+}
+
+bool SnapmakerPrinter::can_resume_work(void) {
+  // status check
+  if (SYSTEM_STATUS_PAUSED != sys_status &&
+      SYSTEM_STATUS_RECOVERING != sys_status) {
+    return false;
+  }
+
+  // door check
+  if (smprinter.get_enclosure_door_status() && TH_TYPE_LASER == get_toolhead_type()){
+    return false;
+  }
+
+  return true;
 }
 
 bool SnapmakerPrinter::can_stop_work(void) {

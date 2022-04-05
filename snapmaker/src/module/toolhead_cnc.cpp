@@ -128,6 +128,17 @@ err_code_t ToolHeadCNC::deinit() {
   return E_SUCCESS;
 }
 
+bool ToolHeadCNC::prepare_start(void) {
+  bool result = false;
+  if (get_status() == MODULE_STATUS_NORMAL && !(error_state & CNC_LIMIT_WORK_STATE_MASK) /*&& !smprinter.get_enclosure_door_status()*/)
+    result = true;
+  else {
+    LOG_I("CNC can't start working, status: %d, error_state: 0x%x, door: %d\n", \
+      get_status(), error_state, smprinter.get_enclosure_door_status());
+  }
+  return result;
+}
+
 // message id callback to handle RPM update from module
 void cnc_callback_update_rpm(void *obj, uint8_t *data, uint8_t length) {
   ToolHeadCNC &cnc = *(ToolHeadCNC *)obj;

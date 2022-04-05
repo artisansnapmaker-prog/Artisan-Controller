@@ -19,12 +19,15 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "enclosure_a400.h"
+
+#include "src/core/millis_t.h"
+
 #include "../config.h"
 #include "../snapmaker.h"
 #include "../common/debug.h"
 #include "../service/module.h"
-#include "src/core/millis_t.h"
+#include "../service/job_ctrl.h"
+#include "enclosure_a400.h"
 
 static module_func_prio_t prio_map[] = {
   {MODULE_FUNC_ENCLOSURE_DOOR_STATE, MODULE_FUNC_PRIORITY_MEDIUM},
@@ -178,7 +181,7 @@ void enclosure_a400_callback_update_status(void *obj, uint8_t *data, uint8_t len
         LOG_I("Enclosure door open\n");
         if (enclosure.check_switch) {
           // TODO: door open process
-          LOG_I("Enclosure door open process\n");
+          smprinter.pause_trigger(PAUSE_DOOR_OPEN);
         }
       }
     }
@@ -186,7 +189,6 @@ void enclosure_a400_callback_update_status(void *obj, uint8_t *data, uint8_t len
       LOG_I("Enclosure door close\n");
       if (enclosure.check_switch) {
         // TODO: door open process
-        LOG_I("Enclosure door close process\n");
       }
     }
   }

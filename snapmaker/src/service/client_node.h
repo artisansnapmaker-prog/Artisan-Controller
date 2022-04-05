@@ -110,6 +110,7 @@
 #define SACP_JOB_PAUSE_ISSUE_RET_PAUSE_PARAM_ERR                (13)
 #define SACP_JOB_PAUSE_ISSUE_RET_SAVE_ENV_FAILURE               (14)
 #define SACP_JOB_PAUSE_ISSUE_RET_PAUSE_FAILURE                  (15)
+#define SACP_JOB_PAUSE_ISSUE_RET_DOOR_OPEN                      (16)
 #define SACP_JOB_PAUSE_ISSUE_RET_UNKNOW_ERR                     (255)
 
 //Types of event function callbacks

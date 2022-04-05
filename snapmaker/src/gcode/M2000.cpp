@@ -587,7 +587,7 @@ void GcodeSuite::M2000() {
   {
   case 0:
     // get enclosure status
-    smprinter.get_enclosure_status();
+    smprinter.report_enclosure_status();
     break;
 
   case 1:

@@ -18,13 +18,16 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#include "enclosure.h"
+
+#include "src/core/millis_t.h"
+#include "src/HAL/HAL.h"
+
 #include "../config.h"
 #include "../snapmaker.h"
 #include "../common/debug.h"
 #include "../service/module.h"
-#include "src/core/millis_t.h"
-#include "src/HAL/HAL.h"
+#include "../service/job_ctrl.h"
+#include "enclosure.h"
 
 static module_func_prio_t prio_map[] = {
   {MODULE_FUNC_ENCLOSURE_DOOR_STATE, MODULE_FUNC_PRIORITY_MEDIUM},
@@ -151,17 +154,27 @@ void enclosure_callback_update_status(void *obj, uint8_t *data, uint8_t length) 
       LOG_I("Enclosure door open\n");
       if (enclosure.check_switch) {
         // TODO: door open process
-        LOG_I("Enclosure door open process\n");
+        smprinter.pause_trigger(PAUSE_DOOR_OPEN);
       }
     }
     else {
       LOG_I("Enclosure door close\n");
       if (enclosure.check_switch) {
         // TODO: door close process
-        LOG_I("Enclosure door close process\n");
       }
     }
   }
+}
+
+
+uint8_t Enclosure::get_door_check(void) {
+  uint8_t ret = 0;
+  // TODO: do you also need restrictions when offline 
+  if (/*online &&*/ check_switch) {
+    if (!online || (enclosure_sta & ENCLOSURE_DOOR_STATUS_MASK))
+      ret = 1;
+  }
+  return ret;
 }
 
 bool Enclosure::status_is_change(uint8_t cur_sta, uint8_t old_sta, uint8_t mask) {
@@ -194,9 +207,11 @@ err_code_t Enclosure::set_enclosure_dev_func(uint8_t dev_type, uint8_t value, bo
   uint8_t out[8];
   uint8_t i = 0;
   uint8_t recv_len = 0;
+  uint8_t real_level = 0; 
   smcan_message_t msg;
   err_code_t ret = E_FAILURE;   
   value = value >= 100 ? 100 : value;
+  real_level = (uint8_t)(value >= 100 ? 255 : value * 255 / 100);
   switch (dev_type) {
     case 0:
       msg.id = get_message_id(MODULE_FUNC_SET_ENCLOSURE_LIGHT);
@@ -205,9 +220,9 @@ err_code_t Enclosure::set_enclosure_dev_func(uint8_t dev_type, uint8_t value, bo
         return ret;
       }
       buffer[i++] = 1;
-      buffer[i++] = value;
-      buffer[i++] = value;
-      buffer[i++] = value;
+      buffer[i++] = real_level;
+      buffer[i++] = real_level;
+      buffer[i++] = real_level;
     break;
 
     case 1:
@@ -217,7 +232,7 @@ err_code_t Enclosure::set_enclosure_dev_func(uint8_t dev_type, uint8_t value, bo
         return ret;
       }
       buffer[i++] = 0;
-      buffer[i++] = value;
+      buffer[i++] = real_level;
     break;
 
     default:
@@ -432,7 +447,7 @@ err_code_t hmi_set_enclosure_light(void *obj, sacp_hmi_message_t *msg) {
   if (enclosure.get_status() != MODULE_STATUS_NORMAL) {
     return host_hmi.send_ack(msg, E_INVALID_STATE);
   }
-
+  LOG_I("[%s]  light level %d\n", __FUNCTION__, msg->data[1]);
   result = enclosure.set_light_bar(msg->data[1]);
   
   if (result != E_SUCCESS) {
@@ -464,9 +479,9 @@ err_code_t hmi_set_enclosure_check(void *obj, sacp_hmi_message_t *msg) {
     return host_hmi.send_ack(msg, E_INVALID_MODULE_KEY);
   }
 
-  if (enclosure.get_status() != MODULE_STATUS_NORMAL) {
-    return host_hmi.send_ack(msg, E_INVALID_STATE);
-  }
+  // if (enclosure.get_status() != MODULE_STATUS_NORMAL) {
+  //   return host_hmi.send_ack(msg, E_INVALID_STATE);
+  // }
 
   if (msg->data[1])
     result = enclosure.enable_enclosure_check();
@@ -501,6 +516,8 @@ err_code_t hmi_set_enclosure_fan(void *obj, sacp_hmi_message_t *msg) {
       __FUNCTION__, msg->data[0], enclosure.get_key());
     return host_hmi.send_ack(msg, E_INVALID_MODULE_KEY);
   }
+
+  LOG_I("[%s]  fan level %d\n", __FUNCTION__, msg->data[1]);
 
   if (enclosure.get_status() != MODULE_STATUS_NORMAL) {
     return host_hmi.send_ack(msg, E_INVALID_STATE);

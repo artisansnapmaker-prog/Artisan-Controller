@@ -299,9 +299,12 @@ class SnapmakerPrinter
     bool enclosure_online_check(void) { return (enclosure && enclosure->check_online()); }
     void set_enclosure_light_bar(uint8_t new_level);
     void set_enclosure_fan_speed(uint8_t new_speed);
-    void get_enclosure_status(void);
+    void report_enclosure_status(void);
     void enclosure_hmi_self_test_interface(uint8_t test_type, uint32_t param);
+    uint8_t get_enclosure_door_status(void);
+    
     void register_module(uint16_t type, ModuleBase *new_module);
+    void security_check(void);
 
     ModuleBase *get_cur_toolhead(void);
     toolHeadType get_toolhead_type(void);
@@ -309,6 +312,7 @@ class SnapmakerPrinter
     enum SystemStatus get_sys_status(void);
     err_code_t set_sys_status(enum SystemStatus req_status, enum SystemStatus *ret_status);
     bool can_start_work(void);
+    bool can_resume_work(void);
     bool can_stop_work(void);
     bool on_printing(void);
     bool on_working();

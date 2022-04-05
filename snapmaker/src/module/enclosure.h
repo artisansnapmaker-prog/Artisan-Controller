@@ -78,6 +78,9 @@ class Enclosure: public ModuleBase {
     void enclosure_test();
 
     bool check_online() { return online; }
+    uint8_t get_enclosure_sta() { return enclosure_sta; }
+    
+    uint8_t get_door_check(void);
     virtual err_code_t set_light_bar(uint8_t level);
     virtual err_code_t set_fan_speed(uint8_t speed);
 

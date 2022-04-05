@@ -202,10 +202,8 @@ err_code_t JobCtrl::req_pause( enum JobPauseType pt,
 err_code_t JobCtrl::req_resume( uint8_t client_id,
                                 job_req_notify_cb_t cb/* = NULL*/,
                                 void *p/* = NULL*/) {
-  // status check
-  if (SYSTEM_STATUS_PAUSED != smprinter.get_sys_status() &&
-      SYSTEM_STATUS_RECOVERING != smprinter.get_sys_status()) {
-    LOG_E("job_ctrl: Can not resume a job as current status is no pause\r\n");
+  if (!smprinter.can_resume_work()) {
+    LOG_E("job_ctrl: Can not resume a job\r\n");
     return E_JOB_NOT_IN_PAUSE_STATUS;
   }
 
@@ -580,11 +578,19 @@ void JobCtrl::stepper_quickstop_cb(void) {
 void JobCtrl::do_start(struct JobCtrlReqInfo &jri) {
   enum SystemStatus ret_sys_status;
   enum SystemStatus next_status;
+  ModuleBase *toolhead = NULL;
 
   ret_sys_status = smprinter.get_sys_status();
   if (!smprinter.can_start_work()) {
     LOG_E("can not start job as current status is not idle or calibrating\r\n");
     DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, ret_sys_status);
+    return;
+  }
+
+  toolhead = smprinter.get_cur_toolhead();
+  if (!toolhead || (toolhead && !toolhead->prepare_start())) {
+    LOG_E("can not start job as prepare start failed\r\n");
+    DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, E_JOB_NOT_IN_IDLE_STATUS);
     return;
   }
 
@@ -671,7 +677,7 @@ void JobCtrl::do_pause(struct JobCtrlReqInfo &jri) {
     break;
 
     case PAUSE_DOOR_OPEN:
-      LOG_I("TODO: quickstop\r\n");
+      motion_platform_svc.req_quickstop();
     break;
 
     case PAUSE_EXCEPTION:
@@ -715,6 +721,9 @@ void JobCtrl::do_pause(struct JobCtrlReqInfo &jri) {
   }
 
   _paused = true;
+  if (PAUSE_DOOR_OPEN == jri.req_data.req_pause_data.type) {
+    _issue_ret_rb.insert_one(SACP_JOB_PAUSE_ISSUE_RET_DOOR_OPEN);
+  }
   DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, SYSTEM_STATUS_PAUSED);
 }
 

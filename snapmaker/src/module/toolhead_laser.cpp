@@ -1328,6 +1328,8 @@ err_code_t ToolHeadLaser::quickstop(void) {
 }
 
 bool ToolHeadLaser::prepare_start(void) {
-  if (get_status() != MODULE_STATUS_NORMAL)
+  if (get_status() != MODULE_STATUS_NORMAL || smprinter.get_enclosure_door_status())
     return false;
+  else
+    return true;
 }

@@ -32,6 +32,8 @@
 #define CNC_PCB_TEMP_ERROR_MASK        (1 << 3)
 #define CNC_MOTOR_TEMP_ERROR_MASK      (1 << 4)
 #define CNC_VOLTAGE_ERROR_MASK         (1 << 5)
+#define CNC_LIMIT_WORK_STATE_MASK      (CNC_OVERCURRENT_ERROR_MASK | CNC_PCB_TEMP_ERROR_MASK | \
+                                        CNC_MOTOR_TEMP_ERROR_MASK | CNC_VOLTAGE_ERROR_MASK)
 
 // #define SACP_GET_HEAD_INFO_COMMANDID               0x01
 // #define SACP_CNC_SET_POWER_COMMANDID               0x02
@@ -127,6 +129,7 @@ class ToolHeadCNC: public ModuleBase {
     virtual err_code_t post_init();
     virtual err_code_t deinit();
 
+    bool prepare_start(void);
     bool check_online() { return online; }
     uint16_t get_rpm() { return rpm; };
     err_code_t save_env(uint8_t *env_buf, uint32_t &len);

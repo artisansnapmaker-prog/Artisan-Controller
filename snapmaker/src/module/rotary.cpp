@@ -34,7 +34,7 @@ err_code_t Rotary::post_init() {
   smprinter.register_module(device_id, this);
   module_svc.register_routine((void *)this, rotary_callback_routine);
 
-  state = MODULE_STATUS_NORMAL;
+  set_status(MODULE_STATUS_NORMAL);
 
   LOG_I("rotary ready\n");
 

@@ -287,12 +287,12 @@ class SnapmakerPrinter
     }
 
     // Rotary
-    enum ModuleStatus rotary_status() {
+    uint8_t rotary_status() {
       if (rotary) {
-        return rotary->get_status();
+        return (uint8_t)(rotary->get_status());
       }
 
-      return MODULE_STATUS_OFFLINE;
+      return (uint8_t)MODULE_STATUS_OFFLINE;
     }
 
     // ENCLOSURE

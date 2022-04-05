@@ -33,7 +33,6 @@ class Rotary: public ModuleBase {
     // construtor to do pre-init
     Rotary(uint32_t mac, uint8_t key, uint8_t sub_index):
     ModuleBase(mac, key, sub_index) {
-      state = MODULE_STATUS_OFFLINE;
     }
 
     bool check_online() { return false; }
@@ -42,7 +41,6 @@ class Rotary: public ModuleBase {
     err_code_t deinit() { return E_SUCCESS; }
     err_code_t save_env(uint8_t *env_buf, uint32_t &len);
     err_code_t resume_env(uint8_t *env_buf, uint32_t &len);
-    enum ModuleStatus get_status() { return state; }
 
   // private methods
   private:
@@ -55,7 +53,6 @@ class Rotary: public ModuleBase {
   // private properties
   private:
     uint16_t device_id;
-    enum ModuleStatus state;
 };
 
 #endif  // #ifndef SNAPMAKER_ROTARY_H_

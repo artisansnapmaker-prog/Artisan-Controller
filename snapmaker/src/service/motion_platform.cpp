@@ -895,6 +895,11 @@ void MotionPlatformService::set_endstop(bool status) {
 }
 
 
+void  MotionPlatformService::update_position_from_stepper() {
+  set_current_from_steppers_for_axis(ALL_AXES_ENUM);
+  sm_current_position = current_position;
+}
+
 void  MotionPlatformService::update_position_from_platform() {
   sm_current_position = current_position;
 }

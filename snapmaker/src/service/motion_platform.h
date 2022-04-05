@@ -141,6 +141,7 @@ class MotionPlatformService {
     // position info API
     xyze_pos_t sm_current_position;
     xyze_pos_t sm_destination_position;
+    void  update_position_from_stepper();
     void  update_position_from_platform();
     float get_current_position(uint8_t axis);
     void sync_plan_position_to_platform();

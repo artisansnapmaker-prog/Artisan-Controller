@@ -18,12 +18,14 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#include "toolhead_cnc_200w.h"
+
+#include "src/HAL/HAL.h"
+
 #include "../config.h"
 #include "../snapmaker.h"
 #include "../common/debug.h"
 #include "../service/module.h"
-#include "src/HAL/HAL.h"
+#include "toolhead_cnc_200w.h"
 
 // every module must define itself function and priority map !!!!
 // then set it to ModuleBase with set_func_prio_map() in pre_init()
@@ -312,6 +314,9 @@ err_code_t ToolHeadCNC200W::sync_cnc_output(uint16_t value, CNCSpeedControlType 
   }
   else {
     value = value > CNC_200W_DEFAULT_MAX_RPM ? CNC_200W_DEFAULT_MAX_RPM : value; 
+    if (value && value < CNC_200W_DEFAULT_MIN_RPM) 
+      value = CNC_200W_DEFAULT_MIN_RPM;
+
     buffer[i++] = (value >> 8) & 0xff;
     buffer[i++] = value & 0xff;
   }
@@ -346,6 +351,10 @@ bool ToolHeadCNC200W::set_target_rpm(uint16_t new_rpm) {
   if (public_mutex_lock()) {
     if (new_rpm > CNC_200W_DEFAULT_MAX_RPM)
       new_rpm = CNC_200W_DEFAULT_MAX_RPM;
+
+    if (new_rpm && new_rpm < CNC_200W_DEFAULT_MIN_RPM) 
+      new_rpm = CNC_200W_DEFAULT_MIN_RPM;
+
     target_rpm = new_rpm;
     public_mutex_unlock();
     ret = true;
@@ -369,6 +378,8 @@ err_code_t ToolHeadCNC200W::set_output_power(uint8_t new_power, bool is_update_p
     uint16_t run_rpm;
     uint32_t tmp_rpm = new_power * CNC_200W_DEFAULT_MAX_RPM / 100;
     tmp_rpm = tmp_rpm > CNC_200W_DEFAULT_MAX_RPM ? CNC_200W_DEFAULT_MAX_RPM : tmp_rpm;
+    if (tmp_rpm && tmp_rpm < CNC_200W_DEFAULT_MIN_RPM) 
+      tmp_rpm = CNC_200W_DEFAULT_MIN_RPM;
     run_rpm = (uint16_t)tmp_rpm;
     if (is_update_power) {
       if (!set_target_rpm((uint16_t)tmp_rpm))
@@ -385,7 +396,7 @@ err_code_t ToolHeadCNC200W::set_output_rpm(uint16_t new_rpm, bool is_update_rpm)
     uint32_t tmp_power = new_rpm * 100 / CNC_200W_DEFAULT_MAX_RPM;
     tmp_power = tmp_power > 100 ? 100 : (uint8_t)tmp_power;
     if (tmp_power == 0 && new_rpm)
-      tmp_power = 1;
+      tmp_power = 7;
     run_power = tmp_power;
     if (is_update_rpm) {
       if (!set_power((uint8_t)tmp_power))

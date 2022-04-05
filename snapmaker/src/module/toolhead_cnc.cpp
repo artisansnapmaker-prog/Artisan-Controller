@@ -18,12 +18,14 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#include "toolhead_cnc.h"
+
+#include "src/core/millis_t.h"
+
 #include "../config.h"
 #include "../snapmaker.h"
 #include "../common/debug.h"
 #include "../service/module.h"
-#include "src/core/millis_t.h"
+#include "toolhead_cnc.h"
 
 // debug function: emergency stop
 #include "src/feature/e_parser.h"

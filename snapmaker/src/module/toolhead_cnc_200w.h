@@ -24,7 +24,7 @@
 #include "toolhead_cnc.h"
 
 #define CNC_200W_DEFAULT_MAX_RPM   18000
-#define CNC_200W_DEFAULT_MIN_RPM   1000
+#define CNC_200W_DEFAULT_MIN_RPM   8000
 
 enum CNCConfigCmdType {
   CMD_SET_MOTOR_POWER = 0,
@@ -58,14 +58,6 @@ class ToolHeadCNC200W: public ToolHeadCNC {
     friend void hp_cnc_callback_update_info(void *obj, uint8_t *data, uint8_t length);
     friend void hp_cnc_callback_update_sensor_info(void *obj, uint8_t *data, uint8_t length);
     friend void hp_cnc_callback_config_result(void *obj, uint8_t *data, uint8_t length);
-
-    // register handler functions for handling screen commands
-    friend err_code_t send_hp_cnc_head_info_to_hmi(void *obj, sacp_hmi_message_t *msg);
-    friend err_code_t hmi_set_hp_cnc_power(void *obj, sacp_hmi_message_t *msg);
-    friend err_code_t hmi_set_hp_cnc_rpm(void *obj, sacp_hmi_message_t *msg);
-    friend err_code_t hmi_set_hp_cnc_ctr_mode(void *obj, sacp_hmi_message_t *msg);
-    friend err_code_t hmi_set_hp_cnc_enable(void *obj, sacp_hmi_message_t *msg);
-    friend uint16_t hmi_subscribe_hp_cnc_func(void *obj, uint8_t *buff);
   
   private:
     bool set_target_rpm(uint16_t new_rpm);

@@ -173,12 +173,13 @@ void EmergencyHandler::power_loss() {
   // - disable All ISR
   disable_interrupts();
 
-  // TODO: need to check if we need save env and write flash
+  // need to check if we need save env and write flash
   if (smprinter.on_working()) {
   // {
     // - get env
+    motion_platform_svc.update_position_from_stepper();
     job_ctrl_svc.update_env();
-    // TODO: if failed to update env, show LED?
+    // if failed to update env, show LED?
     job_env = job_ctrl_svc.get_env();
     memcpy(env, job_env, sizeof(JobEnv));
 
@@ -189,7 +190,7 @@ void EmergencyHandler::power_loss() {
     // - turn off all power domain if power loss
     smprinter.disable_power_domain(POWER_DOMAIN_POWERLOSS);
 
-    // TODO: need to check if we need save env and write flash
+    // need to check if we need save env and write flash
     // - write flash
     flag  = (uint32_t *)(env + ENV_VALID_FLAG_ADDR);
     *flag = ENV_VALID_FLAG;
@@ -214,14 +215,14 @@ void EmergencyHandler::emergency_stop() {
   // - disable All ISR
   disable_interrupts();
 
-  // TODO: need to check if we need save env and write flash
+  // need to check if we need save env and write flash
   // - get env
   if (smprinter.on_working()) {
+    motion_platform_svc.update_position_from_stepper();
     job_ctrl_svc.update_env();
     job_env = job_ctrl_svc.get_env();
     memcpy(env, job_env, sizeof(JobEnv));
 
-    // TODO: need to check if we need save env and write flash
     // - write flash
     flag  = (uint32_t *)(env + ENV_VALID_FLAG_ADDR);
     *flag = ENV_VALID_FLAG;

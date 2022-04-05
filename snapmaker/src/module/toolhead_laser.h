@@ -169,7 +169,8 @@ class ToolHeadLaser: public ModuleBase {
     }
 
     void set_power_limit(float limit);
-
+    float get_power_limit(void) { return power_limit; }
+    
     void update_power(float power);
 
     err_code_t report_bt_mac();

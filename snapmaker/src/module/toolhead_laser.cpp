@@ -783,6 +783,7 @@ err_code_t ToolHeadLaser::post_init() {
   master_switch_state = LASER_SWITCH_STATE_CLOSED;
 
   if (get_device_id() == MODULE_DEVICE_ID_LASER_10W_2021) {
+    LOG_I("Got 10W laser!\n");
     host_hmi.apply_cmd_set_handle(SACP_CMD_SET_LASER, SACP_CMD_ID_LASER_MAX);
 
     host_hmi.register_subscription(SACP_CMD_SET_LASER, SACP_CMD_ID_LASER_SUBSCRIBE_SAFETY_STATE, (void *)this,
@@ -793,6 +794,7 @@ err_code_t ToolHeadLaser::post_init() {
       hmi_cb_set_temp_threshold);
   }
   else {
+    LOG_I("Got 1.6W laser!\n");
     host_hmi.apply_cmd_set_handle(SACP_CMD_SET_LASER, SACP_CMD_ID_LASER_MAX - 2);
   }
 

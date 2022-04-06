@@ -36,4 +36,11 @@
 #define LOCK(lock, wait_time)           do{ xSemaphoreTake(lock, (TickType_t)wait_time); } while(0)
 #define UNLOCK(lock)                    do{ xSemaphoreGive(lock); } while(0)
 
+#define ROUNDUP(x, y)                   ({\
+                                          typeof(y) __y = y;\
+                                          (((x) + (__y - 1)) / __y) * __y;		\
+                                        })	
+
+uint32_t calculate_checksum(uint8_t *buffer, uint16_t length);
+
 #endif  // #ifndef SNAPMAKER_UTILITY_H_

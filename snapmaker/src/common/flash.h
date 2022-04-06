@@ -36,7 +36,7 @@ typedef struct {
   uint32_t  size;
 } flash_partition_t;
 
-bool flash_erase_boot_data(flash_partition_t &flash_partition);
-bool flash_word_write(flash_partition_t &flash_partition, uint8_t *data, uint32_t len);
+bool flash_erase(flash_partition_t &flash_partition);
+uint32_t flash_write(flash_partition_t &flash_partition, uint8_t *data, uint32_t len);
 
 #endif

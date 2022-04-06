@@ -45,7 +45,7 @@ typedef struct __attribute__ ((packed)) {
   uint32_t fw_len;
   uint32_t fw_checksum;
   uint32_t fw_runaddr;
-  uint32_t boot_head_checksum; 
+  uint32_t boot_data_checksum; 
 } boot_info_t;
 
 typedef void (*pf)(void);

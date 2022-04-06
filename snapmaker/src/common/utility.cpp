@@ -19,3 +19,24 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "utility.h"
+
+
+uint32_t calculate_checksum(uint8_t *buffer, uint32_t length) {
+  uint32_t volatile checksum = 0;
+
+  if (!length || !buffer)
+    return 0;
+
+  for (uint32_t j = 0; j < (length - 1); j = j + 2)
+    checksum += (uint32_t)(buffer[j] << 8 | buffer[j + 1]);
+
+  if (length % 2)
+    checksum += buffer[length - 1];
+
+  while (checksum > 0xffff)
+    checksum = ((checksum >> 16) & 0xffff) + (checksum & 0xffff);
+
+  checksum = ~checksum;
+
+  return checksum;
+}

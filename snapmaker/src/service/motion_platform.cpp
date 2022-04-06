@@ -453,7 +453,7 @@ void MotionPlatformService::sync_leveling_limit_to_platform(float x_start, float
   endy   = y_end;
 }
 
-// emergency_handle will call this API in ISR to sto581p motion platform
+// emergency_handle will call this API in ISR to stop motion platform
 void MotionPlatformService::req_emergency_stop() {
   emergency_parser.quickstop_by_M410 = true;
   stepper.quick_stop();
@@ -558,20 +558,18 @@ uint16_t MotionPlatformService::get_bet_temp(void) {
 bool MotionPlatformService::bed_heatup_to_target(void) {
   ModuleBase *bed = module_svc.get_module(MODULE_DEVICE_ID_A400_BED, 0);
 
-  if (!bed)
+  if (!bed || bed->get_status() != MODULE_STATUS_NORMAL)
     return true;
 
-  LOG_I("job_ctrl: wait for bed heat up to target temperature, ");
-
   if ((thermalManager.degTargetBed() > 0) && (thermalManager.degBed() < thermalManager.degTargetBed())) {
-    LOG_I("zone1 doesn't reach: c[%.2f]@t[%d]\r\n",
+    LOG_I("job_ctrl: wait for bed zone0 to reach target temp: c[%.2f]@t[%d]\r\n",
     thermalManager.degBed(), thermalManager.degTargetBed());
     return false;
   }
 
   #if ENABLED(SNAPMAKER_DOUBLE_ZONE_BED)
   if ((thermalManager.degTargetChamber() > 0) && (thermalManager.degChamber() < thermalManager.degTargetChamber())) {
-    LOG_I("zone2 doesn't reach: c[%.2f]@t[%d]\r\n",
+    LOG_I("job_ctrl: wait for bed zone1 to reach target temp: c[%.2f]@t[%d]\r\n",
     thermalManager.degChamber(), thermalManager.degTargetChamber);
     return false;
   }
@@ -586,21 +584,20 @@ bool MotionPlatformService::hotends_heatup_to_target(void) {
     fdm = module_svc.get_module(MODULE_DEVICE_ID_FDM_1EXTRUDER_2019, 0);
   }
 
+  // TODO: check fdm->get_status() != MODULE_STATUS_NORMAL
   if (!fdm) {
     return true;
   }
 
-  LOG_I("job_ctrl: wait for hotend heat up to target temperature, ");
-
   if ((thermalManager.degTargetHotend(0) > 0.0) && (thermalManager.degHotend(0) < thermalManager.degTargetHotend(0))) {
-    LOG_I("T0 doesn't reach: c[%.2f]@t[%d]\r\n",
+    LOG_I("job_ctrl: wait for nozzle0 to reach target temp: c[%.2f]@t[%d]\r\n",
           thermalManager.degHotend(0), thermalManager.degTargetHotend(0));
     return false;
   }
 
   if (fdm->get_device_id() == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
     if ((thermalManager.degTargetHotend(1) > 0.0) && (thermalManager.degHotend(1) < thermalManager.degTargetHotend(1))) {
-      LOG_I("T1 doesn't reach: c[%.2f]@t[%d]\r\n",
+      LOG_I("job_ctrl: wait for nozzle1 to reach target temp\r\n",
             thermalManager.degHotend(1), thermalManager.degTargetHotend(1));
       return false;
     }

@@ -40,3 +40,13 @@ uint32_t calculate_checksum(uint8_t *buffer, uint32_t length) {
 
   return checksum;
 }
+
+void snap_memcpy(void *dst, void *src, uint32_t len) {
+  uint8_t *d, *s;
+
+  d = (uint8_t *)dst;
+  s = (uint8_t *)src;
+  for (uint32_t i = 0; i < len; i++) {
+    d[i] = s[i];
+  }
+}

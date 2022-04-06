@@ -21,12 +21,12 @@
 #ifndef SNAPMAKER_UTILITY_H_
 #define SNAPMAKER_UTILITY_H_
 
-#include <stdio.h>
+#include <stdint.h>
 
-#define time_after(a, b)  ((int)(b)-(int)(a) < 0)
-#define STRCAT(s, b)      (s##b)
-#define MAX(a,b)          ((a)>(b)?(a):(b))
-#define MIN(a,b)          ((a)<(b)?(a):(b))
+#define time_after(a, b)                ((int)(b)-(int)(a) < 0)
+#define STRCAT(s, b)                    (s##b)
+#define MAX(a,b)                        ((a)>(b)?(a):(b))
+#define MIN(a,b)                        ((a)<(b)?(a):(b))
 
 #define LITTLE_STREAM_TO_16(buf)        ( ((buf)[1]<<8) | ((buf)[0]) )
 #define LITTLE_STREAM_TO_32(buf)        ( ((buf)[3]<<24) | ((buf)[2]<<16) | ((buf)[1]<<8) | ((buf)[0]) )
@@ -41,6 +41,7 @@
                                           (((x) + (__y - 1)) / __y) * __y;		\
                                         })	
 
-uint32_t calculate_checksum(uint8_t *buffer, uint16_t length);
+uint32_t calculate_checksum(uint8_t *buffer, uint32_t length);
+void snap_memcpy(void *dst, void *src, uint32_t len);
 
 #endif  // #ifndef SNAPMAKER_UTILITY_H_

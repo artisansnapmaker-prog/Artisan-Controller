@@ -22,9 +22,7 @@
 #ifndef SNAPMAKER_FLASH_H
 #define SNAPMAKER_FLASH_H
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdbool.h>
+#include <stdint.h>
 #include "stm32f4xx.h"
 #include "stm32f4xx_hal.h"
 #include "stm32f4xx_hal_flash_ex.h"
@@ -35,6 +33,8 @@ typedef struct {
   uint32_t  write_addr;
   uint32_t  size;
 } flash_partition_t;
+
+extern flash_partition_t boot_data_partition;
 
 bool flash_erase(flash_partition_t &flash_partition);
 uint32_t flash_write(flash_partition_t &flash_partition, uint8_t *data, uint32_t len);

@@ -32,10 +32,7 @@
 /********************************************************************************/
 // INCLUDE
 /********************************************************************************/
-#include <stdint.h>
-#include <stdbool.h>
-#include <stdlib.h>
-#include <string.h>
+#include "../common/utility.h"
 #include "sacp_protocol.h"
 
 
@@ -53,7 +50,6 @@
 // LOCAL FUN DECL
 /********************************************************************************/
 uint8_t calc_crc8(uint8_t *data, uint16_t length);
-uint16_t calculate_checksum(uint8_t *buffer, uint16_t length);
 
 
 /********************************************************************************/
@@ -64,9 +60,9 @@ uint16_t calculate_checksum(uint8_t *buffer, uint16_t length);
 /********************************************************************************/
 // EXP FUN DEF
 /********************************************************************************/
-bool protocol_push_char(fsm_info_t &fsm, uint8_t c)
+int protocol_push_char(fsm_info_t &fsm, uint8_t c)
 {
-  bool ret = false;
+  int ret = 0;
 
   switch(fsm.s){
     case STATE_HEADER_1:
@@ -161,10 +157,10 @@ bool protocol_push_char(fsm_info_t &fsm, uint8_t c)
     case STATE_CHECKSUM2:
       fsm.checksum |= c<<8;
       if (fsm.checksum == 
-          calculate_checksum(&fsm.frame[HEADER_LEN], fsm.have_rx_len - HEADER_LEN))
+          (uint16_t)calculate_checksum(&fsm.frame[HEADER_LEN], fsm.have_rx_len - HEADER_LEN))
       { 
         fsm.frame[fsm.have_rx_len++] = c;
-        ret = true;
+        ret = 1;
       }
       fsm.s = STATE_HEADER_1;
     break;
@@ -198,9 +194,9 @@ void protocol_build_pack(scap_msg_t &msg, uint8_t *frame_buf, uint8_t &out_frame
   frame_buf[index++] = msg.sender;
   frame_buf[index++] = msg.attr;
   frame_buf[index++] = msg.seq;
-  memcpy(frame_buf+index, msg.payload, msg.payload_len);
+  snap_memcpy(frame_buf+index, msg.payload, msg.payload_len);
   index += msg.payload_len;
-  uint16_t checksum = calculate_checksum(frame_buf + HEADER_LEN, index - HEADER_LEN);
+  uint16_t checksum = (uint16_t)calculate_checksum(frame_buf + HEADER_LEN, index - HEADER_LEN);
   frame_buf[index++] = checksum & 0xFF;
   frame_buf[index++] = (checksum>>8) & 0xFF;
   out_frame_len = index;
@@ -225,24 +221,4 @@ uint8_t calc_crc8(uint8_t *data, uint16_t length) {
   }
 
   return crc;
-}
-
-uint16_t calculate_checksum(uint8_t *buffer, uint16_t length) {
-  uint32_t volatile checksum = 0;
-
-  if (!length || !buffer)
-    return 0;
-
-  for (int j = 0; j < (length - 1); j = j + 2)
-    checksum += (uint32_t)(buffer[j] << 8 | buffer[j + 1]);
-
-  if (length % 2)
-    checksum += buffer[length - 1];
-
-  while (checksum > 0xffff)
-    checksum = ((checksum >> 16) & 0xffff) + (checksum & 0xffff);
-
-  checksum = ~checksum;
-
-  return (uint16_t)checksum;
 }

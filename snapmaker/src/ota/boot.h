@@ -21,16 +21,13 @@
 #ifndef SNAPMAKER_BOOT_H_
 #define SNAPMAKER_BOOT_H_
 
+#include <stdint.h>
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include "../common/flash.h"
-
-#define BOOT_MODE_FACTORY_BURNING     (0xAA01)
-#define BOOT_MODE_APP                 (0xAA02)
-#define BOOT_MODE_COPY                (0xAA03)                
-#define BOOT_MODE_UPDATING            (0xAA04)
+#define BOOT_MODE_FACTORY_BURNING     (0xAA00)
+#define BOOT_MODE_OTA_START           (0xAA01)
+#define BOOT_MODE_OTA_TRANS           (0xAA02)
+#define BOOT_MODE_OTA_RECV_DONE       (0xAA03)
+#define BOOT_MODE_APP                 (0xAA04)
 #define BOOT_DELAY_SECODE             (6)
 
 typedef struct __attribute__ ((packed)) {
@@ -49,7 +46,6 @@ typedef struct __attribute__ ((packed)) {
 } boot_info_t;
 
 typedef void (*pf)(void);
-
 
 bool load_boot_info(void);
 void setup(void);

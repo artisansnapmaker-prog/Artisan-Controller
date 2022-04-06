@@ -1,11 +1,5 @@
 #include <Arduino.h>
-#include <stdio.h>
-#include <stdarg.h>
 #include "../common/config.h"
-#include "../common/list.h"
-#include "../common/error.h"
-#include "../common/ring_buffer.h"
-#include "../common/type.h"
 #include "../common/utility.h"
 #include "../common/flash.h"
 #include "sacp_protocol.h"
@@ -18,18 +12,6 @@
 fsm_info_t sacp_fsm;
 scap_msg_t sacp_msg;
 boot_info_t boot_info;
-flash_partition_t boot_data_partition = {
-  {
-    FLASH_TYPEERASE_SECTORS,          // Mass erase or sector erase
-    0,                                // Select banks to erase when Mass erase is enabled
-    FLASH_BOOT_DATA_START_SECTOR,     // Initial FLASH sector to erase
-    FLASH_BOOT_DATA_SECTOR_NUM,       // Number of sectors to be erased
-    FLASH_VOLTAGE_RANGE_3             // The device voltage range
-  },
-  FLASH_BOOT_DATA_ADDR,               // Start addr
-  FLASH_BOOT_DATA_ADDR,               // Write addr
-  FLASH_BOOT_DATA_SIZE                // Partition addr
-};
 
 
 /********************************************************************************/
@@ -39,13 +21,12 @@ void print_boot_info(boot_info_t *bi);
 bool load_boot_info(boot_info_t *bi);
 bool write_boot_info(boot_info_t *bi);
 void init_boot_info(boot_info_t *bi);
-
+void flash_test(flash_partition_t &partition);
+void normal_boot(void);
 
 /********************************************************************************/
 // FUN DEF
 /********************************************************************************/
-
-
 void setup() {
   Serial.begin(115200);
 }
@@ -110,10 +91,11 @@ void trans_fw_loop(void) {
 }
 
 void loop() {
-  init_boot_info(&boot_info);
-  write_boot_info(&boot_info);
-  load_boot_info(&boot_info);
-  print_boot_info(&boot_info);
+  flash_test(boot_data_partition);
+  // init_boot_info(&boot_info);
+  // write_boot_info(&boot_info);
+  // load_boot_info(&boot_info);
+  // print_boot_info(&boot_info);
 
   // Serial.print("Jump to ");
   // Serial.println(DOWNLOAD_SLOT_ADDR);
@@ -122,16 +104,8 @@ void loop() {
 
   switch(boot_info.boot_mode) {
     case BOOT_MODE_FACTORY_BURNING:
-    break;
-
     case BOOT_MODE_APP:
-      boot_app();
-    break;
-
-    case BOOT_MODE_COPY:
-    break;
-
-    case BOOT_MODE_UPDATING:
+      normal_boot();
     break;
 
     default:
@@ -240,6 +214,10 @@ void print_boot_info(boot_info_t *bi) {
 
 bool load_boot_info(boot_info_t *bi) {
   memcpy(bi, (void *)FLASH_BOOT_DATA_ADDR, sizeof(boot_info));
+  if (bi->boot_data_checksum != calculate_checksum((uint8_t *)bi, sizeof(boot_info_t) - 4)) {
+    Serial.println(F("boot data checksum failure"));
+    return false;
+  }
   return true;
 }
 
@@ -269,6 +247,9 @@ void init_boot_info(boot_info_t *bi) {
   bi->fw_len = 100000;
   bi->fw_checksum = 12341234;
   bi->fw_runaddr = FLASH_APP_FW_ADDR;
-   = 0x123414;
-  bi->boot_data_checksum = calculate_checksum(bi, );
+  bi->boot_data_checksum = calculate_checksum((uint8_t *)bi, sizeof(boot_info_t) - 4);
+}
+
+void normal_boot(void) {
+
 }

@@ -28,16 +28,77 @@
   ** @explain  : null
 *****/
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdbool.h>
-#include <string.h>
-#include "stm32f4xx.h"
-#include "stm32f4xx_hal.h"
-#include "stm32f4xx_hal_flash_ex.h"
+#include "config.h"
 #include "utility.h"
 #include "flash.h"
 
+
+flash_partition_t boot_data_partition = {
+  {
+    FLASH_TYPEERASE_SECTORS,          // Mass erase or sector erase
+    0,                                // Select banks to erase when Mass erase is enabled
+    FLASH_BOOT_DATA_START_SECTOR,     // Initial FLASH sector to erase
+    FLASH_BOOT_DATA_SECTOR_NUM,       // Number of sectors to be erased
+    FLASH_VOLTAGE_RANGE_3             // The device voltage range
+  },
+  FLASH_BOOT_DATA_ADDR,               // Start addr
+  FLASH_BOOT_DATA_ADDR,               // Write addr
+  FLASH_BOOT_DATA_SIZE                // Partition addr
+};
+
+#if 0
+flash_partition_t boot_data_partition = {
+  {
+    FLASH_TYPEERASE_SECTORS,          // Mass erase or sector erase
+    0,                                // Select banks to erase when Mass erase is enabled
+    FLASH_BOOT_DATA_START_SECTOR,     // Initial FLASH sector to erase
+    FLASH_BOOT_DATA_SECTOR_NUM,       // Number of sectors to be erased
+    FLASH_VOLTAGE_RANGE_3             // The device voltage range
+  },
+  FLASH_BOOT_DATA_ADDR,               // Start addr
+  FLASH_BOOT_DATA_ADDR,               // Write addr
+  FLASH_BOOT_DATA_SIZE                // Partition addr
+};
+
+flash_partition_t boot_data_partition = {
+  {
+    FLASH_TYPEERASE_SECTORS,          // Mass erase or sector erase
+    0,                                // Select banks to erase when Mass erase is enabled
+    FLASH_BOOT_DATA_START_SECTOR,     // Initial FLASH sector to erase
+    FLASH_BOOT_DATA_SECTOR_NUM,       // Number of sectors to be erased
+    FLASH_VOLTAGE_RANGE_3             // The device voltage range
+  },
+  FLASH_BOOT_DATA_ADDR,               // Start addr
+  FLASH_BOOT_DATA_ADDR,               // Write addr
+  FLASH_BOOT_DATA_SIZE                // Partition addr
+};
+
+flash_partition_t boot_data_partition = {
+  {
+    FLASH_TYPEERASE_SECTORS,          // Mass erase or sector erase
+    0,                                // Select banks to erase when Mass erase is enabled
+    FLASH_BOOT_DATA_START_SECTOR,     // Initial FLASH sector to erase
+    FLASH_BOOT_DATA_SECTOR_NUM,       // Number of sectors to be erased
+    FLASH_VOLTAGE_RANGE_3             // The device voltage range
+  },
+  FLASH_BOOT_DATA_ADDR,               // Start addr
+  FLASH_BOOT_DATA_ADDR,               // Write addr
+  FLASH_BOOT_DATA_SIZE                // Partition addr
+};
+
+flash_partition_t boot_data_partition = {
+  {
+    FLASH_TYPEERASE_SECTORS,          // Mass erase or sector erase
+    0,                                // Select banks to erase when Mass erase is enabled
+    FLASH_BOOT_DATA_START_SECTOR,     // Initial FLASH sector to erase
+    FLASH_BOOT_DATA_SECTOR_NUM,       // Number of sectors to be erased
+    FLASH_VOLTAGE_RANGE_3             // The device voltage range
+  },
+  FLASH_BOOT_DATA_ADDR,               // Start addr
+  FLASH_BOOT_DATA_ADDR,               // Write addr
+  FLASH_BOOT_DATA_SIZE                // Partition addr
+};
+#endif 
 
 /*************************************************************** Flash_Start ***************************************************************/
 bool flash_erase(flash_partition_t &flash_partition) {

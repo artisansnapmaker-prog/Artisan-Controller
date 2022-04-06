@@ -369,11 +369,15 @@ err_code_t JobCtrl::resume_env(void) {
   abort_resume = false;
 
   _env.req_line_num = _env.cur_line_num;
-  motion_platform_svc.moveto_xy(_env.current_pos[0], _env.current_pos[1], RESUME_XY_FEEDRATE);
-  motion_platform_svc.moveto_z(_env.current_pos[2], RESUME_Z_FEEDRATE);
+  motion_platform_svc.moveto_xy(_env.current_pos.x, _env.current_pos.y, RESUME_XY_FEEDRATE);
+  motion_platform_svc.moveto_z(_env.current_pos.z, RESUME_Z_FEEDRATE);
   motion_platform_svc.set_feedrate(_env.print_feadrate);
   motion_platform_svc.set_travl_feedrate(_env.travel_feadrate);
   motion_platform_svc.set_relative_mode(_env.g0g1_relative_mode);
+
+  char gcmd[32];
+  snprintf(gcmd, 32, "G92 E%.4f\n", _env.current_pos.e);
+  motion_platform_svc.run_gcode((char *)gcmd);
 
   // LOG_I("job_ctrl: resume cur_line_num %d\r\n", _env.cur_line_num);
   // LOG_I("job_ctrl: ========================= resume =========================\r\n");

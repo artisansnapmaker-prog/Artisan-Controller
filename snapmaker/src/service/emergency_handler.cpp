@@ -24,6 +24,8 @@ static uint32_t power_loss_det = PE0;
 #define ENV_VALID_FLAG_ADDR         (EMERGENCY_ENV_SIZE - 8)
 #define ENV_VALID_FLAG_ADDR_FLASH   (FLASH_BASE_ADDRESS + (16 * 1024) - 4)
 
+#define ISR_DEBOUNCE  (55000)
+
 EmergencyHandler emergency_hdl;
 
 sacp_hmi_message_t EmergencyHandler::msg_notify_stop;
@@ -32,6 +34,9 @@ sacp_hmi_message_t EmergencyHandler::msg_notify_recovery;
 // EXTI_IRQ_SUBPRIO
 // EXTI_IRQ_PRIO
 static void interrupt_cb_stop_button() {
+  int debounce = ISR_DEBOUNCE;
+  while (--debounce > 0); // about 1ms
+
   if (digitalRead(stop_button) != PIN_STATE_TRIGGERED)
     return;
 
@@ -39,6 +44,9 @@ static void interrupt_cb_stop_button() {
 }
 
 static void interrupt_cb_power_loss() {
+  int debounce = ISR_DEBOUNCE;
+  while (--debounce > 0); // about 1ms
+
   if (digitalRead(power_loss_det) != PIN_STATE_TRIGGERED)
     return;
 
@@ -75,8 +83,8 @@ void EmergencyHandler::init() {
     return;
   }
 
-  attachInterrupt(stop_button, interrupt_cb_stop_button, FALLING);
-  attachInterrupt(power_loss_det, interrupt_cb_power_loss, FALLING);
+  attachInterrupt(stop_button, interrupt_cb_stop_button, LOW);
+  attachInterrupt(power_loss_det, interrupt_cb_power_loss, LOW);
 
   record_avail = check_record();
   if (record_avail) {
@@ -208,12 +216,17 @@ void EmergencyHandler::power_loss() {
 }
 
 
+#define POWER_DOMAIN_EMERGENCY_STOP (POWER_DOMAIN_MOTIVE_POWER | POWER_DOMAIN_8P_TOOLHEAD | \
+                                      POWER_DOMAIN_8P_MOTOR | POWER_DOMAIN_4P_ADDON | \
+                                      POWER_DOMAIN_BED)
 void EmergencyHandler::emergency_stop() {
   JobEnv   *job_env = (JobEnv *)env;
   volatile uint32_t *flag, *checksum;
 
   // - disable All ISR
   disable_all_interrupts();
+
+  smprinter.disable_power_domain(POWER_DOMAIN_EMERGENCY_STOP);
 
   // need to check if we need save env and write flash
   // - get env
@@ -391,6 +404,10 @@ err_code_t EmergencyHandler::hmi_cb_req_recovery_job(void *obj, sacp_hmi_message
   switch (smprinter.get_toolhead_type()) {
   case TH_TYPE_3DP:
     if (!motion_platform_svc.is_all_axes_homed()) {
+      motion_platform_svc.run_gcode((char *)"M104 S150");
+      while(!motion_platform_svc.hotends_heatup_to_target()) {
+        vTaskDelay(pdMS_TO_TICKS(10));
+      }
       motion_platform_svc.run_gcode((char *)"G53");
       motion_platform_svc.run_gcode((char *)"G28");
     }

@@ -38,7 +38,7 @@ class EmergencyHandler {
   private:
     bool check_record();
 
-    static sacp_hmi_message_t notify_msg;
+    static sacp_hmi_message_t msg_notify_stop, msg_notify_recovery;
     uint8_t button_state;
     bool record_avail;
 

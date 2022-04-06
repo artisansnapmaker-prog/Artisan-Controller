@@ -26,7 +26,8 @@ static uint32_t power_loss_det = PE0;
 
 EmergencyHandler emergency_hdl;
 
-sacp_hmi_message_t EmergencyHandler::notify_msg;
+sacp_hmi_message_t EmergencyHandler::msg_notify_stop;
+sacp_hmi_message_t EmergencyHandler::msg_notify_recovery;
 
 // EXTI_IRQ_SUBPRIO
 // EXTI_IRQ_PRIO
@@ -48,11 +49,11 @@ void EmergencyHandler::init() {
   pinMode(stop_button, INPUT);
   pinMode(power_loss_det, INPUT);
 
-  notify_msg.peer     = SACP_HOST_ID_SCREEN;
-  notify_msg.ch       = SACP_HMI_CH_SCREEN;
-  notify_msg.cmd_set  = SACP_CMD_SET_GLOBAL_REQ;
-  notify_msg.cmd_id   = SACP_CMD_ID_GLOABL_REQ_NOTIFY_EMERGENCY_STOP;
-  notify_msg.length   = 1;
+  msg_notify_stop.peer     = SACP_HOST_ID_SCREEN;
+  msg_notify_stop.ch       = SACP_HMI_CH_SCREEN;
+  msg_notify_stop.cmd_set  = SACP_CMD_SET_GLOBAL_REQ;
+  msg_notify_stop.cmd_id   = SACP_CMD_ID_GLOABL_REQ_NOTIFY_EMERGENCY_STOP;
+  msg_notify_stop.length   = 1;
 
   if (sizeof(JobEnv) >= (EMERGENCY_ENV_SIZE - 4)) {
     LOG_E("env size[%u] is out of range of emergency record[4096]\n", sizeof(JobEnv));
@@ -247,7 +248,7 @@ void EmergencyHandler::emergency_stop() {
 
 void EmergencyHandler::req_stop_job() {
   job_ctrl_svc.req_stop_from_isr(STOP_EMERGENCY, SACP_JOB_PAUSE_ISSUE_RET_EMERGENCY_STOP,
-                                  job_cb_notify_emergency_stop, &notify_msg);
+                                  job_cb_notify_emergency_stop, &msg_notify_stop);
 }
 
 // notify screen the emergency button is pressed
@@ -416,8 +417,10 @@ err_code_t EmergencyHandler::hmi_cb_req_recovery_job(void *obj, sacp_hmi_message
   ClientNode *client = ClientNode::touch_client(msg->peer, msg->ch);
   UNUSED(client);
 
+  memcpy(&msg_notify_recovery, msg, sizeof(sacp_hmi_message_t));
+
   // TODO: resume job
-  job_ctrl_svc.req_resume(msg->peer, job_cb_notify_recovery, msg);
+  job_ctrl_svc.req_resume(msg->peer, job_cb_notify_recovery, &msg_notify_recovery);
 
   return E_SUCCESS;
 }
@@ -449,7 +452,7 @@ void EmergencyHandler::job_cb_notify_recovery(void *p, uint8_t result) {
 void EmergencyHandler::background() {
   if (button_state != read_button()) {
     button_state = read_button();
-    job_cb_notify_emergency_stop(&notify_msg, E_SUCCESS);
+    job_cb_notify_emergency_stop(&msg_notify_stop, E_SUCCESS);
   }
 
   if (button_state == PIN_STATE_TRIGGERED && !smprinter.on_working() &&

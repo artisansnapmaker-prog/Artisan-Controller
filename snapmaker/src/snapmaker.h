@@ -319,6 +319,7 @@ class SnapmakerPrinter
     bool on_working();
 
     // callbacks for HMI
+    static err_code_t hmi_cb_request_reboot(void *obj, sacp_hmi_message_t *msg);
     static uint16_t hmi_cb_publish_system_status(void *obj, uint8_t *buffer);
     static err_code_t hmi_cb_get_machine_info(void *obj, sacp_hmi_message_t *msg);
     static err_code_t hmi_cb_get_machine_size(void *obj, sacp_hmi_message_t *msg);

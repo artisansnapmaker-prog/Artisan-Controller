@@ -184,6 +184,13 @@ uint16_t SnapmakerPrinter::hmi_cb_publish_system_status(void *obj, uint8_t *buff
 }
 
 // HMI event callback
+err_code_t SnapmakerPrinter::hmi_cb_request_reboot(void *obj, sacp_hmi_message_t *msg) {
+  LOG_I("hmi_cb_request_reboot\n");
+  host_hmi.send_ack(msg, E_SUCCESS);
+  vTaskDelay(pdMS_TO_TICKS(100));
+  HAL_reboot();
+}
+
 err_code_t SnapmakerPrinter::hmi_cb_get_machine_info(void *obj, sacp_hmi_message_t *msg) {
   SnapmakerPrinter *printer = (SnapmakerPrinter *)obj;
   char ver[] = "A400_V0.0.1";
@@ -329,7 +336,7 @@ static void system_thread(void *p) {
 
   // must init hmi firstly
   host_hmi.init(thandle_hmi_event, hmi_recv_signal);
-  host_hmi.apply_cmd_set_handle(SACP_CMD_SET_GLOBAL_REQ, 20);
+  host_hmi.apply_cmd_set_handle(SACP_CMD_SET_GLOBAL_REQ, 24);
 
   // module init
   module_svc.init();
@@ -355,6 +362,10 @@ static void system_thread(void *p) {
       (void *)&smprinter, SnapmakerPrinter::hmi_cb_get_machine_size);
   host_hmi.register_callback(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_SET_PC_PROTOCOL,
       (void *)&smprinter, SnapmakerPrinter::hmi_cb_set_protocol_for_PC);
+
+  host_hmi.register_callback(1, 3,
+      (void *)&smprinter, SnapmakerPrinter::hmi_cb_request_reboot);
+
 
   // loop
   for (;;) {

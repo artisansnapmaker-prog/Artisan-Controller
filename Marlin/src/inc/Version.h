@@ -25,7 +25,7 @@
  * Release version. Leave the Marlin version or apply a custom scheme.
  */
 #ifndef SHORT_BUILD_VERSION
-  #define SHORT_BUILD_VERSION "V0.0.10-beta2"
+  #define SHORT_BUILD_VERSION "V0.0.10-beta3"
 #endif
 
 /**

@@ -123,6 +123,7 @@ class SnapmakerPrinter
      * Set by stepper in ISR, define as public for faster visite from stepper
     */
     uint32_t gcode_file_position;
+    uint32_t gcode_file_pass_line_number;
 
   public:
     SnapmakerPrinter() {

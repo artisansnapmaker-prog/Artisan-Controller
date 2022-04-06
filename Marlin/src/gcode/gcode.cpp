@@ -1136,6 +1136,9 @@ void GcodeSuite::process_next_command() {
   // Parse the next command in the queue
   parser.parse(command.buffer);
   process_parsed_command();
+  #if MB_SNAPMAKER
+  smprinter.gcode_file_pass_line_number = command.lines;
+  #endif
 }
 
 #pragma GCC diagnostic push

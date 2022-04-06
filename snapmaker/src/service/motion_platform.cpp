@@ -492,7 +492,10 @@ void MotionPlatformService::normalstop(void) {
   // Now the system status is PAUSING, marlin or other platform
   // will not get gcode from job control's ringbuffer. So marlin
   // or other platform will runout the planed block.
-  while(planner.busy()) vTaskDelay(1);
+  // while(planner.busy()) {
+  //   if ()
+  //   vTaskDelay(1);
+  // } 
 }
 
 err_code_t MotionPlatformService::take_quickstop_sem(uint32_t wait_time) {

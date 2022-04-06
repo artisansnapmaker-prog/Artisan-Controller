@@ -30,7 +30,6 @@ class EnclosureA400: public Enclosure {
 
     err_code_t pre_init();
     err_code_t post_init();
-    err_code_t deinit();
 
     err_code_t set_light_bar(uint8_t level);
     err_code_t set_fan_speed(uint8_t speed);

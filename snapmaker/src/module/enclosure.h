@@ -73,7 +73,7 @@ class Enclosure: public ModuleBase {
 
     virtual err_code_t pre_init();
     virtual err_code_t post_init();
-    virtual err_code_t deinit();
+    err_code_t deinit();
 
     void enclosure_test();
 

@@ -45,7 +45,6 @@ class ToolHeadCNC200W: public ToolHeadCNC {
 
     err_code_t pre_init();
     err_code_t post_init();
-    err_code_t deinit();   // TODO 
 
     err_code_t set_output_power(uint8_t new_power, bool is_update_power=true);
     err_code_t set_output_rpm(uint16_t new_rpm, bool is_update_rpm=true);

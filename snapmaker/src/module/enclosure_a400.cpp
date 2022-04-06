@@ -66,11 +66,6 @@ err_code_t EnclosureA400::pre_init() {
   return E_SUCCESS;
 }
 
-// TODO
-err_code_t EnclosureA400::deinit() {
-  return E_SUCCESS;
-}
-
 err_code_t EnclosureA400::set_light_bar(uint8_t level) {
   // return set_enclosure_dev_func(0, level, true);
   return set_enclosure_dev_func(0, level);

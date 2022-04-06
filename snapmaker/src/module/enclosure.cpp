@@ -101,8 +101,22 @@ err_code_t Enclosure::pre_init() {
   return E_SUCCESS;
 }
 
-// TODO
 err_code_t Enclosure::deinit() {
+  if (public_mutex_lock()) {
+    online = false;
+    light_level = 0;
+    fan_speed = 0;
+    enclosure_sta = ENCLOSURE_INITIAL_STATE;
+    set_status(MODULE_STATUS_OFFLINE);
+    public_mutex_unlock();
+  }
+  else {
+    // prevent state confusion, and set offline if failure
+    online = false;
+    set_status(MODULE_STATUS_OFFLINE);
+    LOG_E("[%s] Enclosure take public_mutex_lock fail\n", __FUNCTION__);
+    return E_FAILURE;
+  }
   return E_SUCCESS;
 }
 

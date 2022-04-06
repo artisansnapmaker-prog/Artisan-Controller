@@ -75,11 +75,6 @@ err_code_t ToolHeadCNC200W::pre_init() {
   return E_SUCCESS;
 }
 
-// TODO 
-err_code_t ToolHeadCNC200W::deinit(){
-  return E_SUCCESS;
-}
-
 void hp_cnc_callback_update_info(void *obj, uint8_t *data, uint8_t length) {
   ToolHeadCNC200W &cnc = *(ToolHeadCNC200W *)obj;
   uint8_t error_trigger = 0;

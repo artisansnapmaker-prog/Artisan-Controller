@@ -35,16 +35,6 @@
 #define CNC_LIMIT_WORK_STATE_MASK      (CNC_OVERCURRENT_ERROR_MASK | CNC_PCB_TEMP_ERROR_MASK | \
                                         CNC_MOTOR_TEMP_ERROR_MASK | CNC_VOLTAGE_ERROR_MASK)
 
-// #define SACP_GET_HEAD_INFO_COMMANDID               0x01
-// #define SACP_CNC_SET_POWER_COMMANDID               0x02
-// #define SACP_CNC_SET_RPM_COMMANDID                 0x03
-// #define SACP_CNC_SET_CTR_MODE_COMMANDID            0x04
-// #define SACP_CNC_SET_ENABLE_COMMANDID              0x05
-// #define SACP_CNC_COMMANDID_NUM                     5
-
-// #define SACP_CNC_ENTER_CALIBRATE_COMMANDID         0x05
-// #define SACP_CNC_EXIT_CALIBRATE_COMMANDID          0x05
-
 #define SACP_CNC_SUBSCRIBE_COMMANDID               0xa0
 
 #define E_CNC_NO_SUPPORT        (PRIVATE_ERROR_BASE + 0)
@@ -127,7 +117,7 @@ class ToolHeadCNC: public ModuleBase {
 
     virtual err_code_t pre_init();
     virtual err_code_t post_init();
-    virtual err_code_t deinit();
+    err_code_t deinit();
 
     bool prepare_start(void);
     bool check_online() { return online; }

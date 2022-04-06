@@ -113,15 +113,17 @@ err_code_t ToolHeadCNC::pre_init() {
 
 err_code_t ToolHeadCNC::deinit() {
   if (public_mutex_lock()) {
-    power = 0;
+    real_power = 0;
     rpm   = 0;
     output_sta = CNC_OUTPUT_OFF;
     online = false;
-    target_rpm = 0;
-    real_power = 0;
+    set_status(MODULE_STATUS_OFFLINE);
     public_mutex_unlock();
   }
   else {
+    // prevent state confusion, and set offline if failure
+    online = false;
+    set_status(MODULE_STATUS_OFFLINE);
     LOG_E("[%s] CNC take public_mutex_lock fail\n", __FUNCTION__);
     return E_FAILURE;
   }

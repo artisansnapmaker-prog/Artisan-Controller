@@ -45,7 +45,7 @@
 #define MARLIN_SERIAL_IRQ_PRIORITY 9
 
 
-#define DEFAUT_LEVELING_HEIGHT  9 // uint: mm
+#define DEFAUT_LEVELING_HEIGHT  20 // uint: mm
 
 #define MODULE_LINEAR_PITCH_20        160
 #define MODULE_LINEAR_PITCH_8         400

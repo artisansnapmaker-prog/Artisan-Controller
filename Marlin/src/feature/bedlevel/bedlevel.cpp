@@ -142,8 +142,19 @@ void reset_bed_level() {
     #elif ENABLED(AUTO_BED_LEVELING_BILINEAR)
       bilinear_start.reset();
       bilinear_grid_spacing.reset();
+      #if MB_SNAPMAKER
+        GRID_MAX_POINTS_X = 3;
+        GRID_MAX_POINTS_Y = 3;
+        GRID_MAX_CELLS_X  = GRID_MAX_POINTS_X - 1;
+        GRID_MAX_CELLS_Y  = GRID_MAX_POINTS_Y - 1;
+
+        bilinear_grid_spacing[X_AXIS] = (endx - startx) / (GRID_MAX_POINTS_X - 1);
+        bilinear_grid_spacing[Y_AXIS] = (endy - starty) / (GRID_MAX_POINTS_Y - 1);
+        bilinear_start[X_AXIS] = RAW_X_POSITION(startx);
+        bilinear_start[Y_AXIS] = RAW_Y_POSITION(starty);
+      #endif
       GRID_LOOP(x, y) {
-        z_values[x][y] = NAN;
+        z_values[x][y] = DEFAUT_LEVELING_HEIGHT;
         TERN_(EXTENSIBLE_UI, ExtUI::onMeshUpdate(x, y, 0));
       }
     #elif ABL_PLANAR
@@ -151,7 +162,7 @@ void reset_bed_level() {
     #endif
     #if MB_SNAPMAKER
       GRID_LOOP(x, y) {
-        z_values_raw[x][y] = NAN;
+        z_values_raw[x][y] = DEFAUT_LEVELING_HEIGHT;
       }
     #endif
   #endif

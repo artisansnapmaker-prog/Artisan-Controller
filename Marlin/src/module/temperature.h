@@ -183,10 +183,17 @@ enum ADCSensorState : char {
   #define PID_dT ((OVERSAMPLENR * float(ACTUAL_ADC_SAMPLES)) / TEMP_TIMER_FREQUENCY)
 
   // Apply the scale factors to the PID values
-  #define scalePID_i(i)   ( float(i) * PID_dT )
-  #define unscalePID_i(i) ( float(i) / PID_dT )
-  #define scalePID_d(d)   ( float(d) / PID_dT )
-  #define unscalePID_d(d) ( float(d) * PID_dT )
+  #if !MB_SNAPMAKER
+    #define scalePID_i(i)   ( float(i) * PID_dT )
+    #define unscalePID_i(i) ( float(i) / PID_dT )
+    #define scalePID_d(d)   ( float(d) / PID_dT )
+    #define unscalePID_d(d) ( float(d) * PID_dT )
+  #else
+    #define scalePID_i(i) (float(i))
+    #define unscalePID_i(i) (float(i))
+    #define scalePID_d(d)  (float(d))
+    #define unscalePID_d(d) (float(d))
+  #endif
 #endif
 
 #if ENABLED(G26_MESH_VALIDATION) && EITHER(HAS_LCD_MENU, EXTENSIBLE_UI)

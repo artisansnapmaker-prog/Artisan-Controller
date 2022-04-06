@@ -689,7 +689,7 @@ void JobCtrl::do_pause(struct JobCtrlReqInfo &jri) {
     break;
 
     default:
-      LOG_E("job_ctrl: unknow pause type\r\n");
+      LOG_E("job_ctrl: unknow pause type %d\r\n", jri.req_data.req_pause_data.type);
       smprinter.set_sys_status(SYSTEM_STATUS_IDLE, &ret_sys_status);
       DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, ret_sys_status);
       _issue_ret_rb.insert_one(SACP_JOB_PAUSE_ISSUE_RET_PAUSE_PARAM_ERR);

@@ -118,8 +118,9 @@ class ToolHeadCNC: public ModuleBase {
     virtual err_code_t pre_init();
     virtual err_code_t post_init();
     err_code_t deinit();
-
     bool prepare_start(void);
+    uint8_t is_can_resume_work(void);
+
     bool check_online() { return online; }
     uint16_t get_rpm() { return rpm; };
     err_code_t save_env(uint8_t *env_buf, uint32_t &len);

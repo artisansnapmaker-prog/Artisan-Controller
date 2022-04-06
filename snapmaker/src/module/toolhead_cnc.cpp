@@ -143,6 +143,13 @@ bool ToolHeadCNC::prepare_start(void) {
   return result;
 }
 
+uint8_t ToolHeadCNC::is_can_resume_work(void) {
+  uint8_t ret = 0;
+  if (get_status() == MODULE_STATUS_NORMAL && !(error_state & CNC_LIMIT_WORK_STATE_MASK))
+    ret = 1;
+  return ret;
+}
+
 // message id callback to handle RPM update from module
 void cnc_callback_update_rpm(void *obj, uint8_t *data, uint8_t length) {
   ToolHeadCNC &cnc = *(ToolHeadCNC *)obj;

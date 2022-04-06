@@ -1009,6 +1009,10 @@ bool SnapmakerPrinter::can_resume_work(void) {
     return false;
   }
 
+  if (TH_TYPE_CNC == get_toolhead_type()) {
+    if (!cnc || (cnc && !cnc->is_can_resume_work()))
+      return false;
+  }
   return true;
 }
 

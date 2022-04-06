@@ -1388,22 +1388,22 @@ err_code_t ToolHeadFDM::save_env(uint8_t *env_buf, uint32_t &len) {
   fdm_recovery_data_t recovery_data;
 
   recovery_data.active_extruder = active_extruder;
-  LOG_I("save env, active_extruder: %d\n", active_extruder);
+  // LOG_I("save env, active_extruder: %d\n", active_extruder);
   recovery_data.feedrate_percentage[0] = extruders_feedrate_percentage[0];
   recovery_data.feedrate_percentage[1] = extruders_feedrate_percentage[1];
-  LOG_I("save env, feedrate_percentage: %f, %f\n", recovery_data.feedrate_percentage[0], recovery_data.feedrate_percentage[1]);
+  // LOG_I("save env, feedrate_percentage: %f, %f\n", recovery_data.feedrate_percentage[0], recovery_data.feedrate_percentage[1]);
   recovery_data.live_z_offset[0] = bedlevel_svc.live_z_offset[0];
   recovery_data.live_z_offset[1] = bedlevel_svc.live_z_offset[1];
-  LOG_I("save env, live_z_offset: %f, %f\n", recovery_data.live_z_offset[0], recovery_data.live_z_offset[1]);
+  // LOG_I("save env, live_z_offset: %f, %f\n", recovery_data.live_z_offset[0], recovery_data.live_z_offset[1]);
   recovery_data.live_z_offset_changed = bedlevel_svc.live_z_offset_changed;
-  LOG_I("save env, live_z_offset_changed: %d\n", recovery_data.live_z_offset_changed);
+  // LOG_I("save env, live_z_offset_changed: %d\n", recovery_data.live_z_offset_changed);
   recovery_data.fan_speed[0] = fan_speed[0];
   recovery_data.fan_speed[1] = fan_speed[1];
   recovery_data.fan_speed[2] = fan_speed[2];
-  LOG_I("save env, fan speed: %d, %d, %d\n", recovery_data.fan_speed[0], recovery_data.fan_speed[1], recovery_data.fan_speed[2]);
+  // LOG_I("save env, fan speed: %d, %d, %d\n", recovery_data.fan_speed[0], recovery_data.fan_speed[1], recovery_data.fan_speed[2]);
   recovery_data.target_temp[0] = hotend_temp[0].target;
   recovery_data.target_temp[1] = hotend_temp[1].target;
-  LOG_I("save env, target_temp: %f, %f\n", recovery_data.target_temp[0], recovery_data.target_temp[1]);
+  // LOG_I("save env, target_temp: %f, %f\n", recovery_data.target_temp[0], recovery_data.target_temp[1]);
 
   len = sizeof(fdm_recovery_data_t);
   memcpy(env_buf, (uint8_t *)&recovery_data, len);
@@ -1437,9 +1437,9 @@ err_code_t ToolHeadFDM::resume_env(uint8_t *env_buf, uint32_t &len) {
     set_fan_speed(0, recovery_data.fan_speed[0]);
     set_fan_speed(1, recovery_data.fan_speed[1]);
     set_fan_speed(2, recovery_data.fan_speed[2]);
-    LOG_I("resume env, fan speed: %d, %d, %d\n", recovery_data.fan_speed[0], recovery_data.fan_speed[1], recovery_data.fan_speed[2]);
+    LOG_I("resume env, fan speed: %u, %u, %u\n", recovery_data.fan_speed[0], recovery_data.fan_speed[1], recovery_data.fan_speed[2]);
     // hotend temp
-    LOG_I("resume env, target_temp: %d, %d", recovery_data.target_temp[0], recovery_data.target_temp[1]);
+    LOG_I("resume env, target_temp: %u, %u", recovery_data.target_temp[0], recovery_data.target_temp[1]);
     char buf[32];
     snprintf(buf, 32, "M104 T0 S%d", recovery_data.target_temp[0]);
     motion_platform_svc.run_gcode(buf);

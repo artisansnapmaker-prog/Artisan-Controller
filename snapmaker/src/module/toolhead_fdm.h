@@ -106,7 +106,7 @@ typedef struct {
   float live_z_offset[EXTRUDERS];
   float live_z_offset_changed;
   uint8_t fan_speed[3];
-  float target_temp[EXTRUDERS];
+  int16_t target_temp[EXTRUDERS];
 } __attribute__((packed)) fdm_recovery_data_t;
 
 class ToolHeadFDM: public ModuleBase {

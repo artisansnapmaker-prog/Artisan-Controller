@@ -685,7 +685,7 @@ void JobCtrl::do_pause(struct JobCtrlReqInfo &jri) {
     break;
 
     case PAUSE_EXCEPTION:
-      LOG_I("TODO: quickstop\r\n");
+      motion_platform_svc.req_quickstop();
     break;
 
     default:
@@ -727,6 +727,10 @@ void JobCtrl::do_pause(struct JobCtrlReqInfo &jri) {
   _paused = true;
   if (PAUSE_DOOR_OPEN == jri.req_data.req_pause_data.type) {
     _issue_ret_rb.insert_one(SACP_JOB_PAUSE_ISSUE_RET_DOOR_OPEN);
+  }
+  else if (PAUSE_EXCEPTION == jri.req_data.req_pause_data.type) {
+    if (smprinter.get_toolhead_type() == TH_TYPE_CNC)
+      _issue_ret_rb.insert_one(SACP_JOB_PAUSE_ISSUE_RET_STALL_PROTECTION);
   }
   DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, SYSTEM_STATUS_PAUSED);
 }

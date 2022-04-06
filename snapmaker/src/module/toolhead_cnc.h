@@ -172,6 +172,7 @@ class ToolHeadCNC: public ModuleBase {
     uint16_t error_state;
     uint16_t rpm;
     uint16_t target_rpm;
+    uint16_t record_error;
     uint32_t lost_counter;
     bool  online = false;
     SemaphoreHandle_t public_mutex = NULL;

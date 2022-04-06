@@ -25,6 +25,7 @@
 #include "../snapmaker.h"
 #include "../common/debug.h"
 #include "../service/module.h"
+#include "../service/job_ctrl.h"
 #include "toolhead_cnc_200w.h"
 
 // every module must define itself function and priority map !!!!
@@ -64,6 +65,7 @@ err_code_t ToolHeadCNC200W::pre_init() {
     output_sta = CNC_OUTPUT_OFF;
     calibrate_mode = CNC_CALIBRATION_IDLE;
     online = false;
+    record_error = 0;
     set_status(MODULE_STATUS_INIT);
     public_mutex_unlock();
   }
@@ -105,8 +107,10 @@ void hp_cnc_callback_update_info(void *obj, uint8_t *data, uint8_t length) {
     }
     
     if (error_trigger) {
-        LOG_E("new exception trigger, error_state: 0x%x\n", cnc.error_state);
-        cnc.debug_emergency_stop();
+      LOG_E("new exception trigger, error_state: 0x%x\n", cnc.error_state);
+      // cnc.debug_emergency_stop();
+      cnc.record_error = cnc.error_state;
+      smprinter.pause_trigger(PAUSE_EXCEPTION);
     }
   }
 }
@@ -169,6 +173,7 @@ void ToolHeadCNC200W::report_cnc_status_info() {
   LOG_I("HP_CNC cur_rpm: %d target_rpm: %d\n",  rpm, target_rpm);
   LOG_I("HP_CNC calibration mode: %d\n",calibrate_mode);
   LOG_I("HP_CNC mode status: %d\n",get_status());
+  LOG_I("HP_CNC last error: 0x%x\n", record_error);
 }
 
 err_code_t ToolHeadCNC200W::set_run_mode(CNCSpeedControlMode mode) {

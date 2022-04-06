@@ -25,6 +25,7 @@
 #include "../snapmaker.h"
 #include "../common/debug.h"
 #include "../service/module.h"
+#include "../service/job_ctrl.h"
 #include "toolhead_cnc.h"
 
 // debug function: emergency stop
@@ -99,6 +100,7 @@ err_code_t ToolHeadCNC::pre_init() {
     error_state = 0;
     target_rpm = 0;
     real_power = 0;
+    record_error = 0;
     online = false;
     set_status(MODULE_STATUS_INIT);
     public_mutex_unlock();
@@ -176,7 +178,9 @@ void cnc_callback_update_rpm(void *obj, uint8_t *data, uint8_t length) {
 
   if (stall_trigger) {
     LOG_I("CNC blocking trigger!!!\n");
-    cnc.debug_emergency_stop();
+    // cnc.debug_emergency_stop();
+    cnc.record_error = cnc.error_state;
+    smprinter.pause_trigger(PAUSE_EXCEPTION);
   }
 }
 
@@ -288,6 +292,7 @@ void ToolHeadCNC::report_cnc_status_info() {
   LOG_I("CNC cur_rpm: %d target_rpm: %d\n",  rpm, target_rpm);
   LOG_I("CNC calibration mode: %d\n",calibrate_mode);
   LOG_I("CNC mode status: %d\n",get_status());
+  LOG_I("CNC last error: 0x%x\n", record_error);
 }
 
 err_code_t ToolHeadCNC::sync_cnc_output(uint16_t value, CNCSpeedControlType type) {

@@ -1,5 +1,4 @@
 #include <Arduino.h>
-#include "../common/config.h"
 #include "../common/utility.h"
 #include "../common/flash.h"
 #include "sacp_protocol.h"
@@ -23,6 +22,7 @@ bool write_boot_info(boot_info_t *bi);
 void init_boot_info(boot_info_t *bi);
 void flash_test(flash_partition_t &partition);
 void normal_boot(void);
+void jump_to(uint32_t addr);
 
 /********************************************************************************/
 // FUN DEF
@@ -43,16 +43,6 @@ void protocol_loop() {
     c = Serial.read();
     // if(protocol_push_char(sacp_fsm, c)
   }
-}
-
-void jump_to(uint32_t addr)
-{
-  __disable_irq();
-  uint32_t jump_addr = *(__IO uint32_t*)(addr+4); 
-  pf p = (pf)jump_addr;
-  __set_MSP(*(__IO uint32_t*)addr);
-  p();
-  while(1);
 }
 
 void boot_app(void) {
@@ -91,11 +81,12 @@ void trans_fw_loop(void) {
 }
 
 void loop() {
-  flash_test(boot_data_partition);
-  // init_boot_info(&boot_info);
-  // write_boot_info(&boot_info);
-  // load_boot_info(&boot_info);
-  // print_boot_info(&boot_info);
+  // flash_test(boot_data_partition);
+
+  init_boot_info(&boot_info);
+  write_boot_info(&boot_info);
+  load_boot_info(&boot_info);
+  print_boot_info(&boot_info);
 
   // Serial.print("Jump to ");
   // Serial.println(DOWNLOAD_SLOT_ADDR);
@@ -251,5 +242,42 @@ void init_boot_info(boot_info_t *bi) {
 }
 
 void normal_boot(void) {
+  static uint32_t tick_ms = millis();
+  static uint32_t count_down_second = BOOT_DELAY_SECODE;
 
+  Serial.print("Boot in ");
+  Serial.print(count_down_second);
+  Serial.println(" second");
+
+  while(1) {
+    if (time_after(millis(), tick_ms + 1000)) {
+      tick_ms = millis();
+      count_down_second--;
+      Serial.print("Boot in ");
+      Serial.print(count_down_second);
+      Serial.println(" second");
+      if (0 == count_down_second) {
+        Serial.print("Load application at 0x");
+        Serial.println(boot_info.fw_runaddr, HEX);
+        jump_to(boot_info.fw_runaddr);
+      }
+    }
+
+    protocol_loop();
+  }
+}
+
+void update_loop(void) {
+
+}
+
+void jump_to(uint32_t addr)
+{
+  Serial.end();
+  __disable_irq();
+  uint32_t jump_addr = *(__IO uint32_t*)(addr+4); 
+  pf p = (pf)jump_addr;
+  __set_MSP(*(__IO uint32_t*)addr);
+  p();
+  while(1);
 }

@@ -27,6 +27,36 @@
 #include "stm32f4xx_hal.h"
 #include "stm32f4xx_hal_flash_ex.h"
 
+// bootloader partition
+#define FLASH_BOOT_FW_START_SECTOR              (0)
+#define FLASH_BOOT_FW_SECTOR_NUM                (2)
+#define FLASH_BOOT_FW_DATA_ADDR                 (FLASH_BASE)
+#define FLASH_BOOT_FW_DATA_SIZE                 (32 * 1024)
+
+// bootloader data partition
+#define FLASH_BOOT_DATA_START_SECTOR            (11)
+#define FLASH_BOOT_DATA_SECTOR_NUM              (1)
+#define FLASH_BOOT_DATA_ADDR                    (896 * 1024 + FLASH_BASE)
+#define FLASH_BOOT_DATA_SIZE                    (128 * 1024)
+
+// marlin settings partition
+#define FLASH_MARLIN_SETTINGS_START_SECTOR      (2)
+#define FLASH_MARLIN_SETTINGS_SECTOR_NUM        (1)
+#define FLASH_MARLIN_SETTINGS_ADDR              (32 * 1024 + FLASH_BASE)
+#define FLASH_MARLIN_SETTINGS_SIZE              (16 * 1024)
+
+// app partition
+#define FLASH_APP_FW_START_SECTOR               (3)
+#define FLASH_APP_FW_SECTOR_NUM                 (5)
+#define FLASH_APP_FW_ADDR                       (48 * 1024 + FLASH_BASE)
+#define FLASH_APP_FW_SIZE                       (464 * 1024)
+
+// download partition
+#define FLASH_DOWNLOAD_START_SECTOR             (8)
+#define FLASH_DOWNLOAD_SECTOR_NUM               (3)
+#define FLASH_DOWNLOAD_ADDR                     (512 * 1024 + FLASH_BASE)
+#define FLASH_DOWNLOAD_SIZE                     (384 * 1024)
+
 typedef struct {
   FLASH_EraseInitTypeDef erase_config;
   uint32_t  start_addr;

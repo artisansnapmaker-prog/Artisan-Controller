@@ -28,7 +28,6 @@
   ** @explain  : null
 *****/
 
-#include "config.h"
 #include "utility.h"
 #include "flash.h"
 
@@ -146,7 +145,7 @@ uint32_t flash_write(flash_partition_t &flash_partition, uint8_t *data, uint32_t
   uint8_t *_8_data = data;
   // uint32_t _not_aligned_write_len = ROUNDUP(uint32_t(flash_partition.write_addr), 4) - (uint32_t)flash_partition.write_addr;
   // for(uint32_t i = 0; i < _not_aligned_write_len; i++) {
-  for(uint32_t i = 0; i < len; i++) {
+  for(uint32_t i = 0; i < need_to_write_len; i++) {
     if (HAL_OK != HAL_FLASH_Program(FLASH_TYPEPROGRAM_BYTE, flash_partition.write_addr, *_8_data)) {
       break;
     }

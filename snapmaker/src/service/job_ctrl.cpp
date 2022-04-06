@@ -782,9 +782,8 @@ void JobCtrl::do_stop(struct JobCtrlReqInfo &jri) {
   switch(jri.req_data.req_stop_data.type) {
     case STOP_NORMAL:
     {
-      // motion_platform_svc.normalstop();
       uint32_t cnt = 300;
-      while(planner.busy() || smprinter.gcode_file_pass_line_number != _env.req_line_num - 1) {
+      while(motion_platform_svc.planner_busy() || smprinter.gcode_file_pass_line_number != _env.req_line_num - 1) {
         vTaskDelay(1);
         if (0 == cnt % 300)
           LOG_I("gcode_file_pass_line_number %d\r\n", smprinter.gcode_file_pass_line_number);

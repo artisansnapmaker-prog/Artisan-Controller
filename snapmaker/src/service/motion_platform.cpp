@@ -477,25 +477,8 @@ void MotionPlatformService::req_quickstop(void) {
   take_quickstop_sem(0xffffffff);
 }
 
-void MotionPlatformService::normalstop(void) {
-  // There is a race condition that must be handled: the marlin thread and the caller thread
-  // stop Scheduling?
-  // vTaskSuspendAll();
-  // planner.normal_stop();
-  // planner.synchronize();
-  // set_current_from_steppers_for_axis(ALL_AXES_ENUM);
-  // sync_plan_position();
-  // if (!xTaskResumeAll())
-  //     taskYIELD ();
-
-  // Just wait for all the block in planner has been runout
-  // Now the system status is PAUSING, marlin or other platform
-  // will not get gcode from job control's ringbuffer. So marlin
-  // or other platform will runout the planed block.
-  // while(planner.busy()) {
-  //   if ()
-  //   vTaskDelay(1);
-  // } 
+bool MotionPlatformService::planner_busy(void) {
+  planner.busy();
 }
 
 err_code_t MotionPlatformService::take_quickstop_sem(uint32_t wait_time) {

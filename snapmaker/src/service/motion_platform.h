@@ -109,7 +109,7 @@ class MotionPlatformService {
     // emergency_handle will call this API in ISR to stop motion platform
     void req_emergency_stop();
     void req_quickstop(void);
-    void normalstop(void);
+    bool planner_busy(void);
     // This api use for wait planner quickstop
     err_code_t take_quickstop_sem(uint32_t wait_time);
     err_code_t give_quickstop_sem(void);

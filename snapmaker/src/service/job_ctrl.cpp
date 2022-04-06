@@ -519,7 +519,7 @@ void JobCtrl::get_gcodes_from_client(void) {
         _err_get_batch_gcode_cnt = 0;
 
         if (E_JOB_LAST_GCODE_PACK == res_batch_gcode.result) {
-          LOG_I("job_ctrl: Job control get last gcode packe\r\n");
+          LOG_I("job_ctrl: Job control get last gcode packe, last gcode line number %d\r\n", _env.req_line_num - 1);
           got_last_gcode_packet = true;
           break;
         }
@@ -781,8 +781,16 @@ void JobCtrl::do_stop(struct JobCtrlReqInfo &jri) {
 
   switch(jri.req_data.req_stop_data.type) {
     case STOP_NORMAL:
+    {
       // motion_platform_svc.normalstop();
-      while(planner.busy() || smprinter.gcode_file_pass_line_number == _env.req_line_num - 1) vTaskDelay(1);
+      uint32_t cnt = 300;
+      while(planner.busy() || smprinter.gcode_file_pass_line_number != _env.req_line_num - 1) {
+        vTaskDelay(1);
+        if (0 == cnt % 300)
+          LOG_I("gcode_file_pass_line_number %d\r\n", smprinter.gcode_file_pass_line_number);
+        cnt++;
+      }
+    }
     break;
 
     case STOP_CLIENT_REQ:

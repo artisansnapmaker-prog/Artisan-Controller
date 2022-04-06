@@ -690,6 +690,18 @@ void JobCtrl::do_pause(struct JobCtrlReqInfo &jri) {
       motion_platform_svc.req_quickstop();
     break;
 
+    case PAUSE_WRONG_EXTRUDER:
+      motion_platform_svc.req_quickstop();
+    break;
+
+    case PAUSE_WRONG_NOZZLE:
+      motion_platform_svc.req_quickstop();
+    break;
+
+    case PAUSE_NOZZLE_TEMP:
+      motion_platform_svc.req_quickstop();
+    break;
+
     default:
       LOG_E("job_ctrl: unknow pause type %d\r\n", jri.req_data.req_pause_data.type);
       smprinter.set_sys_status(SYSTEM_STATUS_IDLE, &ret_sys_status);
@@ -729,8 +741,13 @@ void JobCtrl::do_pause(struct JobCtrlReqInfo &jri) {
   _paused = true;
   if (PAUSE_DOOR_OPEN == jri.req_data.req_pause_data.type) {
     _issue_ret_rb.insert_one(SACP_JOB_PAUSE_ISSUE_RET_DOOR_OPEN);
-  }
-  else if (PAUSE_EXCEPTION == jri.req_data.req_pause_data.type) {
+  } else if (PAUSE_WRONG_EXTRUDER == jri.req_data.req_pause_data.type) {
+    _issue_ret_rb.insert_one(SACP_JOB_PAUSE_ISSUE_RET_WRONG_EXTRUDER);
+  } else if (PAUSE_WRONG_NOZZLE == jri.req_data.req_pause_data.type) {
+    _issue_ret_rb.insert_one(SACP_JOB_PAUSE_ISSUE_RET_WRONG_NOZZLE);
+  } else if (PAUSE_NOZZLE_TEMP == jri.req_data.req_pause_data.type) {
+    _issue_ret_rb.insert_one(SACP_JOB_PAUSE_ISSUE_RET_WRONG_HOTEND_TEMP);
+  } else if (PAUSE_EXCEPTION == jri.req_data.req_pause_data.type) {
     if (smprinter.get_toolhead_type() == TH_TYPE_CNC)
       _issue_ret_rb.insert_one(SACP_JOB_PAUSE_ISSUE_RET_STALL_PROTECTION);
   }

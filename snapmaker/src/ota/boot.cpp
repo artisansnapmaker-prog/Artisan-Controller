@@ -17,15 +17,57 @@
 /********************************************************************************/
 fsm_info_t sacp_fsm;
 scap_msg_t sacp_msg;
-boot_info_t *boot_info;
+boot_info_t boot_info;
 
 
 /********************************************************************************/
 // FUN DEF
 /********************************************************************************/
-bool load_boot_info(void) {
-  boot_info = (boot_info_t *)BOOT_INFO_ADDR;
-  // TODO: check
+void print_boot_info(boot_info_t *bi) {
+  char *ms;
+  Serial.println("========== boot info ==========");
+  ms = (char *)bi->magic_str;
+  Serial.println(F(ms));
+  
+  Serial.print("ver: ");
+  Serial.println(bi->ver);
+
+  Serial.print("boot_mode: ");
+  Serial.println(bi->boot_mode);
+}
+
+bool load_boot_info(boot_info_t *bi) {
+  memcpy(bi, (void *)BOOT_INFO_ADDR, sizeof(boot_info));
+  return true;
+}
+
+bool write_boot_info(boot_info_t *bi) {
+  if (!flash_erase_boot_data()) {
+    Serial.println("boot info write error\r\n");
+    while(1);
+  }
+
+  if (!flash_word_write(BOOT_INFO_ADDR, (uint32_t *)bi, sizeof(boot_info_t)/4 + 1)) {
+    Serial.println("boot info write error\r\n");
+    while(1);
+  }
+
+  return true;
+}
+
+void init_boot_info(boot_info_t *bi) {
+  memcpy(bi->magic_str, "snapmaker update.bin", 21);
+  bi->ver = 1;
+  bi->type = 4;
+  bi->start_index = 0;
+  bi->start_index = 1;
+  memcpy(bi->fw_ver_str, "ver12.34.56", 32);
+  memcpy(bi->timestamp_str, "2022.03.31 14:12:00", 20);
+  bi->boot_mode = 0xAA04;
+  bi->fw_len = 100000;
+  bi->fw_checksum = 12341234;
+  bi->fw_runaddr = DOWNLOAD_SLOT_ADDR;
+  bi->boot_head_checksum = 0x123414;
 }
 
 void setup() {
@@ -48,8 +90,7 @@ void protocol_loop() {
 
 void jump_to(uint32_t addr)
 {
-  // __disable_irq();
-  // SCB->VTOR = addr;
+  __disable_irq();
   uint32_t jump_addr = *(__IO uint32_t*)(addr+4); 
   pf p = (pf)jump_addr;
   __set_MSP(*(__IO uint32_t*)addr);
@@ -80,7 +121,7 @@ void boot_app(void) {
   }
 
   // snap_print("boot: boot to app\r\n");
-  jump_to(boot_info->fw_runaddr);
+  jump_to(boot_info.fw_runaddr);
 }
 
 void copy_to_run_slot(void) {
@@ -95,26 +136,30 @@ void trans_fw_loop(void) {
 uint32_t test_data[4 * 1024];
 void loop() {
 
-  for(uint32_t i = 0; i < 512; i++) {
-    test_data[i] = i;
-  }
-  flash_erase_boot_data();
-  if (!flash_word_write(BOOT_INFO_ADDR, test_data, 512)) {
-    while(1);
-  }
-  uint32_t v;
-  for(uint32_t i = 0; i < 512; i++) {
-    v = *((uint32_t *)(BOOT_INFO_ADDR) + i);
-    Serial.println(v);
-  }
+  // for(uint32_t i = 0; i < 512; i++) {
+  //   test_data[i] = i + 1000;
+  // }
+  // flash_erase_boot_data();
+  // if (!flash_word_write(BOOT_INFO_ADDR, test_data, 512)) {
+  //   while(1);
+  // }
+  // uint32_t v;
+  // for(uint32_t i = 0; i < 512; i++) {
+  //   v = *((uint32_t *)(BOOT_INFO_ADDR) + i);
+  //   Serial.println(v);
+  // }
+
+  init_boot_info(&boot_info);
+  write_boot_info(&boot_info);
+  load_boot_info(&boot_info);
+  print_boot_info(&boot_info);
 
   Serial.print("Jump to ");
   Serial.println(DOWNLOAD_SLOT_ADDR);
-  jump_to(DOWNLOAD_SLOT_ADDR);
+  // Serial.end();
+  // jump_to(DOWNLOAD_SLOT_ADDR);
 
-  // load_boot_info();
-
-  switch(boot_info->boot_mode) {
+  switch(boot_info.boot_mode) {
     case BOOT_MODE_FACTORY_BURNING:
     break;
 
@@ -131,11 +176,11 @@ void loop() {
     default:
       // snap_print("boot: unkown boot mode 0x%04x\r\n", boot_info->boot_mode);
       Serial.print("boot: unkown boot mode ");
-      Serial.print(boot_info->boot_mode);
+      Serial.print(boot_info.boot_mode);
     break;
   }
 
-  if (boot_info->boot_mode)
+  if (boot_info.boot_mode)
   
   while(1) {
 

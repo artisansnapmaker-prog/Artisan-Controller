@@ -25,14 +25,13 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include "ota_flash.h"
+#include "../common/flash.h"
 
 #define BOOT_MODE_FACTORY_BURNING     (0xAA01)
 #define BOOT_MODE_APP                 (0xAA02)
 #define BOOT_MODE_COPY                (0xAA03)                
 #define BOOT_MODE_UPDATING            (0xAA04)
 #define BOOT_DELAY_SECODE             (6)
-
 
 typedef struct __attribute__ ((packed)) {
   uint8_t magic_str[21];

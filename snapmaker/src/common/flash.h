@@ -19,28 +19,24 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef OTA_FLASH_H
-#define OTA_FLASH_H
-
+#ifndef SNAPMAKER_FLASH_H
+#define SNAPMAKER_FLASH_H
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include "stm32f4xx.h"
+#include "stm32f4xx_hal.h"
+#include "stm32f4xx_hal_flash_ex.h"
 
-
-#define BOOT_INFO_ADDR                (16 * 1024 + FLASH_BASE)
-#define BOOT_INFO_SIZE                (16 * 1024)
-#define DOWNLOAD_SLOT_ADDR            (48 * 1024 + FLASH_BASE)
-#define DOWNLOAD_SLOT_SZIE            (464 * 1024)
-#define FLASH_TAB_SIZE                (12)
-
-struct flash_item {
+typedef struct {
+  FLASH_EraseInitTypeDef erase_config;
   uint32_t  start_addr;
-  uint32_t  end_addr;
-};
+  uint32_t  write_addr;
+  uint32_t  size;
+} flash_partition_t;
 
-bool flash_erase_boot_data(void);
-bool flash_word_write(uint32_t addr, uint32_t *data, uint32_t word_len);
-void flash_word_read(uint32_t addr, uint32_t *data, uint32_t word_len);
+bool flash_erase_boot_data(flash_partition_t &flash_partition);
+bool flash_word_write(flash_partition_t &flash_partition, uint8_t *data, uint32_t len);
 
 #endif

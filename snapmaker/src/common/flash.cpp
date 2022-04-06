@@ -35,39 +35,16 @@
 #include "stm32f4xx.h"
 #include "stm32f4xx_hal.h"
 #include "stm32f4xx_hal_flash_ex.h"
-#include "ota_flash.h"
+#include "flash.h"
 
 
 /*************************************************************** Flash_Start ***************************************************************/
-/*************************************************************** Flash_Start ***************************************************************/
-/*************************************************************** Flash_Start ***************************************************************/
-// struct flash_item flash_tab[FLASH_TAB_SIZE] = {
-//   {0,             16 * 1024},
-//   {16 * 1024,     32 * 1024},
-//   {32 * 1024,     48 * 1024},
-//   {48 * 1024,     64 * 1024},
-//   {64 * 1024,     128 * 1024},
-//   {128 * 1024,    256 * 1024},
-//   {256 * 1024,    384 * 1024},
-//   {384 * 1024,    512 * 1024},
-//   {512 * 1024,    640 * 1024},
-//   {640 * 1024,    768 * 1024},
-//   {768 * 1024,    896 * 1024},
-//   {896 * 1024,    1024 * 1024},
-// };
-
-bool flash_erase_boot_data(void) {
+bool flash_erase_boot_data(flash_partition_t &flash_partition) {
   bool ret = true;
-  
-  FLASH_EraseInitTypeDef erase_config;
   uint32_t page_error;
-  erase_config.TypeErase    = FLASH_TYPEERASE_SECTORS;
-  erase_config.Sector       = 1;
-  erase_config.NbSectors    = 1;
-  erase_config.VoltageRange = FLASH_VOLTAGE_RANGE_3;
   
   HAL_FLASH_Unlock();
-  if (HAL_OK != HAL_FLASHEx_Erase(&erase_config, &page_error)) {
+  if (HAL_OK != HAL_FLASHEx_Erase(&(flash_partition.erase_config), &page_error)) {
     ret = false;
   }
   if (0xFFFFFFFF != page_error) {
@@ -78,8 +55,25 @@ bool flash_erase_boot_data(void) {
   return ret;
 }
 
-bool flash_word_write(uint32_t addr, uint32_t *data, uint32_t word_len) {
+bool flash_word_write(flash_partition_t &flash_partition, uint8_t *data, uint32_t len) {
+  uint32_t flash_free_size;
+
   HAL_FLASH_Unlock();
+  while(len) {
+    if (flash_partition.write_addr < flash_partition.start_addr) {
+      flash_free_size = flash_partition.size;
+      flash_partition.write_addr = flash_partition.start_addr;
+    }
+    else {
+      flash_free_size = flash_partition.size - (flash_partition.write_addr - flash_partition.start_addr;
+    }
+    
+    if (0 == flash_free_size) {
+      break;
+    }
+    if (flash_partition.size - (flash_partition.write_addr - flash_partition.start_addr)) {
+
+    }
   for(uint32_t i = 0; i < word_len; i++) {
     if (HAL_OK != HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, addr + i * 4, data[i])) {
       HAL_FLASH_Lock();
@@ -89,6 +83,41 @@ bool flash_word_write(uint32_t addr, uint32_t *data, uint32_t word_len) {
   HAL_FLASH_Lock();
   return true;
 }
+
+
+// bool flash_erase_boot_data(void) {
+//   bool ret = true;
+  
+//   FLASH_EraseInitTypeDef erase_config;
+//   uint32_t page_error;
+//   erase_config.TypeErase    = FLASH_TYPEERASE_SECTORS;
+//   erase_config.Sector       = 1;
+//   erase_config.NbSectors    = 1;
+//   erase_config.VoltageRange = FLASH_VOLTAGE_RANGE_3;
+  
+//   HAL_FLASH_Unlock();
+//   if (HAL_OK != HAL_FLASHEx_Erase(&erase_config, &page_error)) {
+//     ret = false;
+//   }
+//   if (0xFFFFFFFF != page_error) {
+//     ret = false;
+//   }
+//   FLASH_WaitForLastOperation(HAL_MAX_DELAY);
+//   HAL_FLASH_Lock();
+//   return ret;
+// }
+
+// bool flash_word_write(uint32_t addr, uint32_t *data, uint32_t word_len) {
+//   HAL_FLASH_Unlock();
+//   for(uint32_t i = 0; i < word_len; i++) {
+//     if (HAL_OK != HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, addr + i * 4, data[i])) {
+//       HAL_FLASH_Lock();
+//       return false;
+//     }
+//   }
+//   HAL_FLASH_Lock();
+//   return true;
+// }
 
 /*************************************************************** Flash_End ***************************************************************/
 /*************************************************************** Flash_End ***************************************************************/

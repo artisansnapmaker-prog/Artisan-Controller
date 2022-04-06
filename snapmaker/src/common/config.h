@@ -1,0 +1,59 @@
+/*
+ * Snapmaker2-Controller Firmware
+ * Copyright (C) 2019-2020 Snapmaker [https://github.com/Snapmaker]
+ *
+ * This file is part of Snapmaker2-Controller
+ * (see https://github.com/Snapmaker/Snapmaker2-Controller)
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+#ifndef SNAPMAKER_CONFIG_H
+#define SNAPMAKER_CONFIG_H
+
+#include "stm32f4xx.h"
+#include "stm32f4xx_hal.h"
+#include "stm32f4xx_hal_flash_ex.h"
+
+// bootloader partition
+#define FLASH_BOOT_FW_START_SECTOR              (0)
+#define FLASH_BOOT_FW_SECTOR_NUM                (1)
+#define FLASH_BOOT_FW_DATA_ADDR                 (FLASH_BASE)
+#define FLASH_BOOT_FW_DATA_SIZE                 (16 * 1024)
+
+// bootloader data partition
+#define FLASH_BOOT_DATA_START_SECTOR            (1)
+#define FLASH_BOOT_DATA_SECTOR_NUM              (1)
+#define FLASH_BOOT_DATA_ADDR                    (16 * 1024 + FLASH_BASE)
+#define FLASH_BOOT_DATA_SIZE                    (16 * 1024)
+
+// marlin settings partition
+#define FLASH_MARLIN_SETTINGS_START_SECTOR      (2)
+#define FLASH_MARLIN_SETTINGS_SECTOR_NUM        (1)
+#define FLASH_MARLIN_SETTINGS_ADDR              (32 * 1024 + FLASH_BASE)
+#define FLASH_MARLIN_SETTINGS_SIZE              (16 * 1024)
+
+// app partition
+#define FLASH_APP_FW_START_SECTOR               (3)
+#define FLASH_APP_FW_SECTOR_NUM                 (5)
+#define FLASH_APP_FW_ADDR                       (48 * 1024 + FLASH_BASE)
+#define FLASH_APP_FW_SIZE                       (464 * 1024)
+
+// download partition
+#define FLASH_DOWNLOAD_START_SECTOR             (8)
+#define FLASH_DOWNLOAD_SECTOR_NUM               (4)
+#define FLASH_DOWNLOAD_ADDR                     (512 * 1024 + FLASH_BASE)
+#define FLASH_DOWNLOAD_SIZE                     (512 * 1024)
+
+#endif

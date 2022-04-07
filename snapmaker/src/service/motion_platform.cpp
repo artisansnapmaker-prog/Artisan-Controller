@@ -911,8 +911,17 @@ float MotionPlatformService::get_current_position(uint8_t axis) {
 }
 
 void MotionPlatformService::sync_plan_position_to_platform() {
+  err_code_t ret = E_FAILURE;
+  if (xTaskGetCurrentTaskHandle() != thandle_marlin) {
+    ret = pause_marlin();
+  }
+
   current_position = sm_current_position;
   sync_plan_position();
+
+  if (ret == E_SUCCESS) {
+    resume_marlin();
+  }
 }
 
 float MotionPlatformService::get_max_position(uint8_t axis) {

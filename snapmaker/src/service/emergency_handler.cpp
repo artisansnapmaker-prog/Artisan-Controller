@@ -12,6 +12,10 @@
 static uint32_t stop_button    = PE1;
 static uint32_t power_loss_det = PE0;
 
+#define POWER_DOMAIN_EMERGENCY_STOP (POWER_DOMAIN_MOTIVE_POWER | POWER_DOMAIN_8P_TOOLHEAD | \
+                                      POWER_DOMAIN_8P_MOTOR | POWER_DOMAIN_4P_ADDON | \
+                                      POWER_DOMAIN_BED)
+
 #define PIN_STATE_TRIGGERED (LOW)
 #define PIN_STATE_NORMAL    (HIGH)
 
@@ -73,6 +77,7 @@ void EmergencyHandler::init() {
   if (button_state == PIN_STATE_TRIGGERED) {
     LOG_E("emergency button is pressed!!!\n");
     smprinter.set_sys_status(SYSTEM_STATUS_EMERGENCY_STOP, NULL);
+    smprinter.disable_power_domain(POWER_DOMAIN_EMERGENCY_STOP);
     return;
   }
 
@@ -100,7 +105,6 @@ void EmergencyHandler::init() {
     hmi_cb_req_recovery_job, SACP_CB_ATTR_BLOCKED_WITH_MOTION);
   host_hmi.register_callback(CMD_SET_JOB_CTRL, CMD_ID_JOB_CTRL_REQ_POWERLOSS_CLEAR, this,
     hmi_cb_clear_record);
-
 }
 
 bool EmergencyHandler::check_record() {
@@ -210,15 +214,12 @@ void EmergencyHandler::power_loss() {
 
   enable_all_interrupts();
 
-  // TODO: reboot the machine
+  // reboot the machine
   LOG_I("powerloss\n");
   while(1);
 }
 
 
-#define POWER_DOMAIN_EMERGENCY_STOP (POWER_DOMAIN_MOTIVE_POWER | POWER_DOMAIN_8P_TOOLHEAD | \
-                                      POWER_DOMAIN_8P_MOTOR | POWER_DOMAIN_4P_ADDON | \
-                                      POWER_DOMAIN_BED)
 void EmergencyHandler::emergency_stop() {
   JobEnv   *job_env = (JobEnv *)env;
   volatile uint32_t *flag, *checksum;
@@ -250,11 +251,6 @@ void EmergencyHandler::emergency_stop() {
 
   // - stop planner and stepper, make sure planner and stepper have no oppotunity to run
   motion_platform_svc.req_emergency_stop();
-
-  // - TODO: request stop if stop button pressed
-  if (smprinter.on_working()) {
-    req_stop_job();
-  }
 
   enable_all_interrupts();
 }
@@ -356,7 +352,7 @@ err_code_t EmergencyHandler::hmi_cb_req_recovery_job(void *obj, sacp_hmi_message
     return host_hmi.send_ack(msg, E_INVALID_STATE);
   }
 
-  // TODO: check if we can recovery in current status
+  // check if we can recovery in current status
   if (smprinter.get_sys_status() != SYSTEM_STATUS_IDLE) {
     LOG_E("current is not in IDLE\n");
     return host_hmi.send_ack(msg, E_INVALID_STATE);
@@ -367,7 +363,7 @@ err_code_t EmergencyHandler::hmi_cb_req_recovery_job(void *obj, sacp_hmi_message
     return host_hmi.send_ack(msg, E_PARAM);
   }
 
-  // TODO: check file info from HMI
+  // check file info from HMI
   str_len = (uint16_t *)msg->data;
   if (*str_len != GCODE_MD5_LENGTH) {
     LOG_E("MD5 len[%u] is uncorrect[%u]\n", *str_len, GCODE_MD5_LENGTH);
@@ -427,16 +423,16 @@ err_code_t EmergencyHandler::hmi_cb_req_recovery_job(void *obj, sacp_hmi_message
     break;
   }
 
-  // TODO: set env
+  // set env
   job_ctrl_svc.set_env(*job_env);
 
-  // TODO: setup client node
+  // setup client node
   ClientNode *client = ClientNode::touch_client(msg->peer, msg->ch);
   UNUSED(client);
 
   memcpy(&msg_notify_recovery, msg, sizeof(sacp_hmi_message_t));
 
-  // TODO: resume job
+  // resume job
   job_ctrl_svc.req_resume(msg->peer, job_cb_notify_recovery, &msg_notify_recovery);
 
   return E_SUCCESS;
@@ -470,10 +466,15 @@ void EmergencyHandler::background() {
   if (button_state != read_button()) {
     button_state = read_button();
     job_cb_notify_emergency_stop(&msg_notify_stop, E_SUCCESS);
+    if (button_state == PIN_STATE_TRIGGERED && smprinter.on_working()) {
+      req_stop_job();
+      return;
+    }
   }
 
   if (button_state == PIN_STATE_TRIGGERED && !smprinter.on_working() &&
-      smprinter.get_sys_status() != SYSTEM_STATUS_EMERGENCY_STOP) {
+      smprinter.get_sys_status() != SYSTEM_STATUS_EMERGENCY_STOP &&
+      smprinter.get_sys_status() != SYSTEM_STATUS_STOPING) {
     if (smprinter.set_sys_status(SYSTEM_STATUS_EMERGENCY_STOP, NULL) != E_SUCCESS) {
       LOG_E("failed to set system to EMERGENCY_STOP\n");
     }
@@ -487,10 +488,11 @@ void EmergencyHandler::background() {
     }
 
     // rescan modules
+    smprinter.enable_power_domain(POWER_DOMAIN_EMERGENCY_STOP);
     vTaskDelay(pdMS_TO_TICKS(1000));
     if (read_button() == PIN_STATE_TRIGGERED)
       return;
-    
+
     module_svc.scan_modules();
   }
 }

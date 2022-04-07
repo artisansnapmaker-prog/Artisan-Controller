@@ -36,7 +36,7 @@ enum BedSacpRequestCommandId {
 
 #pragma pack(1)
 typedef struct {
-  uint8_t bed_index; 
+  uint8_t bed_index;
   int32_t cur_temp;
   uint16_t target_temp;
 }ZoneInfo;
@@ -49,7 +49,7 @@ class BedVirtual: public ModuleBase {
   public:
     BedVirtual(uint8_t zone_number, uint32_t mac, uint8_t key, uint8_t sub_index): ModuleBase(mac, key, sub_index) {}
     bool check_online() { return true; }
-    err_code_t pre_init() { return E_SUCCESS; }
+    err_code_t pre_init();
     err_code_t post_init();
     err_code_t deinit() { return E_SUCCESS; }
     err_code_t save_env(uint8_t *env_buf, uint32_t &len);

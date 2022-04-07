@@ -8,44 +8,75 @@ extern int16_t Y2_DETECT_PIN_var;
 extern int16_t Z_DETECT_PIN_var;
 extern int16_t Z2_DETECT_PIN_var;
 
+static float voltage_threshold[3][2] = {
+  {1.2, 1.4}, /* X */
+  {1.7, 1.9}, /* Y */
+  {2.3, 2.5}, /* Z */
+};
+
 LinearVirtual *LinearVirtual::objects[LINEAR_VIRTUAL_OBJECT_MAX] {NULL, NULL, NULL, NULL, NULL};
 uint8_t LinearVirtual::object_index = 0;
 
 err_code_t LinearVirtual::pre_init() {
-  // TODO: setup detect pin
+  float upper_limit, lower_limit;
+  float detected_vol;
+
   switch (get_sub_index()) {
   case MODULE_LINEAR_X1:
     endstop_pin = X_MIN_PIN_var;
     detect_pin  = X_DETECT_PIN_var;
+    upper_limit = voltage_threshold[0][1];
+    lower_limit = voltage_threshold[0][0];
     lead = 40;
-    break;      
+    break;
 
   case MODULE_LINEAR_Y1:
     endstop_pin = Y_MAX_PIN_var;
     detect_pin  = Y_DETECT_PIN_var;
+    upper_limit = voltage_threshold[1][1];
+    lower_limit = voltage_threshold[1][0];
     lead = 40;
-    break;      
+    break;
 
   case MODULE_LINEAR_Z1:
     endstop_pin = Z_MAX_PIN_var;
     detect_pin  = Z_DETECT_PIN_var;
+    upper_limit = voltage_threshold[2][1];
+    lower_limit = voltage_threshold[2][0];
     lead = 8;
-    break;      
+    break;
 
   case MODULE_LINEAR_Z2:
     endstop_pin = Z2_MAX_PIN_var;
     detect_pin  = Z2_DETECT_PIN_var;
+    upper_limit = voltage_threshold[2][1];
+    lower_limit = voltage_threshold[2][0];
     lead = 8;
-    break;      
+    break;
 
   case MODULE_LINEAR_Y2:
     endstop_pin = Y2_MAX_PIN_var;
     detect_pin  = Y2_DETECT_PIN_var;
+    upper_limit = voltage_threshold[1][1];
+    lower_limit = voltage_threshold[1][0];
     lead = 40;
-    break;      
+    break;
 
   default:
-    break;      
+    LOG_E("unknow linear module!\n");
+    return E_PARAM;
+    break;
+  }
+
+  pinMode(detect_pin, INPUT_ANALOG);
+  vTaskDelay(pdMS_TO_TICKS(10));
+
+  detected_vol = analogRead(detect_pin) * 3.3 / 4096;
+  LOG_I("axis[%u], vol: %.3f mV\n", get_sub_index(), detected_vol);
+
+  if (detected_vol < lower_limit || detected_vol > upper_limit) {
+    LOG_E("vol is out of range:[ %.3f,  %.3f]\n", lower_limit, upper_limit);
+    return E_HARDWARE;
   }
 
   return E_SUCCESS;
@@ -61,8 +92,6 @@ err_code_t LinearVirtual::post_init() {
           (void *)this, hmi_cb_set_endstop);
 
   pinMode(detect_pin, INPUT_ANALOG);
-
-  LOG_I("axis[%u], vol: %.3f mV\n", get_sub_index(), (analogRead(detect_pin) * 3.3 / 4096) );
 
   set_status(MODULE_STATUS_NORMAL);
 

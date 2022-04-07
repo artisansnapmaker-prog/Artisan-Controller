@@ -286,7 +286,7 @@ void ModuleService::init() {
   configASSERT(recv_signal);
 
   // create tasks then the callbacks can be performed
-  
+
   LOG_I("Creating CAN receiver task...");
   recv_task = xTaskCreateStatic((TaskFunction_t)handle_can_receive, "can_receive", MODULE_RECEIVE_TASK_STACK_DEPTH,
         (void *)(recv_signal), MODULE_RECEIVE_TASK_PRIORITY, stack_can_recv_thread, &tcb_can_recv);
@@ -379,9 +379,13 @@ int ModuleService::init_virtual_modules() {
     LOG_E("failed to create module [0x%x, %u]\n", mac, MODULE_LINEAR_X1);
   }
   else {
-    module->pre_init();
-    module->set_fw_version("v1.0.0");
-    modules[configured_module++] = module;
+    if (module->pre_init() == E_SUCCESS) {
+      module->set_fw_version("v1.0.0");
+      modules[configured_module++] = module;
+    }
+    else {
+      LOG_E("failed to init linear X!\n");
+    }
   }
 
   module = module_factory(mac, configured_module, MODULE_LINEAR_Y1);
@@ -389,9 +393,13 @@ int ModuleService::init_virtual_modules() {
     LOG_E("failed to create module [0x%x, %u]\n", mac, MODULE_LINEAR_Y1);
   }
   else {
-    module->pre_init();
-    module->set_fw_version("v1.0.0");
-    modules[configured_module++] = module;
+    if (module->pre_init() == E_SUCCESS) {
+      module->set_fw_version("v1.0.0");
+      modules[configured_module++] = module;
+    }
+    else {
+      LOG_E("failed to init linear Y1!\n");
+    }
   }
 
   module = module_factory(mac, configured_module, MODULE_LINEAR_Z1);
@@ -399,9 +407,13 @@ int ModuleService::init_virtual_modules() {
     LOG_E("failed to create module [0x%x, %u]\n", mac, MODULE_LINEAR_Z1);
   }
   else {
-    module->pre_init();
-    module->set_fw_version("v1.0.0");
-    modules[configured_module++] = module;
+    if (module->pre_init() == E_SUCCESS) {
+      module->set_fw_version("v1.0.0");
+      modules[configured_module++] = module;
+    }
+    else {
+      LOG_E("failed to init linear Z1!\n");
+    }
   }
 
   module = module_factory(mac, configured_module, MODULE_LINEAR_Y2);
@@ -409,9 +421,13 @@ int ModuleService::init_virtual_modules() {
     LOG_E("failed to create module [0x%x, %u]\n", mac, MODULE_LINEAR_Y2);
   }
   else {
-    module->pre_init();
-    module->set_fw_version("v1.0.0");
-    modules[configured_module++] = module;
+    if (module->pre_init() == E_SUCCESS) {
+      module->set_fw_version("v1.0.0");
+      modules[configured_module++] = module;
+    }
+    else {
+      LOG_E("failed to init linear Y2!\n");
+    }
   }
 
   module = module_factory(mac, configured_module, MODULE_LINEAR_Z2);
@@ -419,9 +435,13 @@ int ModuleService::init_virtual_modules() {
     LOG_E("failed to create module [0x%x, %u]\n", mac, MODULE_LINEAR_Z2);
   }
   else {
-    module->pre_init();
-    module->set_fw_version("v1.0.0");
-    modules[configured_module++] = module;
+    if (module->pre_init() == E_SUCCESS) {
+      module->set_fw_version("v1.0.0");
+      modules[configured_module++] = module;
+    }
+    else {
+      LOG_E("failed to init linear Z2!\n");
+    }
   }
 
   mac = MODULE_MAKE_MAC(MODULE_DEVICE_ID_A400_BED, MODULE_SN_INVALID);
@@ -430,9 +450,13 @@ int ModuleService::init_virtual_modules() {
     LOG_E("failed to create module [0x%x, %u]\n", mac, 0);
   }
   else {
-    module->pre_init();
-    module->set_fw_version("v1.0.0");
-    modules[configured_module++] = module;
+    if (module->pre_init() == E_SUCCESS) {
+      module->set_fw_version("v1.0.0");
+      modules[configured_module++] = module;
+    }
+    else {
+      LOG_E("failed to init Bed!\n");
+    }
   }
 
   return 0;

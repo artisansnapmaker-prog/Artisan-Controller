@@ -2,6 +2,8 @@
 #include "../host/sacp_hmi.h"
 #include "src/module/temperature.h"
 
+#define BED_INEXISTENT_ADC (4084)  // -27 deg
+
 extern Temperature thermalManager;
 
 err_code_t send_bed_info_to_hmi(void *obj, sacp_hmi_message_t *msg) {
@@ -35,24 +37,24 @@ err_code_t send_bed_info_to_hmi(void *obj, sacp_hmi_message_t *msg) {
   tmp_info->bed_index = 1;
   tmp_info->cur_temp = (int32_t)(thermalManager.degChamber() * 1000);
   tmp_info->target_temp = thermalManager.degTargetChamber();
-#endif  
+#endif
   result = host_hmi.send_ack(msg, msg->data, msg->data[2] * sizeof(ZoneInfo) + 3);
   if (result != E_SUCCESS) {
     LOG_E("[%s] send msg fail\n",__FUNCTION__);
   }
-  return result; 
+  return result;
 }
 
 err_code_t hmi_set_bed_target_temp(void *obj, sacp_hmi_message_t *msg) {
   BedVirtual &bed = *(BedVirtual *)obj;
-  err_code_t result = E_FAILURE; 
+  err_code_t result = E_FAILURE;
   uint8_t bed_index = 0;
   int16_t target_temp = 0;
 
   if (!msg || !obj || msg->length != 4) {
     LOG_E("[%s] got a invalid parameter\n",__FUNCTION__);
     return host_hmi.send_ack(msg, E_PARAM);
-  } 
+  }
 
   if (msg->data[0] != bed.get_key()) {
     LOG_E("[%s] msg key is %d, obj key is %d, No processing\n",\
@@ -63,7 +65,7 @@ err_code_t hmi_set_bed_target_temp(void *obj, sacp_hmi_message_t *msg) {
   bed_index = msg->data[1];
   target_temp = *(int16_t *)(msg->data + 2);
 
-  #if DISABLED(SNAPMAKER_DOUBLE_ZONE_BED) 
+  #if DISABLED(SNAPMAKER_DOUBLE_ZONE_BED)
   bed_index = 0;  // index not considered if only one bed
   #endif
 
@@ -71,9 +73,9 @@ err_code_t hmi_set_bed_target_temp(void *obj, sacp_hmi_message_t *msg) {
     result = E_PARAM;
   else {
     taskENTER_CRITICAL();
-    if (bed_index == 0) 
+    if (bed_index == 0)
       thermalManager.setTargetBed(target_temp);
-    else if (bed_index == 1) 
+    else if (bed_index == 1)
       thermalManager.setTargetChamber(target_temp);
     taskEXIT_CRITICAL();
     result = E_SUCCESS;
@@ -105,7 +107,24 @@ uint16_t hmi_subscribe_bed_func(void *obj, uint8_t *buff) {
   tmp_info->target_temp = thermalManager.degTargetChamber();
 #endif
 
-  return sizeof(ZoneInfo) * buff[2] + 3;  
+  return sizeof(ZoneInfo) * buff[2] + 3;
+}
+
+err_code_t BedVirtual::pre_init() {
+  //TODO: check if the bed is plugged
+  pinMode(TEMP_BED_PIN, INPUT_ANALOG);
+  pinMode(TEMP_CHAMBER_PIN, INPUT_ANALOG);
+
+  vTaskDelay(pdMS_TO_TICKS(10));
+
+  LOG_I("Bed: zone0 ADC: %u\n", analogRead(TEMP_BED_PIN));
+  LOG_I("Bed: zone1 ADC: %u\n", analogRead(TEMP_CHAMBER_PIN));
+
+  if (analogRead(TEMP_BED_PIN) > BED_INEXISTENT_ADC || analogRead(TEMP_CHAMBER_PIN) > BED_INEXISTENT_ADC) {
+    LOG_E("Bed didn't plug!\n");
+    return E_HARDWARE;
+  }
+  return E_SUCCESS;
 }
 
 err_code_t BedVirtual::post_init() {
@@ -156,7 +175,7 @@ void BedVirtual::bed_hmi_self_test_interface(uint8_t test_type, uint32_t param) 
       }
     break;
 
-    case 1: 
+    case 1:
       msg.length = 4;
       buff[0] = get_key();
       buff[1] = 0;
@@ -165,7 +184,7 @@ void BedVirtual::bed_hmi_self_test_interface(uint8_t test_type, uint32_t param) 
       hmi_set_bed_target_temp(this, &msg);
     break;
 
-    case 2: 
+    case 2:
       msg.length = 4;
       buff[0] = get_key();
       buff[1] = 1;
@@ -191,11 +210,11 @@ void BedVirtual::bed_hmi_self_test_interface(uint8_t test_type, uint32_t param) 
 
     // case 4:
     //   save_env(bed_save_buff, bed_save_l);
-    // break; 
+    // break;
 
     // case 5:
     //   resume_env(bed_save_buff, bed_save_l);
-    // break; 
+    // break;
   }
 }
 
@@ -258,19 +277,19 @@ err_code_t BedVirtual::resume_env(uint8_t *env_buf, uint32_t &len) {
       LOG_E("[%s] bed info check sum error, read check_sum:0x%x cal check_sum: 0x%x\n",__FUNCTION__,check_sum, tmp_sum);
       goto resume_out;
     }
-    
+
     for (u_int32_t i = 0; i < bed_num; i++) {
       tmp_info = (ZoneInfo *)(env_buf + sizeof(ZoneInfo)*i);
       LOG_I("save bed zoneIndex:%d\n", tmp_info->bed_index);
       LOG_I("save bed cur_temp:%.3f\n", (float)(tmp_info->cur_temp) / 1000);
       LOG_I("save bed target_temp:%d\n", tmp_info->target_temp);
       taskENTER_CRITICAL();
-      #if DISABLED(SNAPMAKER_DOUBLE_ZONE_BED) 
+      #if DISABLED(SNAPMAKER_DOUBLE_ZONE_BED)
         thermalManager.setTargetBed(tmp_info->target_temp);
-      #else 
-        if (tmp_info->bed_index == 0) 
+      #else
+        if (tmp_info->bed_index == 0)
           thermalManager.setTargetBed(tmp_info->target_temp);
-        else if (tmp_info->bed_index == 1) 
+        else if (tmp_info->bed_index == 1)
           thermalManager.setTargetChamber(tmp_info->target_temp);
       #endif
       taskEXIT_CRITICAL();

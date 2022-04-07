@@ -178,9 +178,9 @@ class JobCtrl {
                           uint8_t reason,
                           job_req_notify_cb_t cb = NULL,
                           void *p = NULL);
-    err_code_t req_stop_from_isr(  enum JobStopType pt, 
+    err_code_t req_stop_from_isr(  enum JobStopType pt,
                           uint8_t reason,
-                          job_req_notify_cb_t cb = NULL, 
+                          job_req_notify_cb_t cb = NULL,
                           void *p = NULL);
     void print_job_env(struct JobEnv *env);
 

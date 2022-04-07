@@ -640,7 +640,7 @@ void SnapmakerPrinter::enclosure_hmi_self_test_interface(uint8_t test_type, uint
 
 uint8_t SnapmakerPrinter::get_enclosure_door_status(void) {
   uint8_t door_sta = 0;
-  if (enclosure) 
+  if (enclosure)
     door_sta = enclosure->get_door_check();
   return door_sta;
 }
@@ -656,7 +656,7 @@ void SnapmakerPrinter::security_check() {
 
     if (door_sta)
       limit_power = LASER_POWER_SAFE_LIMIT;
-  
+
     if (laser->get_power_limit() !=  limit_power)
       laser->set_power_limit(limit_power);
   }
@@ -664,7 +664,7 @@ void SnapmakerPrinter::security_check() {
 // API for puase
 void SnapmakerPrinter::pause_trigger(uint8_t pause_reason) {
   if (PAUSE_DOOR_OPEN == pause_reason && TH_TYPE_LASER != get_toolhead_type())
-    return;  
+    return;
   job_ctrl_svc.req_pause((enum JobPauseType)pause_reason, NULL, NULL);
 }
 
@@ -1004,8 +1004,10 @@ bool SnapmakerPrinter::can_resume_work(void) {
     return false;
   }
 
-  // door check
-  if (smprinter.get_enclosure_door_status() && TH_TYPE_LASER == get_toolhead_type()){
+  ModuleBase *cur_toolhead;
+  cur_toolhead = smprinter.get_cur_toolhead();
+  if (!cur_toolhead || !cur_toolhead->prepare_start()) {
+    LOG_E("can not resume job as prepare start failed\r\n");
     return false;
   }
 

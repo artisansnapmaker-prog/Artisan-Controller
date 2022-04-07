@@ -594,7 +594,7 @@ void JobCtrl::do_start(struct JobCtrlReqInfo &jri) {
   }
 
   toolhead = smprinter.get_cur_toolhead();
-  if (!toolhead || (toolhead && !toolhead->prepare_start())) {
+  if (!toolhead || !toolhead->prepare_start()) {
     LOG_E("can not start job as prepare start failed\r\n");
     DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, E_JOB_NOT_IN_IDLE_STATUS);
     return;

@@ -154,11 +154,6 @@ err_code_t ToolHeadFDM::post_init() {
   }
   smprinter.register_module(get_device_id(), this);
   module_svc.register_routine((void *)this, fdm_callback_routine);
-  if (get_device_id() == MODULE_DEVICE_ID_FDM_1EXTRUDER_2019) {
-    LOG_I("fdm single extruder ready\n");
-  } else {
-    LOG_I("fdm dual extruder ready\n");
-  }
 
   if (get_device_id() == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
     motion_platform_svc.set_home_offset(-17.5, -6, 0);
@@ -184,6 +179,12 @@ err_code_t ToolHeadFDM::post_init() {
   extruders_feedrate_percentage[0] = motion_platform_svc.get_feedrate_percentage();
   extruders_feedrate_percentage[1] = motion_platform_svc.get_feedrate_percentage();
 
+  set_status(MODULE_STATUS_NORMAL);
+  if (get_device_id() == MODULE_DEVICE_ID_FDM_1EXTRUDER_2019) {
+    LOG_I("fdm single extruder ready\n");
+  } else {
+    LOG_I("fdm dual extruder ready\n");
+  }
   return E_SUCCESS;
 }
 
@@ -1098,6 +1099,14 @@ uint8_t ToolHeadFDM::get_filament_detection_state(uint8_t e) {
   return (filament_detect_mask & (1<<e)) >> e;
 }
 
+uint32_t ToolHeadFDM::get_fdm_state() {
+  return fdm_state;
+}
+
+void ToolHeadFDM::clear_fdm_state(fdm_fault_e state) {
+  fdm_state &= ~(1 << state);
+}
+
 err_code_t ToolHeadFDM::switch_extruder(uint8_t e) {
   err_code_t ret;
   smcan_message_t msg;
@@ -1482,27 +1491,39 @@ err_code_t ToolHeadFDM::standby(void) {
   return E_SUCCESS;
 }
 
+bool ToolHeadFDM::prepare_start(void) {
+  if ((fdm_state == 0) && (get_status() == MODULE_STATUS_NORMAL)) {
+    return true;
+  } else {
+    return false;
+  }
+}
+
 void ToolHeadFDM::fdm_exception_trigger(fdm_fault_e fault) {
   fdm_state |= 1 << fault;
   LOG_E("set fdm_sate: %x\n", fdm_state);
 
-  enum SystemStatus system_state = smprinter.get_sys_status();
-  if (system_state == SYSTEM_STATUS_PRINTING || system_state == SYSTEM_STATUS_XY_CALIBRATING_PRINTING) {
+  // enum SystemStatus system_state = smprinter.get_sys_status();
+  // if (system_state == SYSTEM_STATUS_PRINTING || system_state == SYSTEM_STATUS_XY_CALIBRATING_PRINTING) {
     switch (fault) {
       case FDM_FAULT_EXTRUDER_STATE:
+        LOG_I("extruder fault request pause\n");
         job_ctrl_svc.req_pause(PAUSE_WRONG_EXTRUDER, NULL, NULL);
         break;
       case FDM_FAULT_NOZZLE_IDENTIFY:
+        LOG_I("nozzle fault request pause\n");
         job_ctrl_svc.req_pause(PAUSE_WRONG_NOZZLE, NULL, NULL);
         break;
       case FDM_FAULT_NOZZLE_TEMP:
+        LOG_I("hotend temp fault request pause\n");
         job_ctrl_svc.req_pause(PAUSE_NOZZLE_TEMP, NULL, NULL);
         break;
       case FDM_FAULT_FILAMENT:
+        LOG_I("filament out request pause\n");
         job_ctrl_svc.req_pause(PAUSE_FILM_RUNOUT, NULL, NULL);
         break;
     }
-  }
+  // }
 }
 
 void ToolHeadFDM::fdm_exception_clear(fdm_fault_e fault) {

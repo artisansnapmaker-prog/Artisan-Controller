@@ -139,6 +139,7 @@ class ToolHeadFDM: public ModuleBase {
     err_code_t save_env(uint8_t *env_buf, uint32_t &len);
     err_code_t resume_env(uint8_t *env_buf, uint32_t &len);
     err_code_t standby(void);
+    bool prepare_start(void);
 
     err_code_t probe_state_sync();
     err_code_t hotend_type_sync();
@@ -166,6 +167,9 @@ class ToolHeadFDM: public ModuleBase {
     uint8_t get_filament_state(uint8_t e);
     uint8_t get_filament_state();
     uint8_t get_filament_detection_state(uint8_t e);
+    uint32_t get_fdm_state();
+    void clear_fdm_state(fdm_fault_e state);
+    void get_fdm_state(fdm_fault_e state);
     uint8_t get_extruder_status(uint8_t e);
     err_code_t extruder_status_check_ctrl(extruder_status_e status);
     uint8_t get_extruder_check_state();

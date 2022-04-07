@@ -237,6 +237,20 @@ class SnapmakerPrinter
       return 0;
     }
 
+    uint32_t get_fdm_state() {
+      if (fdm) {
+        return fdm->get_fdm_state();
+      }
+
+      return 0;
+    }
+
+    void clear_fdm_state(fdm_fault_e state) {
+      if (fdm) {
+        return fdm->clear_fdm_state(state);
+      }
+    }
+
     void switch_extruder_without_move(uint8_t e) {
       if (fdm) {
         fdm->switch_extruder_without_move(e);
@@ -277,6 +291,12 @@ class SnapmakerPrinter
       }
     }
 
+    void fdm_exception_trigger(fdm_fault_e fault) {
+      if (fdm) {
+        fdm->fdm_exception_trigger(fault);
+      }
+    }
+
     // LASER
     void set_laser_fan_speed(uint16_t speed) {}
 
@@ -303,7 +323,7 @@ class SnapmakerPrinter
     void report_enclosure_status(void);
     void enclosure_hmi_self_test_interface(uint8_t test_type, uint32_t param);
     uint8_t get_enclosure_door_status(void);
-    
+
     void register_module(uint16_t type, ModuleBase *new_module);
     void security_check(void);
 

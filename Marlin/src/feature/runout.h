@@ -120,6 +120,7 @@ class TFilamentMonitor : public FilamentMonitorBase {
 
     // Give the response a chance to update its counter.
     static inline void run() {
+      uint32_t state = smprinter.get_fdm_state();
       if (enabled && !filament_ran_out && (smprinter.get_sys_status() == SYSTEM_STATUS_PRINTING || smprinter.get_sys_status() == SYSTEM_STATUS_XY_CALIBRATING)) {
         TERN_(HAS_FILAMENT_RUNOUT_DISTANCE, cli()); // Prevent RunoutResponseDelayed::block_completed from accumulating here
         response.run();
@@ -162,12 +163,13 @@ class TFilamentMonitor : public FilamentMonitorBase {
           planner.synchronize();
 
         }
-      } else if (enabled/*&& (system fault)*/) {
+      } else if (enabled && !!(state & (1 << FDM_FAULT_FILAMENT))) {
         if (is_filament_runout()) {
           ranout_timer = millis() + 1000;
         } else {
           if (millis() - ranout_timer > 0) {
             filament_ran_out = false;
+            smprinter.clear_fdm_state(FDM_FAULT_FILAMENT);
           }
         }
       }

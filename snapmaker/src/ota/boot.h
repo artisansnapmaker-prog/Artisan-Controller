@@ -22,6 +22,7 @@
 #define SNAPMAKER_BOOT_H_
 
 #include <stdint.h>
+#include <stdbool.h>
 
 #define BOOT_MODE_FACTORY_BURNING     (0xAA00)
 #define BOOT_MODE_OTA_START           (0xAA01)
@@ -29,6 +30,11 @@
 #define BOOT_MODE_OTA_RECV_DONE       (0xAA03)
 #define BOOT_MODE_APP                 (0xAA04)
 #define BOOT_DELAY_SECODE             (6)
+
+typedef enum {
+  LINK_CH_PC = 0,
+  LINK_CH_SC = 1,
+} link_ch_e;
 
 typedef struct __attribute__ ((packed)) {
   uint8_t magic_str[21];
@@ -39,6 +45,8 @@ typedef struct __attribute__ ((packed)) {
   uint8_t fw_ver_str[32];
   uint8_t timestamp_str[20];
   uint16_t boot_mode;
+  uint8_t peer;
+  uint8_t link_ch;
   uint32_t fw_len;
   uint32_t fw_checksum;
   uint32_t fw_runaddr;
@@ -47,12 +55,14 @@ typedef struct __attribute__ ((packed)) {
 
 typedef void (*pf)(void);
 
-bool load_boot_info(void);
+extern boot_info_t boot_info;
+
+void print_boot_info(boot_info_t *bi);
 void setup(void);
 void boot_app(void);
-void copy_to_run_slot(void);
-void trans_fw_loop(void);
+bool boot_info_check(boot_info_t *bi);
 void loop(void);
+size_t send(link_ch_e ch, uint8_t *buf, uint32_t len);
 
 
 #endif  // SNAPMAKER_BOOT_H_

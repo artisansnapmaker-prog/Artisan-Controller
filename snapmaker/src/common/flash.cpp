@@ -45,20 +45,20 @@ flash_partition_t boot_data_partition = {
   FLASH_BOOT_DATA_SIZE                // Partition addr
 };
 
-#if 0
-flash_partition_t boot_data_partition = {
+flash_partition_t app_partition = {
   {
     FLASH_TYPEERASE_SECTORS,          // Mass erase or sector erase
     0,                                // Select banks to erase when Mass erase is enabled
-    FLASH_BOOT_DATA_START_SECTOR,     // Initial FLASH sector to erase
-    FLASH_BOOT_DATA_SECTOR_NUM,       // Number of sectors to be erased
+    FLASH_APP_FW_START_SECTOR,        // Initial FLASH sector to erase
+    FLASH_APP_FW_SECTOR_NUM,          // Number of sectors to be erased
     FLASH_VOLTAGE_RANGE_3             // The device voltage range
   },
-  FLASH_BOOT_DATA_ADDR,               // Start addr
-  FLASH_BOOT_DATA_ADDR,               // Write addr
-  FLASH_BOOT_DATA_SIZE                // Partition addr
+  FLASH_APP_FW_ADDR,                  // Start addr
+  FLASH_APP_FW_ADDR,                  // Write addr
+  FLASH_APP_FW_SIZE                   // Partition addr
 };
 
+#if 0
 flash_partition_t boot_data_partition = {
   {
     FLASH_TYPEERASE_SECTORS,          // Mass erase or sector erase

@@ -27,6 +27,7 @@
 #define STRCAT(s, b)                    (s##b)
 #define MAX(a,b)                        ((a)>(b)?(a):(b))
 #define MIN(a,b)                        ((a)<(b)?(a):(b))
+#define TAB_SIZE(t, i)                  (sizeof(t) / sizeof(i))
 
 #define LITTLE_STREAM_TO_16(buf)        ( ((buf)[1]<<8) | ((buf)[0]) )
 #define LITTLE_STREAM_TO_32(buf)        ( ((buf)[3]<<24) | ((buf)[2]<<16) | ((buf)[1]<<8) | ((buf)[0]) )

@@ -2,6 +2,7 @@
 #include "../common/utility.h"
 #include "../common/flash.h"
 #include "sacp_protocol.h"
+#include "sacp_update.h"
 #include "boot.h"
 
 
@@ -26,7 +27,7 @@ uint8_t send_frame[SACP_FRAME_MAX_SIZE];
 void print_frame(uint8_t *frame, uint32_t flen);
 size_t ser_write(HardwareSerial &ser, uint8_t *data, uint32_t len);
 void print_boot_info(boot_info_t *bi);
-bool load_boot_info(boot_info_t *bi);
+void load_boot_info(boot_info_t *bi);
 bool write_boot_info(boot_info_t *bi);
 void init_boot_info(boot_info_t *bi);
 void flash_test(flash_partition_t &partition);
@@ -44,11 +45,6 @@ void setup() {
   SC_Serial.begin(115200);
 }
 
-void frame_to_msg(fsm_info_t &fsm, scap_msg_t &msg) {
-  msg.attr = fsm.attr;
-  // memcpy(msg.payload, fsm.frame + PAYLOAD_POS, fsm.have_rx_len - 
-}
-
 void loop() {
   // flash_test(boot_data_partition);
 
@@ -60,6 +56,7 @@ void loop() {
   while (1) {
     normal_boot_loop();
     protocol_loop();
+    update_loop();
   }
 
   switch(boot_info.boot_mode) {
@@ -77,6 +74,18 @@ void loop() {
   
   while(1) {
 
+  }
+}
+
+size_t send(link_ch_e ch, uint8_t *buf, uint32_t len) {
+  if (LINK_CH_PC == ch) {
+    return ser_write(PC_Serial, buf, len);
+  }
+  else if(LINK_CH_SC == ch) {
+    return ser_write(SC_Serial, buf, len);
+  }
+  else {
+    return 0;
   }
 }
 
@@ -166,17 +175,16 @@ void print_boot_info(boot_info_t *bi) {
   Serial.print("fw runaddr: ");
   Serial.println(bi->fw_runaddr);
 
-  Serial.print("boot data checksum: ");
+  Serial.print(F("boot data checksum: "));
   Serial.println(bi->boot_data_checksum);
 }
 
-bool load_boot_info(boot_info_t *bi) {
-  memcpy(bi, (void *)FLASH_BOOT_DATA_ADDR, sizeof(boot_info));
-  if (bi->boot_data_checksum != calculate_checksum((uint8_t *)bi, sizeof(boot_info_t) - 4)) {
-    Serial.println(F("boot data checksum failure"));
-    return false;
-  }
-  return true;
+bool boot_info_check(boot_info_t *bi) {
+  return bi->boot_data_checksum == calculate_checksum((uint8_t *)bi, sizeof(boot_info_t) - 4);
+}
+
+void load_boot_info(boot_info_t *bi) {
+  snap_memcpy(bi, (void *)FLASH_BOOT_DATA_ADDR, sizeof(boot_info));
 }
 
 bool write_boot_info(boot_info_t *bi) {
@@ -261,6 +269,13 @@ size_t ser_write(HardwareSerial &ser, uint8_t *data, uint32_t len) {
   return wl;
 }
 
+void frame_to_msg(fsm_info_t &fsm, scap_msg_t &msg) {
+  msg.attr = fsm.attr;
+  msg.peer = fsm.sender;
+  msg.sender = fsm.sender;
+  msg.seq = fsm.seq;
+}
+
 void protocol_proc(HardwareSerial &ser, fsm_info_t &fsm) {
   uint8_t c;
   uint32_t frame_len;
@@ -272,28 +287,23 @@ void protocol_proc(HardwareSerial &ser, fsm_info_t &fsm) {
       continue;
     }
 
-    Serial.print("Get a frame: ");
-    // print_frame(fsm.frame, fsm.have_rx_len);
+    Serial.println("Get a frame");
+    sacp_msg.payload_len = SACP_FRAME_MAX_SIZE - FRAME_MIN_LEN;
+    cmd_proc(fsm.payload, fsm.payload_len, sacp_msg.payload, sacp_msg.payload_len);
 
-    // Get payload and call command executor
-    sacp_msg.ver = VERSION;
-    sacp_msg.attr = ATTR_REQ;
-    sacp_msg.peer = 0;
-    sacp_msg.sender = SACP_HOST_ID_CONTROLLER;
-    sacp_msg.seq = 0x1234;
-    sacp_msg.payload[0] = 0xAC;
-    sacp_msg.payload[1] = 0xCA;
-    sacp_msg.payload_len = 2;
-    frame_len = SACP_FRAME_MAX_SIZE;
-    protocol_build_pack(sacp_msg, send_frame, frame_len);
-    Serial.println("Send a frame: ");
-    print_frame(send_frame, frame_len);
-    ser_write(ser, send_frame, frame_len);
+    if (sacp_msg.payload_len) {
+      sacp_msg.ver = VERSION;
+      sacp_msg.attr = ATTR_ACK;
+      sacp_msg.peer = fsm.sender;
+      sacp_msg.sender = SACP_HOST_ID_CONTROLLER;
+      sacp_msg.seq = fsm.seq;
+      frame_len = SACP_FRAME_MAX_SIZE;
+      protocol_build_pack(sacp_msg, send_frame, frame_len);
+      // Serial.println("Send a frame: ");
+      // print_frame(send_frame, frame_len);
+      ser_write(ser, send_frame, frame_len);
+    }
   }
-}
-
-void update_loop(void) {
-
 }
 
 void jump_to(uint32_t addr)

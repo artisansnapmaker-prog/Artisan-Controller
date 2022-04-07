@@ -51,6 +51,7 @@
 #define FRAME_MIN_LEN                 (13)
 #define PAYLOAD_POS                   (11)
 #define VERSION                       (0x01)
+#define SACP_PAYLOAD_MAX_SIZE         (SACP_FRAME_MAX_SIZE - FRAME_MIN_LEN)
 
 #define ATTR_REQ                      (0x00)
 #define ATTR_ACK                      (0x01)
@@ -95,7 +96,7 @@ typedef struct{
   uint16_t have_rx_len;
   uint8_t frame[SACP_FRAME_MAX_SIZE];
   uint8_t *payload;
-  uint16_t payload_len;
+  uint32_t payload_len;
 } fsm_info_t;
 
 typedef struct{
@@ -104,7 +105,7 @@ typedef struct{
   uint8_t sender;
   uint8_t attr;
   uint8_t seq;
-  uint16_t payload_len;
+  uint32_t payload_len;
   uint8_t payload[SACP_FRAME_MAX_SIZE];
 } scap_msg_t;
 

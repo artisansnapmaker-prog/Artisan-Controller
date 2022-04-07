@@ -69,7 +69,7 @@ int protocol_push_char(fsm_info_t &fsm, uint8_t c)
   // Serial.print(fsm.s);
   // Serial.print(" ");
   // Serial.println(c, HEX);
-  Serial.write(c);
+  // Serial.write(c);
   switch(fsm.s){
     case STATE_HEADER_1:
       if(HEADER_1 == c){
@@ -154,6 +154,7 @@ int protocol_push_char(fsm_info_t &fsm, uint8_t c)
       fsm.seq |= c<<8;
       fsm.frame[fsm.have_rx_len++] = c;
       fsm.s = STATE_DATA;
+      fsm.payload = fsm.frame + fsm.have_rx_len;
     break;
 
     case STATE_DATA:

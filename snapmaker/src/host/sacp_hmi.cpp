@@ -782,7 +782,8 @@ void HostSACPHMI::handle_receive() {
     }
 
     if (version == SACP_VER_1)
-      LOG_I("recv ch[%u] v1 msg[%x:%x]\n", i, parser_buff[SACP_V1_FRAME_INDEX_CMD_SET], parser_buff[SACP_V1_FRAME_INDEX_CMD_ID]);
+      LOG_I("recv ch[%u] v1 msg[%x:%x], attr[%x]\n", i, parser_buff[SACP_V1_FRAME_INDEX_CMD_SET],
+            parser_buff[SACP_V1_FRAME_INDEX_CMD_ID], parser_buff[SACP_V1_FRAME_INDEX_ATTR]);
     else
       LOG_I("recv ch[%u] v0 msg[%x]\n", i, parser_buff[SACP_V0_FRAME_INDEX_EVENT_ID]);
 
@@ -817,7 +818,7 @@ void HostSACPHMI::handle_receive() {
 
     event_queue = get_event_queue_by_cmd(parser_buff, i);
     if (!event_queue) {
-      LOG_I("no queue for msg[%x:%x]\n", parser_buff[SACP_V1_FRAME_INDEX_CMD_SET], parser_buff[SACP_V1_FRAME_INDEX_CMD_ID]);
+      LOG_I("no event queue for msg[%x:%x]\n", parser_buff[SACP_V1_FRAME_INDEX_CMD_SET], parser_buff[SACP_V1_FRAME_INDEX_CMD_ID]);
       channels[i].parser.status = SACP_PARSER_STA_IDLE;
       continue;
     }

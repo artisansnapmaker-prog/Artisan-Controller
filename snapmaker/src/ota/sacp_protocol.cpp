@@ -32,6 +32,7 @@
 /********************************************************************************/
 // INCLUDE
 /********************************************************************************/
+#include <Arduino.h>
 #include "../common/utility.h"
 #include "sacp_protocol.h"
 
@@ -64,6 +65,11 @@ int protocol_push_char(fsm_info_t &fsm, uint8_t c)
 {
   int ret = 0;
 
+  // Serial.print("state ");
+  // Serial.print(fsm.s);
+  // Serial.print(" ");
+  // Serial.println(c, HEX);
+  Serial.write(c);
   switch(fsm.s){
     case STATE_HEADER_1:
       if(HEADER_1 == c){
@@ -91,6 +97,8 @@ int protocol_push_char(fsm_info_t &fsm, uint8_t c)
 
     case STATE_LEN2:
       fsm.len |= c<<8;
+      // Serial.print("len ");
+      // Serial.println(fsm.len);
       fsm.frame[fsm.have_rx_len++] = c;
       fsm.payload_len = fsm.len - PAYLOAD_ADDITION_LEN;
       fsm.s = STATE_VER;
@@ -133,13 +141,29 @@ int protocol_push_char(fsm_info_t &fsm, uint8_t c)
     case STATE_ATTR:
       fsm.attr = c;
       fsm.frame[fsm.have_rx_len++] = c;
-      fsm.s = STATE_ATTR;
+      fsm.s = STATE_SEQ1;
+    break;
+
+    case STATE_SEQ1:
+      fsm.seq = c;
+      fsm.frame[fsm.have_rx_len++] = c;
+      fsm.s = STATE_SEQ2;
+    break;
+
+    case STATE_SEQ2:
+      fsm.seq |= c<<8;
+      fsm.frame[fsm.have_rx_len++] = c;
+      fsm.s = STATE_DATA;
     break;
 
     case STATE_DATA:
-      if (fsm.have_rx_len < FRAME_MAX_SIZE) {
+      // Serial.print("have_rx_len ");
+      // Serial.print(fsm.have_rx_len);
+      // Serial.print(" len ");
+      // Serial.println(fsm.len);
+      if (fsm.have_rx_len < SACP_FRAME_MAX_SIZE) {
         fsm.frame[fsm.have_rx_len++] = c;
-        if ((fsm.have_rx_len - HEADER_LEN) == fsm.len ) {
+        if ((fsm.have_rx_len + 2 - HEADER_LEN) == fsm.len) {
           fsm.s = STATE_CHECKSUM1;
         }
       }
@@ -155,12 +179,12 @@ int protocol_push_char(fsm_info_t &fsm, uint8_t c)
     break;
 
     case STATE_CHECKSUM2:
+      fsm.frame[fsm.have_rx_len++] = c;
       fsm.checksum |= c<<8;
       if (fsm.checksum == 
-          (uint16_t)calculate_checksum(&fsm.frame[HEADER_LEN], fsm.have_rx_len - HEADER_LEN))
-      { 
-        fsm.frame[fsm.have_rx_len++] = c;
+          (uint16_t)calculate_checksum(&fsm.frame[HEADER_LEN], fsm.have_rx_len - HEADER_LEN - 2)) { 
         ret = 1;
+        // Serial.println("Rx a frame");
       }
       fsm.s = STATE_HEADER_1;
     break;
@@ -173,8 +197,7 @@ int protocol_push_char(fsm_info_t &fsm, uint8_t c)
   return ret;
 }
 
-
-void protocol_build_pack(scap_msg_t &msg, uint8_t *frame_buf, uint8_t &out_frame_len)
+void protocol_build_pack(scap_msg_t &msg, uint8_t *frame_buf, uint32_t &out_frame_len)
 {
   uint32_t index = 0;
 
@@ -190,10 +213,11 @@ void protocol_build_pack(scap_msg_t &msg, uint8_t *frame_buf, uint8_t &out_frame
   frame_buf[index++] = (len>>8) & 0xFF;
   frame_buf[index++] = VERSION;
   frame_buf[index++] = msg.peer;
-  frame_buf[index++] = calc_crc8(frame_buf, HEADER_LEN);
+  frame_buf[index++] = calc_crc8(frame_buf, HEADER_LEN - 1);
   frame_buf[index++] = msg.sender;
   frame_buf[index++] = msg.attr;
-  frame_buf[index++] = msg.seq;
+  frame_buf[index++] = msg.seq & 0xFF;
+  frame_buf[index++] = (msg.seq>>8) & 0xFF;
   snap_memcpy(frame_buf+index, msg.payload, msg.payload_len);
   index += msg.payload_len;
   uint16_t checksum = (uint16_t)calculate_checksum(frame_buf + HEADER_LEN, index - HEADER_LEN);

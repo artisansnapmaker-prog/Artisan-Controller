@@ -28,8 +28,8 @@
   ** @explain  : null
 *****/
 
-#ifndef SACP_PROTOCOL_H
-#define SACP_PROTOCOL_H
+#ifndef SNAPMAKER_SACP_PROTOCOL_H
+#define SNAPMAKER_SACP_PROTOCOL_H
 
 
 /********************************************************************************/
@@ -41,7 +41,7 @@
 /********************************************************************************/
 // MICRO DEF
 /********************************************************************************/
-#define FRAME_MAX_SIZE                (4096)
+#define SACP_FRAME_MAX_SIZE           (2048)
 #define HEADER_1                      (0xAA)  
 #define HEADER_2                      (0x55)  
 #define CMD_CODE_POS                  (0)
@@ -52,10 +52,19 @@
 #define PAYLOAD_POS                   (11)
 #define VERSION                       (0x01)
 
+#define ATTR_REQ                      (0x00)
+#define ATTR_ACK                      (0x01)
+
 
 /********************************************************************************/
 // TYPEDEF
 /********************************************************************************/
+enum SACPHostID {
+  SACP_HOST_ID_LUBAN,
+  SACP_HOST_ID_CONTROLLER,
+  SACP_HOST_ID_SCREEN,
+};
+
 typedef enum{
   STATE_HEADER_1 = 0,
   STATE_HEADER_2,
@@ -81,10 +90,10 @@ typedef struct{
   uint8_t header_crc8;
   uint8_t sender;
   uint8_t attr;
-  uint8_t seq;
+  uint16_t seq;
   uint16_t checksum;
   uint16_t have_rx_len;
-  uint8_t frame[FRAME_MAX_SIZE];
+  uint8_t frame[SACP_FRAME_MAX_SIZE];
   uint8_t *payload;
   uint16_t payload_len;
 } fsm_info_t;
@@ -96,7 +105,7 @@ typedef struct{
   uint8_t attr;
   uint8_t seq;
   uint16_t payload_len;
-  uint8_t payload[FRAME_MAX_SIZE];
+  uint8_t payload[SACP_FRAME_MAX_SIZE];
 } scap_msg_t;
 
 
@@ -114,6 +123,6 @@ typedef struct{
 // EXP FUN DEF
 /********************************************************************************/
 int protocol_push_char(fsm_info_t &fsm, uint8_t c);
-
+void protocol_build_pack(scap_msg_t &msg, uint8_t *frame_buf, uint32_t &out_frame_len);
 
 #endif

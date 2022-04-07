@@ -828,7 +828,6 @@ err_code_t SnapmakerPrinter::set_sys_status(enum SystemStatus req_status, enum S
     break;
 
   case SYSTEM_STATUS_COMPLETED:
-    // TODO: do we need this status?
     sys_status = req_status;
     ret = E_SUCCESS;
     break;

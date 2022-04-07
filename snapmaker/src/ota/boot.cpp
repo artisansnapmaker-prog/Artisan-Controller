@@ -5,79 +5,48 @@
 #include "boot.h"
 
 
+#define PC_Serial           (Serial)
+#define SC_Serial           (Serial2)
+
+
 /********************************************************************************/
 // LOCAL VAR
 /********************************************************************************/
-fsm_info_t sacp_fsm;
-scap_msg_t sacp_msg;
+uint8_t update_in_pc = 0;
+uint8_t update_in_sc = 0;
+fsm_info_t pc_sacp_fsm;
+fsm_info_t sc_sacp_fsm;
 boot_info_t boot_info;
+uint8_t send_frame[SACP_FRAME_MAX_SIZE];
 
 
 /********************************************************************************/
 // LOCAL FUNCTION DECL
 /********************************************************************************/
+void print_frame(uint8_t *frame, uint32_t flen);
+size_t ser_write(HardwareSerial &ser, uint8_t *data, uint32_t len);
 void print_boot_info(boot_info_t *bi);
 bool load_boot_info(boot_info_t *bi);
 bool write_boot_info(boot_info_t *bi);
 void init_boot_info(boot_info_t *bi);
 void flash_test(flash_partition_t &partition);
-void normal_boot(void);
+void normal_boot_loop(void);
+void protocol_loop(void);
+void protocol_proc(HardwareSerial &ser, fsm_info_t &fsm);
 void jump_to(uint32_t addr);
+
 
 /********************************************************************************/
 // FUN DEF
 /********************************************************************************/
 void setup() {
-  Serial.begin(115200);
+  PC_Serial.begin(115200);
+  SC_Serial.begin(115200);
 }
 
 void frame_to_msg(fsm_info_t &fsm, scap_msg_t &msg) {
   msg.attr = fsm.attr;
   // memcpy(msg.payload, fsm.frame + PAYLOAD_POS, fsm.have_rx_len - 
-}
-
-void protocol_loop() {
-  uint8_t c;
-
-  while(Serial.available() > 0) {
-    c = Serial.read();
-    // if(protocol_push_char(sacp_fsm, c)
-  }
-}
-
-void boot_app(void) {
-  uint32_t delay_time_s = BOOT_DELAY_SECODE;
-  uint32_t time_ms = millis();
-
-  while(1) {
-    if(time_after(millis(), 1000 + time_ms)) {
-      time_ms = millis();
-      // snap_print("boot: boot in %d second\r\n", delay_time_s);
-      if (delay_time_s)
-        delay_time_s--;
-      else
-        break;
-    }
-
-    // TODO: protocol handle
-    // TODO: aborting boot?
-  }
-
-  if (0 != delay_time_s) {
-
-  }
-
-  // snap_print("boot: boot to app\r\n");
-  jump_to(boot_info.fw_runaddr);
-}
-
-void copy_to_run_slot(void) {
-
-}
-
-void trans_fw_loop(void) {
-  // 
-  while(1);
 }
 
 void loop() {
@@ -88,15 +57,15 @@ void loop() {
   load_boot_info(&boot_info);
   print_boot_info(&boot_info);
 
-  // Serial.print("Jump to ");
-  // Serial.println(DOWNLOAD_SLOT_ADDR);
-  // Serial.end();
-  // jump_to(DOWNLOAD_SLOT_ADDR);
+  while (1) {
+    normal_boot_loop();
+    protocol_loop();
+  }
 
   switch(boot_info.boot_mode) {
     case BOOT_MODE_FACTORY_BURNING:
     case BOOT_MODE_APP:
-      normal_boot();
+      
     break;
 
     default:
@@ -105,8 +74,6 @@ void loop() {
       Serial.print(boot_info.boot_mode);
     break;
   }
-
-  if (boot_info.boot_mode)
   
   while(1) {
 
@@ -227,13 +194,13 @@ bool write_boot_info(boot_info_t *bi) {
 }
 
 void init_boot_info(boot_info_t *bi) {
-  memcpy(bi->magic_str, "snapmaker update.bin", 21);
+  snap_memcpy((void *)bi->magic_str, (void *)"snapmaker update.bin", 21);
   bi->ver = 1;
   bi->type = 4;
   bi->start_index = 0;
   bi->start_index = 1;
-  memcpy(bi->fw_ver_str, "ver12.34.56", 32);
-  memcpy(bi->timestamp_str, "2022.03.31 14:12:00", 20);
+  snap_memcpy(bi->fw_ver_str, (void *)"ver12.34.56", 32);
+  snap_memcpy(bi->timestamp_str, (void *)"2022.03.31 14:12:00", 20);
   bi->boot_mode = 0xAA04;
   bi->fw_len = 100000;
   bi->fw_checksum = 12341234;
@@ -241,15 +208,15 @@ void init_boot_info(boot_info_t *bi) {
   bi->boot_data_checksum = calculate_checksum((uint8_t *)bi, sizeof(boot_info_t) - 4);
 }
 
-void normal_boot(void) {
+void normal_boot_loop(void) {
   static uint32_t tick_ms = millis();
   static uint32_t count_down_second = BOOT_DELAY_SECODE;
 
-  Serial.print("Boot in ");
-  Serial.print(count_down_second);
-  Serial.println(" second");
+  return;
 
-  while(1) {
+  if (BOOT_MODE_FACTORY_BURNING == boot_info.boot_mode || 
+      BOOT_MODE_APP == boot_info.boot_mode) {
+
     if (time_after(millis(), tick_ms + 1000)) {
       tick_ms = millis();
       count_down_second--;
@@ -262,8 +229,66 @@ void normal_boot(void) {
         jump_to(boot_info.fw_runaddr);
       }
     }
+  }
+}
 
-    protocol_loop();
+void protocol_loop(void) {
+  if (update_in_pc) {
+    protocol_proc(PC_Serial, pc_sacp_fsm);
+  }
+  else if (update_in_sc) {
+    protocol_proc(SC_Serial, sc_sacp_fsm);
+  }
+  else {
+    protocol_proc(PC_Serial, pc_sacp_fsm);
+    protocol_proc(SC_Serial, sc_sacp_fsm);
+  }
+}
+
+void print_frame(uint8_t *frame, uint32_t flen) {
+  for (uint32_t i = 0; i < flen; i++) {
+    Serial.print(frame[i], HEX);
+    Serial.print(" ");
+  }
+  Serial.println();
+}
+
+size_t ser_write(HardwareSerial &ser, uint8_t *data, uint32_t len) {
+  size_t wl = 0;
+  for(uint32_t i = 0; i < len; i++) {
+    wl += ser.write(data[i]);
+  }
+  return wl;
+}
+
+void protocol_proc(HardwareSerial &ser, fsm_info_t &fsm) {
+  uint8_t c;
+  uint32_t frame_len;
+  scap_msg_t sacp_msg;
+
+  while(ser.available() > 0) {
+    c = ser.read();
+    if (!protocol_push_char(fsm, c)) {
+      continue;
+    }
+
+    Serial.print("Get a frame: ");
+    // print_frame(fsm.frame, fsm.have_rx_len);
+
+    // Get payload and call command executor
+    sacp_msg.ver = VERSION;
+    sacp_msg.attr = ATTR_REQ;
+    sacp_msg.peer = 0;
+    sacp_msg.sender = SACP_HOST_ID_CONTROLLER;
+    sacp_msg.seq = 0x1234;
+    sacp_msg.payload[0] = 0xAC;
+    sacp_msg.payload[1] = 0xCA;
+    sacp_msg.payload_len = 2;
+    frame_len = SACP_FRAME_MAX_SIZE;
+    protocol_build_pack(sacp_msg, send_frame, frame_len);
+    Serial.println("Send a frame: ");
+    print_frame(send_frame, frame_len);
+    ser_write(ser, send_frame, frame_len);
   }
 }
 

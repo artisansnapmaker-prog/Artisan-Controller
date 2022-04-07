@@ -478,7 +478,7 @@ void MotionPlatformService::req_quickstop(void) {
 }
 
 bool MotionPlatformService::planner_busy(void) {
-  planner.busy();
+  return planner.busy();
 }
 
 err_code_t MotionPlatformService::take_quickstop_sem(uint32_t wait_time) {

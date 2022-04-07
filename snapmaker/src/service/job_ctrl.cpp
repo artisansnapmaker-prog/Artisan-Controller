@@ -201,7 +201,8 @@ err_code_t JobCtrl::req_pause( enum JobPauseType pt,
 
 err_code_t JobCtrl::req_resume( uint8_t client_id,
                                 job_req_notify_cb_t cb/* = NULL*/,
-                                void *p/* = NULL*/) {
+                                void *p/* = NULL*/,
+                                JobResumeType pt/* = RESUME_TYPE_PAUSE*/) {
   if (!smprinter.can_resume_work()) {
     LOG_E("job_ctrl: Can not resume a job\r\n");
     return E_JOB_NOT_IN_PAUSE_STATUS;
@@ -210,6 +211,7 @@ err_code_t JobCtrl::req_resume( uint8_t client_id,
   JobCtrlReqInfo jri;
   jri.req_action = REQ_RESUME;
   jri.req_data.req_resume_data.client_id = client_id;
+  jri.req_data.req_resume_data.type = pt;
   jri.cb = cb;
   jri.param = p;
 
@@ -744,6 +746,11 @@ void JobCtrl::do_resume(struct JobCtrlReqInfo &jri) {
     return;
   }
   DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, SYSTEM_STATUS_RESUMING);
+
+  // to make job ctrl call resume_finish()
+  if (jri.req_data.req_resume_data.type == RESUME_TYPE_RECOVERY) {
+    _paused = true;
+  }
 
   if (E_SUCCESS != resume_env()) {
     LOG_E("job ctrl: resume failed\r\n");

@@ -82,6 +82,11 @@ enum JobPauseType {
   PAUSE_NOZZLE_TEMP,
 };
 
+enum JobResumeType {
+  RESUME_TYPE_PAUSE,
+  RESUME_TYPE_RECOVERY,
+};
+
 enum JobStopType {
   STOP_NORMAL,
   STOP_CLIENT_REQ,
@@ -135,6 +140,7 @@ struct JobCtrlReqInfo {
     } req_pause_data;
 
     struct {
+      JobResumeType type;
       uint8_t client_id;
     } req_resume_data;
 
@@ -166,7 +172,8 @@ class JobCtrl {
                           void *p = NULL);
     err_code_t req_resume(uint8_t client_id,
                           job_req_notify_cb_t cb = NULL,
-                          void *p = NULL);
+                          void *p = NULL,
+                          JobResumeType pt = RESUME_TYPE_PAUSE);
     err_code_t req_stop(  enum JobStopType pt,
                           uint8_t reason,
                           job_req_notify_cb_t cb = NULL,

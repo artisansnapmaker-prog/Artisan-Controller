@@ -750,6 +750,8 @@ void JobCtrl::do_pause(struct JobCtrlReqInfo &jri) {
   } else if (PAUSE_EXCEPTION == jri.req_data.req_pause_data.type) {
     if (smprinter.get_toolhead_type() == TH_TYPE_CNC)
       _issue_ret_rb.insert_one(SACP_JOB_PAUSE_ISSUE_RET_STALL_PROTECTION);
+  } else if (PAUSE_FILM_RUNOUT == jri.req_data.req_pause_data.type) {
+    _issue_ret_rb.insert_one(SACP_JOB_PAUSE_ISSUE_RET_FILAMENT_RUNOUT);
   }
   DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, SYSTEM_STATUS_PAUSED);
 }

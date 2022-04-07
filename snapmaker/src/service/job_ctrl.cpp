@@ -377,9 +377,17 @@ err_code_t JobCtrl::resume_env(void) {
   motion_platform_svc.set_travl_feedrate(_env.travel_feadrate);
   motion_platform_svc.set_relative_mode(_env.g0g1_relative_mode);
 
-  char gcmd[32];
-  snprintf(gcmd, 32, "G92 E%.4f\n", _env.current_pos.e);
-  motion_platform_svc.run_gcode((char *)gcmd);
+  // wait for all movement done
+  while (motion_platform_svc.planner_busy()) {
+    vTaskDelay(pdMS_TO_TICKS(10));
+  }
+
+  // set position to planner for E, I, J
+  motion_platform_svc.update_position_from_platform();
+  motion_platform_svc.sm_current_position.e = _env.current_pos.e;
+  motion_platform_svc.sm_current_position.i = _env.current_pos.i;
+  motion_platform_svc.sm_current_position.j = _env.current_pos.j;
+  motion_platform_svc.sync_plan_position_to_platform();
 
   // LOG_I("job_ctrl: resume cur_line_num %d\r\n", _env.cur_line_num);
   // LOG_I("job_ctrl: ========================= resume =========================\r\n");

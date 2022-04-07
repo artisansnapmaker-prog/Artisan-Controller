@@ -49,15 +49,15 @@ void GcodeSuite::M1005() {
 
 
   // version of modules
-  LOG_I("\nModule info:\n");
+  LOG_I("\nmodule list:\n");
   ModuleBase *module;
   for (int i = 0; i < MODULE_ACCESSIBLE_MAX; i++) {
     module = module_svc.get_module(i);
     if (!module)
       break;
 
-    LOG_I("Module: 0x%x, SN: 0x%0x, FW ver: %s, HW ver: 0x%x\n", module->get_device_id(),
-          module->get_sn(), module->get_fw_version(), module->get_hw_verion());
+    LOG_I("Module ID: 0x%x, SN: 0x%0x, FW ver: %s, HW ver: 0x%x, sta: %u\n", module->get_device_id(),
+          module->get_sn(), module->get_fw_version(), module->get_hw_verion(), module->get_status());
   }
 
   // if (ModuleBase::toolhead() == MACHINE_TYPE_LASER || (ModuleBase::toolhead() == MACHINE_TYPE_LASER_10W)) {

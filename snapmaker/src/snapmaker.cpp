@@ -17,6 +17,8 @@
 #include "service/job_ctrl.h"
 #include "common/utility.h"
 
+#include "HAL/interrupt.h"
+
 SnapmakerPrinter smprinter;
 
 TaskHandle_t thandle_marlin = NULL;
@@ -189,6 +191,9 @@ err_code_t SnapmakerPrinter::hmi_cb_request_reboot(void *obj, sacp_hmi_message_t
   host_hmi.send_ack(msg, E_SUCCESS);
   vTaskDelay(pdMS_TO_TICKS(100));
   HAL_reboot();
+  disable_all_interrupts();
+  while(1);
+  return E_SUCCESS;
 }
 
 err_code_t SnapmakerPrinter::hmi_cb_get_machine_info(void *obj, sacp_hmi_message_t *msg) {
@@ -363,7 +368,7 @@ static void system_thread(void *p) {
   host_hmi.register_callback(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_SET_PC_PROTOCOL,
       (void *)&smprinter, SnapmakerPrinter::hmi_cb_set_protocol_for_PC);
 
-  host_hmi.register_callback(1, 3,
+  host_hmi.register_callback(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_REBOOT,
       (void *)&smprinter, SnapmakerPrinter::hmi_cb_request_reboot);
 
 

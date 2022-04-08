@@ -23,8 +23,6 @@ HostSACPHMI AT_CCRAM host_hmi(SACP_VER_1, SACP_HOST_ID_CONTROLLER);
 
 
 err_code_t HostSACPHMI::init(TaskHandle_t event_task, SemaphoreHandle_t recv_signal) {
-  uint8_t *buffer = NULL;
-
   waiting_lock = xSemaphoreCreateMutex();
   configASSERT(waiting_lock);
 

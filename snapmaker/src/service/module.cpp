@@ -227,7 +227,7 @@ err_code_t ModuleService::report_module_info(void *obj, sacp_hmi_message_t *mess
   // start of second byte to save module information
   message->length = 2;
 
-  int i, l;
+  int i, l = 0;
   for (i = 0; i < avail_modules; i++) {
     // point to new area
     info = (module_info_t *)(message->data + message->length);
@@ -380,7 +380,7 @@ int ModuleService::init_virtual_modules() {
   }
   else {
     if (module->pre_init() == E_SUCCESS) {
-      module->set_fw_version("v1.0.0");
+      module->set_fw_version((char *)"v1.0.0");
       modules[configured_module++] = module;
     }
     else {
@@ -394,7 +394,7 @@ int ModuleService::init_virtual_modules() {
   }
   else {
     if (module->pre_init() == E_SUCCESS) {
-      module->set_fw_version("v1.0.0");
+      module->set_fw_version((char *)"v1.0.0");
       modules[configured_module++] = module;
     }
     else {
@@ -408,7 +408,7 @@ int ModuleService::init_virtual_modules() {
   }
   else {
     if (module->pre_init() == E_SUCCESS) {
-      module->set_fw_version("v1.0.0");
+      module->set_fw_version((char *)"v1.0.0");
       modules[configured_module++] = module;
     }
     else {
@@ -422,7 +422,7 @@ int ModuleService::init_virtual_modules() {
   }
   else {
     if (module->pre_init() == E_SUCCESS) {
-      module->set_fw_version("v1.0.0");
+      module->set_fw_version((char *)"v1.0.0");
       modules[configured_module++] = module;
     }
     else {
@@ -436,7 +436,7 @@ int ModuleService::init_virtual_modules() {
   }
   else {
     if (module->pre_init() == E_SUCCESS) {
-      module->set_fw_version("v1.0.0");
+      module->set_fw_version((char *)"v1.0.0");
       modules[configured_module++] = module;
     }
     else {
@@ -451,7 +451,7 @@ int ModuleService::init_virtual_modules() {
   }
   else {
     if (module->pre_init() == E_SUCCESS) {
-      module->set_fw_version("v1.0.0");
+      module->set_fw_version((char *)"v1.0.0");
       modules[configured_module++] = module;
     }
     else {

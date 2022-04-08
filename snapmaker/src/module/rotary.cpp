@@ -41,31 +41,6 @@ err_code_t Rotary::post_init() {
   return E_SUCCESS;
 }
 
-err_code_t Rotary::save_env(uint8_t *env_buf, uint32_t &len) {
-  rotary_recovery_data_t recovery_data;
-  recovery_data.position = motion_platform_svc.get_current_position(J_AXIS);
-  len = sizeof(rotary_recovery_data_t);
-  memcpy(env_buf, (uint8_t *)&recovery_data, len);
-
-  return E_SUCCESS;
-}
-
-err_code_t Rotary::resume_env(uint8_t *env_buf, uint32_t &len) {
-  rotary_recovery_data_t recovery_data;
-
-  if (len != sizeof(rotary_recovery_data_t)) {
-    return E_PARAM;
-  }
-
-  memcpy((uint8_t *)&recovery_data, env_buf, sizeof(rotary_recovery_data_t));
-
-  motion_platform_svc.update_position_from_platform();
-  motion_platform_svc.sm_current_position[J_AXIS] = recovery_data.position;
-  motion_platform_svc.sync_plan_position_to_platform();
-
-  return E_SUCCESS;
-}
-
 err_code_t rotary_callback_routine(void *obj) {
   // Rotary &rotary = *(Rotary *)obj;
 

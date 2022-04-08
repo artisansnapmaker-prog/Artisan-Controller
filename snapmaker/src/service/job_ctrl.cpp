@@ -478,7 +478,7 @@ void JobCtrl::get_gcodes_from_client(void) {
       //break;
     //}
     res_batch_gcode.gcode_str = batch_gcode_buf;
-    LOG_I("job_ctrl: get gcode from client %d, startline %d, buffer %d\r\n", _client_id, req_batch_gcode.line_num, req_batch_gcode.buf_len);
+    // LOG_I("job_ctrl: get gcode from client %d, startline %d, buffer %d\r\n", _client_id, req_batch_gcode.line_num, req_batch_gcode.buf_len);
     if(ClientNode::get_batch_gcode(_client_id, req_batch_gcode, res_batch_gcode)) {
       if (E_SUCCESS != res_batch_gcode.result &&
           E_JOB_LAST_GCODE_PACK != res_batch_gcode.result) {
@@ -937,7 +937,7 @@ bool JobCtrl::consume_a_gcode(uint8_t *cmd, uint16_t max_len, uint32_t *line) {
     if('\n' == c) {
       *line = _env.cur_line_num++;
       cmd[cmd_len] = 0;
-      LOG_I("job_ctrl: marlin consume a gcode: %s\r\n", cmd);
+      // LOG_I("job_ctrl: marlin consume a gcode: %s\r\n", cmd);
       ret = true;
 
       if (_paused){

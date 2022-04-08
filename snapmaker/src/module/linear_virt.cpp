@@ -91,8 +91,6 @@ err_code_t LinearVirtual::post_init() {
   host_hmi.register_callback(SACP_CMD_SET_LINEAR_MODULE, SACP_CMD_ID_LINEAR_SET_ENDSTOP,
           (void *)this, hmi_cb_set_endstop);
 
-  pinMode(detect_pin, INPUT_ANALOG);
-
   set_status(MODULE_STATUS_NORMAL);
 
   return E_SUCCESS;
@@ -106,7 +104,7 @@ struct __packed LinearModuleInfo {
   int32_t lead;
 };
 err_code_t LinearVirtual::hmi_cb_get_info(void *obj, sacp_hmi_message_t *message) {
-  LinearVirtual *linear = NULL;
+  LinearVirtual *linear = (LinearVirtual *)obj;
   LinearModuleInfo *info = NULL;
 
   for (int i = 0; i < object_index; i++) {
@@ -122,7 +120,7 @@ err_code_t LinearVirtual::hmi_cb_get_info(void *obj, sacp_hmi_message_t *message
   }
 
   if (linear->get_status() != MODULE_STATUS_NORMAL) {
-    LOG_E("invalid module status, key[%u]\n", message->data[0]);
+    LOG_E("invalid module status[%u], key[%u]\n", linear->get_status(), message->data[0]);
     return host_hmi.send_ack(message, E_INVALID_STATE);
   }
 

@@ -464,7 +464,7 @@ void MotionPlatformService::req_quickstop(void) {
   // There is a race condition that must be handled: the marlin thread and the caller thread
   // wait for the last request finish
   // LOG_I("wait for the last request finish\r\n");
-  while(req_motion_platform_quickstop) vTaskDelay(5);
+  while(req_motion_platform_quickstop) vTaskDelay(pdMS_TO_TICKS(5));
   req_motion_platform_quickstop = true;
 
   // quickstop_stepper();
@@ -762,7 +762,7 @@ err_code_t MotionPlatformService::run_gcode(char *gcode_cmd, bool blocked /* = f
         // so we need to run idle() to make sure marlin system be normal
         idle();
         // release CPU for other threads
-        taskYIELD();
+        vTaskDelay(pdMS_TO_TICKS(10));
       }
       else {
         ret = E_TIMEOUT;
@@ -848,7 +848,7 @@ void MotionPlatformService::moveto(xyze_pos_t target, float feedrate, bool block
   if (blocked) {
     while (planner.busy()) {
       idle();
-      vTaskDelay(pdMS_TO_TICKS(1));
+      vTaskDelay(pdMS_TO_TICKS(10));
     }
   }
 

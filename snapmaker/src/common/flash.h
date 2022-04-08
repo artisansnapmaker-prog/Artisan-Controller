@@ -47,7 +47,7 @@
 
 // app partition
 #define FLASH_APP_FW_START_SECTOR               (3)
-#define FLASH_APP_FW_SECTOR_NUM                 (5)
+#define FLASH_APP_FW_SECTOR_NUM                 (1)
 #define FLASH_APP_FW_ADDR                       (48 * 1024 + FLASH_BASE)
 #define FLASH_APP_FW_SIZE                       (464 * 1024)
 
@@ -65,6 +65,7 @@ typedef struct {
 } flash_partition_t;
 
 extern flash_partition_t boot_data_partition;
+extern flash_partition_t app_partition;
 
 bool flash_erase(flash_partition_t &flash_partition);
 uint32_t flash_write(flash_partition_t &flash_partition, uint8_t *data, uint32_t len);

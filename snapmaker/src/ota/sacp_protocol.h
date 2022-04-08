@@ -124,6 +124,7 @@ typedef struct{
 // EXP FUN DEF
 /********************************************************************************/
 int protocol_push_char(fsm_info_t &fsm, uint8_t c);
+void print_frame(uint8_t *frame, uint32_t flen);
 void protocol_build_pack(scap_msg_t &msg, uint8_t *frame_buf, uint32_t &out_frame_len);
 
 #endif

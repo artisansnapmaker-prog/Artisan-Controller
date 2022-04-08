@@ -9,16 +9,17 @@
 /********************************************************************************/
 // MACRO
 /********************************************************************************/
-#define CMD_SET_UPDATE        (0xAD)
-#define CMD_ID_UPDATE_START   (0x01)
-#define CMD_ID_UPDATE_TRANS   (0x02)
-#define CMD_ID_UPDATE_END     (0x03)
+#define CMD_SET_UPDATE            (0xAD)
+#define CMD_ID_UPDATE_START       (0x01)
+#define CMD_ID_UPDATE_TRANS       (0x02)
+#define CMD_ID_UPDATE_END         (0x03)
 
-#define CMD_START_MIN_LEN     (256)
-#define CMD_TRANS_MIN_LEN     (7)
-#define CMD_END_MIN_LEN       (1)
-#define RET_OK                (0)
-#define RET_ERROR             (1)
+#define CMD_START_MIN_LEN         (256)
+#define CMD_TRANS_MIN_LEN         (7)
+#define CMD_END_MIN_LEN           (1)
+#define RET_OK                    (0)
+#define RET_ERROR                 (1)
+#define UPDATE_TRANS_PACK_SIZE    (2000)
 
 
 /********************************************************************************/
@@ -67,6 +68,8 @@ void cmd_update_start(uint8_t *pl, uint32_t len, uint8_t *out, uint32_t &out_len
 void cmd_update_trans(uint8_t *pl, uint32_t len, uint8_t *out, uint32_t &out_len);
 void cmd_update_end(uint8_t *pl, uint32_t len, uint8_t *out, uint32_t &out_len);
 void update_trans_req(void);
+void update_end_req(uint8_t ret);
+bool update_app_fw_checksum(void);
 
 update_info_t update_info;
 
@@ -194,8 +197,17 @@ void cmd_update_start(uint8_t *pl, uint32_t len, uint8_t *out, uint32_t &out_len
     return;
   }
 
-  snap_memcpy(&boot_info, pl, sizeof(boot_info));
-  print_boot_info(&boot_info);
+  snap_memcpy(update_info.boot_info, pl, sizeof(boot_info_t));
+  update_info.app_len = update_info.boot_info->fw_lenght;
+  update_info.offset = 0;
+  update_info.checksum = update_info.boot_info->fw_checksum;
+
+  // TODO: for debug
+  update_info.boot_info->link_ch = LINK_CH_PC;
+  update_info.boot_info->peer = SACP_HOST_ID_LUBAN;
+
+  print_boot_info(update_info.boot_info);
+  flash_erase(*(update_info.app_partition));
 
   update_info.s = UPDATE_START;
   out[0] = CMD_SET_UPDATE;
@@ -225,18 +237,19 @@ void cmd_update_trans(uint8_t *pl, uint32_t len, uint8_t *out, uint32_t &out_len
   uint32_t offset = LITTLE_STREAM_TO_32(pl+1);
   uint16_t pack_len = LITTLE_STREAM_TO_16(pl+5);
   Serial.print("rx offset ");
-  Serial.println(offset);
-  Serial.print("rx pack_len ");
+  Serial.print(offset);
+  Serial.print(", pack_len ");
   Serial.println(pack_len);
 
   if (offset != update_info.offset) {
     return;
   }
 
-  update_info.offset += pack_len;
+  update_info.offset += flash_write(*(update_info.app_partition), pl + 7, pack_len);
+  // update_info.offset += pack_len;
   Serial.print("Now offset ");
   Serial.println(update_info.offset);
-  trans_req_try = 0;
+  trans_req_try = 0;  
 
   update_trans_req();
 }
@@ -271,7 +284,11 @@ void update_trans_req(void) {
   if (update_info.offset >= update_info.app_len) {
     Serial.println("Rx all the data");
     update_info.s = UPDATE_END;
-    update_end_req(RET_OK);
+
+    if (update_app_fw_checksum())
+      update_end_req(RET_OK);
+    else
+      update_end_req(RET_ERROR);
     return;
   }
 
@@ -286,14 +303,20 @@ void update_trans_req(void) {
   sacp_msg.payload[3] = (update_info.offset>>8) & 0xFF;
   sacp_msg.payload[4] = (update_info.offset>>16) & 0xFF;
   sacp_msg.payload[5] = (update_info.offset>>24) & 0xFF;
-  // sacp_msg.payload[6] = (SACP_PAYLOAD_MAX_SIZE - 4) & 0xFF;
-  // sacp_msg.payload[7] = ((SACP_PAYLOAD_MAX_SIZE - 4)>>8) & 0xFF;
-  sacp_msg.payload[6] = (4) & 0xFF;
-  sacp_msg.payload[7] = (4>>8) & 0xFF;
+  sacp_msg.payload[6] = (UPDATE_TRANS_PACK_SIZE) & 0xFF;
+  sacp_msg.payload[7] = (UPDATE_TRANS_PACK_SIZE>>8) & 0xFF;
+  //sacp_msg.payload[6] = (4) & 0xFF;
+  //sacp_msg.payload[7] = (4>>8) & 0xFF;
   sacp_msg.payload_len = 8;
   frame_len = 64;
   
+  Serial.print("request offset ");
+  Serial.print(update_info.offset);
+  Serial.print(" buffer size ");
+  Serial.println(2000, HEX);
+
   protocol_build_pack(sacp_msg, send_frame, frame_len);
+  print_frame(send_frame, frame_len);
   send((link_ch_e)update_info.boot_info->link_ch, send_frame, frame_len);
 
   last_trans_req_ms = millis();
@@ -320,4 +343,11 @@ void update_end_req(uint8_t ret) {
 
   last_end_req_ms = millis();
   end_req_try++;
+}
+
+bool update_app_fw_checksum(void) {
+  uint32_t cs;
+  cs = calculate_checksum( (uint8_t *)update_info.app_partition->start_addr, 
+                            update_info.app_len);
+  return cs == update_info.checksum;
 }

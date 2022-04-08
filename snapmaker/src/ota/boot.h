@@ -36,26 +36,27 @@ typedef enum {
   LINK_CH_SC = 1,
 } link_ch_e;
 
-typedef struct __attribute__ ((packed)) {
+#pragma pack(1)
+typedef struct{
   uint8_t magic_str[21];
-  uint8_t ver;
-  uint8_t type;
+  uint8_t protocol_ver;
+  uint16_t pack_type;
+  uint8_t update_flag;
   uint16_t start_index;
   uint16_t end_index;
   uint8_t fw_ver_str[32];
   uint8_t timestamp_str[20];
   uint16_t boot_mode;
-  uint8_t peer;
-  uint8_t link_ch;
-  uint32_t fw_len;
+  uint32_t fw_lenght;
   uint32_t fw_checksum;
   uint32_t fw_runaddr;
+  uint8_t peer;
+  uint8_t link_ch;
   uint32_t boot_data_checksum; 
 } boot_info_t;
+#pragma pack()
 
 typedef void (*pf)(void);
-
-extern boot_info_t boot_info;
 
 void print_boot_info(boot_info_t *bi);
 void setup(void);

@@ -169,6 +169,7 @@ int protocol_push_char(fsm_info_t &fsm, uint8_t c)
         }
       }
       else {
+        Serial.println("frame too large");
         fsm.s = STATE_HEADER_1;
       }
     break;
@@ -225,6 +226,14 @@ void protocol_build_pack(scap_msg_t &msg, uint8_t *frame_buf, uint32_t &out_fram
   frame_buf[index++] = checksum & 0xFF;
   frame_buf[index++] = (checksum>>8) & 0xFF;
   out_frame_len = index;
+}
+
+void print_frame(uint8_t *frame, uint32_t flen) {
+  for (uint32_t i = 0; i < flen; i++) {
+    Serial.print(frame[i], HEX);
+    Serial.print(" ");
+  }
+  Serial.println();
 }
 
 

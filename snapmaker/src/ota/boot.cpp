@@ -24,7 +24,6 @@ uint8_t send_frame[SACP_FRAME_MAX_SIZE];
 /********************************************************************************/
 // LOCAL FUNCTION DECL
 /********************************************************************************/
-void print_frame(uint8_t *frame, uint32_t flen);
 size_t ser_write(HardwareSerial &ser, uint8_t *data, uint32_t len);
 void print_boot_info(boot_info_t *bi);
 void load_boot_info(boot_info_t *bi);
@@ -52,6 +51,9 @@ void loop() {
   write_boot_info(&boot_info);
   load_boot_info(&boot_info);
   print_boot_info(&boot_info);
+
+  update_init(&boot_info, &boot_data_partition, &app_partition);
+  flash_erase(app_partition);
 
   while (1) {
     normal_boot_loop();
@@ -143,11 +145,11 @@ void print_boot_info(boot_info_t *bi) {
   ms = (char *)bi->magic_str;
   Serial.println(F(ms));
   
-  Serial.print("ver: ");
-  Serial.println(bi->ver);
+  Serial.print("protocol ver: ");
+  Serial.println(bi->protocol_ver);
 
-  Serial.print("type: ");
-  Serial.println(bi->type);
+  Serial.print("pack_type: ");
+  Serial.println(bi->pack_type);
 
   Serial.print("start index: ");
   Serial.println(bi->start_index);
@@ -164,16 +166,22 @@ void print_boot_info(boot_info_t *bi) {
   Serial.println(F(ms));
 
   Serial.print("boot_mode: ");
-  Serial.println(bi->boot_mode);
+  Serial.println(bi->boot_mode, HEX);
 
-  Serial.print("fw len: ");
-  Serial.println(bi->fw_len);
+  Serial.print("fw lenght: ");
+  Serial.println(bi->fw_lenght);
 
   Serial.print("fw checksum: ");
-  Serial.println(bi->fw_checksum);
+  Serial.println(bi->fw_checksum, HEX);
 
   Serial.print("fw runaddr: ");
-  Serial.println(bi->fw_runaddr);
+  Serial.println(bi->fw_runaddr, HEX);
+
+  Serial.print("peer: ");
+  Serial.println(bi->peer);
+
+  Serial.print("link_ch: ");
+  Serial.println(bi->link_ch);
 
   Serial.print(F("boot data checksum: "));
   Serial.println(bi->boot_data_checksum);
@@ -203,14 +211,14 @@ bool write_boot_info(boot_info_t *bi) {
 
 void init_boot_info(boot_info_t *bi) {
   snap_memcpy((void *)bi->magic_str, (void *)"snapmaker update.bin", 21);
-  bi->ver = 1;
-  bi->type = 4;
+  bi->protocol_ver = 1;
+  bi->pack_type = 4;
   bi->start_index = 0;
   bi->start_index = 1;
   snap_memcpy(bi->fw_ver_str, (void *)"ver12.34.56", 32);
   snap_memcpy(bi->timestamp_str, (void *)"2022.03.31 14:12:00", 20);
   bi->boot_mode = 0xAA04;
-  bi->fw_len = 100000;
+  bi->fw_lenght = 100000;
   bi->fw_checksum = 12341234;
   bi->fw_runaddr = FLASH_APP_FW_ADDR;
   bi->boot_data_checksum = calculate_checksum((uint8_t *)bi, sizeof(boot_info_t) - 4);
@@ -251,14 +259,6 @@ void protocol_loop(void) {
     protocol_proc(PC_Serial, pc_sacp_fsm);
     protocol_proc(SC_Serial, sc_sacp_fsm);
   }
-}
-
-void print_frame(uint8_t *frame, uint32_t flen) {
-  for (uint32_t i = 0; i < flen; i++) {
-    Serial.print(frame[i], HEX);
-    Serial.print(" ");
-  }
-  Serial.println();
 }
 
 size_t ser_write(HardwareSerial &ser, uint8_t *data, uint32_t len) {

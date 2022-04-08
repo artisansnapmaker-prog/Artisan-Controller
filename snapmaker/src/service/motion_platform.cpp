@@ -820,30 +820,47 @@ void MotionPlatformService::moveto(xyze_pos_t target, float feedrate, bool block
 
   apply_motion_limits(target);
 
-    #if HAS_Z_AXIS
-      // If Z needs to raise, do it before moving XY
-      if (current_position.z < target.z) {
-        current_position.z = target.z;
-        line_to_current_position(z_feedrate);
-      }
-    #endif
-
-    Rotary *rotary = (Rotary *)module_svc.get_module(MODULE_DEVICE_ID_ROTARY_2020);
-    if (rotary) {
-      current_position.set(current_position.x, current_position.y, current_position.z, current_position.i, target.j);
-      line_to_current_position(xy_feedrate);
+  #if HAS_Z_AXIS
+    // If Z needs to raise, do it before moving XY
+    if (current_position.z < target.z) {
+      current_position.z = target.z;
+      line_to_current_position(z_feedrate);
     }
+  #endif
 
-    current_position.set(target.x, target.y);
+  Rotary *rotary = (Rotary *)module_svc.get_module(MODULE_DEVICE_ID_ROTARY_2020);
+  if (rotary) {
+    current_position.set(current_position.x, current_position.y, current_position.z, current_position.i, target.j);
     line_to_current_position(xy_feedrate);
+  }
 
-    #if HAS_Z_AXIS
-      // If Z needs to lower, do it after moving XY
-      if (current_position.z > target.z) {
-        current_position.z = target.z;
-        line_to_current_position(z_feedrate);
-      }
-    #endif
+  current_position.set(target.x, target.y);
+  line_to_current_position(xy_feedrate);
+
+  #if HAS_Z_AXIS
+    // If Z needs to lower, do it after moving XY
+    if (current_position.z > target.z) {
+      current_position.z = target.z;
+      line_to_current_position(z_feedrate);
+    }
+  #endif
+
+  // moving ijk
+  #if LINEAR_AXES >= 4
+    current_position.i = target.i;
+  #endif
+
+  #if LINEAR_AXES >= 5
+    current_position.j = target.j;
+  #endif
+
+  #if LINEAR_AXES >= 6
+    current_position.k = target.k;
+  #endif
+
+  #if LINEAR_AXES >= 4
+    line_to_current_position(feedrate);
+  #endif
 
   if (blocked) {
     while (planner.busy()) {

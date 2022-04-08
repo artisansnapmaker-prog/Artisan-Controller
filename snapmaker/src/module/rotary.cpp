@@ -60,7 +60,7 @@ err_code_t Rotary::resume_env(uint8_t *env_buf, uint32_t &len) {
   memcpy((uint8_t *)&recovery_data, env_buf, sizeof(rotary_recovery_data_t));
 
   motion_platform_svc.update_position_from_platform();
-  motion_platform_svc.sm_current_position = recovery_data.position;
+  motion_platform_svc.sm_current_position[J_AXIS] = recovery_data.position;
   motion_platform_svc.sync_plan_position_to_platform();
 
   return E_SUCCESS;

@@ -86,6 +86,8 @@ class BedLevelService {
     err_code_t apply_live_z_offset(uint8_t e);
     err_code_t unapply_live_z_offset(uint8_t e);
     void set_live_z_offset(uint8_t e, float offset);
+    void auto_probe_sensor_calibration();
+    void auto_hotend_offset_calibration();
 
 
     float z_values_[GRID_MAX_NUM][GRID_MAX_NUM];

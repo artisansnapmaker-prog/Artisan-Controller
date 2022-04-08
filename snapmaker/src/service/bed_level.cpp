@@ -897,3 +897,67 @@ void BedLevelService::set_live_z_offset(uint8_t e, float offset) {
     }
   }
 }
+
+void BedLevelService::auto_probe_sensor_calibration() {
+  // go home if needed
+  if (!motion_platform_svc.is_all_axes_homed()) {
+    motion_platform_svc.run_gcode("G28", true);
+  }
+
+  // move to destination
+  motion_platform_svc.moveto_xyz(200, 200, 20, 40);
+
+  // conductive probe
+  smprinter.fdm->set_probe_sensor(PROBE_SENSOR_LEFT_CONDUCTIVE);
+  float left_nozzle_touch_bed_z = motion_platform_svc.probe_at_point(200, 200, PROBE_PT_RAISE);
+
+  // optocoupler probe
+  smprinter.fdm->set_probe_sensor(PROBE_SENSOR_LEFT_OPTOCOUPLER);
+  float left_nozzle_detect_bed_z = motion_platform_svc.probe_at_point(200, 200, PROBE_PT_RAISE);
+
+
+  // raise and toolchange
+  motion_platform_svc.moveto_z(motion_platform_svc.get_current_position(Z_AXIS) + 5, 30);
+  ToolHeadFDM *fdm = (ToolHeadFDM *)module_svc.get_module(MODULE_DEVICE_ID_FDM_2EXTRUDER_2021, 0);
+  if (!fdm) {
+    return;
+  }
+
+  fdm->tool_change(1, false);
+
+  // conductive probe
+  smprinter.fdm->set_probe_sensor(PROBE_SENSOR_RIGHT_CONDUCTIVE);
+  float right_nozzle_touch_bed_z = motion_platform_svc.probe_at_point(200, 200, PROBE_PT_RAISE);
+
+  // optocoupler probe
+  smprinter.fdm->set_probe_sensor(PROBE_SENSOR_RIGHT_OPTOCOUPLER);
+  float right_nozzle_detect_bed_z = motion_platform_svc.probe_at_point(200, 200, PROBE_PT_RAISE);
+
+  // caculate and save
+  bedlevel_svc.z_compensation_[0] = left_nozzle_touch_bed_z - left_nozzle_detect_bed_z;
+  bedlevel_svc.z_compensation_[1] = right_nozzle_touch_bed_z - right_nozzle_detect_bed_z;
+  float x_offset, y_offset, z_offset;
+  smprinter.fdm->get_hotend_offset(x_offset, y_offset, z_offset);
+  smprinter.fdm->save_hotend_offset_to_module(z_offset, Z_AXIS);
+  smprinter.fdm->save_z_compensation_to_module(bedlevel_svc.z_compensation_);
+
+  // raise and toolchange
+  motion_platform_svc.moveto_z(motion_platform_svc.get_current_position(Z_AXIS) + 100, 30);
+  fdm->tool_change(0, false);
+}
+
+void BedLevelService::auto_hotend_offset_calibration() {
+  // go home if needed
+
+  // move to destination
+
+  // left nozzle detect
+
+  // raise and toolchange
+
+  // right nozzle detect
+
+  // caculate and save
+
+  // raise
+}

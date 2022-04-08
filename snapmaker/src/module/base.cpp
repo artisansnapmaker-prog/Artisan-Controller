@@ -9,6 +9,7 @@
 #include "enclosure.h"
 #include "enclosure_a400.h"
 #include "rotary.h"
+#include "calibrator.h"
 
 int ModuleBase::get_function_priority(uint16_t function_id) {
   if (!function_prio_map) {
@@ -109,6 +110,10 @@ ModuleBase *module_factory(uint32_t mac, uint8_t key, uint8_t sub_index) {
 
   case MODULE_DEVICE_ID_DRYBOX:
     return new DryBox(mac, key, sub_index);
+    break;
+
+  case MODULE_DEVICE_ID_CALIBRATOR:
+    return new Calibrator(mac, key, sub_index);
     break;
 
   case MODULE_DEVICE_ID_A400_LINEAR:

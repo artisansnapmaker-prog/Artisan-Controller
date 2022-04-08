@@ -596,6 +596,8 @@ void _O2 Endstops::report_states() {
     print_es_state(smprinter.get_probe_state(PROBE_SENSOR_PROXIMITY_SWITCH), F(STR_Z_PROBE_PROXIMITY_SWITCH));
     print_es_state(smprinter.get_probe_state(PROBE_SENSOR_LEFT_OPTOCOUPLER), F(STR_Z_PROBE_LEFT_OPTOCOUPLER));
     print_es_state(smprinter.get_probe_state(PROBE_SENSOR_RIGHT_OPTOCOUPLER), F(STR_Z_PROBE_RIGHT_OPTOCOUPLER));
+    print_es_state(smprinter.get_probe_state(PROBE_SENSOR_LEFT_CONDUCTIVE), F(STR_Z_PROBE_LEFT_CONDUCTIVE));
+    print_es_state(smprinter.get_probe_state(PROBE_SENSOR_RIGHT_CONDUCTIVE), F(STR_Z_PROBE_RIGHT_CONDUCTIVE));
   #endif
 
   TERN_(BLTOUCH, bltouch._reset_SW_mode());

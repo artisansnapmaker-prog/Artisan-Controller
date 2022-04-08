@@ -148,6 +148,7 @@ class ToolHeadFDM: public ModuleBase {
     err_code_t z_compensation_sync();
     err_code_t hotend_pid_sync();
     void set_probe_state(uint8_t state[]);
+    void set_probe_state(probe_sensor_t sensor, uint8_t state);
     void report_pid(uint8_t *data);
     void set_hotend_type(uint8_t *data);
     void report_extruder_info(uint8_t *data);

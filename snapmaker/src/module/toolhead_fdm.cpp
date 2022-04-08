@@ -818,6 +818,15 @@ void ToolHeadFDM::set_probe_state(uint8_t state[]) {
       probe_state &= ~0x01;
   }
 }
+void ToolHeadFDM::set_probe_state(probe_sensor_t sensor, uint8_t state) {
+  if (sensor >= PROBE_SENSOR_INVALID) return;
+
+  if (!state) {
+    probe_state |= 1 << sensor;
+  } else {
+    probe_state &= ~(1 << sensor);
+  }
+}
 
 void ToolHeadFDM::update_filament_state(uint8_t *data) {
   if (get_device_id() == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
@@ -1492,6 +1501,7 @@ err_code_t ToolHeadFDM::standby(void) {
 }
 
 bool ToolHeadFDM::prepare_start(void) {
+  LOG_I("fdm_fault_state: %d, fdm_state: %d\n", fdm_state, get_status());
   if ((fdm_state == 0) && (get_status() == MODULE_STATUS_NORMAL)) {
     return true;
   } else {

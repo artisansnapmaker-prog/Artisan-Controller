@@ -775,7 +775,7 @@ void idle(bool no_stepper_sleep/*=false*/) {
 
     // #if MB_SNAPMAKER
     // // If other thread call this idle, need to delay
-    // // to let the marlin has the opportunity to drop 
+    // // to let the marlin has the opportunity to drop
     // // current block
     // extern bool req_motion_platform_quickstop;
     // if (req_motion_platform_quickstop) {

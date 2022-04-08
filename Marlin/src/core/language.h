@@ -342,6 +342,8 @@
 #define STR_Z_PROBE_PROXIMITY_SWITCH        "z_probe_proximity_switch"
 #define STR_Z_PROBE_LEFT_OPTOCOUPLER        "z_probe_left_optocoupler"
 #define STR_Z_PROBE_RIGHT_OPTOCOUPLER       "z_probe_right_optocoupler"
+#define STR_Z_PROBE_LEFT_CONDUCTIVE         "z_probe_left_conductive"
+#define STR_Z_PROBE_RIGHT_CONDUCTIVE        "z_probe_right_conductive"
 
 // General axis names
 #define STR_X "X"

@@ -114,6 +114,7 @@ enum ModuleDeviceID {
   MODULE_DEVICE_ID_CNC_200W_2021        ,   // 15
   MODULE_DEVICE_ID_ENCLOSURE_A400_2022  ,   // 16
   MODULE_DEVICE_ID_DRYBOX               ,   // 17
+  MODULE_DEVICE_ID_CALIBRATOR           ,   // 18
 
   // below is virtual module
   MODULE_DEVICE_ID_SM2_BED         = 512,   // 512

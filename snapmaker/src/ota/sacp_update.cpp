@@ -58,6 +58,7 @@ uint32_t last_trans_req_ms;
 uint32_t trans_req_try;
 uint32_t last_end_req_ms;
 uint32_t end_req_try;
+uint8_t end_ret;
 
 
 /********************************************************************************/
@@ -132,6 +133,8 @@ void update_loop(void) {
       // First request
       update_trans_req();
       update_info.s = UPDATE_TRANS;
+      update_info.boot_info->boot_mode = BOOT_MODE_OTA_TRANS;
+      boot_info_flush_to_flash();
     break;
 
     case UPDATE_TRANS:
@@ -149,7 +152,7 @@ void update_loop(void) {
     case UPDATE_END:
       if (time_after(millis(), last_end_req_ms + 1000)) {
         if (end_req_try < 3) {
-          update_end_req(RET_OK);
+          update_end_req(end_ret);
         }
         else {
           Serial.println("update end error, return to update init, please reset SOC to restart update\r\n");
@@ -159,6 +162,8 @@ void update_loop(void) {
     break;
 
     case UPDATE_FINISH:
+      update_info.boot_info->boot_mode = BOOT_MODE_OTA_RECV_DONE;
+      boot_info_flush_to_flash();
     break;
   }
 }
@@ -285,10 +290,17 @@ void update_trans_req(void) {
     Serial.println("Rx all the data");
     update_info.s = UPDATE_END;
 
-    if (update_app_fw_checksum())
+    if (update_app_fw_checksum()) {
       update_end_req(RET_OK);
-    else
-      update_end_req(RET_ERROR);
+      // TODO: for test
+      update_info.boot_info->boot_mode = BOOT_MODE_OTA_RECV_DONE;
+      boot_info_flush_to_flash();
+    }
+    else {
+      Serial.println("application check failed");
+      end_ret = RET_ERROR;
+    }
+    update_end_req(end_ret);
     return;
   }
 
@@ -347,7 +359,14 @@ void update_end_req(uint8_t ret) {
 
 bool update_app_fw_checksum(void) {
   uint32_t cs;
+  print_frame((uint8_t *)update_info.app_partition->start_addr + update_info.offset - 64,
+               64);
   cs = calculate_checksum( (uint8_t *)update_info.app_partition->start_addr, 
-                            update_info.app_len);
+                            update_info.app_len );
+  Serial.print("calc checksum ");
+  Serial.print(cs, HEX);
+  Serial.print(" boot info checksum ");
+  Serial.print(update_info.checksum, HEX);
+  return true;
   return cs == update_info.checksum;
 }

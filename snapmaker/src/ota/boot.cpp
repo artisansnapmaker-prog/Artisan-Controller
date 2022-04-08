@@ -53,30 +53,16 @@ void loop() {
   print_boot_info(&boot_info);
 
   update_init(&boot_info, &boot_data_partition, &app_partition);
-  flash_erase(app_partition);
 
   while (1) {
     normal_boot_loop();
     protocol_loop();
     update_loop();
   }
+}
 
-  switch(boot_info.boot_mode) {
-    case BOOT_MODE_FACTORY_BURNING:
-    case BOOT_MODE_APP:
-      
-    break;
-
-    default:
-      // snap_print("boot: unkown boot mode 0x%04x\r\n", boot_info->boot_mode);
-      Serial.print("boot: unkown boot mode ");
-      Serial.print(boot_info.boot_mode);
-    break;
-  }
-  
-  while(1) {
-
-  }
+bool boot_info_flush_to_flash(void) {
+  return write_boot_info(&boot_info);
 }
 
 size_t send(link_ch_e ch, uint8_t *buf, uint32_t len) {
@@ -217,7 +203,7 @@ void init_boot_info(boot_info_t *bi) {
   bi->start_index = 1;
   snap_memcpy(bi->fw_ver_str, (void *)"ver12.34.56", 32);
   snap_memcpy(bi->timestamp_str, (void *)"2022.03.31 14:12:00", 20);
-  bi->boot_mode = 0xAA04;
+  bi->boot_mode = BOOT_MODE_OTA_START;
   bi->fw_lenght = 100000;
   bi->fw_checksum = 12341234;
   bi->fw_runaddr = FLASH_APP_FW_ADDR;
@@ -228,10 +214,9 @@ void normal_boot_loop(void) {
   static uint32_t tick_ms = millis();
   static uint32_t count_down_second = BOOT_DELAY_SECODE;
 
-  return;
-
   if (BOOT_MODE_FACTORY_BURNING == boot_info.boot_mode || 
-      BOOT_MODE_APP == boot_info.boot_mode) {
+      BOOT_MODE_APP == boot_info.boot_mode || 
+      BOOT_MODE_OTA_RECV_DONE == boot_info.boot_mode) {
 
     if (time_after(millis(), tick_ms + 1000)) {
       tick_ms = millis();

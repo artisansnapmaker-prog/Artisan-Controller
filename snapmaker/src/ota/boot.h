@@ -63,6 +63,7 @@ void setup(void);
 void boot_app(void);
 bool boot_info_check(boot_info_t *bi);
 void loop(void);
+bool boot_info_flush_to_flash(void);
 size_t send(link_ch_e ch, uint8_t *buf, uint32_t len);
 
 

@@ -47,7 +47,7 @@
 
 // app partition
 #define FLASH_APP_FW_START_SECTOR               (3)
-#define FLASH_APP_FW_SECTOR_NUM                 (1)
+#define FLASH_APP_FW_SECTOR_NUM                 (5)
 #define FLASH_APP_FW_ADDR                       (48 * 1024 + FLASH_BASE)
 #define FLASH_APP_FW_SIZE                       (464 * 1024)
 

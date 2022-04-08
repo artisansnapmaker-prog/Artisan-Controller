@@ -414,22 +414,22 @@ err_code_t ToolHeadCNC::resume_env(uint8_t *env_buf, uint32_t &len) {
     LOG_I("CNC cur_rpm: %d target_rpm: %d\n",  tmp_info->cur_rpm, tmp_info->target_rpm);
 
     if (tmp_info->control_mode != ctr_mode && is_support_change_ctr_mode()) {
-      if (set_run_mode((CNCSpeedControlMode)tmp_info->target_power)) {
-        LOG_E("[%s] resume target_power fail.\n",__FUNCTION__);
+      if (set_run_mode((CNCSpeedControlMode)tmp_info->control_mode)) {
+        LOG_E("[%s] resume ctr_mode fail.\n",__FUNCTION__);
         goto resume_out;
       }
     }
 
     if (tmp_info->target_power != power) {
-      if (set_output_power(tmp_info->target_power)) {
-        LOG_E("[%s] resume run mode fail.\n",__FUNCTION__);
+      if (!set_power(tmp_info->target_power)) {
+        LOG_E("[%s] resume run power fail.\n",__FUNCTION__);
         goto resume_out;
       }
     }
 
     if (tmp_info->target_rpm != target_rpm && is_support_rpm_mode()) {
-      if (set_output_power(tmp_info->target_power)) {
-        LOG_E("[%s] resume run mode fail.\n",__FUNCTION__);
+      if (!set_target_rpm(tmp_info->target_rpm)) {
+        LOG_E("[%s] resume run rpm fail.\n",__FUNCTION__);
         goto resume_out;
       }
     }

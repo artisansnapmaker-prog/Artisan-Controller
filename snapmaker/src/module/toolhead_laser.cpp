@@ -1315,6 +1315,9 @@ err_code_t ToolHeadLaser::standby(void) {
 
 err_code_t ToolHeadLaser::resume_finish(void) {
   if (LASER_TUBE_STA_ON == tube_status) {
+    // here will update power_pwm, so if resuming work with door open,
+    // the power will go beyond power limit
+    update_power(power_current);
     update_output(power_pwm);
   }
 

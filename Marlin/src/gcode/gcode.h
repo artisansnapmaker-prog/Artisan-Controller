@@ -1214,6 +1214,7 @@ private:
     static void M1005();
     static void M1006();
     static void M1007();
+    static void M1999();
     static void M2000();
     static void M2001();
   #endif

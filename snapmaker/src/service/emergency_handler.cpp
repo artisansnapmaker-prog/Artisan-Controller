@@ -155,6 +155,7 @@ void EmergencyHandler::prepare_flash() {
 
   // erase flash and write eeprom buffer into flash
   vTaskDelay(pdMS_TO_TICKS(500));
+  int timeout = 10;
   do {
     // flash_erase_sector(2);
     disable_all_interrupts();
@@ -168,8 +169,13 @@ void EmergencyHandler::prepare_flash() {
     }
     else
       break;
-  } while (1);
+  } while (--timeout > 0);
 
+  if (timeout <= 0) {
+    LOG_W("failed to erase flash!\n");
+  }
+
+  record_avail = false;
 }
 
 #define POWER_DOMAIN_POWERLOSS (POWER_DOMAIN_MOTIVE_POWER | POWER_DOMAIN_8P_TOOLHEAD | \
@@ -326,6 +332,7 @@ err_code_t EmergencyHandler::hmi_cb_check_recovery_info(void *obj, sacp_hmi_mess
     msg->data[0] = E_SUCCESS;
   }
   else {
+    LOG_I("recovery record invalid\n");
     msg->data[0] = HMI_RET_NO_EMERGENCY_RECORD;
   }
 
@@ -344,6 +351,7 @@ err_code_t EmergencyHandler::hmi_cb_req_recovery_job(void *obj, sacp_hmi_message
   LOG_I("hmi_cb_req_recovery_job\n");
 
   if (!handler.record_avail) {
+    LOG_I("record unavailable\n");
     return host_hmi.send_ack(msg, HMI_RET_INVALID_EMERGENCY_RECORD);
   }
 
@@ -454,7 +462,7 @@ void EmergencyHandler::job_cb_notify_recovery(void *p, uint8_t result) {
 
   if (SYSTEM_STATUS_PRINTING == result) {
     host_hmi.send_ack(msg, E_SUCCESS);
-    EmergencyHandler::prepare_flash();
+    emergency_hdl.prepare_flash();
   }
 
   if (SYSTEM_STATUS_IDLE == result) {

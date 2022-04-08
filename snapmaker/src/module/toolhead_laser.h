@@ -170,7 +170,7 @@ class ToolHeadLaser: public ModuleBase {
 
     void set_power_limit(float limit);
     float get_power_limit(void) { return power_limit; }
-    
+
     void update_power(float power);
 
     err_code_t report_bt_mac();
@@ -231,6 +231,8 @@ class ToolHeadLaser: public ModuleBase {
 
     void setup_camera_port(uint8_t port);
     err_code_t get_bt_mac();
+
+    void read_safety_state();
 
   private:
     ToolHeadLaserTubeStatus tube_status;

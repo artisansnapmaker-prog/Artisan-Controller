@@ -83,6 +83,23 @@ struct __packed LaserSafetyInfo {
   int32_t pitch;
 };
 
+void ToolHeadLaser::read_safety_state() {
+  err_code_t ret = E_SUCCESS;
+  smcan_message_t msg;
+
+  msg.id     = get_message_id(MODULE_FUNC_REPORT_SECURITY_STATUS);
+  msg.ch     = get_channel();
+  msg.length = 0;
+  msg.data   = NULL;
+
+  ret = host_can_rou.send(&msg);
+  if (ret != E_SUCCESS) {
+    LOG_E("failed to send command to read safety state\n", ret);
+  }
+
+  return;
+}
+
 uint16_t ToolHeadLaser::hmi_cb_publish_safety_state(void *obj, uint8_t *buffer) {
   ToolHeadLaser &laser = *(ToolHeadLaser *)obj;
   LaserSafetyInfo *info = (LaserSafetyInfo *)(buffer + 1);
@@ -95,10 +112,12 @@ uint16_t ToolHeadLaser::hmi_cb_publish_safety_state(void *obj, uint8_t *buffer) 
   info->key       = laser.get_key();
   info->state     = laser.safety_state;
   info->laser_tmp = laser.laser_temp * 1000;
-  info->pitch     = laser.pitch;
-  info->roll      = laser.roll;
+  info->pitch     = laser.pitch * 1000;
+  info->roll      = laser.roll * 1000;
 
-  LOG_I("safety state: len[%u]\n", sizeof(LaserSafetyInfo) + 1);
+  laser.read_safety_state();
+
+  LOG_V("safety state: len[%u]\n", sizeof(LaserSafetyInfo) + 1);
 
   return sizeof(LaserSafetyInfo) + 1;
 }
@@ -554,7 +573,7 @@ err_code_t laser_routine(void *obj) {
   // check every second
   if (++laser.check_online_tick > 10) {
     laser.check_online_tick = 0;
-    
+
     if (laser.read_focal_length() != E_SUCCESS) {
       if (++laser.offline_count > 3) {
         laser.offline_count = 0;
@@ -587,8 +606,10 @@ void ToolHeadLaser::can_cb_handle_security_status(void *obj, uint8_t *data, uint
   laser.laser_temp = data[5];
   laser.imu_temp   = data[6];
 
-  LOG_V("laser sta[%u], pitch[%d], roll[%d], tube temp[%d], imu temp[%d]\n", laser.safety_state,
-        laser.pitch, laser.roll, laser.laser_temp, laser.imu_temp);
+  if (data[0] != 0) {
+    LOG_E("laser err: sta[%u], pitch[%d], roll[%d], tube temp[%d], imu temp[%d]\n", laser.safety_state,
+          laser.pitch, laser.roll, laser.laser_temp, laser.imu_temp);
+  }
 }
 
 err_code_t ToolHeadLaser::pre_init() {
@@ -1295,7 +1316,8 @@ err_code_t ToolHeadLaser::resume_env(uint8_t *env_buf, uint32_t &len) {
   laser_env_t *env = (laser_env_t *)env_buf;
 
   power_current = env->power_current;
-  power_pwm = env->power_pwm;
+  // power_pwm = env->power_pwm;
+  update_power(power_current);
   tube_status = env->tube_status;
 
   len = sizeof(laser_env_t);
@@ -1317,7 +1339,7 @@ err_code_t ToolHeadLaser::resume_finish(void) {
   if (LASER_TUBE_STA_ON == tube_status) {
     // here will update power_pwm, so if resuming work with door open,
     // the power will go beyond power limit
-    update_power(power_current);
+    // update_power(power_current);
     update_output(power_pwm);
   }
 

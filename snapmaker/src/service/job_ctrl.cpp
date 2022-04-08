@@ -342,6 +342,7 @@ err_code_t JobCtrl::save_env(void) {
 
 err_code_t JobCtrl::resume_env(void) {
   ModuleBase *cur_toolhead;
+  xyze_pos_t dest;
 
   LOG_I("job_ctrl: get current toolhead pointer\r\n");
   if (!(cur_toolhead = smprinter.get_cur_toolhead())) {
@@ -371,16 +372,25 @@ err_code_t JobCtrl::resume_env(void) {
   abort_resume = false;
 
   _env.req_line_num = _env.cur_line_num;
-  motion_platform_svc.moveto_xy(_env.current_pos.x, _env.current_pos.y, RESUME_XY_FEEDRATE);
-  motion_platform_svc.moveto_z(_env.current_pos.z, RESUME_Z_FEEDRATE);
+
+  // wait for all movement done
+  motion_platform_svc.synchronize_planner();
+
+  motion_platform_svc.update_position_from_platform();
+  dest   = motion_platform_svc.sm_current_position;
+  dest.x = _env.current_pos.x;
+  dest.y = _env.current_pos.y;
+  motion_platform_svc.moveto(dest, RESUME_XY_FEEDRATE);
+
+  dest.z = _env.current_pos.z;
+  motion_platform_svc.moveto(dest, RESUME_Z_FEEDRATE);
+
   motion_platform_svc.set_feedrate(_env.print_feadrate);
   motion_platform_svc.set_travl_feedrate(_env.travel_feadrate);
   motion_platform_svc.set_relative_mode(_env.g0g1_relative_mode);
 
   // wait for all movement done
-  while (motion_platform_svc.planner_busy()) {
-    vTaskDelay(pdMS_TO_TICKS(10));
-  }
+  motion_platform_svc.synchronize_planner();
 
   // set position to planner for E, I, J
   motion_platform_svc.update_position_from_platform();
@@ -497,7 +507,7 @@ void JobCtrl::get_gcodes_from_client(void) {
       uint8_t *p, *ls;
       p = ls = res_batch_gcode.gcode_str;
       LOG_I("SART: %d ~ STOP: %d\r\n", res_batch_gcode.start_line_num, res_batch_gcode.end_line_num);
-      LOG_I("get gcode:\r\n %s\r\n", p);
+      // LOG_I("get gcode:\r\n %s\r\n", p);
       // uint8_t str_temp[MAX_CMD_SIZE];
       uint32_t rx_line_num = 0;
       {

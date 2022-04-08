@@ -242,6 +242,7 @@ err_code_t ToolHeadCNC::post_init() {
     return E_FAILURE;
   }
   
+  motion_platform_svc.set_home_offset(0, 0, 0);
   smprinter.register_module(MODULE_DEVICE_ID_CNC_50W_2019, this);
   LOG_I("CNC post_init out\n");
   LOG_I("CNC ready!\n");

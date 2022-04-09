@@ -110,6 +110,7 @@ void EmergencyHandler::init() {
 bool EmergencyHandler::check_record() {
   volatile uint32_t *flag, *checksum_saved;
   volatile uint32_t checksum_calc;
+  JobEnv *jenv;
 
   eeprom_buffer_fill();
 
@@ -129,6 +130,12 @@ bool EmergencyHandler::check_record() {
 
   if (*flag != ENV_VALID_FLAG) {
     LOG_E("EmergencyHandler: invalid flag\n");
+    return false;
+  }
+
+  jenv = (JobEnv *)env;
+  if (jenv->type != smprinter.get_toolhead_type()) {
+    LOG_E("toolhead type in record is not same with one detected now!\n");
     return false;
   }
 

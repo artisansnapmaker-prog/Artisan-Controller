@@ -277,6 +277,8 @@ void EmergencyHandler::job_cb_notify_emergency_stop(void *p, uint8_t result) {
 
   send_buff[0] = ((emergency_hdl.read_button() == PIN_STATE_TRIGGERED) ? true: false);
 
+  LOG_I("EmergencyHandler: report emergency stop[%u]\n", send_buff[0]);
+
   msg->data   = send_buff;
   msg->length = 1;
   ret = host_hmi.send_sync(msg, recv_buff, &recv_len, 200, 3);

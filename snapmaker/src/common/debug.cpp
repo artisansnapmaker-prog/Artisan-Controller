@@ -217,7 +217,8 @@ void SnapDebug::CmdChecksumError(bool screen) {
 
 // show system debug info
 void SnapDebug::ShowInfo() {
-  char tmp_buf[100];
+  // char tmp_buf[100];
+  return;
 
   // SERIAL_ECHOPAIR("systat: ", systemservice.GetCurrentStatus(), "\n");
   // SERIAL_ECHOPAIR("SC checksum error: ", info.screen_cmd_checksum_err, "\n");

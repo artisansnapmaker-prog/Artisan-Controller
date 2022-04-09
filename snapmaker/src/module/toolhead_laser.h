@@ -258,7 +258,7 @@ class ToolHeadLaser: public ModuleBase {
 
     uint16_t focal_length = LASER_CAMERA_FOCUS_MAX;
 
-    LaserSafetyState safety_state;
+    LaserSafetyState safety_state = LASER_SAFETY_STATE_NORMAL;
     int16_t roll;
     int16_t pitch;
     int8_t  laser_temp;

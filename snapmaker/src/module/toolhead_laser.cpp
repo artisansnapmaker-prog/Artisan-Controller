@@ -578,7 +578,7 @@ err_code_t laser_routine(void *obj) {
       if (++laser.offline_count > 3) {
         laser.offline_count = 0;
 
-        LOG_I("Laser offline!\n");
+        LOG_I("Laser: offline!\n");
         laser.deinit();
 
         // TODO: trigger stop
@@ -1313,6 +1313,8 @@ err_code_t ToolHeadLaser::resume_env(uint8_t *env_buf, uint32_t &len) {
     return E_PARAM;
   }
 
+  LOG_I("Laser: resume_env, tube[%u], power[%.2f]\n", tube_status, power_current);
+
   laser_env_t *env = (laser_env_t *)env_buf;
 
   power_current = env->power_current;
@@ -1326,6 +1328,7 @@ err_code_t ToolHeadLaser::resume_env(uint8_t *env_buf, uint32_t &len) {
 }
 
 err_code_t ToolHeadLaser::standby(void) {
+  LOG_I("Laser: standby\n");
   if (get_status() == MODULE_STATUS_QUICKSTOP) {
     set_status(MODULE_STATUS_NORMAL);
   }
@@ -1336,6 +1339,7 @@ err_code_t ToolHeadLaser::standby(void) {
 }
 
 err_code_t ToolHeadLaser::resume_finish(void) {
+  LOG_I("Laser: resume finish, tube[%u]\n", tube_status);
   if (LASER_TUBE_STA_ON == tube_status) {
     // here will update power_pwm, so if resuming work with door open,
     // the power will go beyond power limit
@@ -1347,14 +1351,22 @@ err_code_t ToolHeadLaser::resume_finish(void) {
 }
 
 err_code_t ToolHeadLaser::quickstop(void) {
+  LOG_I("Laser: quickstop\n");
   pwm_controller.set_duty(pwm_index, 0);
   set_status(MODULE_STATUS_QUICKSTOP);
   return E_SUCCESS;
 }
 
 bool ToolHeadLaser::prepare_start(void) {
-  if (get_status() != MODULE_STATUS_NORMAL || smprinter.get_enclosure_door_status())
+  if (get_status() != MODULE_STATUS_NORMAL || smprinter.get_enclosure_door_status()) {
+    LOG_E("Laser: cannot start work, module sta[%u], enclosure sta[%u]\n", get_status(),
+        smprinter.get_enclosure_door_status());
     return false;
+  }
+  else if (safety_state != LASER_SAFETY_STATE_NORMAL) {
+    LOG_E("Laser: cannot start work, safety sta[%u]\n", safety_state);
+    return false;
+  }
   else
     return true;
 }

@@ -1351,7 +1351,6 @@ err_code_t ToolHeadLaser::resume_finish(void) {
 }
 
 err_code_t ToolHeadLaser::quickstop(void) {
-  LOG_I("Laser: quickstop\n");
   pwm_controller.set_duty(pwm_index, 0);
   set_status(MODULE_STATUS_QUICKSTOP);
   return E_SUCCESS;

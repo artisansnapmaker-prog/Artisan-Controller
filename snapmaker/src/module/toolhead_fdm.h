@@ -188,6 +188,7 @@ class ToolHeadFDM: public ModuleBase {
     float *get_hotend_pid(uint8_t e) { return pid; }
     void fdm_exception_trigger(fdm_fault_e fault);
     void fdm_exception_clear(fdm_fault_e fault);
+    void show_fdm_info();
 
   // private methods
   private:

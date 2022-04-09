@@ -1531,3 +1531,8 @@ void ToolHeadFDM::fdm_exception_clear(fdm_fault_e fault) {
   LOG_E("clear fdm_sate: %x\n", fdm_state);
 }
 
+void ToolHeadFDM::show_fdm_info() {
+  LOG_I("fdm fault state: 0x%x\n", fdm_state);
+  LOG_I("fdm status: %d\n", get_status());
+}
+

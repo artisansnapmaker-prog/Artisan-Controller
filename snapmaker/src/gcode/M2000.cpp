@@ -578,6 +578,14 @@ void GcodeSuite::M2000() {
           smprinter.fdm->set_pid(p, i, d);
         }
         break;
+
+      case 100:
+        {
+          ToolHeadFDM *fdm = NULL;
+          fdm = (ToolHeadFDM *)module_svc.get_module(MODULE_DEVICE_ID_FDM_2EXTRUDER_2021, 0);
+          fdm->show_fdm_info();
+        }
+        break;
       default:
         break;
     }

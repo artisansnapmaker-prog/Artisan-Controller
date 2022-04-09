@@ -9,8 +9,8 @@ extern int16_t Z_DETECT_PIN_var;
 extern int16_t Z2_DETECT_PIN_var;
 
 static float voltage_threshold[3][2] = {
-  {1.2, 1.4}, /* X */
-  {1.7, 1.9}, /* Y */
+  {1.2, 1.9}, /* X */
+  {1.2, 1.9}, /* Y */
   {2.3, 2.5}, /* Z */
 };
 

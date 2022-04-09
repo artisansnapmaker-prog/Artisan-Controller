@@ -48,8 +48,8 @@ static void interrupt_cb_stop_button() {
 }
 
 static void interrupt_cb_power_loss() {
-  int debounce = ISR_DEBOUNCE;
-  while (--debounce > 0); // about 1ms
+  int debounce = ISR_DEBOUNCE/2;
+  while (--debounce > 0); // about 0.5ms
 
   if (digitalRead(power_loss_det) != PIN_STATE_TRIGGERED)
     return;

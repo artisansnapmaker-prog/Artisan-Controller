@@ -173,10 +173,6 @@ void print_boot_info(boot_info_t *bi) {
   Serial.println(bi->boot_data_checksum);
 }
 
-bool boot_info_check(boot_info_t *bi) {
-  return bi->boot_data_checksum == calculate_checksum((uint8_t *)bi, sizeof(boot_info_t) - 4);
-}
-
 void load_boot_info(boot_info_t *bi) {
   snap_memcpy(bi, (void *)FLASH_BOOT_DATA_ADDR, sizeof(boot_info));
 }

@@ -23,9 +23,7 @@
 #define SNAPMAKER_FLASH_H
 
 #include <stdint.h>
-#include "stm32f4xx.h"
-#include "stm32f4xx_hal.h"
-#include "stm32f4xx_hal_flash_ex.h"
+#include "stm32_def.h"
 
 // bootloader partition
 #define FLASH_BOOT_FW_START_SECTOR              (0)

@@ -904,17 +904,22 @@ void BedLevelService::auto_probe_sensor_calibration() {
     motion_platform_svc.run_gcode("G28", true);
   }
 
+  // disable bedlevel
+  motion_platform_svc.disable_leveling();
+  motion_platform_svc.enable_z_probe();
+
   // move to destination
-  motion_platform_svc.moveto_xyz(200, 200, 20, 40);
+  motion_platform_svc.moveto_xyz(AUTO_PROBE_SENSOR_X_POSITION, AUTO_PROBE_SENSOR_Y_POSITION, AUTO_PROBE_SENSOR_Z_POSITION, 40);
 
   // conductive probe
   smprinter.fdm->set_probe_sensor(PROBE_SENSOR_LEFT_CONDUCTIVE);
-  float left_nozzle_touch_bed_z = motion_platform_svc.probe_at_point(200, 200, PROBE_PT_RAISE);
+  float left_nozzle_touch_bed_z = motion_platform_svc.probe_at_point(AUTO_PROBE_SENSOR_X_POSITION, AUTO_PROBE_SENSOR_Y_POSITION, PROBE_PT_RAISE);
+  LOG_I("left_nozzle_touch_bed_z: %f\n", left_nozzle_touch_bed_z);
 
   // optocoupler probe
   smprinter.fdm->set_probe_sensor(PROBE_SENSOR_LEFT_OPTOCOUPLER);
-  float left_nozzle_detect_bed_z = motion_platform_svc.probe_at_point(200, 200, PROBE_PT_RAISE);
-
+  float left_nozzle_detect_bed_z = motion_platform_svc.probe_at_point(AUTO_PROBE_SENSOR_X_POSITION, AUTO_PROBE_SENSOR_Y_POSITION, PROBE_PT_RAISE);
+  LOG_I("left_nozzle_detect_bed_z: %f\n", left_nozzle_detect_bed_z);
 
   // raise and toolchange
   motion_platform_svc.moveto_z(motion_platform_svc.get_current_position(Z_AXIS) + 5, 30);
@@ -927,37 +932,108 @@ void BedLevelService::auto_probe_sensor_calibration() {
 
   // conductive probe
   smprinter.fdm->set_probe_sensor(PROBE_SENSOR_RIGHT_CONDUCTIVE);
-  float right_nozzle_touch_bed_z = motion_platform_svc.probe_at_point(200, 200, PROBE_PT_RAISE);
+  float right_nozzle_touch_bed_z = motion_platform_svc.probe_at_point(AUTO_PROBE_SENSOR_X_POSITION, AUTO_PROBE_SENSOR_Y_POSITION, PROBE_PT_RAISE);
+  LOG_I("right_nozzle_touch_bed_z: %f\n", right_nozzle_touch_bed_z);
 
   // optocoupler probe
   smprinter.fdm->set_probe_sensor(PROBE_SENSOR_RIGHT_OPTOCOUPLER);
-  float right_nozzle_detect_bed_z = motion_platform_svc.probe_at_point(200, 200, PROBE_PT_RAISE);
+  float right_nozzle_detect_bed_z = motion_platform_svc.probe_at_point(AUTO_PROBE_SENSOR_X_POSITION, AUTO_PROBE_SENSOR_Y_POSITION, PROBE_PT_RAISE);
+  LOG_I("right_nozzle_detect_bed_z: %f\n", right_nozzle_detect_bed_z);
 
   // caculate and save
   bedlevel_svc.z_compensation_[0] = left_nozzle_touch_bed_z - left_nozzle_detect_bed_z;
   bedlevel_svc.z_compensation_[1] = right_nozzle_touch_bed_z - right_nozzle_detect_bed_z;
-  float x_offset, y_offset, z_offset;
-  smprinter.fdm->get_hotend_offset(x_offset, y_offset, z_offset);
-  smprinter.fdm->save_hotend_offset_to_module(z_offset, Z_AXIS);
-  smprinter.fdm->save_z_compensation_to_module(bedlevel_svc.z_compensation_);
+  LOG_I("z_compensation_: %f, %f", bedlevel_svc.z_compensation_[0], bedlevel_svc.z_compensation_[1]);
+  LOG_I("hotend offset z: %f\n", left_nozzle_touch_bed_z - right_nozzle_touch_bed_z);
+  fdm->set_hotend_offset(left_nozzle_touch_bed_z - right_nozzle_touch_bed_z, Z_AXIS);
+  fdm->save_z_compensation_to_module(bedlevel_svc.z_compensation_);
 
   // raise and toolchange
-  motion_platform_svc.moveto_z(motion_platform_svc.get_current_position(Z_AXIS) + 100, 30);
+  motion_platform_svc.moveto_z(motion_platform_svc.get_current_position(Z_AXIS) + 10, 30);
   fdm->tool_change(0, false);
 }
 
 void BedLevelService::auto_hotend_offset_calibration() {
   // go home if needed
+  if (!motion_platform_svc.is_all_axes_homed()) {
+    motion_platform_svc.run_gcode("G28", true);
+  }
+
+  // disable bedlevel
+  motion_platform_svc.disable_leveling();
+  motion_platform_svc.enable_z_probe();
 
   // move to destination
+  motion_platform_svc.moveto_xyz(AUTO_HOTEND_OFFSET_CALIBRATION_X_POSITION, AUTO_HOTEND_OFFSET_CALIBRATION_Y_POSITION, AUTO_HOTEND_OFFSET_CALIBRATION_Z_POSITION, 40);
 
-  // left nozzle detect
+  // left nozzle x direction detect
+  smprinter.fdm->set_probe_sensor(PROBE_SENSOR_LEFT_CONDUCTIVE);
+  float x_position_restore = motion_platform_svc.get_current_position(X_AXIS);
+  motion_platform_svc.moveto_x(motion_platform_svc.get_current_position(X_AXIS) - 15, 5);
+  float left_nozzle_x1 = motion_platform_svc.get_current_position(X_AXIS);
+  LOG_I("left_nozzle_x1: %f\n", left_nozzle_x1);
+  motion_platform_svc.moveto_x(motion_platform_svc.get_current_position(X_AXIS) + 20, 5);
+  float left_nozzle_x2 = motion_platform_svc.get_current_position(X_AXIS);
+  LOG_I("left_nozzle_x2: %f\n", left_nozzle_x2);
+  motion_platform_svc.moveto_x(x_position_restore, 10);
+
+  // left nozzle y direction detect
+  float y_position_restore = motion_platform_svc.get_current_position(Y_AXIS);
+  motion_platform_svc.moveto_y(motion_platform_svc.get_current_position(Y_AXIS) - 15, 5);
+  float left_nozzle_y1 = motion_platform_svc.get_current_position(Y_AXIS);
+  LOG_I("left_nozzle_y1: %f\n", left_nozzle_y1);
+  motion_platform_svc.moveto_y(motion_platform_svc.get_current_position(Y_AXIS) + 20, 5);
+  float left_nozzle_y2 = motion_platform_svc.get_current_position(Y_AXIS);
+  LOG_I("left_nozzle_y2: %f\n", left_nozzle_y2);
+  motion_platform_svc.moveto_y(y_position_restore, 10);
 
   // raise and toolchange
+  motion_platform_svc.moveto_z(motion_platform_svc.get_current_position(Z_AXIS) + 1.3, 30);
+  ToolHeadFDM *fdm = (ToolHeadFDM *)module_svc.get_module(MODULE_DEVICE_ID_FDM_2EXTRUDER_2021, 0);
+  if (!fdm) {
+    return;
+  }
 
-  // right nozzle detect
+  fdm->tool_change(1, false);
+
+  // right nozzle x direction detect
+  smprinter.fdm->set_probe_sensor(PROBE_SENSOR_RIGHT_CONDUCTIVE);
+  x_position_restore = motion_platform_svc.get_current_position(X_AXIS);
+  motion_platform_svc.moveto_x(motion_platform_svc.get_current_position(X_AXIS) - 15, 5);
+  float right_nozzle_x1 = motion_platform_svc.get_current_position(X_AXIS);
+  LOG_I("right_nozzle_x1: %f\n", right_nozzle_x1);
+  motion_platform_svc.moveto_x(motion_platform_svc.get_current_position(X_AXIS) + 20, 5);
+  float right_nozzle_x2 = motion_platform_svc.get_current_position(X_AXIS);
+  LOG_I("right_nozzle_x2: %f\n", right_nozzle_x2);
+  motion_platform_svc.moveto_x(x_position_restore, 10);
+
+  // right nozzle y direction detect
+  y_position_restore = motion_platform_svc.get_current_position(Y_AXIS);
+  motion_platform_svc.moveto_y(motion_platform_svc.get_current_position(Y_AXIS) - 15, 5);
+  float right_nozzle_y1 = motion_platform_svc.get_current_position(Y_AXIS);
+  LOG_I("right_nozzle_y1: %f\n", right_nozzle_y1);
+  motion_platform_svc.moveto_y(motion_platform_svc.get_current_position(Y_AXIS) + 20, 5);
+  float right_nozzle_y2 = motion_platform_svc.get_current_position(Y_AXIS);
+  LOG_I("right_nozzle_y2: %f\n", right_nozzle_y2);
+  motion_platform_svc.moveto_y(y_position_restore, 10);
 
   // caculate and save
+  float x_offset, y_offset, z_offset;
+  smprinter.fdm->get_hotend_offset(x_offset, y_offset, z_offset);
+  float x_offset_tmp = (left_nozzle_x2 - left_nozzle_x1)/2 - (right_nozzle_x2 - right_nozzle_x1)/2;
+  float y_offset_tmp = (left_nozzle_y2 - left_nozzle_y1)/2 - (right_nozzle_y2 - right_nozzle_y1)/2;
+  x_offset += x_offset_tmp;
+  y_offset += y_offset_tmp;
+  LOG_I("hotend_offset: %f, %f, %f\n", x_offset, y_offset, z_offset);
+  fdm->set_hotend_offset(x_offset, X_AXIS);
+  fdm->set_hotend_offset(y_offset, Y_AXIS);
 
   // raise
+  motion_platform_svc.moveto_z(motion_platform_svc.get_current_position(Z_AXIS) + 100, 30);
+  fdm->tool_change(0, false);
+}
+
+void BedLevelService::toolhead_auto_calibation() {
+  // auto_probe_sensor_calibration();
+  auto_hotend_offset_calibration();
 }

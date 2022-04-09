@@ -55,6 +55,13 @@ typedef enum {
 #define BEDLEVEL_MODE_PROBE_SENSOR_CALIBRATE  54
 #define BEDLEVEL_MODE_XY_CALIBRATION          101
 
+#define AUTO_PROBE_SENSOR_X_POSITION          214.4
+#define AUTO_PROBE_SENSOR_Y_POSITION          244
+#define AUTO_PROBE_SENSOR_Z_POSITION          20
+#define AUTO_HOTEND_OFFSET_CALIBRATION_X_POSITION  214.4
+#define AUTO_HOTEND_OFFSET_CALIBRATION_Y_POSITION  206
+#define AUTO_HOTEND_OFFSET_CALIBRATION_Z_POSITION  14.8
+
 class BedLevelService {
   public:
     BedLevelService() {
@@ -88,6 +95,7 @@ class BedLevelService {
     void set_live_z_offset(uint8_t e, float offset);
     void auto_probe_sensor_calibration();
     void auto_hotend_offset_calibration();
+    void toolhead_auto_calibation();
 
 
     float z_values_[GRID_MAX_NUM][GRID_MAX_NUM];

@@ -720,6 +720,11 @@ void GcodeSuite::M2000() {
           host_hmi.test_interface(SACP_CMD_SET_CALIBRATE_FDM, BEDLEVEL_REQ_CMD_ID_GET_LIVE_Z_OFFSET, buffer, index);
         }
         break;
+      case 9:
+        {
+          bedlevel_svc.toolhead_auto_calibation();
+        }
+        break;
 
       case 100:
         {

@@ -162,6 +162,7 @@ class MotionPlatformService {
     void enable_z_probe() {endstops.enable_z_probe(true);}
     void disable_z_probe() {endstops.enable_z_probe(false);}
     float probe_at_point(float x, float y, ProbePtRaise raise_after=PROBE_PT_RAISE);
+    float probe_xy(uint8_t axis);
     void sync_leveling_limit_to_platform(float x_start, float x_end, float y_start, float y_end);
     void sync_z_values_to_platform(float compensation);
     void sync_z_values_from_platform();
@@ -170,6 +171,8 @@ class MotionPlatformService {
     void print_leveling_grid() { print_bilinear_leveling_grid();}
     void print_leveling_grid_virt() { print_bilinear_leveling_grid_virt();}
     bool get_leveling_state() { return leveling_is_valid(); }
+    // void enable_probing_paused() { set_probing_paused(true); }
+    // void disable_probing_paused() { set_probing_paused(false); }
 
     // extruder control API
     // uint8_t active_extruder() { return 0; }

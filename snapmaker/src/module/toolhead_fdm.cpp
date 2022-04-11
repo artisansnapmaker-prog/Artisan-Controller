@@ -879,11 +879,16 @@ void ToolHeadFDM::report_pid(uint8_t *data) {
 }
 
 void ToolHeadFDM::set_hotend_type(uint8_t *data) {
-  for (uint32_t i = 0; i < EXTRUDERS; i++) {
-    if (hotend_type[i] != (hotend_type_t)data[i]) {
-      hotend_type[i] = (hotend_type_t)data[i];
+  if (hotend_type_initialized == false) {
+    hotend_type_initialized = true;
+    for (uint32_t i = 0; i < EXTRUDERS; i++) {
+      if (hotend_type[i] != (hotend_type_t)data[i]) {
+        hotend_type[i] = (hotend_type_t)data[i];
+      }
+      LOG_I("nozzle_index: %d, type: %d\n", i, hotend_type[i]);
     }
-    LOG_I("nozzle_index: %d, type: %d\n", i, hotend_type[i]);
+  } else {
+    fdm_exception_trigger(FDM_FAULT_NOZZLE_IDENTIFY);
   }
 }
 
@@ -1032,6 +1037,11 @@ err_code_t ToolHeadFDM::set_fan_speed(uint8_t fan_index, uint16_t speed, uint8_t
 err_code_t ToolHeadFDM::set_hotend_temp(uint16_t temp, uint8_t e) {
   if (e > EXTRUDERS) {
     return E_PARAM;
+  }
+
+  if (hotend_type[e] == HOTEND_TYPE_INVALID) {
+    LOG_E("hotend %d is invalid\n", e);
+    return E_HARDWARE;
   }
 
   hotend_temp[e].target = temp;

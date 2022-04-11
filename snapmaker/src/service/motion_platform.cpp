@@ -655,7 +655,8 @@ void MotionPlatformService::sync_hotend_offset_to_platform(float x_offset, float
   hotend_offset[1][X_AXIS] = x_offset;
   hotend_offset[1][Y_AXIS] = y_offset;
   hotend_offset[1][Z_AXIS] = z_offset;
-  LOG_I("hotend_offset, T1, X%.2f, Y%.2f, Z%.2f\n", hotend_offset[X_AXIS][1], hotend_offset[Y_AXIS][1], hotend_offset[Z_AXIS][1]);
+  update_soft_endstops(X_AXIS, active_extruder, active_extruder);
+  LOG_I("hotend_offset, T1, X%.2f, Y%.2f, Z%.2f\n", hotend_offset[1][X_AXIS], hotend_offset[1][Y_AXIS], hotend_offset[1][Z_AXIS]);
 }
 
 void MotionPlatformService::enable_filament_runout() {
@@ -1103,7 +1104,7 @@ float MotionPlatformService::get_machine_accel(uint8_t type) {
     default:
     break;
   }
-  return accel; 
+  return accel;
 }
 
 void MotionPlatformService::set_machine_accel(uint8_t type, float accel) {

@@ -135,6 +135,7 @@ class ToolHeadFDM: public ModuleBase {
       extruder_info  = 0;
       active_extruder = 0;
       target_extruder = 0;
+      hotend_type_initialized = false;
       memset(hotend_offset, 0, sizeof(hotend_offset));
     }
 
@@ -226,6 +227,7 @@ class ToolHeadFDM: public ModuleBase {
     int16_t extruders_feedrate_percentage[EXTRUDERS];
     uint8_t filament_detect_state[EXTRUDERS];
     float pid[3];
+    bool hotend_type_initialized;
 };
 
 #endif  // #ifndef SNAPMAKER_TOOLHEAD_FDM_H_

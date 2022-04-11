@@ -24,10 +24,16 @@
 #include "base.h"
 
 #define EXTRUDERS 2
-#define TOOL_CHANGE_SAFE_SPACE 35
 #define EXTRUDER0_SWITCH_POSITION 0
 #define EXTRUDER1_SWITCH_POSITION 410
 #define GRID_MAX_NUM 11
+
+#define SINGLE_EXTRUDER_SOFT_ENDSTOP_MIN_X      0
+#define SINGLE_EXTRUDER_SOFT_ENDSTOP_MAX_X      400
+#define DUAL_EXTRUDER_LEFT_SOFT_ENDSTOP_MAX_X   410
+#define DUAL_EXTRUDER_LEFT_SOFT_ENDSTOP_MIN_X   0
+#define DUAL_EXTRUDER_RIGHT_SOFT_ENDSTOP_MAX_X  410
+#define DUAL_EXTRUDER_RIGHT_SOFT_ENDSTOP_MIN_X  0
 
 /****************************************************************************************
 reference links: https://snapmaker2.atlassian.net/wiki/spaces/SNAP/pages/1984987369/FDM

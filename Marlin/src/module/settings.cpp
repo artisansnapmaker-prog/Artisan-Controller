@@ -221,11 +221,13 @@ typedef struct SettingsDataStruct {
   //
   xyz_pos_t home_offset;                                // M206 XYZ / M665 TPZ
 
-  //
-  // Hotend Offset
-  //
-  #if HAS_HOTEND_OFFSET
-    xyz_pos_t hotend_offset[HOTENDS - 1];               // M218 XYZ
+  #if !MB_SNAPMAKER
+    //
+    // Hotend Offset
+    //
+    #if HAS_HOTEND_OFFSET
+      xyz_pos_t hotend_offset[HOTENDS - 1];               // M218 XYZ
+    #endif
   #endif
 
   //
@@ -755,16 +757,18 @@ void MarlinSettings::postprocess() {
       #endif
     }
 
-    //
-    // Hotend Offsets, if any
-    //
-    {
-      #if HAS_HOTEND_OFFSET
-        // Skip hotend 0 which must be 0
-        LOOP_S_L_N(e, 1, HOTENDS)
-          EEPROM_WRITE(hotend_offset[e]);
-      #endif
-    }
+    #if !MB_SNAPMAKER
+      //
+      // Hotend Offsets, if any
+      //
+      {
+        #if HAS_HOTEND_OFFSET
+          // Skip hotend 0 which must be 0
+          LOOP_S_L_N(e, 1, HOTENDS)
+            EEPROM_WRITE(hotend_offset[e]);
+        #endif
+      }
+    #endif
 
     //
     // Filament Runout Sensor
@@ -1666,17 +1670,18 @@ void MarlinSettings::postprocess() {
           EEPROM_READ(home_offset);
         #endif
       }
-
-      //
-      // Hotend Offsets, if any
-      //
-      {
-        #if HAS_HOTEND_OFFSET
-          // Skip hotend 0 which must be 0
-          LOOP_S_L_N(e, 1, HOTENDS)
-            EEPROM_READ(hotend_offset[e]);
-        #endif
-      }
+      #if !MB_SNAPMAKER
+        //
+        // Hotend Offsets, if any
+        //
+        {
+          #if HAS_HOTEND_OFFSET
+            // Skip hotend 0 which must be 0
+            LOOP_S_L_N(e, 1, HOTENDS)
+              EEPROM_READ(hotend_offset[e]);
+          #endif
+        }
+      #endif
 
       //
       // Filament Runout Sensor
@@ -2759,7 +2764,9 @@ void MarlinSettings::reset() {
     smprinter.reset_home_offset();
   #endif
 
-  TERN_(HAS_HOTEND_OFFSET, reset_hotend_offsets());
+  #if !MB_SNAPMAKER
+    TERN_(HAS_HOTEND_OFFSET, reset_hotend_offsets());
+  #endif
 
   //
   // Filament Runout Sensor

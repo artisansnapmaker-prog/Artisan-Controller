@@ -1141,12 +1141,17 @@ err_code_t ToolHeadFDM::switch_extruder(uint8_t e) {
   return E_SUCCESS;
 }
 
+// can only be called by G28
 void ToolHeadFDM::switch_extruder_without_move(uint8_t e) {
-  extruder_status_check_ctrl(EXTRUDER_STATUS_IDLE);
-  active_extruder = e;
-  motion_platform_svc.update_active_extruder_to_platform(active_extruder);
-  switch_extruder(active_extruder);
-  extruder_status_check_ctrl(EXTRUDER_STATUS_CHECK);
+  if (get_device_id() == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
+    extruder_status_check_ctrl(EXTRUDER_STATUS_IDLE);
+    active_extruder = e;
+    motion_platform_svc.update_active_extruder_to_platform(active_extruder);
+    switch_extruder(active_extruder);
+    extruder_status_check_ctrl(EXTRUDER_STATUS_CHECK);
+
+    motion_platform_svc.update_soft_endstops(X_AXIS, active_extruder, e);
+  }
 }
 
 uint8_t ToolHeadFDM::get_extruder_status(uint8_t e) {
@@ -1213,11 +1218,14 @@ err_code_t ToolHeadFDM::tool_change(uint8_t new_tool, bool z_compensation/*=true
   }
 
   if (new_tool != active_extruder) {
+    motion_platform_svc.update_soft_endstops(X_AXIS, active_extruder, new_tool);
+    LOG_I("current_x: %f\n", motion_platform_svc.sm_current_position[X_AXIS]);
+    LOG_I("soft_endstop_x_min: %f\n", motion_platform_svc.get_soft_endstop_min(X_AXIS));
     motion_platform_svc.update_position_from_platform();
-    if ((new_tool == 1) && (motion_platform_svc.sm_current_position[X_AXIS] < X_MIN_POS + TOOL_CHANGE_SAFE_SPACE)) {
-      motion_platform_svc.moveto_x(X_MIN_POS + TOOL_CHANGE_SAFE_SPACE, 50);
-    } else if ((new_tool == 0) && (motion_platform_svc.sm_current_position[X_AXIS] > X_MAX_POS - TOOL_CHANGE_SAFE_SPACE)) {
-      motion_platform_svc.moveto_x(X_MAX_POS - TOOL_CHANGE_SAFE_SPACE, 50);
+    if ((new_tool == 1) && (motion_platform_svc.sm_current_position[X_AXIS] < motion_platform_svc.get_soft_endstop_min(X_AXIS) + 10)) {
+      motion_platform_svc.moveto_x(motion_platform_svc.get_soft_endstop_min(X_AXIS) + 10, 50);
+    } else if ((new_tool == 0) && (motion_platform_svc.sm_current_position[X_AXIS] > motion_platform_svc.get_soft_endstop_max(X_AXIS) - 10)) {
+      motion_platform_svc.moveto_x(motion_platform_svc.get_soft_endstop_max(X_AXIS) - 10, 50);
     }
 
     // z raise

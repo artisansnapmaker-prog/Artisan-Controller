@@ -652,10 +652,10 @@ void MotionPlatformService::sync_z_values_from_platform() {
 }
 
 void MotionPlatformService::sync_hotend_offset_to_platform(float x_offset, float y_offset, float z_offset) {
-  hotend_offset[X_AXIS][1] = x_offset;
-  hotend_offset[Y_AXIS][1] = y_offset;
-  hotend_offset[Z_AXIS][1] = z_offset;
-  // LOG_I("hotend_offset, T1, X%.2f, Y%.2f, Z%.2f\n", hotend_offset[X_AXIS][1], hotend_offset[Y_AXIS][1], hotend_offset[Z_AXIS][1]);
+  hotend_offset[1][X_AXIS] = x_offset;
+  hotend_offset[1][Y_AXIS] = y_offset;
+  hotend_offset[1][Z_AXIS] = z_offset;
+  LOG_I("hotend_offset, T1, X%.2f, Y%.2f, Z%.2f\n", hotend_offset[X_AXIS][1], hotend_offset[Y_AXIS][1], hotend_offset[Z_AXIS][1]);
 }
 
 void MotionPlatformService::enable_filament_runout() {
@@ -981,6 +981,34 @@ xyz_pos_t MotionPlatformService::get_active_coordinate_system(int8_t active_id) 
     return gcode.coordinate_system[active_id];
   else
     return pos;
+}
+
+void MotionPlatformService::update_soft_endstops(uint8_t axis, uint8_t old_tool_index, uint8_t new_tool_index) {
+  update_software_endstops((AxisEnum)axis, old_tool_index, new_tool_index);
+}
+
+float MotionPlatformService::get_soft_endstop_min(uint8_t axis) {
+  switch((AxisEnum)axis) {
+    case X_AXIS:
+      return soft_endstop.min.x;
+      break;
+    default:
+      break;
+  }
+
+  return 0;
+}
+
+float MotionPlatformService::get_soft_endstop_max(uint8_t axis) {
+  switch(axis) {
+    case X_AXIS:
+      return soft_endstop.max.x;
+      break;
+    default:
+      break;
+  }
+
+  return 0;
 }
 
 void MotionPlatformService::show_coordiantes() {

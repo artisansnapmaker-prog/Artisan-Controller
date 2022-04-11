@@ -139,6 +139,11 @@ class MotionPlatformService {
     void set_relative_mode(bool);
     void set_feedrate_percentage(int16_t percentage) {}
 
+    
+    // M204 acceleration API
+    float get_machine_accel(uint8_t type);
+    void set_machine_accel(uint8_t type, float accel);
+
     // position info API
     xyze_pos_t sm_current_position;
     xyze_pos_t sm_destination_position;

@@ -24,7 +24,8 @@
 #include "base.h"
 
 #define CNC_POWER_MAX (100)
-#define CNC_LOST_TIME_OUT  (3000)         
+#define CNC_LOST_TIME_OUT  (3000)   
+#define CNC_ACCEL_LIMIT (500)      
 
 #define CNC_STALL_ERROR_MASK           (1 << 0)
 #define CNC_H_PROTECT_ERROR_MASK       (1 << 1)
@@ -176,6 +177,9 @@ class ToolHeadCNC: public ModuleBase {
     uint16_t record_error;
     uint32_t lost_counter;
     bool  online = false;
+
+    //TODO: if it is necessary to restore the previous acceleration of the machine
+    // float accel[3];
     SemaphoreHandle_t public_mutex = NULL;
 };
 #endif  // #ifndef SNAPMAKER_TOOLHEAD_CNC_H_

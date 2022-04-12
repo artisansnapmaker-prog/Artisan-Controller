@@ -515,13 +515,6 @@ uint16_t hmi_subscribe_purifier_func(void *obj, uint8_t *buff) {
   tmp_info->info.fan_gear = purifier.fan_gear;
   tmp_info->info.life_time = purifier.lifetime;
   tmp_info->info.filter = !(purifier.err & PURIFIER_NO_FILTER_MASK);
-  LOG_I("key: %d\n", tmp_info->key);
-  LOG_I("head_status: %d\n", tmp_info->head_status);
-  LOG_I("extend_power: %d\n", tmp_info->info.extend_power);
-  LOG_I("fan_working_sta: %d\n", tmp_info->info.fan_working_sta);
-  LOG_I("fan_gear: %d\n", tmp_info->info.fan_gear);
-  LOG_I("life_time: %d\n", tmp_info->info.life_time);
-  LOG_I("filter: %d\n", tmp_info->info.filter);
 
   return sizeof(PurifierHeadInfo) + 1;  
 }

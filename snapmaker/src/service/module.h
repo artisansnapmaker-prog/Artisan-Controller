@@ -140,6 +140,8 @@ class ModuleService {
     // that is to say, bound of previous priority, is the first one
     // of the range of next priority.
     message_id_record_t msg_id_records[MODULE_FUNC_PRIORITY_MAX];
+
+    uint32_t next_ms_background_broadcast;
 };
 
 extern ModuleService module_svc;

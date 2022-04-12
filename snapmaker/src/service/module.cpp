@@ -2,6 +2,9 @@
 #include "../config.h"
 #include "../common/debug.h"
 #include "../host/sacp_module.h"
+#include "../host/sm_broadcast.h"
+
+#define BACKGROUND_BROADCAST_DURATION (1000)
 
 ModuleService module_svc;
 
@@ -360,6 +363,7 @@ void ModuleService::init() {
         (void *)this, (sacp_hmi_callback)report_module_info);
 
   status = MS_STATUS_CONFIG;
+  next_ms_background_broadcast = millis() + BACKGROUND_BROADCAST_DURATION;
 }
 
 
@@ -722,6 +726,11 @@ void ModuleService::background_thread() {
 
     // TODO: scan modules
     // host_mac.send(MODULE_MAC_CMD_SCAN);
+
+    if ((int)(next_ms_background_broadcast - millis()) < 0) {
+      next_ms_background_broadcast = millis() + BACKGROUND_BROADCAST_DURATION;
+      host_broadcast.send(0x1);
+    }
 }
 
 

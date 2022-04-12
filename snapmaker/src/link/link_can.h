@@ -100,6 +100,21 @@ class LinkCANExtRemote: public LinkCAN {
 };
 
 
+class LinkCANStdRemote: public LinkCAN {
+  // public methods
+  public:
+    void init(SemaphoreHandle_t recv_signal, RingBuffer<uint16_t> *ring_buffer);
+
+    err_code_t write(uint32_t cmd);
+    BaseType_t receive_data(LinkCANChannel ch, uint32_t id);
+
+  // private properties
+  private:
+    SemaphoreHandle_t    receiver_signal;
+    RingBuffer<uint16_t> *receiver_buffer;
+};
+
+
 class LinkCANExtData: public LinkCAN {
   // public methods
   public:
@@ -135,6 +150,7 @@ class LinkCANStdData: public LinkCAN {
 };
 
 extern LinkCANExtRemote link_can_scan;
+extern LinkCANStdRemote link_can_broadcast;
 extern LinkCANExtData link_can_cfg;
 extern LinkCANStdData link_can_rou;
 

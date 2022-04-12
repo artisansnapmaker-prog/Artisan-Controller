@@ -13,6 +13,7 @@
 #define EXT_FRAME_FIFO (CAN_RX_FIFO1)
 
 LinkCANExtRemote link_can_scan;
+LinkCANStdRemote link_can_broadcast;
 LinkCANExtData link_can_cfg;
 LinkCANStdData link_can_rou;
 
@@ -306,6 +307,7 @@ err_code_t LinkCAN::send_packet(LinkCANChannel ch, LinkCANType type, uint32_t id
 }
 
 
+// ======================LinkCANExtRemote start======================
 void LinkCANExtRemote::init(SemaphoreHandle_t recv_signal, RingBuffer<uint32_t> *ring_buffer) {
   hal_init();
 
@@ -333,8 +335,28 @@ err_code_t LinkCANExtRemote::write(uint32_t cmd) {
 
   return ret;
 }
+// ======================LinkCANExtRemote end======================
 
+// ======================LinkCANStdRemote start======================
+void LinkCANStdRemote::init(SemaphoreHandle_t recv_signal, RingBuffer<uint16_t> *ring_buffer) {
+  hal_init();
 
+  receiver_signal = recv_signal;
+  receiver_buffer = ring_buffer;
+}
+
+BaseType_t LinkCANStdRemote::receive_data(LinkCANChannel ch, uint32_t id) {
+
+  return false;
+}
+
+err_code_t LinkCANStdRemote::write(uint32_t cmd) {
+  // NOTE: A400 with only can channel 1 
+  return send_packet(LINK_CAN_CH_1, LINK_CAN_TYPE_STD_REMOTE, cmd, NULL, 0);
+}
+// ======================LinkCANStdRemote end======================
+
+// ======================LinkCANExtData start======================
 void LinkCANExtData::init(SemaphoreHandle_t recv_signal, RingBuffer<uint8_t> *ring_buffer) {
   hal_init();
 
@@ -404,7 +426,7 @@ err_code_t LinkCANStdData::write(LinkCANChannel ch, uint16_t id, uint8_t *data, 
 
   return ret;
 }
-
+// ======================LinkCANExtData end======================
 
 static void irq_callback(LinkCANChannel ch,  uint8_t fifo_index) {
   CAN_TypeDef *can_instance = bus_handler[ch].Instance;

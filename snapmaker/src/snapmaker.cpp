@@ -466,6 +466,7 @@ void SnapmakerPrinter::post_init() {
 void SnapmakerPrinter::register_module(uint16_t type, ModuleBase *module) {
   switch (type) {
   case MODULE_DEVICE_ID_FDM_1EXTRUDER_2019:
+    fdm = (ToolHeadFDM *)module;
     break;
 
   case MODULE_DEVICE_ID_CNC_50W_2019:

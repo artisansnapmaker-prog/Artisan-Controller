@@ -2826,6 +2826,113 @@ void Stepper::init() {
   #endif
 }
 
+#if MB_SNAPMAKER
+  void Stepper::pins_post_init() {
+    #if HAS_E0_DIR
+      E0_DIR_INIT();
+    #endif
+    #if HAS_E1_DIR
+      E1_DIR_INIT();
+    #endif
+    #if HAS_E2_DIR
+      E2_DIR_INIT();
+    #endif
+    #if HAS_E3_DIR
+      E3_DIR_INIT();
+    #endif
+    #if HAS_E4_DIR
+      E4_DIR_INIT();
+    #endif
+    #if HAS_E5_DIR
+      E5_DIR_INIT();
+    #endif
+    #if HAS_E6_DIR
+      E6_DIR_INIT();
+    #endif
+    #if HAS_E7_DIR
+      E7_DIR_INIT();
+    #endif
+
+    #if HAS_E0_ENABLE
+      E0_ENABLE_INIT();
+      if (!E_ENABLE_ON) E0_ENABLE_WRITE(HIGH);
+    #endif
+    #if HAS_E1_ENABLE
+      E1_ENABLE_INIT();
+      if (!E_ENABLE_ON) E1_ENABLE_WRITE(HIGH);
+    #endif
+    #if HAS_E2_ENABLE
+      E2_ENABLE_INIT();
+      if (!E_ENABLE_ON) E2_ENABLE_WRITE(HIGH);
+    #endif
+    #if HAS_E3_ENABLE
+      E3_ENABLE_INIT();
+      if (!E_ENABLE_ON) E3_ENABLE_WRITE(HIGH);
+    #endif
+    #if HAS_E4_ENABLE
+      E4_ENABLE_INIT();
+      if (!E_ENABLE_ON) E4_ENABLE_WRITE(HIGH);
+    #endif
+    #if HAS_E5_ENABLE
+      E5_ENABLE_INIT();
+      if (!E_ENABLE_ON) E5_ENABLE_WRITE(HIGH);
+    #endif
+    #if HAS_E6_ENABLE
+      E6_ENABLE_INIT();
+      if (!E_ENABLE_ON) E6_ENABLE_WRITE(HIGH);
+    #endif
+    #if HAS_E7_ENABLE
+      E7_ENABLE_INIT();
+      if (!E_ENABLE_ON) E7_ENABLE_WRITE(HIGH);
+    #endif
+
+    #define _STEP_INIT(AXIS) AXIS ##_STEP_INIT()
+    #define _WRITE_STEP(AXIS, HIGHLOW) AXIS ##_STEP_WRITE(HIGHLOW)
+    #define _DISABLE_AXIS(AXIS) DISABLE_AXIS_## AXIS()
+
+    #define AXIS_INIT(AXIS, PIN) \
+      _STEP_INIT(AXIS); \
+      _WRITE_STEP(AXIS, _INVERT_STEP_PIN(PIN)); \
+      _DISABLE_AXIS(AXIS)
+
+    #define E_AXIS_INIT(NUM) AXIS_INIT(E## NUM, E)
+
+    // Init Step Pins
+    #if HAS_X_STEP
+      #if EITHER(X_DUAL_STEPPER_DRIVERS, DUAL_X_CARRIAGE)
+        X2_STEP_INIT();
+        X2_STEP_WRITE(INVERT_X_STEP_PIN);
+      #endif
+      AXIS_INIT(X, X);
+    #endif
+
+    #if E_STEPPERS && HAS_E0_STEP
+      E_AXIS_INIT(0);
+    #endif
+    #if (E_STEPPERS > 1 || ENABLED(E_DUAL_STEPPER_DRIVERS)) && HAS_E1_STEP
+      E_AXIS_INIT(1);
+    #endif
+    #if E_STEPPERS > 2 && HAS_E2_STEP
+      E_AXIS_INIT(2);
+    #endif
+    #if E_STEPPERS > 3 && HAS_E3_STEP
+      E_AXIS_INIT(3);
+    #endif
+    #if E_STEPPERS > 4 && HAS_E4_STEP
+      E_AXIS_INIT(4);
+    #endif
+    #if E_STEPPERS > 5 && HAS_E5_STEP
+      E_AXIS_INIT(5);
+    #endif
+    #if E_STEPPERS > 6 && HAS_E6_STEP
+      E_AXIS_INIT(6);
+    #endif
+    #if E_STEPPERS > 7 && HAS_E7_STEP
+      E_AXIS_INIT(7);
+    #endif
+  }
+#endif
+
 /**
  * Set the stepper positions directly in steps
  *

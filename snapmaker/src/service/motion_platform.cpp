@@ -368,30 +368,7 @@ void MotionPlatformService::init() {
 }
 
 void MotionPlatformService::pins_post_init() {
-  #if HAS_E0_DIR
-    E0_DIR_INIT();
-  #endif
-  #if HAS_E1_DIR
-    E1_DIR_INIT();
-  #endif
-  #if HAS_E2_DIR
-    E2_DIR_INIT();
-  #endif
-  #if HAS_E3_DIR
-    E3_DIR_INIT();
-  #endif
-  #if HAS_E4_DIR
-    E4_DIR_INIT();
-  #endif
-  #if HAS_E5_DIR
-    E5_DIR_INIT();
-  #endif
-  #if HAS_E6_DIR
-    E6_DIR_INIT();
-  #endif
-  #if HAS_E7_DIR
-    E7_DIR_INIT();
-  #endif
+  stepper.pins_post_init();
 }
 
 void MotionPlatformService::moveto_xy(float x, float y, float feedrate, bool blocked) {
@@ -921,6 +898,10 @@ void MotionPlatformService::set_endstop(bool status) {
   soft_endstop._enabled = status;
 }
 
+void MotionPlatformService::set_steps_per_unit(float steps_per_unit, uint8_t axis) {
+  planner.settings.axis_steps_per_mm[axis] = steps_per_unit;
+  planner.refresh_positioning();
+}
 
 void  MotionPlatformService::update_position_from_stepper() {
   set_current_from_steppers_for_axis(ALL_AXES_ENUM);

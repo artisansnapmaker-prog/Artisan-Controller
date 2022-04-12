@@ -651,7 +651,7 @@ err_code_t BedLevelService::start_manual_bed_leveling(uint8_t grids) {
   if (smprinter.fdm->get_device_id() == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
     motion_platform_svc.moveto_z(20, 30);
   } else if (smprinter.fdm->get_device_id() == MODULE_DEVICE_ID_FDM_1EXTRUDER_2019) {
-    // todo
+    motion_platform_svc.moveto_z(35, 30);
   }
 
   return E_SUCCESS;

@@ -442,6 +442,7 @@ class Stepper {
   public:
     // Initialize stepper hardware
     static void init();
+    static void pins_post_init();
 
     // Interrupt Service Routine and phases
 

@@ -27,7 +27,7 @@ static err_code_t hmi_req_callback_change_nozzle_ctrl(void *obj, sacp_hmi_messag
 
 // every module must define itself function and priority map !!!!
 // then set it to ModuleBase with set_func_prio_map() in pre_init()
-static module_func_prio_t prio_map[] = {
+static module_func_prio_t prio_map_dual_extruder[] = {
   {MODULE_FUNC_SET_FAN1,            MODULE_FUNC_PRIORITY_LOW},
   {MODULE_FUNC_SET_FAN2,            MODULE_FUNC_PRIORITY_LOW},
   {MODULE_FUNC_GET_NOZZLE_TEMP,     MODULE_FUNC_PRIORITY_HIGH},
@@ -50,6 +50,20 @@ static module_func_prio_t prio_map[] = {
   {MODULE_FUNCTION_ID_INVALID, MODULE_FUNCTION_PRIORITY_INVALID}
 };
 
+static module_func_prio_t prio_map_single_extruder[] = {
+  {MODULE_FUNC_SET_FAN1,            MODULE_FUNC_PRIORITY_LOW},
+  {MODULE_FUNC_SET_FAN2,            MODULE_FUNC_PRIORITY_LOW},
+  {MODULE_FUNC_GET_NOZZLE_TEMP,     MODULE_FUNC_PRIORITY_HIGH},
+  {MODULE_FUNC_SET_NOZZLE_TEMP,     MODULE_FUNC_PRIORITY_HIGH},
+  {MODULE_FUNC_PROBE_STATE,         MODULE_FUNC_PRIORITY_HIGH},
+  {MODULE_FUNC_SET_3DP_PID,         MODULE_FUNC_PRIORITY_LOW},
+  {MODULE_FUNC_RUNOUT_SENSOR_STATE, MODULE_FUNC_PRIORITY_HIGH},
+  {MODULE_FUNC_REPORT_3DP_PID,      MODULE_FUNC_PRIORITY_LOW},
+
+  // must set the last element as below !!!!
+  {MODULE_FUNCTION_ID_INVALID, MODULE_FUNCTION_PRIORITY_INVALID}
+};
+
 err_code_t fdm_callback_routine(void *obj);
 static void fdm_callback_probe_state(void *obj, uint8_t *data, uint8_t length);
 static void fdm_callback_filament_state(void *obj, uint8_t *data, uint8_t length);
@@ -62,12 +76,97 @@ static void fdm_callback_report_probe_sensor_compensation(void *obj, uint8_t *da
 
 err_code_t ToolHeadFDM::pre_init() {
   // must set the function priority map in pre_init() !!!!!
-  set_func_prio_map(prio_map);
+  if(get_device_id() == MODULE_DEVICE_ID_FDM_1EXTRUDER_2019) {
+    LOG_I("use single extruder prio_map\n");
+    set_func_prio_map(prio_map_single_extruder);
+  } else if (get_device_id() == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
+    LOG_I("use dual extruder prio_map\n");
+    set_func_prio_map(prio_map_dual_extruder);
+  }
 
   return E_SUCCESS;
 }
 
 err_code_t ToolHeadFDM::post_init() {
+  if(get_device_id() == MODULE_DEVICE_ID_FDM_1EXTRUDER_2019) {
+    return single_extruder_post_init();
+  } else if (get_device_id() == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
+    return dual_extruder_post_init();
+  } else {
+    return E_FAILURE;
+  }
+}
+
+err_code_t ToolHeadFDM::single_extruder_post_init() {
+  // register hmi subscript callback
+  host_hmi.register_subscription(SACP_CMD_SET_FDM, FDM_SUBSCRIPT_CMD_ID_EXTRUDER_INFO, this, hmi_subscript_callback_extruder_info);
+
+  // apply fdm cmd ids handle and register hmi request callback
+  host_hmi.apply_cmd_set_handle(SACP_CMD_SET_FDM, FDM_REQ_CMD_ID_SUM);
+  host_hmi.register_callback(SACP_CMD_SET_FDM, FDM_REQ_CMD_ID_GET_TOOLHEAD_INFO, this, hmi_req_callback_get_toolhead_info, SACP_CB_ATTR_BLOCKED_WITHOUT_MOTION);
+  host_hmi.register_callback(SACP_CMD_SET_FDM, FDM_REQ_CMD_ID_SET_HOTEND_TEMP, this, hmi_req_callback_set_hotend_temp, SACP_CB_ATTR_BLOCKED_WITHOUT_MOTION);
+  host_hmi.register_callback(SACP_CMD_SET_FDM, FDM_REQ_CMD_ID_FILAMENT_DETECT_CTRL, this, hmi_req_callback_set_filament_detect_ctrl, SACP_CB_ATTR_BLOCKED_WITHOUT_MOTION);
+  host_hmi.register_callback(SACP_CMD_SET_FDM, FDM_REQ_CMD_ID_SET_FAN_SPEED, this, hmi_req_callback_set_fan_speed, SACP_CB_ATTR_BLOCKED_WITHOUT_MOTION);
+  host_hmi.register_callback(SACP_CMD_SET_FDM, FDM_REQ_CMD_ID_EXTRUDER_MOTION, this, hmi_req_callback_extruder_motion, SACP_CB_ATTR_BLOCKED_WITH_MOTION);
+
+  // register some callback for info report
+  uint16_t msg_id;
+  msg_id = get_message_id(MODULE_FUNC_PROBE_STATE);
+  if (msg_id == MODULE_MESSAGE_ID_INVALID) {
+    return E_FAILURE;
+  }
+  if (host_can_rou.register_callback(msg_id, (void *)this, fdm_callback_probe_state) != E_SUCCESS) {
+    return E_FAILURE;
+  }
+
+  msg_id = get_message_id(MODULE_FUNC_RUNOUT_SENSOR_STATE);
+  if (msg_id == MODULE_MESSAGE_ID_INVALID) {
+    return E_FAILURE;
+  }
+  if (host_can_rou.register_callback(msg_id, (void *)this, fdm_callback_filament_state) != E_SUCCESS) {
+    return E_FAILURE;
+  }
+
+  msg_id = get_message_id(MODULE_FUNC_GET_NOZZLE_TEMP);
+  if (msg_id == MODULE_MESSAGE_ID_INVALID) {
+    return E_FAILURE;
+  }
+  if (host_can_rou.register_callback(msg_id, (void *)this, fdm_callback_hotend_temp) != E_SUCCESS) {
+    return E_FAILURE;
+  }
+
+  msg_id = get_message_id(MODULE_FUNC_REPORT_3DP_PID);
+  if (msg_id == MODULE_MESSAGE_ID_INVALID) {
+    return E_FAILURE;
+  }
+  if (host_can_rou.register_callback(msg_id, (void *)this, fdm_callback_hotend_pid) != E_SUCCESS) {
+    return E_FAILURE;
+  }
+
+  if (MODULE_DEVICE_ID_INVALID == get_device_id()) {
+    return E_FAILURE;
+  }
+
+  hotend_pid_sync();
+  probe_state_sync();
+  filament_state_sync();
+
+  motion_platform_svc.set_steps_per_unit(212.21, E_AXIS);
+  motion_platform_svc.set_home_offset(-27.5, -21, 0);
+  motion_platform_svc.set_hotend_maxtemp(0, 275);
+  motion_platform_svc.pins_post_init();
+  extruders_feedrate_percentage[0] = motion_platform_svc.get_feedrate_percentage();
+
+  smprinter.register_module(get_device_id(), this);
+  module_svc.register_routine((void *)this, fdm_callback_routine);
+
+  set_status(MODULE_STATUS_NORMAL);
+  LOG_I("fdm single extruder ready\n");
+
+  return E_SUCCESS;
+}
+
+err_code_t ToolHeadFDM::dual_extruder_post_init() {
   // register hmi subscript callback
   host_hmi.register_subscription(SACP_CMD_SET_FDM, FDM_SUBSCRIPT_CMD_ID_EXTRUDER_INFO, this, hmi_subscript_callback_extruder_info);
 
@@ -152,15 +251,6 @@ err_code_t ToolHeadFDM::post_init() {
   if (MODULE_DEVICE_ID_INVALID == get_device_id()) {
     return E_FAILURE;
   }
-  smprinter.register_module(get_device_id(), this);
-  module_svc.register_routine((void *)this, fdm_callback_routine);
-
-  if (get_device_id() == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
-    motion_platform_svc.set_home_offset(-17.5, -6, 0);
-  } else if (get_device_id() == MODULE_DEVICE_ID_FDM_1EXTRUDER_2019) {
-    // todo
-    motion_platform_svc.set_home_offset(-30, -6, 0);
-  }
 
   hotend_pid_sync();
   hotend_type_sync();
@@ -169,22 +259,20 @@ err_code_t ToolHeadFDM::post_init() {
   hotend_offset_sync();
   z_compensation_sync();
 
-  if (get_device_id() == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
-    motion_platform_svc.set_hotend_maxtemp(0, 315);
-    motion_platform_svc.set_hotend_maxtemp(1, 315);
-  } else if (get_device_id() == MODULE_DEVICE_ID_FDM_1EXTRUDER_2019) {
-    motion_platform_svc.set_hotend_maxtemp(0, 275);
-  }
+  motion_platform_svc.set_steps_per_unit(119.84, E_AXIS);
+  motion_platform_svc.set_home_offset(-17.5, -6, 0);
+  motion_platform_svc.set_hotend_maxtemp(0, 315);
+  motion_platform_svc.set_hotend_maxtemp(1, 315);
   motion_platform_svc.pins_post_init();
   extruders_feedrate_percentage[0] = motion_platform_svc.get_feedrate_percentage();
   extruders_feedrate_percentage[1] = motion_platform_svc.get_feedrate_percentage();
 
+  smprinter.register_module(get_device_id(), this);
+  module_svc.register_routine((void *)this, fdm_callback_routine);
+
   set_status(MODULE_STATUS_NORMAL);
-  if (get_device_id() == MODULE_DEVICE_ID_FDM_1EXTRUDER_2019) {
-    LOG_I("fdm single extruder ready\n");
-  } else {
-    LOG_I("fdm dual extruder ready\n");
-  }
+  LOG_I("fdm dual extruder ready\n");
+
   return E_SUCCESS;
 }
 
@@ -848,7 +936,7 @@ void ToolHeadFDM::update_filament_state(uint8_t *data) {
     //   filament_state &= ~0x01;
     // }
   } else if (get_device_id() == MODULE_DEVICE_ID_FDM_1EXTRUDER_2019) {
-    if (data[0])
+    if (!data[0])
       filament_state |= 0x01;
     else
       filament_state &= ~0x01;

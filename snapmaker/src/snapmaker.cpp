@@ -491,6 +491,7 @@ void SnapmakerPrinter::register_module(uint16_t type, ModuleBase *module) {
     break;
 
   case MODULE_DEVICE_ID_PURIFIER_2021:
+    purifier = (Purifier *)module;
     break;
 
   case MODULE_DEVICE_ID_EMERGENCY_STOP_2021:

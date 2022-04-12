@@ -645,7 +645,30 @@ void GcodeSuite::M2000() {
   case 23:
     BedVirtual *bed;
     bed = (BedVirtual *)module_svc.get_module(MODULE_DEVICE_ID_A400_BED, 0);
-    bed->bed_hmi_self_test_interface(w - 20, parser.intval('P', (int16_t)0));
+    if (bed)
+      bed->bed_hmi_self_test_interface(w - 20, parser.intval('P', (int16_t)0));
+  break;
+
+  case 40:
+  case 41:
+  case 42:
+  case 43:
+    Purifier *purifier;
+    purifier = (Purifier *)module_svc.get_module(MODULE_DEVICE_ID_PURIFIER_2021, 0);
+    if (purifier) {
+      if (w == 40) {
+        purifier->set_fan_gear(parser.byteval('P', 0));
+      }
+      else if (w == 41) {
+        purifier->set_light_color(parser.byteval('P', 0), parser.byteval('P', 0), parser.byteval('P', 0));
+      }
+      else if (w == 42) {
+        purifier->set_fan_control(!!parser.byteval('P', 0), !!parser.byteval('Q', 0));
+      }
+      else if (w == 43) {
+        purifier->report_purifier_info();
+      }
+    }
   break;
 
   default:

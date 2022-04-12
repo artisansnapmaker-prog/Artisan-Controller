@@ -14,6 +14,7 @@
 #include "module/enclosure_a400.h"
 #include "module/bed_virt.h"
 #include "module/rotary.h"
+#include "module/purifier.h"
 
 #define EVENT_GROUP_MODULE_READY      (0x00000001)
 #define EVENT_GROUP_WAIT_FOR_HEATING  (0X00000002)
@@ -365,7 +366,8 @@ class SnapmakerPrinter
     ToolHeadLaser *laser = NULL;
     ToolHeadFDM *fdm = NULL;
     DryBox *drybox = NULL;
-	  Enclosure *enclosure = NULL;
+	Enclosure *enclosure = NULL;
+    Purifier *purifier = NULL;
     // toolhead fdm 1e
     // toolhead laser 1.6w
     // toolhead laser 10w

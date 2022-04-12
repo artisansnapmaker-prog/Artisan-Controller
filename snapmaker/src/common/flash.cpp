@@ -27,77 +27,72 @@
   ** @reviser  : unli (WuHu China)
   ** @explain  : null
 *****/
-
+#include <Arduino.h>
 #include "utility.h"
 #include "flash.h"
 
+const flash_sector_addr_t flash_sector_tab[] = {
+  {FLASH_BASE + 0,                    16 * 1024},
+  {FLASH_BASE + 16 * 1024,            16 * 1024},
+  {FLASH_BASE + 32 * 1024,            16 * 1024},
+  {FLASH_BASE + 48 * 1024,            16 * 1024},
+  {FLASH_BASE + 64 * 1024,            64 * 1024},
+  {FLASH_BASE + 128 * 1024,           128 * 1024},
+  {FLASH_BASE + 256 * 1024,           128 * 1024},
+  {FLASH_BASE + 384 * 1024,           128 * 1024},
+  {FLASH_BASE + 512 * 1024,           128 * 1024},
+  {FLASH_BASE + 640 * 1024,           128 * 1024},
+  {FLASH_BASE + 768 * 1024,           128 * 1024},
+  {FLASH_BASE + 896 * 1024,           128 * 1024},
+};
+
 
 flash_partition_t boot_data_partition = {
-  {
-    FLASH_TYPEERASE_SECTORS,          // Mass erase or sector erase
-    0,                                // Select banks to erase when Mass erase is enabled
-    FLASH_BOOT_DATA_START_SECTOR,     // Initial FLASH sector to erase
-    FLASH_BOOT_DATA_SECTOR_NUM,       // Number of sectors to be erased
-    FLASH_VOLTAGE_RANGE_3             // The device voltage range
-  },
   FLASH_BOOT_DATA_ADDR,               // Start addr
   FLASH_BOOT_DATA_ADDR,               // Write addr
   FLASH_BOOT_DATA_SIZE                // Partition addr
 };
 
-flash_partition_t app_partition = {
-  {
-    FLASH_TYPEERASE_SECTORS,          // Mass erase or sector erase
-    0,                                // Select banks to erase when Mass erase is enabled
-    FLASH_APP_FW_START_SECTOR,        // Initial FLASH sector to erase
-    FLASH_APP_FW_SECTOR_NUM,          // Number of sectors to be erased
-    FLASH_VOLTAGE_RANGE_3             // The device voltage range
-  },
-  FLASH_APP_FW_ADDR,                  // Start addr
-  FLASH_APP_FW_ADDR,                  // Write addr
-  FLASH_APP_FW_SIZE                   // Partition addr
-};
+bool flash_addr_to_sector_number(uint32_t start, uint32_t size, uint32_t &sector_start, uint32_t &sector_number) {
+  uint32_t ts = TAB_SIZE(flash_sector_tab, flash_sector_addr_t);
 
-#if 0
-flash_partition_t boot_data_partition = {
-  {
-    FLASH_TYPEERASE_SECTORS,          // Mass erase or sector erase
-    0,                                // Select banks to erase when Mass erase is enabled
-    FLASH_BOOT_DATA_START_SECTOR,     // Initial FLASH sector to erase
-    FLASH_BOOT_DATA_SECTOR_NUM,       // Number of sectors to be erased
-    FLASH_VOLTAGE_RANGE_3             // The device voltage range
-  },
-  FLASH_BOOT_DATA_ADDR,               // Start addr
-  FLASH_BOOT_DATA_ADDR,               // Write addr
-  FLASH_BOOT_DATA_SIZE                // Partition addr
-};
+  if (start < flash_sector_tab[0].start)
+    return false;
+  if ((start + size) > 
+      flash_sector_tab[ts - 1].start + 
+      flash_sector_tab[ts - 1].size)
+    return false;
+  if (!size)
+    return false;
 
-flash_partition_t boot_data_partition = {
-  {
-    FLASH_TYPEERASE_SECTORS,          // Mass erase or sector erase
-    0,                                // Select banks to erase when Mass erase is enabled
-    FLASH_BOOT_DATA_START_SECTOR,     // Initial FLASH sector to erase
-    FLASH_BOOT_DATA_SECTOR_NUM,       // Number of sectors to be erased
-    FLASH_VOLTAGE_RANGE_3             // The device voltage range
-  },
-  FLASH_BOOT_DATA_ADDR,               // Start addr
-  FLASH_BOOT_DATA_ADDR,               // Write addr
-  FLASH_BOOT_DATA_SIZE                // Partition addr
-};
+  bool s, e;
+  s = e = false;
+  for (uint32_t i  = 0; i < ts; i++) {
+    if (!s && start < flash_sector_tab[i].start) {
+      sector_start = i - 1;
+      s = true;
+    }
+    if (!s && start == flash_sector_tab[i].start) {
+      sector_start = i;
+      s = true;
+    }
+    if (!e && (start + size) <= flash_sector_tab[i].start) {
+      sector_number = i - sector_start;
+      e = true;
+      break;
+    }
+  }
 
-flash_partition_t boot_data_partition = {
-  {
-    FLASH_TYPEERASE_SECTORS,          // Mass erase or sector erase
-    0,                                // Select banks to erase when Mass erase is enabled
-    FLASH_BOOT_DATA_START_SECTOR,     // Initial FLASH sector to erase
-    FLASH_BOOT_DATA_SECTOR_NUM,       // Number of sectors to be erased
-    FLASH_VOLTAGE_RANGE_3             // The device voltage range
-  },
-  FLASH_BOOT_DATA_ADDR,               // Start addr
-  FLASH_BOOT_DATA_ADDR,               // Write addr
-  FLASH_BOOT_DATA_SIZE                // Partition addr
-};
-#endif 
+  if (!s) {
+    sector_start = ts - 1;
+  }
+
+  if (!e) {
+    sector_number = ts - sector_start;
+  }
+
+  return true;
+}
 
 /*************************************************************** Flash_Start ***************************************************************/
 void flash_reset(flash_partition_t &flash_partition) {
@@ -106,10 +101,15 @@ void flash_reset(flash_partition_t &flash_partition) {
 
 bool flash_erase(flash_partition_t &flash_partition) {
   bool ret = true;
+  FLASH_EraseInitTypeDef erase_config;
   uint32_t page_error;
   
+  if (!flash_addr_to_sector_number( flash_partition.start_addr, flash_partition.size, 
+                                    erase_config.Sector, erase_config.NbSectors))
+    return false;
+
   HAL_FLASH_Unlock();
-  if (HAL_OK != HAL_FLASHEx_Erase(&(flash_partition.erase_config), &page_error)) {
+  if (HAL_OK != HAL_FLASHEx_Erase(&erase_config, &page_error)) {
     ret = false;
   }
   if (0xFFFFFFFF != page_error) {
@@ -117,6 +117,7 @@ bool flash_erase(flash_partition_t &flash_partition) {
   }
   FLASH_WaitForLastOperation(HAL_MAX_DELAY);
   HAL_FLASH_Lock();
+
   flash_partition.write_addr = flash_partition.start_addr;
   return ret;
 }
@@ -131,8 +132,7 @@ uint32_t flash_write(flash_partition_t &flash_partition, uint8_t *data, uint32_t
   }
   
   if (flash_partition.write_addr < flash_partition.start_addr) {
-    flash_free_size = flash_partition.size;
-    flash_partition.write_addr = flash_partition.start_addr;
+    flash_free_size = 0;
   }
   else {
     flash_free_size = flash_partition.size - (flash_partition.write_addr - flash_partition.start_addr);

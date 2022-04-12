@@ -180,6 +180,18 @@ void cmd_update_start(uint8_t *pl, uint32_t len, uint8_t *out, uint32_t &out_len
     return;
   }
 
+  if (update_info.boot_info->pack_type != A400_CONTROLLER_FW) {
+    Serial.println("not a A400 firmware");
+    out[0] = CMD_SET_UPDATE;
+    out[1] = CMD_ID_UPDATE_START;
+    out[2] = RET_ERROR;
+    out_len = 3;
+    return;
+  }
+
+  update_info.app_partition->start_addr = update_info.boot_info->fw_runaddr;
+  update_info.app_partition->write_addr = update_info.app_partition->start_addr;
+  update_info.app_partition->size = update_info.boot_info->fw_lenght;
   print_boot_info(update_info.boot_info);
   flash_erase(*(update_info.app_partition));
 
@@ -235,7 +247,9 @@ void cmd_update_trans(uint8_t *pl, uint32_t len, uint8_t *out, uint32_t &out_len
 
   update_info.offset += flash_write(*(update_info.app_partition), pl + 7, pack_len);
   Serial.print("Now offset ");
-  Serial.println(update_info.offset);
+  Serial.print(update_info.offset);
+  Serial.print(", fw lenght ");
+  Serial.println(update_info.boot_info->fw_lenght);
 
   trans_req_try = 0;
   last_trans_req_ms = millis();

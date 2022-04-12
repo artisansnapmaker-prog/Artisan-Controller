@@ -31,7 +31,6 @@ err_code_t UpdateService::init(void) {
 err_code_t ret;
 
   ret = E_SUCCESS;
-  // job control
   ret |= host_hmi.apply_cmd_set_handle(CMD_SET_UPDATE, 1);
   ret |= host_hmi.register_callback(CMD_SET_UPDATE, CMD_ID_UPDATE_START, this, sacp_update_start);
 

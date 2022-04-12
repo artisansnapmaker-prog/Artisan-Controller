@@ -18,6 +18,7 @@ bool update_in_sc = 0;
 fsm_info_t pc_sacp_fsm;
 fsm_info_t sc_sacp_fsm;
 boot_info_t boot_info;
+flash_partition_t app_partition;
 uint8_t send_frame[SACP_FRAME_MAX_SIZE];
 
 
@@ -313,6 +314,10 @@ void loop() {
     Serial.println("boot data ivalid, wait for update\r\n");
     boot_info.update_state = UPDATE_STATE_WAIT;
   }
+
+  app_partition.start_addr = boot_info.fw_runaddr;
+  app_partition.write_addr = app_partition.start_addr;
+  app_partition.size = boot_info.fw_lenght;
   update_init(&boot_info, &boot_data_partition, &app_partition);
 
   while (1) {

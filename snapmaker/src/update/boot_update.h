@@ -35,7 +35,6 @@ typedef struct {
 
 typedef struct {
   uint32_t offset;
-
   boot_info_t *boot_info;
   flash_partition_t *boot_data_partition;
   flash_partition_t *app_partition;

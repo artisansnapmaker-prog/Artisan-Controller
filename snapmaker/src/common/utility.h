@@ -43,6 +43,6 @@
                                         })	
 
 uint32_t calculate_checksum(uint8_t *buffer, uint32_t length);
-void snap_memcpy(void *dst, void *src, uint32_t len);
+uint32_t sacp_calculate_checksum(uint8_t *buffer, uint32_t length);
 
 #endif  // #ifndef SNAPMAKER_UTILITY_H_

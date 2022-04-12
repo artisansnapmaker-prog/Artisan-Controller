@@ -28,8 +28,8 @@
   ** @explain  : null
 *****/
 
-#ifndef SNAPMAKER_SACP_PROTOCOL_H
-#define SNAPMAKER_SACP_PROTOCOL_H
+#ifndef SNAPMAKER_BOOT_PROTOCOL_H
+#define SNAPMAKER_BOOT_PROTOCOL_H
 
 
 /********************************************************************************/
@@ -85,6 +85,7 @@ typedef enum{
 
 typedef struct{
   fsm_state_e s;
+  uint32_t last_milli;
   uint16_t len;
   uint8_t ver;
   uint8_t receiver;
@@ -123,6 +124,7 @@ typedef struct{
 /********************************************************************************/
 // EXP FUN DEF
 /********************************************************************************/
+void protocol_timeout_check(fsm_info_t &fsm);
 int protocol_push_char(fsm_info_t &fsm, uint8_t c);
 void print_frame(uint8_t *frame, uint32_t flen);
 void protocol_build_pack(scap_msg_t &msg, uint8_t *frame_buf, uint32_t &out_frame_len);

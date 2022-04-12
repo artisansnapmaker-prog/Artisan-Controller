@@ -33,20 +33,30 @@ uint32_t calculate_checksum(uint8_t *buffer, uint32_t length) {
   if (length % 2)
     checksum += buffer[length - 1];
 
-  while (checksum > 0xffff)
-    checksum = ((checksum >> 16) & 0xffff) + (checksum & 0xffff);
+  // while (checksum > 0xffff)
+  //   checksum = ((checksum >> 16) & 0xffff) + (checksum & 0xffff);
 
   checksum = ~checksum;
 
   return checksum;
 }
 
-void snap_memcpy(void *dst, void *src, uint32_t len) {
-  uint8_t *d, *s;
+uint32_t sacp_calculate_checksum(uint8_t *buffer, uint32_t length) {
+  uint32_t volatile checksum = 0;
 
-  d = (uint8_t *)dst;
-  s = (uint8_t *)src;
-  for (uint32_t i = 0; i < len; i++) {
-    d[i] = s[i];
-  }
+  if (!length || !buffer)
+    return 0;
+
+  for (uint32_t j = 0; j < (length - 1); j = j + 2)
+    checksum += (uint32_t)(buffer[j] << 8 | buffer[j + 1]);
+
+  if (length % 2)
+    checksum += buffer[length - 1];
+
+  while (checksum > 0xffff)
+    checksum = ((checksum >> 16) & 0xffff) + (checksum & 0xffff);
+
+  checksum = ~checksum;
+
+  return checksum;
 }

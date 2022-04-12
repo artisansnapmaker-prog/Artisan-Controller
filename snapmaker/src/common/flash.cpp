@@ -100,6 +100,10 @@ flash_partition_t boot_data_partition = {
 #endif 
 
 /*************************************************************** Flash_Start ***************************************************************/
+void flash_reset(flash_partition_t &flash_partition) {
+  flash_partition.write_addr = flash_partition.start_addr;
+}
+
 bool flash_erase(flash_partition_t &flash_partition) {
   bool ret = true;
   uint32_t page_error;
@@ -113,6 +117,7 @@ bool flash_erase(flash_partition_t &flash_partition) {
   }
   FLASH_WaitForLastOperation(HAL_MAX_DELAY);
   HAL_FLASH_Lock();
+  flash_partition.write_addr = flash_partition.start_addr;
   return ret;
 }
 
@@ -185,41 +190,6 @@ uint32_t flash_write(flash_partition_t &flash_partition, uint8_t *data, uint32_t
 
   return have_write_len;
 }
-
-
-// bool flash_erase_boot_data(void) {
-//   bool ret = true;
-  
-//   FLASH_EraseInitTypeDef erase_config;
-//   uint32_t page_error;
-//   erase_config.TypeErase    = FLASH_TYPEERASE_SECTORS;
-//   erase_config.Sector       = 1;
-//   erase_config.NbSectors    = 1;
-//   erase_config.VoltageRange = FLASH_VOLTAGE_RANGE_3;
-  
-//   HAL_FLASH_Unlock();
-//   if (HAL_OK != HAL_FLASHEx_Erase(&erase_config, &page_error)) {
-//     ret = false;
-//   }
-//   if (0xFFFFFFFF != page_error) {
-//     ret = false;
-//   }
-//   FLASH_WaitForLastOperation(HAL_MAX_DELAY);
-//   HAL_FLASH_Lock();
-//   return ret;
-// }
-
-// bool flash_word_write(uint32_t addr, uint32_t *data, uint32_t word_len) {
-//   HAL_FLASH_Unlock();
-//   for(uint32_t i = 0; i < word_len; i++) {
-//     if (HAL_OK != HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, addr + i * 4, data[i])) {
-//       HAL_FLASH_Lock();
-//       return false;
-//     }
-//   }
-//   HAL_FLASH_Lock();
-//   return true;
-// }
 
 /*************************************************************** Flash_End ***************************************************************/
 /*************************************************************** Flash_End ***************************************************************/

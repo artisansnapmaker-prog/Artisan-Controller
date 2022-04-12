@@ -65,6 +65,7 @@ typedef struct {
 extern flash_partition_t boot_data_partition;
 extern flash_partition_t app_partition;
 
+void flash_reset(flash_partition_t &flash_partition);
 bool flash_erase(flash_partition_t &flash_partition);
 uint32_t flash_write(flash_partition_t &flash_partition, uint8_t *data, uint32_t len);
 

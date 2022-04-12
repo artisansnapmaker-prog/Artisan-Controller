@@ -1,8 +1,8 @@
 #include <Arduino.h>
 #include "../common/utility.h"
 #include "../common/flash.h"
-#include "sacp_protocol.h"
-#include "sacp_update.h"
+#include "boot_protocol.h"
+#include "boot_update.h"
 #include "boot.h"
 
 
@@ -13,8 +13,8 @@
 /********************************************************************************/
 // LOCAL VAR
 /********************************************************************************/
-uint8_t update_in_pc = 0;
-uint8_t update_in_sc = 0;
+bool update_in_pc = 0;
+bool update_in_sc = 0;
 fsm_info_t pc_sacp_fsm;
 fsm_info_t sc_sacp_fsm;
 boot_info_t boot_info;
@@ -25,44 +25,24 @@ uint8_t send_frame[SACP_FRAME_MAX_SIZE];
 // LOCAL FUNCTION DECL
 /********************************************************************************/
 size_t ser_write(HardwareSerial &ser, uint8_t *data, uint32_t len);
-void print_boot_info(boot_info_t *bi);
-void load_boot_info(boot_info_t *bi);
 bool write_boot_info(boot_info_t *bi);
-void init_boot_info(boot_info_t *bi);
-void flash_test(flash_partition_t &partition);
-void normal_boot_loop(void);
+void boot_loop(void);
 void protocol_loop(void);
-void protocol_proc(HardwareSerial &ser, fsm_info_t &fsm);
+bool protocol_proc(HardwareSerial &ser, fsm_info_t &fsm);
 void jump_to(uint32_t addr);
 
 
 /********************************************************************************/
 // FUN DEF
 /********************************************************************************/
-void setup() {
-  PC_Serial.begin(115200);
-  SC_Serial.begin(115200);
-}
-
-void loop() {
-  // flash_test(boot_data_partition);
-
-  init_boot_info(&boot_info);
-  write_boot_info(&boot_info);
-  load_boot_info(&boot_info);
-  print_boot_info(&boot_info);
-
-  update_init(&boot_info, &boot_data_partition, &app_partition);
-
-  while (1) {
-    normal_boot_loop();
-    protocol_loop();
-    update_loop();
-  }
-}
-
 bool boot_info_flush_to_flash(void) {
+  boot_info.boot_data_checksum = calculate_checksum((uint8_t *)&boot_info, sizeof(boot_info_t) - 4);
   return write_boot_info(&boot_info);
+}
+
+bool set_boot_update_state_and_flush_to_flash(UpdateState s) {
+  boot_info.update_state = s;  
+  return boot_info_flush_to_flash();
 }
 
 size_t send(link_ch_e ch, uint8_t *buf, uint32_t len) {
@@ -77,58 +57,12 @@ size_t send(link_ch_e ch, uint8_t *buf, uint32_t len) {
   }
 }
 
-void flash_test(flash_partition_t &partition) {
-  uint8_t test_data[16 * 1024];
-  uint8_t v;
-  for(uint32_t i = 0; i < 256; i++) {
-    test_data[i] = i;
-  }
-  flash_erase(partition);
-
-  if (100 != flash_write(partition, (uint8_t *)test_data, 100)) {
-    Serial.println(F("flash write error"));
-    while(1);
-  }
-  for(uint32_t i = 0; i < 100; i++) {
-    v = *(uint8_t *)(FLASH_BOOT_DATA_ADDR + i);
-    Serial.println(v);
-  }
-
-  if (100 != flash_write(partition, (uint8_t *)test_data + 1, 100)) {
-    Serial.println(F("flash write error"));
-    while(1);
-  }
-  for(uint32_t i = 0; i < 100; i++) {
-    v = *(uint8_t *)(FLASH_BOOT_DATA_ADDR + 100 + i);
-    Serial.println(v);
-  }
-
-  if (100 != flash_write(partition, (uint8_t *)test_data + 2, 100)) {
-    Serial.println(F("flash write error"));
-    while(1);
-  }
-  for(uint32_t i = 0; i < 100; i++) {
-    v = *(uint8_t *)(FLASH_BOOT_DATA_ADDR + 200 + i);
-    Serial.println(v);
-  }
-
-  if (100 != flash_write(partition, (uint8_t *)test_data + 3, 100)) {
-    Serial.println(F("flash write error"));
-    while(1);
-  }
-  for(uint32_t i = 0; i < 100; i++) {
-    v = *(uint8_t *)(FLASH_BOOT_DATA_ADDR + 300 + i);
-    Serial.println(v);
-  }
-
-  while(1);
-}
-
 void print_boot_info(boot_info_t *bi) {
   char *ms;
 
   Serial.println("========== boot info ==========");
   ms = (char *)bi->magic_str;
+  ms[BOOT_PACK_MAGIC_STR_LEN - 1] = 0;
   Serial.println(F(ms));
   
   Serial.print("protocol ver: ");
@@ -136,6 +70,9 @@ void print_boot_info(boot_info_t *bi) {
 
   Serial.print("pack_type: ");
   Serial.println(bi->pack_type);
+
+  Serial.print("update_ctrl_flag: ");
+  Serial.println(bi->update_ctrl_flag);
 
   Serial.print("start index: ");
   Serial.println(bi->start_index);
@@ -145,14 +82,16 @@ void print_boot_info(boot_info_t *bi) {
 
   Serial.print("fw version: ");
   ms = (char *)bi->fw_ver_str;
+  ms[BOOT_PACK_FW_VER_STR_LEN - 1] = 0;
   Serial.println(F(ms));
 
   Serial.print("timestamp: ");
   ms = (char *)bi->timestamp_str;
+  ms[BOOT_PACK_TIMESTAMP_STR_LEN - 1] = 0;
   Serial.println(F(ms));
 
-  Serial.print("boot_mode: ");
-  Serial.println(bi->boot_mode, HEX);
+  Serial.print("update_state: ");
+  Serial.println(bi->update_state, HEX);
 
   Serial.print("fw lenght: ");
   Serial.println(bi->fw_lenght);
@@ -170,11 +109,19 @@ void print_boot_info(boot_info_t *bi) {
   Serial.println(bi->link_ch);
 
   Serial.print(F("boot data checksum: "));
-  Serial.println(bi->boot_data_checksum);
+  Serial.println(bi->boot_data_checksum, HEX);
 }
 
-void load_boot_info(boot_info_t *bi) {
-  snap_memcpy(bi, (void *)FLASH_BOOT_DATA_ADDR, sizeof(boot_info));
+bool application_fw_valid(uint32_t checksum, uint8_t *app_fw_start, uint32_t app_fw_len) {
+  return checksum == calculate_checksum(app_fw_start, app_fw_len);
+}
+
+size_t ser_write(HardwareSerial &ser, uint8_t *data, uint32_t len) {
+  size_t wl = 0;
+  for(uint32_t i = 0; i < len; i++) {
+    wl += ser.write(data[i]);
+  }
+  return wl;
 }
 
 bool write_boot_info(boot_info_t *bi) {
@@ -191,40 +138,48 @@ bool write_boot_info(boot_info_t *bi) {
   return true;
 }
 
-void init_boot_info(boot_info_t *bi) {
-  snap_memcpy((void *)bi->magic_str, (void *)"snapmaker update.bin", 21);
-  bi->protocol_ver = 1;
-  bi->pack_type = 4;
-  bi->start_index = 0;
-  bi->start_index = 1;
-  snap_memcpy(bi->fw_ver_str, (void *)"ver12.34.56", 32);
-  snap_memcpy(bi->timestamp_str, (void *)"2022.03.31 14:12:00", 20);
-  bi->boot_mode = BOOT_MODE_OTA_START;
-  bi->fw_lenght = 100000;
-  bi->fw_checksum = 12341234;
-  bi->fw_runaddr = FLASH_APP_FW_ADDR;
-  bi->boot_data_checksum = calculate_checksum((uint8_t *)bi, sizeof(boot_info_t) - 4);
-}
-
-void normal_boot_loop(void) {
+void boot_loop(void) {
   static uint32_t tick_ms = millis();
   static uint32_t count_down_second = BOOT_DELAY_SECODE;
 
-  if (BOOT_MODE_FACTORY_BURNING == boot_info.boot_mode || 
-      BOOT_MODE_APP == boot_info.boot_mode || 
-      BOOT_MODE_OTA_RECV_DONE == boot_info.boot_mode) {
+  if (!time_after(millis(), tick_ms + 1000))
+    return;
+  tick_ms = millis();
 
-    if (time_after(millis(), tick_ms + 1000)) {
-      tick_ms = millis();
-      count_down_second--;
-      Serial.print("Boot in ");
-      Serial.print(count_down_second);
-      Serial.println(" second");
-      if (0 == count_down_second) {
-        Serial.print("Load application at 0x");
-        Serial.println(boot_info.fw_runaddr, HEX);
-        jump_to(boot_info.fw_runaddr);
+  // Normale boot
+  if ( (UPDATE_STATE_JUMP_SUCCESS == boot_info.update_state || UPDATE_STATE_FACTOR_BURN == boot_info.update_state) &&
+      (!update_in_pc && !update_in_sc)) {
+    count_down_second--;
+    Serial.print("Boot in ");
+    Serial.print(count_down_second);
+    Serial.println(" second");
+    if (0 == count_down_second) {
+      Serial.print("Load application at 0x");
+      Serial.println(boot_info.fw_runaddr, HEX);
+      jump_to(boot_info.fw_runaddr);
+    }
+  }
+
+  // Updating and boot
+  else {
+    if (UPDATE_STATE_WAIT == boot_info.update_state) {
+      update_in_pc = 0;
+      update_in_sc = 0;
+    }
+    else if(UPDATE_STATE_END == boot_info.update_state) {
+      load_boot_info(&boot_info);
+      print_boot_info(&boot_info);
+      if (!boot_info_check(&boot_info)) {
+        Serial.println("After update, boot info check failure, please restart to start update again");
+        set_boot_update_state_and_flush_to_flash(UPDATE_STATE_WAIT);
+        return;
       }
+      if (!application_fw_valid(boot_info.fw_checksum, (uint8_t *)boot_info.fw_runaddr, boot_info.fw_lenght)) {
+        Serial.println("After update, applicattion check failure, please restart to start update again");
+        set_boot_update_state_and_flush_to_flash(UPDATE_STATE_WAIT);
+        return;
+      }
+      jump_to(boot_info.fw_runaddr);
     }
   }
 }
@@ -237,40 +192,39 @@ void protocol_loop(void) {
     protocol_proc(SC_Serial, sc_sacp_fsm);
   }
   else {
-    protocol_proc(PC_Serial, pc_sacp_fsm);
-    protocol_proc(SC_Serial, sc_sacp_fsm);
+    update_in_pc = protocol_proc(PC_Serial, pc_sacp_fsm);
+    update_in_sc = protocol_proc(SC_Serial, sc_sacp_fsm);
   }
-}
 
-size_t ser_write(HardwareSerial &ser, uint8_t *data, uint32_t len) {
-  size_t wl = 0;
-  for(uint32_t i = 0; i < len; i++) {
-    wl += ser.write(data[i]);
+  if (update_in_pc) {
+    boot_info.link_ch = LINK_CH_PC;
   }
-  return wl;
+  if (update_in_sc) {
+    boot_info.link_ch = LINK_CH_SC;
+  }
+
+  protocol_timeout_check(pc_sacp_fsm);
+  protocol_timeout_check(sc_sacp_fsm);
 }
 
-void frame_to_msg(fsm_info_t &fsm, scap_msg_t &msg) {
-  msg.attr = fsm.attr;
-  msg.peer = fsm.sender;
-  msg.sender = fsm.sender;
-  msg.seq = fsm.seq;
-}
-
-void protocol_proc(HardwareSerial &ser, fsm_info_t &fsm) {
+bool protocol_proc(HardwareSerial &ser, fsm_info_t &fsm) {
+  bool ret;
   uint8_t c;
   uint32_t frame_len;
   scap_msg_t sacp_msg;
 
+  ret = false;
   while(ser.available() > 0) {
     c = ser.read();
+    // PC_Serial.write(c);
     if (!protocol_push_char(fsm, c)) {
       continue;
     }
 
-    Serial.println("Get a frame");
     sacp_msg.payload_len = SACP_FRAME_MAX_SIZE - FRAME_MIN_LEN;
     cmd_proc(fsm.payload, fsm.payload_len, sacp_msg.payload, sacp_msg.payload_len);
+    ret = true;
+    boot_info.peer = fsm.sender;
 
     if (sacp_msg.payload_len) {
       sacp_msg.ver = VERSION;
@@ -280,11 +234,11 @@ void protocol_proc(HardwareSerial &ser, fsm_info_t &fsm) {
       sacp_msg.seq = fsm.seq;
       frame_len = SACP_FRAME_MAX_SIZE;
       protocol_build_pack(sacp_msg, send_frame, frame_len);
-      // Serial.println("Send a frame: ");
-      // print_frame(send_frame, frame_len);
       ser_write(ser, send_frame, frame_len);
     }
   }
+
+  return ret;
 }
 
 void jump_to(uint32_t addr)
@@ -296,4 +250,74 @@ void jump_to(uint32_t addr)
   __set_MSP(*(__IO uint32_t*)addr);
   p();
   while(1);
+}
+
+void setup() {
+  PC_Serial.begin(115200);
+  SC_Serial.begin(115200);
+}
+
+void loop() {
+  load_boot_info(&boot_info);
+  if (boot_info_check(&boot_info)) {
+    print_boot_info(&boot_info);
+    switch (boot_info.update_state) {
+      case UPDATE_STATE_FACTOR_BURN:
+        Serial.println("UPDATE_STATE_FACTOR_BURN: ");
+        if (application_fw_valid(boot_info.fw_checksum, (uint8_t *)boot_info.fw_runaddr, boot_info.fw_lenght)) {
+          Serial.println("get a valid application, wait for a few second for new update. If no update request, boot the application");
+        }
+        else {
+          Serial.println("application damage, wait for update");
+          boot_info.update_state = UPDATE_STATE_WAIT;
+        }
+      break;
+
+      case UPDATE_STATE_WAIT:
+        Serial.println("UPDATE_STATE_WAIT: wait for update");
+        boot_info.update_state = UPDATE_STATE_WAIT;
+      break;
+
+      case UPDATE_STATE_START:
+        Serial.println("UPDATE_STATE_START: App start a update, update continue in boot");
+      break;
+
+      case UPDATE_STATE_TRANS:
+        Serial.println("UPDATE_STATE_TRANS: something wronge during last updating, wait for update");
+        boot_info.update_state = UPDATE_STATE_WAIT;
+      break;
+
+      case UPDATE_STATE_END:
+        Serial.println("UPDATE_STATE_END: something wronge during last updating, wait for update");
+        boot_info.update_state = UPDATE_STATE_WAIT;
+      break;
+
+      case UPDATE_STATE_JUMP_SUCCESS:
+        Serial.println("UPDATE_STATE_JUMP_SUCCESS: ");
+        if (application_fw_valid(boot_info.fw_checksum, (uint8_t *)boot_info.fw_runaddr, boot_info.fw_lenght)) {
+          Serial.println("get a valid application, wait for a few second for new update. If no update request, boot the application");
+        }
+        else {
+          Serial.println("application damage, wait for update");
+          boot_info.update_state = UPDATE_STATE_WAIT;
+        }
+      break;
+
+      default:
+        Serial.println("Unknow boot mode, just wait for update");
+        boot_info.update_state = UPDATE_STATE_WAIT;
+      break;
+    }
+  }
+  else {
+    Serial.println("boot data ivalid, wait for update\r\n");
+    boot_info.update_state = UPDATE_STATE_WAIT;
+  }
+  update_init(&boot_info, &boot_data_partition, &app_partition);
+
+  while (1) {
+    boot_loop();
+    protocol_loop();
+    update_loop();
+  }
 }

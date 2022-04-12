@@ -39,14 +39,6 @@
 #define SCAP_PAYLOAD_ADDITION_LEN           (8)
 #define CMD_START_MIN_LEN                   (CMD_UPDATE_START_MIN_LEN + SCAP_PAYLOAD_ADDITION_LEN)
 
-enum UpdatePackType{
-  SM2_CONTROLLER_FW = 1,
-  A400_CONTROLLER_FW = 2,
-  J1_CONTROLLER_FW = 3,
-  SM2_MODULE_FW = 4,
-};
-
-
 class UpdateService {
 
   public:

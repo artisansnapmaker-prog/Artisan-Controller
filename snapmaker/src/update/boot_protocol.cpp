@@ -34,7 +34,8 @@
 /********************************************************************************/
 #include <Arduino.h>
 #include "../common/utility.h"
-#include "sacp_protocol.h"
+#include "../common/utility.h"
+#include "boot_protocol.h"
 
 
 /********************************************************************************/
@@ -61,6 +62,15 @@ uint8_t calc_crc8(uint8_t *data, uint16_t length);
 /********************************************************************************/
 // EXP FUN DEF
 /********************************************************************************/
+void protocol_timeout_check(fsm_info_t &fsm) {
+  if (STATE_HEADER_1 != fsm.s) {
+    if (time_after(millis(), fsm.last_milli + 3000)) {
+      Serial.println("fsm timeout");
+      fsm.s = STATE_HEADER_1;
+    }
+  }
+}
+
 int protocol_push_char(fsm_info_t &fsm, uint8_t c)
 {
   int ret = 0;
@@ -70,6 +80,7 @@ int protocol_push_char(fsm_info_t &fsm, uint8_t c)
   // Serial.print(" ");
   // Serial.println(c, HEX);
   // Serial.write(c);
+  fsm.last_milli = millis();
   switch(fsm.s){
     case STATE_HEADER_1:
       if(HEADER_1 == c){
@@ -97,8 +108,6 @@ int protocol_push_char(fsm_info_t &fsm, uint8_t c)
 
     case STATE_LEN2:
       fsm.len |= c<<8;
-      // Serial.print("len ");
-      // Serial.println(fsm.len);
       fsm.frame[fsm.have_rx_len++] = c;
       fsm.payload_len = fsm.len - PAYLOAD_ADDITION_LEN;
       fsm.s = STATE_VER;
@@ -129,6 +138,7 @@ int protocol_push_char(fsm_info_t &fsm, uint8_t c)
       }
       else {
         fsm.s = STATE_HEADER_1;
+        Serial.println("checksum error in STATE_CRC");
       }
     break;
 
@@ -184,9 +194,12 @@ int protocol_push_char(fsm_info_t &fsm, uint8_t c)
       fsm.frame[fsm.have_rx_len++] = c;
       fsm.checksum |= c<<8;
       if (fsm.checksum == 
-          (uint16_t)calculate_checksum(&fsm.frame[HEADER_LEN], fsm.have_rx_len - HEADER_LEN - 2)) { 
+          (uint16_t)sacp_calculate_checksum(&fsm.frame[HEADER_LEN], fsm.have_rx_len - HEADER_LEN - 2)) { 
         ret = 1;
-        // Serial.println("Rx a frame");
+        Serial.println("Get a frame");
+      }
+      else {
+        Serial.println("checksum error in STATE_CHECKSUM2");
       }
       fsm.s = STATE_HEADER_1;
     break;
@@ -220,9 +233,9 @@ void protocol_build_pack(scap_msg_t &msg, uint8_t *frame_buf, uint32_t &out_fram
   frame_buf[index++] = msg.attr;
   frame_buf[index++] = msg.seq & 0xFF;
   frame_buf[index++] = (msg.seq>>8) & 0xFF;
-  snap_memcpy(frame_buf+index, msg.payload, msg.payload_len);
+  memcpy(frame_buf+index, msg.payload, msg.payload_len);
   index += msg.payload_len;
-  uint16_t checksum = (uint16_t)calculate_checksum(frame_buf + HEADER_LEN, index - HEADER_LEN);
+  uint16_t checksum = (uint16_t)sacp_calculate_checksum(frame_buf + HEADER_LEN, index - HEADER_LEN);
   frame_buf[index++] = checksum & 0xFF;
   frame_buf[index++] = (checksum>>8) & 0xFF;
   out_frame_len = index;

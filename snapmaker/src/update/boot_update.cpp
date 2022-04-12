@@ -1,9 +1,9 @@
 #include <Arduino.h>
 #include "../common/utility.h"
 #include "../common/flash.h"
-#include "sacp_protocol.h"
+#include "boot_protocol.h"
 #include "boot.h"
-#include "sacp_update.h"
+#include "boot_update.h"
 
 
 /********************************************************************************/
@@ -13,6 +13,7 @@
 #define CMD_ID_UPDATE_START       (0x01)
 #define CMD_ID_UPDATE_TRANS       (0x02)
 #define CMD_ID_UPDATE_END         (0x03)
+#define CMD_ID_UPDATE_ERR         (0X10)
 
 #define CMD_START_MIN_LEN         (256)
 #define CMD_TRANS_MIN_LEN         (7)
@@ -25,39 +26,10 @@
 /********************************************************************************/
 // TYPEDEF
 /********************************************************************************/
-typedef void (*cmd_pf_t)(uint8_t *pl, uint32_t len, uint8_t *out, uint32_t &out_len);
-
-typedef struct {
-  uint8_t cmd_set;
-  uint8_t cmd_id;
-  cmd_pf_t executor;
-} cmd_fun_item_t;
-
-typedef enum {
-  UPDATE_INIT = 0,
-  UPDATE_START,
-  UPDATE_TRANS,
-  UPDATE_END,
-  UPDATE_FINISH,
-} update_state_e;
-
-typedef struct {
-  update_state_e s;
-  uint32_t app_len;
-  uint32_t offset;
-  uint32_t checksum;
-
-  boot_info_t *boot_info;
-  flash_partition_t *boot_data_partition;
-  flash_partition_t *app_partition;
-} update_info_t;
-
 scap_msg_t sacp_msg;
 uint16_t seq;
 uint32_t last_trans_req_ms;
 uint32_t trans_req_try;
-uint32_t last_end_req_ms;
-uint32_t end_req_try;
 uint8_t end_ret;
 
 
@@ -69,7 +41,7 @@ void cmd_update_start(uint8_t *pl, uint32_t len, uint8_t *out, uint32_t &out_len
 void cmd_update_trans(uint8_t *pl, uint32_t len, uint8_t *out, uint32_t &out_len);
 void cmd_update_end(uint8_t *pl, uint32_t len, uint8_t *out, uint32_t &out_len);
 void update_trans_req(void);
-void update_end_req(uint8_t ret);
+void update_end_req(void);
 bool update_app_fw_checksum(void);
 
 update_info_t update_info;
@@ -96,7 +68,45 @@ void update_init(boot_info_t *boot_info,
   update_info.boot_info = boot_info;
   update_info.boot_data_partition = boot_data_partition;
   update_info.app_partition = app_partition;
-  update_info.s = UPDATE_INIT;
+}
+
+void update_loop(void) {
+  switch(update_info.boot_info->update_state) {
+
+    case UPDATE_STATE_WAIT:
+    break;
+
+    case UPDATE_STATE_START:
+      // First request
+      flash_erase(*(update_info.app_partition));
+      set_boot_update_state_and_flush_to_flash(UPDATE_STATE_TRANS);
+      update_trans_req();
+    break;
+
+    case UPDATE_STATE_TRANS:
+      if (time_after(millis(), last_trans_req_ms + 1000)) {
+        if (trans_req_try < 3) {
+          if (update_info.offset >= update_info.boot_info->fw_lenght) {
+            update_end_req();
+          }
+          else {
+            update_trans_req();
+          }
+        }
+        else {
+          Serial.println("update trans error, return to update init, please reset SOC to restart update\r\n");
+          set_boot_update_state_and_flush_to_flash(UPDATE_STATE_WAIT);
+        }
+      }
+    break;
+
+    case UPDATE_STATE_END:
+    case UPDATE_STATE_FACTOR_BURN:
+    case UPDATE_STATE_JUMP_SUCCESS:
+    default:
+    // do nothing
+    break;
+  }
 }
 
 void cmd_proc(uint8_t *pl, uint32_t len, uint8_t *out, uint32_t &out_len) {
@@ -121,51 +131,7 @@ void cmd_proc(uint8_t *pl, uint32_t len, uint8_t *out, uint32_t &out_len) {
     return;
   }
 
-  exe(pl + 2, len - 2, out, out_len);
-}
-
-void update_loop(void) {
-  switch(update_info.s) {
-    case UPDATE_INIT:
-    break;
-
-    case UPDATE_START:
-      // First request
-      update_trans_req();
-      update_info.s = UPDATE_TRANS;
-      update_info.boot_info->boot_mode = BOOT_MODE_OTA_TRANS;
-      boot_info_flush_to_flash();
-    break;
-
-    case UPDATE_TRANS:
-      if (time_after(millis(), last_trans_req_ms + 1000)) {
-        if (trans_req_try < 3) {
-          update_trans_req();
-        }
-        else {
-          Serial.println("update trans error, return to update init, please reset SOC to restart update\r\n");
-          update_info.s = UPDATE_INIT;
-        }
-      }
-    break;
-
-    case UPDATE_END:
-      if (time_after(millis(), last_end_req_ms + 1000)) {
-        if (end_req_try < 3) {
-          update_end_req(end_ret);
-        }
-        else {
-          Serial.println("update end error, return to update init, please reset SOC to restart update\r\n");
-          update_info.s = UPDATE_INIT;
-        }
-      }
-    break;
-
-    case UPDATE_FINISH:
-      update_info.boot_info->boot_mode = BOOT_MODE_OTA_RECV_DONE;
-      boot_info_flush_to_flash();
-    break;
-  }
+  return exe(pl + 2, len - 2, out, out_len);
 }
 
 cmd_pf_t find_executor(uint8_t cmd_set, uint8_t cmd_id) {
@@ -193,7 +159,9 @@ void cmd_update_start(uint8_t *pl, uint32_t len, uint8_t *out, uint32_t &out_len
     return;
   }
 
-  if (UPDATE_INIT != update_info.s) {
+  if (UPDATE_STATE_WAIT != update_info.boot_info->update_state &&
+      UPDATE_STATE_JUMP_SUCCESS != update_info.boot_info->update_state &&
+      UPDATE_STATE_FACTOR_BURN != update_info.boot_info->update_state ) {
     Serial.println("can not start update as current is not in init state");
     out[0] = CMD_SET_UPDATE;
     out[1] = CMD_ID_UPDATE_START;
@@ -202,19 +170,25 @@ void cmd_update_start(uint8_t *pl, uint32_t len, uint8_t *out, uint32_t &out_len
     return;
   }
 
-  snap_memcpy(update_info.boot_info, pl, sizeof(boot_info_t));
-  update_info.app_len = update_info.boot_info->fw_lenght;
-  update_info.offset = 0;
-  update_info.checksum = update_info.boot_info->fw_checksum;
-
-  // TODO: for debug
-  update_info.boot_info->link_ch = LINK_CH_PC;
-  update_info.boot_info->peer = SACP_HOST_ID_LUBAN;
+  memcpy(update_info.boot_info, pl, sizeof(boot_info_t));
+  if (!boot_info_check(update_info.boot_info)) {
+    Serial.println("boot info checksum failure");
+    out[0] = CMD_SET_UPDATE;
+    out[1] = CMD_ID_UPDATE_START;
+    out[2] = RET_ERROR;
+    out_len = 3;
+    return;
+  }
 
   print_boot_info(update_info.boot_info);
   flash_erase(*(update_info.app_partition));
 
-  update_info.s = UPDATE_START;
+  // reset update variables
+  update_info.offset = 0;
+  trans_req_try = 0;
+  last_trans_req_ms = millis();
+  update_info.boot_info->update_state = UPDATE_STATE_START;
+
   out[0] = CMD_SET_UPDATE;
   out[1] = CMD_ID_UPDATE_START;
   out[2] = RET_OK;
@@ -226,6 +200,15 @@ void cmd_update_trans(uint8_t *pl, uint32_t len, uint8_t *out, uint32_t &out_len
 
   // This is ACK, do not return anything
   out_len = 0;
+
+  if (UPDATE_STATE_TRANS != update_info.boot_info->update_state) {
+    Serial.println("can not handle trans packet as current is not in UPDATE_STATE_TRANS state");
+    out[0] = CMD_SET_UPDATE;
+    out[1] = CMD_ID_UPDATE_ERR;
+    out[2] = RET_ERROR;
+    out_len = 3;
+    return;
+  }
 
   if (len < CMD_TRANS_MIN_LEN) {
     Serial.print("update trans response len error, expected ");
@@ -251,12 +234,27 @@ void cmd_update_trans(uint8_t *pl, uint32_t len, uint8_t *out, uint32_t &out_len
   }
 
   update_info.offset += flash_write(*(update_info.app_partition), pl + 7, pack_len);
-  // update_info.offset += pack_len;
   Serial.print("Now offset ");
   Serial.println(update_info.offset);
-  trans_req_try = 0;  
 
-  update_trans_req();
+  trans_req_try = 0;
+  last_trans_req_ms = millis();
+
+  if (update_info.offset >= update_info.boot_info->fw_lenght) {
+    Serial.println("Rx all the data");
+    if (update_app_fw_checksum()) {
+      end_ret = RET_OK;
+    }
+    else {
+      Serial.println("application check failed");
+      end_ret = RET_ERROR;
+      set_boot_update_state_and_flush_to_flash(UPDATE_STATE_WAIT);
+    }
+    update_end_req();
+  }
+  else {
+    update_trans_req();
+  }
 }
 
 void cmd_update_end(uint8_t *pl, uint32_t len, uint8_t *out, uint32_t &out_len) {
@@ -279,30 +277,12 @@ void cmd_update_end(uint8_t *pl, uint32_t len, uint8_t *out, uint32_t &out_len) 
     return;
   }
 
-  update_info.s = UPDATE_FINISH;
+  set_boot_update_state_and_flush_to_flash(UPDATE_STATE_END);
 }
 
 void update_trans_req(void) {
   uint8_t send_frame[64];
   uint32_t frame_len;
-
-  if (update_info.offset >= update_info.app_len) {
-    Serial.println("Rx all the data");
-    update_info.s = UPDATE_END;
-
-    if (update_app_fw_checksum()) {
-      update_end_req(RET_OK);
-      // TODO: for test
-      update_info.boot_info->boot_mode = BOOT_MODE_OTA_RECV_DONE;
-      boot_info_flush_to_flash();
-    }
-    else {
-      Serial.println("application check failed");
-      end_ret = RET_ERROR;
-    }
-    update_end_req(end_ret);
-    return;
-  }
 
   sacp_msg.ver = VERSION;
   sacp_msg.attr = ATTR_REQ;
@@ -317,8 +297,6 @@ void update_trans_req(void) {
   sacp_msg.payload[5] = (update_info.offset>>24) & 0xFF;
   sacp_msg.payload[6] = (UPDATE_TRANS_PACK_SIZE) & 0xFF;
   sacp_msg.payload[7] = (UPDATE_TRANS_PACK_SIZE>>8) & 0xFF;
-  //sacp_msg.payload[6] = (4) & 0xFF;
-  //sacp_msg.payload[7] = (4>>8) & 0xFF;
   sacp_msg.payload_len = 8;
   frame_len = 64;
   
@@ -328,14 +306,14 @@ void update_trans_req(void) {
   Serial.println(2000, HEX);
 
   protocol_build_pack(sacp_msg, send_frame, frame_len);
-  print_frame(send_frame, frame_len);
+  // print_frame(send_frame, frame_len);
   send((link_ch_e)update_info.boot_info->link_ch, send_frame, frame_len);
 
   last_trans_req_ms = millis();
   trans_req_try++;
 }
 
-void update_end_req(uint8_t ret) {
+void update_end_req(void) {
   uint8_t send_frame[64];
   uint32_t frame_len;
 
@@ -346,27 +324,20 @@ void update_end_req(uint8_t ret) {
   sacp_msg.seq = seq++;
   sacp_msg.payload[0] = CMD_SET_UPDATE; 
   sacp_msg.payload[1] = CMD_ID_UPDATE_END;
-  sacp_msg.payload[2] = ret;
+  sacp_msg.payload[2] = end_ret;
   sacp_msg.payload_len = 3;
   frame_len = 64;
   
   protocol_build_pack(sacp_msg, send_frame, frame_len);
   send((link_ch_e)update_info.boot_info->link_ch, send_frame, frame_len);
-
-  last_end_req_ms = millis();
-  end_req_try++;
 }
 
 bool update_app_fw_checksum(void) {
   uint32_t cs;
-  print_frame((uint8_t *)update_info.app_partition->start_addr + update_info.offset - 64,
-               64);
-  cs = calculate_checksum( (uint8_t *)update_info.app_partition->start_addr, 
-                            update_info.app_len );
-  Serial.print("calc checksum ");
+  cs = calculate_checksum((uint8_t *)update_info.boot_info->fw_runaddr, update_info.boot_info->fw_lenght);
+  Serial.print("calc checksum of application: ");
   Serial.print(cs, HEX);
-  Serial.print(" boot info checksum ");
-  Serial.print(update_info.checksum, HEX);
-  return true;
-  return cs == update_info.checksum;
+  Serial.print(", application checksum from boot info: ");
+  Serial.println(update_info.boot_info->fw_checksum, HEX);
+  return cs == update_info.boot_info->fw_checksum;
 }

@@ -70,6 +70,11 @@ Endstops::endstop_mask_t Endstops::live_state = 0;
   volatile bool Endstops::z_probe_enabled = false;
 #endif
 
+#if MB_SNAPMAKER
+  volatile bool Endstops::x_probe_enabled = false;
+  volatile bool Endstops::y_probe_enabled = false;
+#endif
+
 // Initialized by settings.load()
 #if ENABLED(X_DUAL_ENDSTOPS)
   float Endstops::x2_endstop_adj;
@@ -396,6 +401,18 @@ void Endstops::not_homing() {
     #if PIN_EXISTS(PROBE_ENABLE)
       WRITE(PROBE_ENABLE_PIN, onoff);
     #endif
+    resync();
+  }
+#endif
+
+#if MB_SNAPMAKER
+  void Endstops::enable_x_probe(const bool onoff) {
+    x_probe_enabled = onoff;
+    resync();
+  }
+
+  void Endstops::enable_y_probe(const bool onoff) {
+    y_probe_enabled = onoff;
     resync();
   }
 #endif
@@ -962,6 +979,21 @@ void Endstops::update() {
   #endif
 
   // Signal, after validation, if an endstop limit is pressed or not
+
+  #if MB_SNAPMAKER
+    if (stepper.axis_is_moving(X_AXIS)) {
+      if (x_probe_enabled && smprinter.get_probe_state()) {
+        planner.endstop_triggered(X_AXIS);
+      }
+    }
+
+    if (stepper.axis_is_moving(Y_AXIS)) {
+      if (y_probe_enabled && smprinter.get_probe_state()) {
+        planner.endstop_triggered(Y_AXIS);
+      }
+    }
+  #endif
+
 
   if (stepper.axis_is_moving(X_AXIS)) {
     if (stepper.motor_direction(X_AXIS_HEAD)) { // -direction

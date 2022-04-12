@@ -139,7 +139,7 @@ class MotionPlatformService {
     void set_relative_mode(bool);
     void set_feedrate_percentage(int16_t percentage) {}
 
-    
+
     // M204 acceleration API
     float get_machine_accel(uint8_t type);
     void set_machine_accel(uint8_t type, float accel);
@@ -167,10 +167,15 @@ class MotionPlatformService {
     uint8_t get_leveling_grids();
     void get_leveling_first_point_position(float &x, float &y);
     void set_leveling_grids(uint8_t grids);
+    void enable_x_probe() {endstops.enable_x_probe(true);}
+    void disable_x_probe() {endstops.enable_x_probe(false);}
+    void enable_y_probe() {endstops.enable_y_probe(true);}
+    void disable_y_probe() {endstops.enable_y_probe(false);}
     void enable_z_probe() {endstops.enable_z_probe(true);}
     void disable_z_probe() {endstops.enable_z_probe(false);}
     float probe_at_point(float x, float y, ProbePtRaise raise_after=PROBE_PT_RAISE);
-    float probe_xy(uint8_t axis);
+    float probe_x(float probe_position);
+    float probe_y(float probe_position);
     void sync_leveling_limit_to_platform(float x_start, float x_end, float y_start, float y_end);
     void sync_z_values_to_platform(float compensation);
     void sync_z_values_from_platform();
@@ -179,8 +184,6 @@ class MotionPlatformService {
     void print_leveling_grid() { print_bilinear_leveling_grid();}
     void print_leveling_grid_virt() { print_bilinear_leveling_grid_virt();}
     bool get_leveling_state() { return leveling_is_valid(); }
-    // void enable_probing_paused() { set_probing_paused(true); }
-    // void disable_probing_paused() { set_probing_paused(false); }
 
     // extruder control API
     // uint8_t active_extruder() { return 0; }

@@ -550,6 +550,34 @@ bool Probe::probe_down_to_z(const_float_t z, const_feedRate_t fr_mm_s) {
   return !probe_triggered;
 }
 
+#if MB_SNAPMAKER
+bool Probe::probe_to_x(const_float_t x, const_feedRate_t fr_mm_s) {
+  // Move to destination until the probe is triggered
+  do_blocking_move_to_x(x, fr_mm_s);
+
+  // Get X where the steppers were interrupted
+  set_current_from_steppers_for_axis(X_AXIS);
+
+  // Tell the planner where we actually are
+  sync_plan_position();
+
+  return true;
+}
+
+bool Probe::probe_to_y(const_float_t y, const_feedRate_t fr_mm_s) {
+  // Move to destination until the probe is triggered
+  do_blocking_move_to_y(y, fr_mm_s);
+
+  // Get Y where the steppers were interrupted
+  set_current_from_steppers_for_axis(Y_AXIS);
+
+  // Tell the planner where we actually are
+  sync_plan_position();
+
+  return true;
+}
+#endif
+
 #if ENABLED(PROBE_TARE)
 
   /**
@@ -745,6 +773,30 @@ float Probe::run_z_probe(const bool sanity_check/*=true*/) {
 
   return measured_z;
 }
+
+#if MB_SNAPMAKER
+  float Probe::run_x_probe(float probe_position) {
+    bool probe_success = probe_to_x(probe_position, 1);
+    float measured_x = current_position.x;
+    if (probe_success) {
+      SERIAL_ECHOLNPGM("probed x: ", measured_x);
+      return measured_x;
+    } else {
+      return NAN;
+    }
+  }
+
+  float Probe::run_y_probe(float probe_position) {
+    bool probe_success = probe_to_y(probe_position, 1);
+    float measured_y = current_position.y;
+    if (probe_success) {
+      SERIAL_ECHOLNPGM("probed y: ", current_position.y);
+      return measured_y;
+    } else {
+      return NAN;
+    }
+  }
+#endif
 
 /**
  * - Move to the given XY

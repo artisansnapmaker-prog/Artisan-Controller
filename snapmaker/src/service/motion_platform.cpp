@@ -633,8 +633,12 @@ float MotionPlatformService::probe_at_point(float x, float y, ProbePtRaise raise
   return probe.probe_at_point(x, y, raise_after);
 }
 
-float MotionPlatformService::probe_xy(uint8_t axis) {
+float MotionPlatformService::probe_x(float probe_position) {
+  return probe.run_x_probe(probe_position);
+}
 
+float MotionPlatformService::probe_y(float probe_position) {
+  return probe.run_y_probe(probe_position);
 }
 
 void MotionPlatformService::sync_z_values_to_platform(float compensation) {

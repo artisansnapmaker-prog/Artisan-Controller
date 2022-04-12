@@ -1344,7 +1344,7 @@ err_code_t ToolHeadFDM::set_hotend_offset(float offset, uint8_t axis) {
 
   LOG_I("set hotend offset, axis: %d, offset: %f\n", axis, offset);
   hotend_offset[axis][1] = offset;
-  motion_platform_svc.sync_hotend_offset_to_platform(hotend_offset[X_AXIS][1], hotend_offset[X_AXIS][1], hotend_offset[Z_AXIS][1]);
+  motion_platform_svc.sync_hotend_offset_to_platform(hotend_offset[X_AXIS][1], hotend_offset[Y_AXIS][1], hotend_offset[Z_AXIS][1]);
   return save_hotend_offset_to_module(offset, axis);
 }
 

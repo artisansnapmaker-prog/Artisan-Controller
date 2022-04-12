@@ -283,6 +283,13 @@ public:
     static void set_homing_current(const bool onoff);
   #endif
 
+#if MB_SNAPMAKER
+    bool probe_to_x(const_float_t x, const_feedRate_t fr_mm_s);
+    bool probe_to_y(const_float_t y, const_feedRate_t fr_mm_s);
+    float run_x_probe(float probe_position);
+    float run_y_probe(float probe_position);
+#endif
+
 private:
   static bool probe_down_to_z(const_float_t z, const_feedRate_t fr_mm_s);
   static void do_z_raise(const float z_raise);

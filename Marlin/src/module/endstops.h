@@ -133,7 +133,11 @@ class Endstops {
      * Are endstops or the probe set to abort the move?
      */
     FORCE_INLINE static bool abort_enabled() {
-      return enabled || TERN0(HAS_BED_PROBE, z_probe_enabled);
+      #if !MB_SNAPMAKER
+        return enabled || TERN0(HAS_BED_PROBE, z_probe_enabled);
+      #else
+        return enabled || TERN0(HAS_BED_PROBE, z_probe_enabled) || x_probe_enabled || y_probe_enabled;
+      #endif
     }
 
     static inline bool global_enabled() { return enabled_globally; }
@@ -209,6 +213,13 @@ class Endstops {
     #if HAS_BED_PROBE
       static volatile bool z_probe_enabled;
       static void enable_z_probe(const bool onoff=true);
+    #endif
+
+    #if MB_SNAPMAKER
+      static volatile bool x_probe_enabled;
+      static volatile bool y_probe_enabled;
+      static void enable_x_probe(const bool onoff=true);
+      static void enable_y_probe(const bool onoff=true);
     #endif
 
     static void resync();

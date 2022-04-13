@@ -50,9 +50,8 @@ static void interrupt_cb_stop_button() {
 static void interrupt_cb_power_loss() {
   int debounce = ISR_DEBOUNCE/2;
 
-  // won't handle powerloss if stop_button is triggered
-  if (digitalRead(stop_button) == PIN_STATE_TRIGGERED || 
-    smprinter.get_sys_status() == SYSTEM_STATUS_EMERGENCY_STOP)
+  // won't handle powerloss if system is in SYSTEM_STATUS_EMERGENCY_STOP
+  if (smprinter.get_sys_status() == SYSTEM_STATUS_EMERGENCY_STOP)
     return;
 
   while (--debounce > 0); // about 0.5ms

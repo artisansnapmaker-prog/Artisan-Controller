@@ -288,6 +288,9 @@ err_code_t MotionPlatformService::hmi_cb_request_home(void *obj, sacp_hmi_messag
 void MotionPlatformService::motion_background(void *p) {
   MotionPlatformService &motion = *((MotionPlatformService *)p);
 
+  // priority of timer for stepper is 2, so we set lower priority for the software serial
+  TERN_(HAS_TMC_SW_SERIAL, SoftwareSerial::setInterruptPriority(3, 0));
+
   for (;;) {
     host_hmi.handle_events();
     loop();

@@ -2,7 +2,7 @@
 #include "../common/utility.h"
 #include "../common/flash.h"
 #include "boot_protocol.h"
-#include "boot_update.h"
+#include "boot_upgrade.h"
 #include "boot.h"
 
 
@@ -13,8 +13,8 @@
 /********************************************************************************/
 // LOCAL VAR
 /********************************************************************************/
-bool update_in_pc = 0;
-bool update_in_sc = 0;
+bool upgrade_in_pc = 0;
+bool upgrade_in_sc = 0;
 fsm_info_t pc_sacp_fsm;
 fsm_info_t sc_sacp_fsm;
 boot_info_t boot_info;
@@ -41,8 +41,8 @@ bool boot_info_flush_to_flash(void) {
   return write_boot_info(&boot_info);
 }
 
-bool set_boot_update_state_and_flush_to_flash(UpdateState s) {
-  boot_info.update_state = s;  
+bool set_boot_upgrade_state_and_flush_to_flash(UpdateState s) {
+  boot_info.upgrade_state = s;  
   return boot_info_flush_to_flash();
 }
 
@@ -72,8 +72,8 @@ void print_boot_info(boot_info_t *bi) {
   Serial.print("pack_type: ");
   Serial.println(bi->pack_type);
 
-  Serial.print("update_ctrl_flag: ");
-  Serial.println(bi->update_ctrl_flag);
+  Serial.print("upgrade_ctrl_flag: ");
+  Serial.println(bi->upgrade_ctrl_flag);
 
   Serial.print("start index: ");
   Serial.println(bi->start_index);
@@ -91,8 +91,8 @@ void print_boot_info(boot_info_t *bi) {
   ms[BOOT_PACK_TIMESTAMP_STR_LEN - 1] = 0;
   Serial.println(F(ms));
 
-  Serial.print("update_state: ");
-  Serial.println(bi->update_state, HEX);
+  Serial.print("upgrade_state: ");
+  Serial.println(bi->upgrade_state, HEX);
 
   Serial.print("fw lenght: ");
   Serial.println(bi->fw_lenght);
@@ -148,8 +148,8 @@ void boot_loop(void) {
   tick_ms = millis();
 
   // Normale boot
-  if ( (UPDATE_STATE_JUMP_SUCCESS == boot_info.update_state || UPDATE_STATE_FACTOR_BURN == boot_info.update_state) &&
-      (!update_in_pc && !update_in_sc)) {
+  if ( (UPGRADE_STATE_JUMP_SUCCESS == boot_info.upgrade_state || UPGRADE_STATE_FACTOR_BURN == boot_info.upgrade_state) &&
+      (!upgrade_in_pc && !upgrade_in_sc)) {
     count_down_second--;
     Serial.print("Boot in ");
     Serial.print(count_down_second);
@@ -163,21 +163,21 @@ void boot_loop(void) {
 
   // Updating and boot
   else {
-    if (UPDATE_STATE_WAIT == boot_info.update_state) {
-      update_in_pc = 0;
-      update_in_sc = 0;
+    if (UPGRADE_STATE_WAIT == boot_info.upgrade_state) {
+      upgrade_in_pc = 0;
+      upgrade_in_sc = 0;
     }
-    else if(UPDATE_STATE_END == boot_info.update_state) {
+    else if(UPGRADE_STATE_END == boot_info.upgrade_state) {
       load_boot_info(&boot_info);
       print_boot_info(&boot_info);
       if (!boot_info_check(&boot_info)) {
-        Serial.println("After update, boot info check failure, please restart to start update again");
-        set_boot_update_state_and_flush_to_flash(UPDATE_STATE_WAIT);
+        Serial.println("After upgrade, boot info check failure, please restart to start upgrade again");
+        set_boot_upgrade_state_and_flush_to_flash(UPGRADE_STATE_WAIT);
         return;
       }
       if (!application_fw_valid(boot_info.fw_checksum, (uint8_t *)boot_info.fw_runaddr, boot_info.fw_lenght)) {
-        Serial.println("After update, applicattion check failure, please restart to start update again");
-        set_boot_update_state_and_flush_to_flash(UPDATE_STATE_WAIT);
+        Serial.println("After upgrade, applicattion check failure, please restart to start upgrade again");
+        set_boot_upgrade_state_and_flush_to_flash(UPGRADE_STATE_WAIT);
         return;
       }
       jump_to(boot_info.fw_runaddr);
@@ -186,21 +186,21 @@ void boot_loop(void) {
 }
 
 void protocol_loop(void) {
-  if (update_in_pc) {
+  if (upgrade_in_pc) {
     protocol_proc(PC_Serial, pc_sacp_fsm);
   }
-  else if (update_in_sc) {
+  else if (upgrade_in_sc) {
     protocol_proc(SC_Serial, sc_sacp_fsm);
   }
   else {
-    update_in_pc = protocol_proc(PC_Serial, pc_sacp_fsm);
-    update_in_sc = protocol_proc(SC_Serial, sc_sacp_fsm);
+    upgrade_in_pc = protocol_proc(PC_Serial, pc_sacp_fsm);
+    upgrade_in_sc = protocol_proc(SC_Serial, sc_sacp_fsm);
   }
 
-  if (update_in_pc) {
+  if (upgrade_in_pc) {
     boot_info.link_ch = LINK_CH_PC;
   }
-  if (update_in_sc) {
+  if (upgrade_in_sc) {
     boot_info.link_ch = LINK_CH_SC;
   }
 
@@ -262,67 +262,67 @@ void loop() {
   load_boot_info(&boot_info);
   if (boot_info_check(&boot_info)) {
     print_boot_info(&boot_info);
-    switch (boot_info.update_state) {
-      case UPDATE_STATE_FACTOR_BURN:
-        Serial.println("UPDATE_STATE_FACTOR_BURN: ");
+    switch (boot_info.upgrade_state) {
+      case UPGRADE_STATE_FACTOR_BURN:
+        Serial.println("UPGRADE_STATE_FACTOR_BURN: ");
         if (application_fw_valid(boot_info.fw_checksum, (uint8_t *)boot_info.fw_runaddr, boot_info.fw_lenght)) {
-          Serial.println("get a valid application, wait for a few second for new update. If no update request, boot the application");
+          Serial.println("get a valid application, wait for a few second for new upgrade. If no upgrade request, boot the application");
         }
         else {
-          Serial.println("application damage, wait for update");
-          boot_info.update_state = UPDATE_STATE_WAIT;
+          Serial.println("application damage, wait for upgrade");
+          boot_info.upgrade_state = UPGRADE_STATE_WAIT;
         }
       break;
 
-      case UPDATE_STATE_WAIT:
-        Serial.println("UPDATE_STATE_WAIT: wait for update");
-        boot_info.update_state = UPDATE_STATE_WAIT;
+      case UPGRADE_STATE_WAIT:
+        Serial.println("UPGRADE_STATE_WAIT: wait for upgrade");
+        boot_info.upgrade_state = UPGRADE_STATE_WAIT;
       break;
 
-      case UPDATE_STATE_START:
-        Serial.println("UPDATE_STATE_START: App start a update, update continue in boot");
+      case UPGRADE_STATE_START:
+        Serial.println("UPGRADE_STATE_START: App start a upgrade, upgrade continue in boot");
       break;
 
-      case UPDATE_STATE_TRANS:
-        Serial.println("UPDATE_STATE_TRANS: something wronge during last updating, wait for update");
-        boot_info.update_state = UPDATE_STATE_WAIT;
+      case UPGRADE_STATE_TRANS:
+        Serial.println("UPGRADE_STATE_TRANS: something wronge during last updating, wait for upgrade");
+        boot_info.upgrade_state = UPGRADE_STATE_WAIT;
       break;
 
-      case UPDATE_STATE_END:
-        Serial.println("UPDATE_STATE_END: something wronge during last updating, wait for update");
-        boot_info.update_state = UPDATE_STATE_WAIT;
+      case UPGRADE_STATE_END:
+        Serial.println("UPGRADE_STATE_END: something wronge during last updating, wait for upgrade");
+        boot_info.upgrade_state = UPGRADE_STATE_WAIT;
       break;
 
-      case UPDATE_STATE_JUMP_SUCCESS:
-        Serial.println("UPDATE_STATE_JUMP_SUCCESS: ");
+      case UPGRADE_STATE_JUMP_SUCCESS:
+        Serial.println("UPGRADE_STATE_JUMP_SUCCESS: ");
         if (application_fw_valid(boot_info.fw_checksum, (uint8_t *)boot_info.fw_runaddr, boot_info.fw_lenght)) {
-          Serial.println("get a valid application, wait for a few second for new update. If no update request, boot the application");
+          Serial.println("get a valid application, wait for a few second for new upgrade. If no upgrade request, boot the application");
         }
         else {
-          Serial.println("application damage, wait for update");
-          boot_info.update_state = UPDATE_STATE_WAIT;
+          Serial.println("application damage, wait for upgrade");
+          boot_info.upgrade_state = UPGRADE_STATE_WAIT;
         }
       break;
 
       default:
-        Serial.println("Unknow boot mode, just wait for update");
-        boot_info.update_state = UPDATE_STATE_WAIT;
+        Serial.println("Unknow boot mode, just wait for upgrade");
+        boot_info.upgrade_state = UPGRADE_STATE_WAIT;
       break;
     }
   }
   else {
-    Serial.println("boot data ivalid, wait for update\r\n");
-    boot_info.update_state = UPDATE_STATE_WAIT;
+    Serial.println("boot data ivalid, wait for upgrade\r\n");
+    boot_info.upgrade_state = UPGRADE_STATE_WAIT;
   }
 
   app_partition.start_addr = boot_info.fw_runaddr;
   app_partition.write_addr = app_partition.start_addr;
   app_partition.size = boot_info.fw_lenght;
-  update_init(&boot_info, &boot_data_partition, &app_partition);
+  upgrade_init(&boot_info, &boot_data_partition, &app_partition);
 
   while (1) {
     boot_loop();
     protocol_loop();
-    update_loop();
+    upgrade_loop();
   }
 }

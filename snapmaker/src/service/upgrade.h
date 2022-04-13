@@ -18,80 +18,42 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+
 #ifndef SNAPMAKER_UPGRADE_H_
 #define SNAPMAKER_UPGRADE_H_
 
-#include "../config.h"
 
-//#include "src/core/macros.h"
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+#include "config.h"
+#include "../common/error.h"
+#include "../common/ring_buffer.h"
+#include "../common/type.h"
+#include "../host/sacp_hmi.h"
+#include "../update/boot.h"
 
-#include "../host/event_handler.h"
+#define CMD_SET_UPDATE                      (0xAD)
+#define CMD_ID_UPDATE_START                 (0x01)
+#define CMD_UPDATE_START_MIN_LEN            (256)
+#define SCAP_PAYLOAD_ADDITION_LEN           (8)
+#define CMD_START_MIN_LEN                   (CMD_UPDATE_START_MIN_LEN + SCAP_PAYLOAD_ADDITION_LEN)
 
-#define VERSION_STRING_SIZE 32
+class UpdateService {
 
-#define UPGRADE_FW_OFFSET_FW_TYPE         ((uint32_t)(0))
-#define UPGRADE_FW_OFFSET_START_MODULE_ID ((uint32_t)(1))
-#define UPGRADE_FW_OFFSET_END_MODULE_ID   ((uint32_t)(3))
-#define UPGRADE_FW_OFFSET_VERSION         ((uint32_t)(5))
-#define UPGRADE_FW_OFFSET_FW_SIZE         ((uint32_t)(40))
-#define UPGRADE_FW_OFFSET_CHECKSUM        ((uint32_t)(44))
-#define UPGRADE_FW_OFFSET_FLAG            ((uint32_t)(48))
-#define UPGRADE_FW_OFFSET_FW_CONTENT      ((uint32_t)(2048))
-
-enum UpgradeStatus: uint8_t {
-  UPGRADE_STA_IDLE = 0,
-  UPGRADE_STA_RECV_FW,
-  UPGRADE_STA_REBOOTING,
-  UPGRADE_STA_UPGRADING_EM,
-  UPGRADE_STA_INVALID
-};
-
-enum UpgradeTarget {
-  UPGRADE_TARGET_MAIN_CONTROLLER,
-  UPGRADE_TARGET_INTERNAL_MODULE,
-
-  UPGRADE_TARGET_UNKNOWN
-};
-
-class UpgradeService {
   public:
-    err_code_t StartUpgrade(SSTP_Event_t &event);
-    err_code_t ReceiveFW(SSTP_Event_t &event);
-    err_code_t EndUpgarde(SSTP_Event_t &event);
-    err_code_t GetMainControllerVer(SSTP_Event_t &event);
-    err_code_t CompareMCVer(SSTP_Event_t &event);
-    err_code_t GetUpgradeStatus(SSTP_Event_t &event);
-    err_code_t GetModuleVer(SSTP_Event_t &event);
-
-    err_code_t SendModuleUpgradeStatus(uint8_t sta);
-    err_code_t SendModuleVer(uint32_t mac, char ver[VERSION_STRING_SIZE]);
-
-    void CheckIfUpgradeModule();
-
-    void Check(void);
-
-    UpgradeStatus GetState() { return upgrade_state_; }
-    void SetState(UpgradeStatus sta) {
-      if (sta < UPGRADE_STA_INVALID)
-        upgrade_state_ = sta;
-    }
+    UpdateService(){};
+    err_code_t init(void);
+    static err_code_t sacp_update_start(void *obj, sacp_hmi_message_t *);
+    err_code_t update_start_ack(sacp_hmi_message_t *msg, err_code_t ret);
+    bool boot_info_flush_to_flash();
+    void set_boot_info(boot_info_t *bti);
+    void print_boot_info(void);
 
   private:
-    err_code_t RequestNextPacket();
-
-  private:
-    static const uint16_t max_packet_ = MARLIN_CODE_SIZE / 512;
-
-    UpgradeStatus upgrade_state_ = UPGRADE_STA_IDLE;
-    UpgradeTarget target_ = UPGRADE_TARGET_UNKNOWN;
-
-    uint16_t timeout_ = 0;
-    uint16_t req_pkt_counter_ = 0;
-    uint16_t pre_pkt_counter_ = 0;
-    uint32_t received_fw_size_ = 0;
+    boot_info_t boot_info;
 };
 
+extern UpdateService update_svc;
 
-//extern UpgradeService upgrade;
-
-#endif  // #ifndef SNAPMAKER_UPGRADE_H_
+#endif  // #ifndef SNAPMAKER_CLIENT_NODE_H_

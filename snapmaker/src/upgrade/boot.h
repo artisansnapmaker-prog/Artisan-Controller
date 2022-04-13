@@ -29,27 +29,27 @@
 #define BOOT_PACK_MAGIC_STR_LEN                 (21)
 #define BOOT_PACK_FW_VER_STR_LEN                (32)
 #define BOOT_PACK_TIMESTAMP_STR_LEN             (20)
-#define BOOT_DATA_DEFAULT_MAGIC_STR             ("snapmaker update.bin")
+#define BOOT_DATA_DEFAULT_MAGIC_STR             ("snapmaker upgrade.bin")
 #define BOOT_DATA_DEFAULT_PROTOCOL_VER          (1)
 #define BOOT_DATA_DEFAULT_PACK_TYPE             (A400_CONTROLLER_FW)
-#define BOOT_DATA_DEFAULT_UPDATE_FLAG           (UPDATE_FLAG_ALWAYS)
-#define BOOT_DATA_DEFAULT_UPDATE_FLAG           (UPDATE_FLAG_ALWAYS)
+#define BOOT_DATA_DEFAULT_UPGRADE_FLAG          (UPGRADE_FLAG_ALWAYS)
+#define BOOT_DATA_DEFAULT_UPGRADE_FLAG          (UPGRADE_FLAG_ALWAYS)
 #define BOOT_DATA_DEFAULT_START_INDEX           (0)
 #define BOOT_DATA_DEFAULT_END_INDEX             (0)
 #define BOOT_DATA_DEFAULT_END_INDEX             (0)
 
 enum UpdateCtrlFlag {
-  UPDATE_CTRL_FLAG_NORMAL = 0,
-  UPDATE_CTRL_FLAG_ALWAYS = 1,
+  UPGRADE_CTRL_FLAG_NORMAL = 0,
+  UPGRADE_CTRL_FLAG_ALWAYS = 1,
 };
 
 enum UpdateState {
-  UPDATE_STATE_FACTOR_BURN = 0xAA00,
-  UPDATE_STATE_WAIT = 0xAA01,
-  UPDATE_STATE_START = 0xAA02,
-  UPDATE_STATE_TRANS = 0xAA03,
-  UPDATE_STATE_END = 0xAA04,
-  UPDATE_STATE_JUMP_SUCCESS = 0xAA05,
+  UPGRADE_STATE_FACTOR_BURN = 0xAA00,
+  UPGRADE_STATE_WAIT = 0xAA01,
+  UPGRADE_STATE_START = 0xAA02,
+  UPGRADE_STATE_TRANS = 0xAA03,
+  UPGRADE_STATE_END = 0xAA04,
+  UPGRADE_STATE_JUMP_SUCCESS = 0xAA05,
 };
 
 enum UpdatePackType{
@@ -69,12 +69,12 @@ typedef struct{
   uint8_t magic_str[21];
   uint8_t protocol_ver;
   uint16_t pack_type;
-  uint8_t update_ctrl_flag;
+  uint8_t upgrade_ctrl_flag;
   uint16_t start_index;
   uint16_t end_index;
   uint8_t fw_ver_str[32];
   uint8_t timestamp_str[20];
-  uint16_t update_state;
+  uint16_t upgrade_state;
   uint32_t fw_lenght;
   uint32_t fw_checksum;
   uint32_t fw_runaddr;
@@ -103,7 +103,7 @@ void setup(void);
 void loop(void);
 void print_boot_info(boot_info_t *bi);
 bool application_fw_valid(uint32_t checksum, uint8_t *app_fw_start, uint32_t app_fw_len);
-bool set_boot_update_state_and_flush_to_flash(UpdateState s);
+bool set_boot_upgrade_state_and_flush_to_flash(UpdateState s);
 bool boot_info_flush_to_flash(void);
 size_t send(link_ch_e ch, uint8_t *buf, uint32_t len);
 

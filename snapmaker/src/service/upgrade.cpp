@@ -23,7 +23,7 @@
 #include "../common/utility.h"
 #include "../host/sacp_module.h"
 #include "../common/flash.h"
-#include "update.h"
+#include "upgrade.h"
 
 UpdateService update_svc;
 

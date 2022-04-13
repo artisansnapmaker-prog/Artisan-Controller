@@ -18,8 +18,8 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#ifndef SNAPMAKER_BOOT_UPDATE_H_
-#define SNAPMAKER_BOOT_UPDATE_H_
+#ifndef SNAPMAKER_BOOT_UPGRADE_H_
+#define SNAPMAKER_BOOT_UPGRADE_H_
 
 #include <stdint.h>
 #include "../common/flash.h"
@@ -38,13 +38,13 @@ typedef struct {
   boot_info_t *boot_info;
   flash_partition_t *boot_data_partition;
   flash_partition_t *app_partition;
-} update_info_t;
+} upgrade_info_t;
 
-void update_init(boot_info_t *boot_info, 
+void upgrade_init(boot_info_t *boot_info, 
               flash_partition_t *boot_data_partition, 
               flash_partition_t *app_partition);
 void cmd_proc(uint8_t *pl, uint32_t len, uint8_t *out, uint32_t &out_len);
-void update_loop(void);
+void upgrade_loop(void);
 
 
 #endif  // SNAPMAKER_BOOT_H_

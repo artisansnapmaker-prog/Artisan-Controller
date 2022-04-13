@@ -31,21 +31,21 @@
 #include "../common/ring_buffer.h"
 #include "../common/type.h"
 #include "../host/sacp_hmi.h"
-#include "../update/boot.h"
+#include "../upgrade/boot.h"
 
-#define CMD_SET_UPDATE                      (0xAD)
-#define CMD_ID_UPDATE_START                 (0x01)
-#define CMD_UPDATE_START_MIN_LEN            (256)
-#define SCAP_PAYLOAD_ADDITION_LEN           (8)
-#define CMD_START_MIN_LEN                   (CMD_UPDATE_START_MIN_LEN + SCAP_PAYLOAD_ADDITION_LEN)
+#define CMD_SET_UPGRADE                       (0xAD)
+#define CMD_ID_UPGRADE_START                  (0x01)
+#define CMD_UPGRADE_START_MIN_LEN             (256)
+#define SCAP_PAYLOAD_ADDITION_LEN             (8)
+#define CMD_START_MIN_LEN                     (CMD_UPGRADE_START_MIN_LEN + SCAP_PAYLOAD_ADDITION_LEN)
 
 class UpdateService {
 
   public:
     UpdateService(){};
     err_code_t init(void);
-    static err_code_t sacp_update_start(void *obj, sacp_hmi_message_t *);
-    err_code_t update_start_ack(sacp_hmi_message_t *msg, err_code_t ret);
+    static err_code_t sacp_upgrade_start(void *obj, sacp_hmi_message_t *);
+    err_code_t upgrade_start_ack(sacp_hmi_message_t *msg, err_code_t ret);
     bool boot_info_flush_to_flash();
     void set_boot_info(boot_info_t *bti);
     void print_boot_info(void);
@@ -54,6 +54,6 @@ class UpdateService {
     boot_info_t boot_info;
 };
 
-extern UpdateService update_svc;
+extern UpdateService upgrade_svc;
 
 #endif  // #ifndef SNAPMAKER_CLIENT_NODE_H_

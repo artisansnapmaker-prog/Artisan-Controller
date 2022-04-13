@@ -16,7 +16,7 @@
 #include "service/client_node.h"
 #include "service/job_ctrl.h"
 #include "common/utility.h"
-#include "service/update.h"
+#include "service/upgrade.h"
 
 #include "HAL/interrupt.h"
 
@@ -352,7 +352,7 @@ static void system_thread(void *p) {
   bedlevel_svc.init();
   job_ctrl_svc.init();
   ClientNode::class_init();
-  update_svc.init();
+  upgrade_svc.init();
 
   emergency_hdl.init();
 

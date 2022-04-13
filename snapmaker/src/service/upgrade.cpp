@@ -25,19 +25,19 @@
 #include "../common/flash.h"
 #include "upgrade.h"
 
-UpdateService update_svc;
+UpdateService upgrade_svc;
 
 err_code_t UpdateService::init(void) {
 err_code_t ret;
 
   ret = E_SUCCESS;
-  ret |= host_hmi.apply_cmd_set_handle(CMD_SET_UPDATE, 1);
-  ret |= host_hmi.register_callback(CMD_SET_UPDATE, CMD_ID_UPDATE_START, this, sacp_update_start);
+  ret |= host_hmi.apply_cmd_set_handle(CMD_SET_UPGRADE, 1);
+  ret |= host_hmi.register_callback(CMD_SET_UPGRADE, CMD_ID_UPGRADE_START, this, sacp_upgrade_start);
 
   load_boot_info(&boot_info);
   if (boot_info_check(&boot_info)) {
-    if (UPDATE_STATE_JUMP_SUCCESS != boot_info.update_state) {
-    boot_info.update_state = UPDATE_STATE_JUMP_SUCCESS;
+    if (UPGRADE_STATE_JUMP_SUCCESS != boot_info.upgrade_state) {
+    boot_info.upgrade_state = UPGRADE_STATE_JUMP_SUCCESS;
       if (!boot_info_flush_to_flash()) {
         if (!boot_info_flush_to_flash()) {
           LOG_E("can not write boot info to flash\r\n");
@@ -52,30 +52,30 @@ err_code_t ret;
   return ret;
 }
 
-err_code_t UpdateService::sacp_update_start(void *obj, sacp_hmi_message_t *msg) {
+err_code_t UpdateService::sacp_upgrade_start(void *obj, sacp_hmi_message_t *msg) {
   uint8_t send_buf[8];
-  UpdateService &update = *(UpdateService *)obj;
+  UpdateService &upgrade = *(UpdateService *)obj;
 
-  LOG_I("sacp_update_start\r\n");
+  LOG_I("sacp_upgrade_start\r\n");
   // if (msg->length < CMD_START_MIN_LEN) {
-  //   LOG_E("update start request len error, expected %d, but get %d\r\n", CMD_START_MIN_LEN, CMD_START_MIN_LEN);
-  //   return update.update_start_ack(msg, E_FAILURE);
+  //   LOG_E("upgrade start request len error, expected %d, but get %d\r\n", CMD_START_MIN_LEN, CMD_START_MIN_LEN);
+  //   return upgrade.upgrade_start_ack(msg, E_FAILURE);
   // }
 
   boot_info_t *bti = (boot_info_t *)msg->data;
   if (!boot_info_check(bti)) {
     LOG_E("boot info checksum failure\r\n");
-    return update.update_start_ack(msg, E_FAILURE);
+    return upgrade.upgrade_start_ack(msg, E_FAILURE);
   }
 
   if (SM2_MODULE_FW == bti->pack_type) {
-    LOG_I("do module update, TODO: \r\n");
-    return update.update_start_ack(msg, E_SUCCESS);
+    LOG_I("do module upgrade, TODO: \r\n");
+    return upgrade.upgrade_start_ack(msg, E_SUCCESS);
   }
 
   if (A400_CONTROLLER_FW != bti->pack_type) {
     LOG_E("not a400 controller pack\r\n");
-    return update.update_start_ack(msg, E_FAILURE);
+    return upgrade.upgrade_start_ack(msg, E_FAILURE);
   }
 
   if (SACP_HMI_CH_SCREEN == msg->ch) {
@@ -85,20 +85,20 @@ err_code_t UpdateService::sacp_update_start(void *obj, sacp_hmi_message_t *msg) 
   }
   else {
     LOG_E("unsupport channal %d\r\n", msg->ch);
-    return update.update_start_ack(msg, E_FAILURE);
+    return upgrade.upgrade_start_ack(msg, E_FAILURE);
   }
   bti->peer = msg->peer;
-  bti->update_state = UPDATE_STATE_START;
+  bti->upgrade_state = UPGRADE_STATE_START;
 
-  update.set_boot_info((boot_info_t *)(msg->data));
-  if (!update.boot_info_flush_to_flash()) {
-    if (!update.boot_info_flush_to_flash()) {
+  upgrade.set_boot_info((boot_info_t *)(msg->data));
+  if (!upgrade.boot_info_flush_to_flash()) {
+    if (!upgrade.boot_info_flush_to_flash()) {
       LOG_E("can not write boot info to flash\r\n");
-      return update.update_start_ack(msg, E_FAILURE);
+      return upgrade.upgrade_start_ack(msg, E_FAILURE);
     }
   }
   
-  update.print_boot_info();
+  upgrade.print_boot_info();
 
   LOG_I("System will restart in 1 second to start updating\r\n");
   vTaskDelay(pdMS_TO_TICKS(1000));
@@ -107,7 +107,7 @@ err_code_t UpdateService::sacp_update_start(void *obj, sacp_hmi_message_t *msg) 
   return E_SUCCESS;
 }
 
-err_code_t UpdateService::update_start_ack(sacp_hmi_message_t *msg, err_code_t ret) {
+err_code_t UpdateService::upgrade_start_ack(sacp_hmi_message_t *msg, err_code_t ret) {
 
   uint8_t send_buf[8];
 
@@ -142,12 +142,12 @@ void UpdateService::print_boot_info(void) {
   LOG_I("magic_str: %s\r\n", (char *)boot_info.magic_str);
   LOG_I("protocol ver: %d\r\n", boot_info.protocol_ver);
   LOG_I("pack_type: %d\r\n", boot_info.pack_type);
-  LOG_I("update ctrl flag: %d\r\n", boot_info.update_ctrl_flag);
+  LOG_I("upgrade ctrl flag: %d\r\n", boot_info.upgrade_ctrl_flag);
   LOG_I("start index: %d\r\n", boot_info.start_index);
   LOG_I("end index: %d\r\n", boot_info.end_index);
   LOG_I("fw version: %s\r\n", boot_info.fw_ver_str);
   LOG_I("timestamp: %s\r\n", boot_info.timestamp_str);
-  LOG_I("update state: 0x%04x\r\n", boot_info.update_state);
+  LOG_I("upgrade state: 0x%04x\r\n", boot_info.upgrade_state);
   LOG_I("fw lenght: %d, 0x%04x\r\n", boot_info.fw_lenght, boot_info.fw_lenght);
   LOG_I("fw checksum: 0x%08x\r\n", boot_info.fw_checksum);
   LOG_I("fw run addr: 0x%08x\r\n", boot_info.fw_runaddr);

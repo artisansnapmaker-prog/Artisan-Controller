@@ -40,6 +40,7 @@ class EmergencyHandler {
 
     static sacp_hmi_message_t msg_notify_stop, msg_notify_recovery;
     uint8_t button_state;
+    uint8_t powerloss_state;
     bool record_avail;
 
     uint8_t env[EMERGENCY_ENV_SIZE];

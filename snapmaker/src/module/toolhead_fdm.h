@@ -35,6 +35,8 @@
 #define DUAL_EXTRUDER_RIGHT_SOFT_ENDSTOP_MAX_X  410
 #define DUAL_EXTRUDER_RIGHT_SOFT_ENDSTOP_MIN_X  0
 
+#define DELAY_TURNOFF_TIME_MS      (5*60*1000)
+
 /****************************************************************************************
 reference links: https://snapmaker2.atlassian.net/wiki/spaces/SNAP/pages/1984987369/FDM
 ****************************************************************************************/
@@ -199,6 +201,7 @@ class ToolHeadFDM: public ModuleBase {
     void fdm_exception_trigger(fdm_fault_e fault);
     void fdm_exception_clear(fdm_fault_e fault);
     void show_fdm_info();
+    void delay_turnoff_heating_process();
 
   // private methods
   private:
@@ -207,7 +210,6 @@ class ToolHeadFDM: public ModuleBase {
   // public properties
   public:
     float hotend_offset[3][EXTRUDERS];
-
 
   // private properties
   private:
@@ -230,6 +232,7 @@ class ToolHeadFDM: public ModuleBase {
     uint8_t filament_detect_state[EXTRUDERS];
     float pid[3];
     bool hotend_type_initialized;
+    uint32_t turnoff_heating_time_elapsed;
 };
 
 #endif  // #ifndef SNAPMAKER_TOOLHEAD_FDM_H_

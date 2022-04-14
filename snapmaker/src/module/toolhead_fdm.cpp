@@ -1517,7 +1517,10 @@ uint8_t ToolHeadFDM::get_active_extruder() {
 }
 
 err_code_t fdm_callback_routine(void *obj) {
-  // ToolHeadFDM &fdm = *(ToolHeadFDM *)obj;
+  ToolHeadFDM &fdm = *(ToolHeadFDM *)obj;
+
+  fdm.delay_turnoff_heating_process();
+
   return E_SUCCESS;
 }
 
@@ -1616,6 +1619,21 @@ err_code_t ToolHeadFDM::standby(void) {
     motion_platform_svc.save_settings();
   }
 
+  enum SystemStatus status = smprinter.get_sys_status();
+  if (status == SYSTEM_STATUS_STOPING) {
+    if (get_device_id() == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
+      set_hotend_temp(0, 0);
+      set_hotend_temp(0, 1);
+      set_fan_speed(0, 0);
+      set_fan_speed(1, 0);
+      set_fan_speed(2, 0);
+    } else if (get_device_id() == MODULE_DEVICE_ID_FDM_1EXTRUDER_2019) {
+      set_hotend_temp(0, 0);
+      set_fan_speed(0, 0);
+      set_fan_speed(1, 0);
+    }
+  }
+
   return E_SUCCESS;
 }
 
@@ -1663,5 +1681,38 @@ void ToolHeadFDM::fdm_exception_clear(fdm_fault_e fault) {
 void ToolHeadFDM::show_fdm_info() {
   LOG_I("fdm fault state: 0x%x\n", fdm_state);
   LOG_I("fdm status: %d\n", get_status());
+}
+
+void ToolHeadFDM::delay_turnoff_heating_process() {
+  uint16_t device_id = get_device_id();
+  bool heated = false;
+  if (device_id == MODULE_DEVICE_ID_FDM_1EXTRUDER_2019) {
+    if (hotend_temp[0].target > 0) {
+      heated = true;
+    }
+  } else if (device_id == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
+    if (hotend_temp[0].target > 0 || hotend_temp[1].target > 0) {
+      heated = true;
+    }
+  }
+
+  if (smprinter.get_sys_status() == SYSTEM_STATUS_PAUSED && heated) {
+    if (turnoff_heating_time_elapsed + DELAY_TURNOFF_TIME_MS < motion_platform_svc.get_millis()) {
+      LOG_I("delay turn off heater\n");
+      if (device_id == MODULE_DEVICE_ID_FDM_1EXTRUDER_2019) {
+        set_hotend_temp(0, 0);
+        set_fan_speed(0, 0);
+        set_fan_speed(1, 0);
+      } else if (device_id == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
+        set_hotend_temp(0, 0);
+        set_hotend_temp(0, 1);
+        set_fan_speed(0, 0);
+        set_fan_speed(1, 0);
+        set_fan_speed(2, 0);
+      }
+    }
+  } else {
+    turnoff_heating_time_elapsed = motion_platform_svc.get_millis();
+  }
 }
 

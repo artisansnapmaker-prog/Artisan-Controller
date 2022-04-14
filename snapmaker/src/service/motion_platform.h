@@ -88,6 +88,9 @@ class MotionPlatformService {
     err_code_t pause_marlin(uint32_t timeout = 180 * 1000);
     err_code_t resume_marlin();
 
+    // time API
+    uint32_t get_millis() { return millis(); }
+
     // moving API
     void moveto_xy(float x, float y, float feedrate, bool blocked=true);
     void moveto_xyz(float x, float y, float z, float feedrate, bool blocked=true);

@@ -420,6 +420,10 @@ err_code_t EmergencyHandler::hmi_cb_req_recovery_job(void *obj, sacp_hmi_message
     return host_hmi.send_ack(msg, E_INVALID_STATE);
   }
 
+  LOG_I("recover pos: X%.3f, Y%.3f, Z%.3f, I%.3f, J%3.f\n", job_env->current_pos.x, 
+          job_env->current_pos.y, job_env->current_pos.z, job_env->current_pos.i, job_env->current_pos.j);
+
+
   switch (smprinter.get_toolhead_type()) {
   case TH_TYPE_3DP:
     if (!motion_platform_svc.is_all_axes_homed()) {
@@ -487,6 +491,9 @@ void EmergencyHandler::job_cb_notify_recovery(void *p, uint8_t result) {
 
 void EmergencyHandler::background() {
   if (powerloss_state == PIN_STATE_TRIGGERED) {
+    JobEnv *jenv = (JobEnv *)env;
+    LOG_I("powerloss pos: X%.3f, Y%.3f, Z%.3f, I%.3f, J%3.f\n", jenv->current_pos.x, 
+            jenv->current_pos.y, jenv->current_pos.z, jenv->current_pos.i, jenv->current_pos.j);
     smprinter.set_sys_status(SYSTEM_STATUS_POWER_LOSS, NULL);
     host_hmi.test_interface(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_REBOOT, NULL, 0);
     return;
@@ -495,12 +502,14 @@ void EmergencyHandler::background() {
   if (button_state != read_button()) {
     button_state = read_button();
     if (button_state == PIN_STATE_TRIGGERED && smprinter.on_working()) {
+      // stop job firstly
       req_stop_job();
       return;
     }
     job_cb_notify_emergency_stop(&msg_notify_stop, E_SUCCESS);
   }
 
+  // then set system into SYSTEM_STATUS_EMERGENCY_STOP
   if (button_state == PIN_STATE_TRIGGERED && !smprinter.on_working() &&
       smprinter.get_sys_status() != SYSTEM_STATUS_EMERGENCY_STOP &&
       smprinter.get_sys_status() != SYSTEM_STATUS_STOPING) {
@@ -513,18 +522,20 @@ void EmergencyHandler::background() {
         (smprinter.get_sys_status() == SYSTEM_STATUS_EMERGENCY_STOP)) {
     // when enable power again, maybe trigger powerloss, so we keep system status
     // being SYSTEM_STATUS_EMERGENCY_STOP, then ISR of powerloss will known the signal is abnormal
-    smprinter.enable_power_domain(POWER_DOMAIN_EMERGENCY_STOP);
+    // smprinter.enable_power_domain(POWER_DOMAIN_EMERGENCY_STOP);
 
-    vTaskDelay(pdMS_TO_TICKS(1000));
-    if (read_button() == PIN_STATE_TRIGGERED)
-      return;
+    LOG_I("recover from SYSTEM_STATUS_EMERGENCY_STOP!\n");
+
+    // vTaskDelay(pdMS_TO_TICKS(1000));
+    // if (read_button() == PIN_STATE_TRIGGERED)
+    //   return;
 
     if (smprinter.set_sys_status(SYSTEM_STATUS_IDLE, NULL) != E_SUCCESS) {
       LOG_E("failed to set system to SYSTEM_STATUS_IDLE\n");
       return;
     }
 
-    LOG_I("recover from SYSTEM_STATUS_EMERGENCY_STOP, rescan modules!\n");
-    module_svc.scan_modules();
+    // LOG_I("recover from SYSTEM_STATUS_EMERGENCY_STOP, rescan modules!\n");
+    // module_svc.scan_modules();
   }
 }

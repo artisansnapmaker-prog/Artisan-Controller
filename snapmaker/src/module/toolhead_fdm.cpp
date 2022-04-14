@@ -1261,6 +1261,10 @@ err_code_t ToolHeadFDM::extruder_status_check_ctrl(extruder_status_e status) {
   smcan_message_t msg;
   uint8_t buffer[1];
 
+  if (get_device_id() != MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
+    return E_FAILURE;
+  }
+
   msg.id = get_message_id(MODULE_SET_EXTRUDER_CHECK);
     if (msg.id == MODULE_MESSAGE_ID_INVALID) {
     LOG_E("invalid message to switch extruder\n");
@@ -1287,6 +1291,10 @@ uint8_t ToolHeadFDM::get_extruder_check_state() {
 }
 
 err_code_t ToolHeadFDM::tool_change(uint8_t new_tool, bool z_compensation/*=true*/) {
+  if (get_device_id() != MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
+    return E_FAILURE;
+  }
+
   motion_platform_svc.synchronize_planner();
   const bool leveling_was_active = motion_platform_svc.leveling_active();
   motion_platform_svc.disable_leveling();
@@ -1316,14 +1324,14 @@ err_code_t ToolHeadFDM::tool_change(uint8_t new_tool, bool z_compensation/*=true
   }
 
   if (new_tool != active_extruder) {
-    motion_platform_svc.update_soft_endstops(X_AXIS, active_extruder, new_tool);
     LOG_I("current_x: %f\n", motion_platform_svc.sm_current_position[X_AXIS]);
     LOG_I("soft_endstop_x_min: %f\n", motion_platform_svc.get_soft_endstop_min(X_AXIS));
+    LOG_I("soft_endstop_x_max: %f\n", motion_platform_svc.get_soft_endstop_max(X_AXIS));
     motion_platform_svc.update_position_from_platform();
-    if ((new_tool == 1) && (motion_platform_svc.sm_current_position[X_AXIS] < motion_platform_svc.get_soft_endstop_min(X_AXIS) + 10)) {
-      motion_platform_svc.moveto_x(motion_platform_svc.get_soft_endstop_min(X_AXIS) + 10, 50);
-    } else if ((new_tool == 0) && (motion_platform_svc.sm_current_position[X_AXIS] > motion_platform_svc.get_soft_endstop_max(X_AXIS) - 10)) {
-      motion_platform_svc.moveto_x(motion_platform_svc.get_soft_endstop_max(X_AXIS) - 10, 50);
+    if ((new_tool == 1) && (motion_platform_svc.sm_current_position[X_AXIS] < motion_platform_svc.get_soft_endstop_min(X_AXIS) + 35)) {
+      motion_platform_svc.moveto_x(motion_platform_svc.get_soft_endstop_min(X_AXIS) + 35, 50);
+    } else if ((new_tool == 0) && (motion_platform_svc.sm_current_position[X_AXIS] > motion_platform_svc.get_soft_endstop_max(X_AXIS) - 35)) {
+      motion_platform_svc.moveto_x(motion_platform_svc.get_soft_endstop_max(X_AXIS) - 35, 50);
     }
 
     // z raise
@@ -1343,10 +1351,15 @@ err_code_t ToolHeadFDM::tool_change(uint8_t new_tool, bool z_compensation/*=true
 
     // performing extruder switch
     if (new_tool == 0) {
-      motion_platform_svc.moveto_x(EXTRUDER0_SWITCH_POSITION + hotend_offset[X_AXIS][1], 120);
+      motion_platform_svc.moveto_x(motion_platform_svc.get_soft_endstop_min(X_AXIS), 200);
     } else if (new_tool == 1) {
-      motion_platform_svc.moveto_x(EXTRUDER1_SWITCH_POSITION, 120);
+      motion_platform_svc.moveto_x(motion_platform_svc.get_soft_endstop_max(X_AXIS), 200);
     }
+
+    motion_platform_svc.update_soft_endstops(X_AXIS, active_extruder, new_tool);
+    LOG_I("soft_endstop_x_min: %f\n", motion_platform_svc.get_soft_endstop_min(X_AXIS));
+    LOG_I("soft_endstop_x_max: %f\n", motion_platform_svc.get_soft_endstop_max(X_AXIS));
+
     float xdiff = hotend_offset_tmp[X_AXIS][new_tool] - hotend_offset_tmp[X_AXIS][active_extruder];
     float ydiff = hotend_offset_tmp[Y_AXIS][new_tool] - hotend_offset_tmp[Y_AXIS][active_extruder];
     float zdiff = hotend_offset_tmp[Z_AXIS][new_tool] - hotend_offset_tmp[Z_AXIS][active_extruder];

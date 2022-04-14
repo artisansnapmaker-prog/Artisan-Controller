@@ -380,11 +380,11 @@ void GcodeSuite::process_parsed_command(const bool no_ok/*=false*/) {
         case 27: G27(); break;                                    // G27: Nozzle Park
       #endif
 
-      case 28: 
+      case 28:
       #if MB_SNAPMAKER
       motion_platform_svc.homing_now = true;
       #endif
-      G28(); 
+      G28();
       #if MB_SNAPMAKER
       motion_platform_svc.homing_now = false;
       #endif

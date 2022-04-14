@@ -53,6 +53,12 @@ flash_partition_t boot_data_partition = {
   FLASH_BOOT_DATA_SIZE                // Partition addr
 };
 
+flash_partition_t module_fw_partition = {
+  FLASH_MODULE_FW_DOWNLOAD_ADDR,     // Start addr
+  FLASH_MODULE_FW_DOWNLOAD_ADDR,     // Write addr
+  FLASH_MODULE_FW_DOWNLOAD_SIZE      // Partition addr  
+};
+
 bool flash_addr_to_sector_number(uint32_t start, uint32_t size, uint32_t &sector_start, uint32_t &sector_number) {
   uint32_t ts = TAB_SIZE(flash_sector_tab, flash_sector_addr_t);
 

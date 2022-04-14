@@ -140,6 +140,7 @@ bool write_boot_info(boot_info_t *bi) {
 }
 
 void boot_loop(void) {
+  
   static uint32_t tick_ms = millis();
   static uint32_t count_down_second = BOOT_DELAY_SECODE;
 
@@ -256,6 +257,7 @@ void jump_to(uint32_t addr)
 void setup() {
   PC_Serial.begin(115200);
   SC_Serial.begin(115200);
+  Serial.println(F(BOOT_DATA_DEFAULT_MAGIC_STR));
 }
 
 void loop() {

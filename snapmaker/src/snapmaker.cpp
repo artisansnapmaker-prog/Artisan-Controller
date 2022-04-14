@@ -16,7 +16,7 @@
 #include "service/client_node.h"
 #include "service/job_ctrl.h"
 #include "common/utility.h"
-#include "service/upgrade.h"
+#include "service/upgrade/upgrade_service.h""
 
 #include "HAL/interrupt.h"
 
@@ -380,9 +380,9 @@ static void system_thread(void *p) {
     module_svc.background_thread();
     system_svc.background_thread();
     emergency_hdl.background();
-	smprinter.security_check();
-
+    smprinter.security_check();
     host_hmi.handle_events();
+    upgrade_svc.loop();
 
     taskYIELD();
   }
@@ -909,6 +909,8 @@ err_code_t SnapmakerPrinter::set_sys_status(enum SystemStatus req_status, enum S
   /*********************************************************************************/
 
 
+  // CNC start
+  /*********************************************************************************/
   case SYSTEM_STATUS_CNC_CALIBRATING:
     // TODO: more situations to consider
     if (SYSTEM_STATUS_CNC_CALIBRATING == sys_status || sys_status == SYSTEM_STATUS_IDLE) {
@@ -919,7 +921,12 @@ err_code_t SnapmakerPrinter::set_sys_status(enum SystemStatus req_status, enum S
       ret = E_BUSY;
     }
   break;
+  // CNC end
+  /*********************************************************************************/
 
+
+    // FDM start
+  /*********************************************************************************/
   case SYSTEM_STATUS_XY_CALIBRATING:
     if (sys_status == SYSTEM_STATUS_IDLE ||
         SYSTEM_STATUS_XY_CALIBRATING_PRINTING == sys_status) {
@@ -983,6 +990,24 @@ err_code_t SnapmakerPrinter::set_sys_status(enum SystemStatus req_status, enum S
       ret = E_BUSY;
     }
     break;
+  // FDM end
+  /*********************************************************************************/
+
+
+  // Upgrade start
+  /*********************************************************************************/
+  case SYSTEM_STATUS_APP_UPGRADE:
+  case SYSTEM_STATUS_MODULE_UPGRADE:
+    if (sys_status == SYSTEM_STATUS_IDLE) {
+      sys_status = req_status;
+      ret = E_SUCCESS;
+    } else {
+      ret = E_BUSY;
+    }
+  break;
+  // Upgrade end
+  /*********************************************************************************/
+
 
   default:
     ret = E_FAILURE;

@@ -122,8 +122,7 @@ void JobCtrl::background_thread(void *p) {
     }
   }
 
-  if ( got_last_gcode_packet && _gcode_rb.is_empty() )
-  {
+  if (got_last_gcode_packet && _gcode_rb.is_empty() ){
     got_last_gcode_packet = false;
     LOG_I("push all gcodes to marlin or other 3D printer\r\n");
     req_stop(STOP_NORMAL, E_JOB_ISSUE_RET_FINISH);

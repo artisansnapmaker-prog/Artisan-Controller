@@ -23,13 +23,14 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include "../common/utility.h"
 #include "../common/flash.h"
 
 #define BOOT_DELAY_SECODE                       (6)
 #define BOOT_PACK_MAGIC_STR_LEN                 (21)
 #define BOOT_PACK_FW_VER_STR_LEN                (32)
 #define BOOT_PACK_TIMESTAMP_STR_LEN             (20)
-#define BOOT_DATA_DEFAULT_MAGIC_STR             ("snapmaker upgrade.bin")
+#define BOOT_DATA_DEFAULT_MAGIC_STR             ("snapmaker update.bin")
 #define BOOT_DATA_DEFAULT_PROTOCOL_VER          (1)
 #define BOOT_DATA_DEFAULT_PACK_TYPE             (A400_CONTROLLER_FW)
 #define BOOT_DATA_DEFAULT_UPGRADE_FLAG          (UPGRADE_FLAG_ALWAYS)
@@ -57,6 +58,7 @@ enum UpdatePackType{
   A400_CONTROLLER_FW = 2,
   J1_CONTROLLER_FW = 3,
   SM2_MODULE_FW = 4,
+  ESP32_FW = 5,
 };
 
 typedef enum {

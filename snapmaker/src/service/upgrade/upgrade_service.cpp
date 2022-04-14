@@ -18,58 +18,114 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#include "../config.h"
-#include "../common/debug.h"
-#include "../common/utility.h"
-#include "../host/sacp_module.h"
-#include "../common/flash.h"
-#include "upgrade.h"
+#include "../../common/debug.h"
+#include "../../common/utility.h"
+#include "../../host/sacp_module.h"
+#include "../../common/flash.h"
+#include "../../snapmaker.h"
+#include "upgrade_service.h"
 
 UpdateService upgrade_svc;
 
 err_code_t UpdateService::init(void) {
-err_code_t ret;
+  err_code_t ret;
+
+  status = UPGRADE_INIT;
 
   ret = E_SUCCESS;
   ret |= host_hmi.apply_cmd_set_handle(CMD_SET_UPGRADE, 1);
   ret |= host_hmi.register_callback(CMD_SET_UPGRADE, CMD_ID_UPGRADE_START, this, sacp_upgrade_start);
+  ret |= ctrl_ugr.init(this);
+  ret |= module_ugr.init(this);
 
+  mark_boot_info();
+  return ret;
+}
+
+void UpdateService::mark_boot_info(void) {
+  // Change application's update flag in boot data
   load_boot_info(&boot_info);
   if (boot_info_check(&boot_info)) {
     if (UPGRADE_STATE_JUMP_SUCCESS != boot_info.upgrade_state) {
     boot_info.upgrade_state = UPGRADE_STATE_JUMP_SUCCESS;
       if (!boot_info_flush_to_flash()) {
         if (!boot_info_flush_to_flash()) {
-          LOG_E("can not write boot info to flash\r\n");
+          LOG_E("upgrade: can not write boot info to flash\r\n");
         }
       }
     }
   }
   else {
-    LOG_E("boot info check failure\r\n");
+    LOG_E("upgrade: boot info check failure\r\n");
   }
 
-  return ret;
+  return;
+}
+
+void UpdateService::loop(void) {
+  // LOG_I("upgrade loop\r\n");
+  switch(status) {
+    case UPGRADE_INIT:
+    break;
+
+    case UPGRADE_CONTROLLER_TO_MODULE:
+    break;
+
+    case UPGRADE_HOST_TO_CONTROLLER:
+    break;
+  }
 }
 
 err_code_t UpdateService::sacp_upgrade_start(void *obj, sacp_hmi_message_t *msg) {
-  uint8_t send_buf[8];
-  UpdateService &upgrade = *(UpdateService *)obj;
-
+  
   LOG_I("sacp_upgrade_start\r\n");
-  // if (msg->length < CMD_START_MIN_LEN) {
-  //   LOG_E("upgrade start request len error, expected %d, but get %d\r\n", CMD_START_MIN_LEN, CMD_START_MIN_LEN);
-  //   return upgrade.upgrade_start_ack(msg, E_FAILURE);
-  // }
-
+  UpdateService &upgrade = *(UpdateService *)obj;
   boot_info_t *bti = (boot_info_t *)msg->data;
+
   if (!boot_info_check(bti)) {
     LOG_E("boot info checksum failure\r\n");
     return upgrade.upgrade_start_ack(msg, E_FAILURE);
   }
 
+  if (A400_CONTROLLER_FW == bti->pack_type) {
+    return upgrade.ctrl_ugr.proc(bti, msg);
+  }
+  else {
+    // upgrade.module_upgrade_type = upgrade.packet_upgrade_type(bti);
+  }
+  
+  #if 0
+  switch (bti->pack_type)
+  {
+  case A400_CONTROLLER_FW:
+    break;
+  
+  case SM2_MODULE_FW:
+    if (E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_MODULE_UPGRADE, NULL)) {
+      LOG_E("upgrade: can not enter upgrade status\r\n");
+      return upgrade.upgrade_start_ack(msg, E_FAILURE);  
+    }
+    break;
+
+  case ESP32_FW:
+    LOG_I("upgrade: TODO: \r\n");
+    break;
+
+  case SM2_CONTROLLER_FW:
+  case J1_CONTROLLER_FW:
+  default:
+    LOG_E("upgrade: unsupported packet type\r\n");
+    return upgrade.upgrade_start_ack(msg, E_FAILURE);
+    break;
+  }
+
   if (SM2_MODULE_FW == bti->pack_type) {
-    LOG_I("do module upgrade, TODO: \r\n");
+    LOG_I("do module upgrade\r\n");
+    if (E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_MODULE_UPGRADE, NULL)) {
+      LOG_E("upgrade: can not enter upgrade status\r\n");
+      return upgrade.upgrade_start_ack(msg, E_FAILURE);  
+    }
+    
     return upgrade.upgrade_start_ack(msg, E_SUCCESS);
   }
 
@@ -77,33 +133,8 @@ err_code_t UpdateService::sacp_upgrade_start(void *obj, sacp_hmi_message_t *msg)
     LOG_E("not a400 controller pack\r\n");
     return upgrade.upgrade_start_ack(msg, E_FAILURE);
   }
+  #endif
 
-  if (SACP_HMI_CH_SCREEN == msg->ch) {
-    bti->link_ch = LINK_CH_SC;
-  } else if(SACP_HMI_CH_PC == msg->ch) {
-    bti->link_ch = LINK_CH_PC;
-  }
-  else {
-    LOG_E("unsupport channal %d\r\n", msg->ch);
-    return upgrade.upgrade_start_ack(msg, E_FAILURE);
-  }
-  bti->peer = msg->peer;
-  bti->upgrade_state = UPGRADE_STATE_START;
-
-  upgrade.set_boot_info((boot_info_t *)(msg->data));
-  if (!upgrade.boot_info_flush_to_flash()) {
-    if (!upgrade.boot_info_flush_to_flash()) {
-      LOG_E("can not write boot info to flash\r\n");
-      return upgrade.upgrade_start_ack(msg, E_FAILURE);
-    }
-  }
-  
-  upgrade.print_boot_info();
-
-  LOG_I("System will restart in 1 second to start updating\r\n");
-  vTaskDelay(pdMS_TO_TICKS(1000));
-
-  NVIC_SystemReset();
   return E_SUCCESS;
 }
 
@@ -154,4 +185,8 @@ void UpdateService::print_boot_info(void) {
   LOG_I("peer: %d\r\n", boot_info.peer);
   LOG_I("link_ch: %d\r\n", boot_info.link_ch);
   LOG_I("boot data checksum: 0x%08x", boot_info.boot_data_checksum);
+}
+
+void UpdateService::host_to_controller_loop(void) {
+
 }

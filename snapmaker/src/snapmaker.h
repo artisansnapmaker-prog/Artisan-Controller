@@ -116,6 +116,10 @@ enum SystemStatus {
 
   // CNC calibration
   SYSTEM_STATUS_CNC_CALIBRATING = 95,
+
+  // upgrade 
+  SYSTEM_STATUS_APP_UPGRADE = 127,
+  SYSTEM_STATUS_MODULE_UPGRADE,
 };
 
 

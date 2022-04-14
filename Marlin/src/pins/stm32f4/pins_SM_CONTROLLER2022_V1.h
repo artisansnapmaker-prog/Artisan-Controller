@@ -196,6 +196,7 @@ extern int16_t E1_ENABLE_PIN_var;
 // Filament runout sensor
 //
 #define FIL_RUNOUT_PIN                      PC0   // fake pin
+#define FIL_RUNOUT2_PIN                     PB12  // fake pin
 
 //
 // Temperature Sensors

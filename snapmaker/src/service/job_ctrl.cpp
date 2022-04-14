@@ -853,7 +853,10 @@ void JobCtrl::do_stop(struct JobCtrlReqInfo &jri) {
 
     case STOP_EXCEPTION:
       motion_platform_svc.req_quickstop();
-    break;
+      smprinter.set_sys_status(SYSTEM_STATUS_EMERGENCY_STOP, NULL);
+      DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, SYSTEM_STATUS_EMERGENCY_STOP);
+      _issue_ret_rb.insert_one(jri.req_data.req_stop_data.reason);
+      return;
 
     case STOP_EMERGENCY:
       motion_platform_svc.req_quickstop();

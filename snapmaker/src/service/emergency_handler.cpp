@@ -504,6 +504,8 @@ void EmergencyHandler::background() {
     if (button_state == PIN_STATE_TRIGGERED && smprinter.on_working()) {
       // stop job firstly
       req_stop_job();
+      // release CPU to make sure job ctrl to stop job
+      taskYIELD();
       return;
     }
     job_cb_notify_emergency_stop(&msg_notify_stop, E_SUCCESS);

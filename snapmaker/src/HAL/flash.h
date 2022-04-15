@@ -25,6 +25,6 @@
 #include "../config.h"
 
 err_code_t flash_erase_sector(int sector_num);
-void flash_write_buffer(uint8_t *buffer, size_t length, uint32_t start_address);
+size_t flash_write_buffer(uint8_t *buffer, size_t length, uint32_t start_address);
 
 #endif

@@ -19,14 +19,16 @@ static uint32_t power_loss_det = PE0;
 #define PIN_STATE_TRIGGERED (LOW)
 #define PIN_STATE_NORMAL    (HIGH)
 
-#define ENV_START_IN_EEPROM         (12 * 1024)
-#define ENV_START_IN_FLASH          (FLASH_BASE_ADDRESS + (12 * 1024))
+
+#define ENV_START_IN_FLASH          (0x0800C000)
 
 #define ENV_CHECKSUM_ADDR           (EMERGENCY_ENV_SIZE - 4)
 
 #define ENV_VALID_FLAG              (0x12345678)
 #define ENV_VALID_FLAG_ADDR         (EMERGENCY_ENV_SIZE - 8)
-#define ENV_VALID_FLAG_ADDR_FLASH   (FLASH_BASE_ADDRESS + (16 * 1024) - 4)
+#define ENV_VALID_FLAG_ADDR_FLASH   (ENV_START_IN_FLASH + ENV_VALID_FLAG_ADDR)
+
+#define RECORD_FLASH_SECTOR (3)
 
 #define ISR_DEBOUNCE  (55000)
 
@@ -48,13 +50,9 @@ static void interrupt_cb_stop_button() {
 }
 
 static void interrupt_cb_power_loss() {
-  int debounce = ISR_DEBOUNCE/2;
-
   // won't handle powerloss if system is in SYSTEM_STATUS_EMERGENCY_STOP
   if (smprinter.get_sys_status() == SYSTEM_STATUS_EMERGENCY_STOP)
     return;
-
-  while (--debounce > 0); // about 0.5ms
 
   if (digitalRead(power_loss_det) != PIN_STATE_TRIGGERED)
     return;
@@ -118,11 +116,7 @@ bool EmergencyHandler::check_record() {
   volatile uint32_t checksum_calc;
   JobEnv *jenv;
 
-  eeprom_buffer_fill();
-
-  for (int i = 0; i < EMERGENCY_ENV_SIZE; i++) {
-    env[i] = eeprom_buffered_read_byte(ENV_START_IN_EEPROM + i);
-  }
+  memcpy(env, (uint8_t *)(ENV_START_IN_FLASH), EMERGENCY_ENV_SIZE);
 
   checksum_calc = host_hmi.calculate_checksum(env, EMERGENCY_ENV_SIZE - 4);
 
@@ -145,6 +139,9 @@ bool EmergencyHandler::check_record() {
     return false;
   }
 
+  LOG_I("powerloss pos: X%.3f, Y%.3f, Z%.3f, I%.3f, J%3.f\n", jenv->current_pos.x,
+          jenv->current_pos.y, jenv->current_pos.z, jenv->current_pos.i, jenv->current_pos.j);
+
   return true;
 }
 
@@ -161,18 +158,14 @@ void EmergencyHandler::prepare_flash() {
     return;
   }
 
-  // clear eeprom
-  for (int i = 0; i < EMERGENCY_ENV_SIZE; i++) {
-    eeprom_buffered_write_byte(ENV_START_IN_EEPROM + i, 0xff);
-  }
+  memset(env, 0xFF, EMERGENCY_ENV_SIZE);
 
   // erase flash and write eeprom buffer into flash
   vTaskDelay(pdMS_TO_TICKS(500));
   int timeout = 10;
   do {
-    // flash_erase_sector(2);
     disable_all_interrupts();
-    eeprom_buffer_flush();
+    flash_erase_sector(RECORD_FLASH_SECTOR);
     enable_all_interrupts();
 
     vTaskDelay(pdMS_TO_TICKS(500));
@@ -228,7 +221,9 @@ void EmergencyHandler::power_loss() {
     checksum_addr = (uint32_t *)(env + ENV_CHECKSUM_ADDR);
     checksum = host_hmi.calculate_checksum(env, EMERGENCY_ENV_SIZE - 4);
     *checksum_addr = checksum;
-    flash_write_buffer(env, EMERGENCY_ENV_SIZE, ENV_START_IN_FLASH);
+    if (flash_write_buffer(env, EMERGENCY_ENV_SIZE, ENV_START_IN_FLASH) != EMERGENCY_ENV_SIZE) {
+      while (1);
+    }
   }
 
   enable_all_interrupts();
@@ -263,9 +258,6 @@ void EmergencyHandler::emergency_stop() {
     checksum  = (uint32_t *)(env + ENV_CHECKSUM_ADDR);
     *checksum = host_hmi.calculate_checksum(env, EMERGENCY_ENV_SIZE - 4);
     flash_write_buffer(env, EMERGENCY_ENV_SIZE, ENV_START_IN_FLASH);
-    for (uint32_t i = 0; i < sizeof(JobEnv); i++) {
-      eeprom_buffered_write_byte(ENV_START_IN_EEPROM + i, env[i]);
-    }
   }
 
   // - stop planner and stepper, make sure planner and stepper have no oppotunity to run
@@ -420,7 +412,7 @@ err_code_t EmergencyHandler::hmi_cb_req_recovery_job(void *obj, sacp_hmi_message
     return host_hmi.send_ack(msg, E_INVALID_STATE);
   }
 
-  LOG_I("recover pos: X%.3f, Y%.3f, Z%.3f, I%.3f, J%3.f\n", job_env->current_pos.x, 
+  LOG_I("recover pos: X%.3f, Y%.3f, Z%.3f, I%.3f, J%3.f\n", job_env->current_pos.x,
           job_env->current_pos.y, job_env->current_pos.z, job_env->current_pos.i, job_env->current_pos.j);
 
   uint32_t next_ms;
@@ -500,11 +492,12 @@ void EmergencyHandler::job_cb_notify_recovery(void *p, uint8_t result) {
 
 void EmergencyHandler::background() {
   if (powerloss_state == PIN_STATE_TRIGGERED) {
+    powerloss_state = PIN_STATE_NORMAL;
     JobEnv *jenv = (JobEnv *)env;
-    LOG_I("powerloss pos: X%.3f, Y%.3f, Z%.3f, I%.3f, J%3.f\n", jenv->current_pos.x, 
+    LOG_I("powerloss pos: X%.3f, Y%.3f, Z%.3f, I%.3f, J%3.f\n", jenv->current_pos.x,
             jenv->current_pos.y, jenv->current_pos.z, jenv->current_pos.i, jenv->current_pos.j);
     smprinter.set_sys_status(SYSTEM_STATUS_POWER_LOSS, NULL);
-    host_hmi.test_interface(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_REBOOT, NULL, 0);
+    // host_hmi.test_interface(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_REBOOT, NULL, 0);
     return;
   }
 
@@ -527,6 +520,7 @@ void EmergencyHandler::background() {
     if (smprinter.set_sys_status(SYSTEM_STATUS_EMERGENCY_STOP, NULL) != E_SUCCESS) {
       LOG_E("failed to set system to EMERGENCY_STOP\n");
     }
+    module_svc.emergency_stop_all();
   }
 
   if (button_state != PIN_STATE_TRIGGERED &&

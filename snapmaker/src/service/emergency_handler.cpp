@@ -423,13 +423,22 @@ err_code_t EmergencyHandler::hmi_cb_req_recovery_job(void *obj, sacp_hmi_message
   LOG_I("recover pos: X%.3f, Y%.3f, Z%.3f, I%.3f, J%3.f\n", job_env->current_pos.x, 
           job_env->current_pos.y, job_env->current_pos.z, job_env->current_pos.i, job_env->current_pos.j);
 
-
+  uint32_t next_ms;
   switch (smprinter.get_toolhead_type()) {
   case TH_TYPE_3DP:
     if (!motion_platform_svc.is_all_axes_homed()) {
-      motion_platform_svc.run_gcode((char *)"M104 S150");
+      motion_platform_svc.run_gcode((char *)"M104 S120");
       while(!motion_platform_svc.hotends_heatup_to_target()) {
-        vTaskDelay(pdMS_TO_TICKS(10));
+        if (xTaskGetCurrentTaskHandle() == thandle_marlin) {
+          // when call from marlin thread, need to keep idle() running
+          next_ms = millis() + 1000;
+          while (PENDING((millis()), next_ms)) {
+            idle();
+          }
+        }
+        else {
+          vTaskDelay(pdMS_TO_TICKS(1000));
+        }
       }
       motion_platform_svc.run_gcode((char *)"G53");
       motion_platform_svc.run_gcode((char *)"G28");

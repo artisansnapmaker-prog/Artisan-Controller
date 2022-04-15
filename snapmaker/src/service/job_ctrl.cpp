@@ -340,6 +340,30 @@ err_code_t JobCtrl::save_env(void) {
   return E_SUCCESS;
 }
 
+err_code_t JobCtrl::recover_env(void) {
+  ModuleBase *cur_toolhead;
+  xyze_pos_t dest;
+
+  LOG_I("job_ctrl: get current toolhead pointer in recover_env\r\n");
+  if (!(cur_toolhead = smprinter.get_cur_toolhead())) {
+    LOG_E("job_ctrl: can not get toolhead in recover_env\r\n");
+    return E_JOB_RESUME_ENV_FAILURE;
+  }
+
+  // Check toolhead
+  LOG_I("job_ctrl: check current toolhead type in recover_env\r\n");
+  if (smprinter.get_toolhead_type() != _env.type) {
+    return E_JOB_UNSUPPORT_PARAM;
+  }
+
+  if (E_SUCCESS != cur_toolhead->recover_env(_env.toolhead_env_buf, _env.toolhead_env_buf_size)) {
+    LOG_E("job_ctrl: can not resume toolhead in recover_env\r\n");
+    return E_JOB_RESUME_ENV_FAILURE;
+  }
+
+  return E_SUCCESS;
+}
+
 err_code_t JobCtrl::resume_env(void) {
   ModuleBase *cur_toolhead;
   xyze_pos_t dest;
@@ -787,6 +811,12 @@ void JobCtrl::do_resume(struct JobCtrlReqInfo &jri) {
   // to make job ctrl call resume_finish()
   if (jri.req_data.req_resume_data.type == RESUME_TYPE_RECOVERY) {
     _paused = true;
+    if (E_SUCCESS != recover_env()) {
+      LOG_E("job ctrl: recover env failed\r\n");
+      smprinter.set_sys_status(SYSTEM_STATUS_IDLE, &ret_sys_status);
+      DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, SYSTEM_STATUS_IDLE);
+      return;
+    }
   }
 
   if (E_SUCCESS != resume_env()) {

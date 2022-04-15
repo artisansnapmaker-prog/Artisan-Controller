@@ -440,7 +440,7 @@ err_code_t JobCtrl::machine_standby(void) {
     /* code */
     motion_platform_svc.update_position_from_platform();
     t_pos =  motion_platform_svc.sm_current_position;
-    t_pos.e -= 10;
+    t_pos.e -= 5;
     motion_platform_svc.moveto(t_pos, 10, true);
     break;
 

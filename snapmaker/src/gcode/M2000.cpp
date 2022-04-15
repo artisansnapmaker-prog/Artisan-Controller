@@ -749,6 +749,25 @@ void GcodeSuite::M2000() {
         }
         break;
 
+      case 20:
+        {
+          uint8_t t = (uint8_t)parser.byteval('T', (uint8_t)0);
+          float z = (float)parser.floatval('Z', (float)0);
+        }
+        break;
+
+      case 21:
+        {
+
+        }
+        break;
+
+      case 22:
+        {
+
+        }
+        break;
+
       case 100:
         {
           host_hmi.test_interface(SACP_CMD_SET_CALIBRATE_FDM, BEDLEVEL_REQ_CMD_ID_EXIT_LEVEL, buffer, index);

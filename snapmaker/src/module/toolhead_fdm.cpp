@@ -1199,7 +1199,8 @@ uint8_t ToolHeadFDM::get_filament_state(uint8_t e) {
 }
 
 uint8_t ToolHeadFDM::get_filament_state() {
-  return (filament_state & (1<<active_extruder)) >> active_extruder;
+  // return (filament_state & (1<<active_extruder)) >> active_extruder;
+  return filament_state;
 }
 
 uint8_t ToolHeadFDM::get_filament_detection_state(uint8_t e) {
@@ -1347,7 +1348,7 @@ err_code_t ToolHeadFDM::tool_change(uint8_t new_tool, bool z_compensation/*=true
     SERIAL_ECHOLNPGM("dest_x: ", motion_platform_svc.sm_destination_position[X_AXIS], "dest_y: ", motion_platform_svc.sm_destination_position[Y_AXIS], "dest_z: ", motion_platform_svc.sm_destination_position[Z_AXIS]);
 
     // clear old live_z_offset
-    // bedlevel_svc.unapply_live_z_offset(active_extruder);
+    bedlevel_svc.unapply_live_z_offset(active_extruder);
 
     // performing extruder switch
     if (new_tool == 0) {
@@ -1383,7 +1384,7 @@ err_code_t ToolHeadFDM::tool_change(uint8_t new_tool, bool z_compensation/*=true
     motion_platform_svc.moveto_z(motion_platform_svc.get_current_position(Z_AXIS) - 3, 10);
 
     // use new live_z_offset
-    // bedlevel_svc.apply_live_z_offset(active_extruder);
+    bedlevel_svc.apply_live_z_offset(active_extruder);
     motion_platform_svc.sync_feedrate_percentage_to_platform(extruders_feedrate_percentage[active_extruder]);
   }
 
@@ -1604,6 +1605,7 @@ err_code_t ToolHeadFDM::resume_env(uint8_t *env_buf, uint32_t &len) {
     bedlevel_svc.live_z_offset_changed = false;
     motion_platform_svc.save_settings();
   }
+  //
   motion_platform_svc.synchronize_planner();
   float cur_z = motion_platform_svc.get_current_position(Z_AXIS);
   motion_platform_svc.moveto_z(cur_z + bedlevel_svc.live_z_offset[active_extruder], 5);

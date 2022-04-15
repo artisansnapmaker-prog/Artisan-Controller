@@ -480,6 +480,7 @@ static err_code_t hmi_req_callback_set_live_z_offset(void *obj, sacp_hmi_message
 
   if (bedlevel.get_bedlevel_mode() != BEDLEVEL_MODE_IDLE) {
     ret = E_FAILURE;
+    LOG_I("can't set live z offset\n");
     goto EXIT;
   }
 
@@ -889,12 +890,14 @@ void BedLevelService::set_live_z_offset(uint8_t e, float offset) {
       motion_platform_svc.sm_current_position[Z_AXIS] = cur_z;
       motion_platform_svc.sync_plan_position_to_platform();
     }
-
     live_z_offset[e] = offset;
     if (smprinter.get_sys_status() == SYSTEM_STATUS_IDLE) {
+      LOG_I("save live_z_offset\n");
       live_z_offset_changed = false;
       motion_platform_svc.save_settings();
     }
+  } else {
+    LOG_I("\n");
   }
 }
 

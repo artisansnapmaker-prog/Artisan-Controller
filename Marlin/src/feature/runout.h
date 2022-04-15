@@ -180,7 +180,7 @@ class TFilamentMonitor : public FilamentMonitorBase {
     // return false -> filament is exist
     static bool is_filament_runout() {
       if (enabled) {
-        return sensor.poll_runout_states();
+        return TEST(sensor.poll_runout_states(), active_extruder);
       }
       else
         return enabled;

@@ -289,7 +289,7 @@ void MotionPlatformService::motion_background(void *p) {
   MotionPlatformService &motion = *((MotionPlatformService *)p);
 
   // priority of timer for stepper is 2, so we set lower priority for the software serial
-  TERN_(HAS_TMC_SW_SERIAL, SoftwareSerial::setInterruptPriority(3, 0));
+  // TERN_(HAS_TMC_SW_SERIAL, SoftwareSerial::setInterruptPriority(3, 0));
 
   for (;;) {
     host_hmi.handle_events();

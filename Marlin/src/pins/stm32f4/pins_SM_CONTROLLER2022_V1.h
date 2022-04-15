@@ -155,7 +155,7 @@ extern int16_t Z2_UART_PIN_var;
   #define Z2_SERIAL_RX_PIN                  PD12
 
   // Reduce baud rate to improve software serial reliability
-  #define TMC_BAUD_RATE                    115200
+  #define TMC_BAUD_RATE                    38400
 #endif
 
 // dynamic pins

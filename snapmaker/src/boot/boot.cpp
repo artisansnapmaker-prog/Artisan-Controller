@@ -17,7 +17,7 @@ bool upgrade_in_pc = 0;
 bool upgrade_in_sc = 0;
 fsm_info_t pc_sacp_fsm;
 fsm_info_t sc_sacp_fsm;
-boot_info_t boot_info;
+pack_info_t boot_info;
 flash_partition_t app_partition;
 uint8_t send_frame[SACP_FRAME_MAX_SIZE];
 
@@ -26,7 +26,7 @@ uint8_t send_frame[SACP_FRAME_MAX_SIZE];
 // LOCAL FUNCTION DECL
 /********************************************************************************/
 size_t ser_write(HardwareSerial &ser, uint8_t *data, uint32_t len);
-bool write_boot_info(boot_info_t *bi);
+bool write_boot_info(pack_info_t *pi);
 void boot_loop(void);
 void protocol_loop(void);
 bool protocol_proc(HardwareSerial &ser, fsm_info_t &fsm);
@@ -37,7 +37,7 @@ void jump_to(uint32_t addr);
 // FUN DEF
 /********************************************************************************/
 bool boot_info_flush_to_flash(void) {
-  boot_info.boot_data_checksum = calculate_checksum((uint8_t *)&boot_info, sizeof(boot_info_t) - 4);
+  boot_info.boot_data_checksum = calculate_checksum((uint8_t *)&boot_info, sizeof(pack_info_t) - 4);
   return write_boot_info(&boot_info);
 }
 
@@ -58,59 +58,59 @@ size_t send(link_ch_e ch, uint8_t *buf, uint32_t len) {
   }
 }
 
-void print_boot_info(boot_info_t *bi) {
+void print_boot_info(pack_info_t *pi) {
   char *ms;
 
   Serial.println("========== boot info ==========");
-  ms = (char *)bi->magic_str;
+  ms = (char *)pi->magic_str;
   ms[BOOT_PACK_MAGIC_STR_LEN - 1] = 0;
   Serial.println(F(ms));
   
   Serial.print("protocol ver: ");
-  Serial.println(bi->protocol_ver);
+  Serial.println(pi->protocol_ver);
 
   Serial.print("pack_type: ");
-  Serial.println(bi->pack_type);
+  Serial.println(pi->pack_type);
 
   Serial.print("upgrade_ctrl_flag: ");
-  Serial.println(bi->upgrade_ctrl_flag);
+  Serial.println(pi->upgrade_ctrl_flag);
 
   Serial.print("start index: ");
-  Serial.println(bi->start_index);
+  Serial.println(pi->start_index);
 
   Serial.print("end index: ");
-  Serial.println(bi->end_index);
+  Serial.println(pi->end_index);
 
   Serial.print("fw version: ");
-  ms = (char *)bi->fw_ver_str;
+  ms = (char *)pi->fw_ver_str;
   ms[BOOT_PACK_FW_VER_STR_LEN - 1] = 0;
   Serial.println(F(ms));
 
   Serial.print("timestamp: ");
-  ms = (char *)bi->timestamp_str;
+  ms = (char *)pi->timestamp_str;
   ms[BOOT_PACK_TIMESTAMP_STR_LEN - 1] = 0;
   Serial.println(F(ms));
 
   Serial.print("upgrade_state: ");
-  Serial.println(bi->upgrade_state, HEX);
+  Serial.println(pi->upgrade_state, HEX);
 
   Serial.print("fw lenght: ");
-  Serial.println(bi->fw_lenght);
+  Serial.println(pi->fw_lenght);
 
   Serial.print("fw checksum: ");
-  Serial.println(bi->fw_checksum, HEX);
+  Serial.println(pi->fw_checksum, HEX);
 
   Serial.print("fw runaddr: ");
-  Serial.println(bi->fw_runaddr, HEX);
+  Serial.println(pi->fw_runaddr, HEX);
 
   Serial.print("peer: ");
-  Serial.println(bi->peer);
+  Serial.println(pi->peer);
 
   Serial.print("link_ch: ");
-  Serial.println(bi->link_ch);
+  Serial.println(pi->link_ch);
 
   Serial.print(F("boot data checksum: "));
-  Serial.println(bi->boot_data_checksum, HEX);
+  Serial.println(pi->boot_data_checksum, HEX);
 }
 
 bool application_fw_valid(uint32_t checksum, uint8_t *app_fw_start, uint32_t app_fw_len) {
@@ -125,13 +125,13 @@ size_t ser_write(HardwareSerial &ser, uint8_t *data, uint32_t len) {
   return wl;
 }
 
-bool write_boot_info(boot_info_t *bi) {
+bool write_boot_info(pack_info_t *pi) {
   if (!flash_erase(boot_data_partition)) {
     Serial.println("boot data erase error\r\n");
     return false;
   }
 
-  if (sizeof(boot_info_t) != flash_write(boot_data_partition, (uint8_t *)bi, sizeof(boot_info_t))) {
+  if (sizeof(pack_info_t) != flash_write(boot_data_partition, (uint8_t *)pi, sizeof(pack_info_t))) {
     Serial.println("boot data write error\r\n");
     return false;
   }

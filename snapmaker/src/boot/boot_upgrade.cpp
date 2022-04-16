@@ -61,7 +61,7 @@ const cmd_fun_item_t cmd_tab[] = {
 /********************************************************************************/
 // FUN DEF
 /********************************************************************************/
-void upgrade_init(boot_info_t *boot_info, 
+void upgrade_init(pack_info_t *boot_info, 
               flash_partition_t *boot_data_partition, 
               flash_partition_t *app_partition) 
 {
@@ -170,7 +170,7 @@ void cmd_upgrade_start(uint8_t *pl, uint32_t len, uint8_t *out, uint32_t &out_le
     return;
   }
 
-  memcpy(upgrade_info.boot_info, pl, sizeof(boot_info_t));
+  memcpy(upgrade_info.boot_info, pl, sizeof(pack_info_t));
   if (!boot_info_check(upgrade_info.boot_info)) {
     Serial.println("boot info checksum failure");
     out[0] = CMD_SET_UPGRADE;

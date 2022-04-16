@@ -28,6 +28,7 @@
 #define MAX(a,b)                        ((a)>(b)?(a):(b))
 #define MIN(a,b)                        ((a)<(b)?(a):(b))
 #define TAB_SIZE(tab, item)             (sizeof(tab) / sizeof(item))
+#define FUN_LOG()                       do{LOG_I("%s\r\n", __FUNCTION__);} while(0)
 
 #define LITTLE_STREAM_TO_16(buf)        ( ((buf)[1]<<8) | ((buf)[0]) )
 #define LITTLE_STREAM_TO_32(buf)        ( ((buf)[3]<<24) | ((buf)[2]<<16) | ((buf)[1]<<8) | ((buf)[0]) )

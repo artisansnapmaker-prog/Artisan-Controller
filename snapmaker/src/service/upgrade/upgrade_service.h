@@ -54,7 +54,6 @@ enum UpgradePhase {
   UPGRADE_HOST_TO_MODULE,
 };
 
-
 class UpgradeCtrlService;
 class UpgradeModuleService;
 
@@ -64,6 +63,7 @@ class UpdateService {
     UpdateService(){};
     err_code_t init(void);
     void loop(void);
+
     static err_code_t sacp_upgrade_start(void *obj, sacp_hmi_message_t *);
     static err_code_t sacp_upgrade_trans(void *obj, sacp_hmi_message_t *);
     static err_code_t sacp_upgrade_end(void *obj, sacp_hmi_message_t *);
@@ -72,7 +72,7 @@ class UpdateService {
     err_code_t upgrade_notify(sacp_hmi_message_t *msg, err_code_t ret);
 
     bool boot_info_flush_to_flash();
-    void set_boot_info(boot_info_t *bti);
+    void set_boot_info(pack_info_t *bti);
     void print_boot_info(void);
     uint32_t get_seq(void);
     void set_updgrade_phase(UpgradePhase);
@@ -81,9 +81,9 @@ class UpdateService {
     void host_to_controller_loop(void);
 
     UpgradePhase phase;
-    boot_info_t boot_info;
-    UpgradeCtrlService ctrl_ugr;
-    UpgradeModuleService module_ugr;
+    pack_info_t boot_info;
+    UpgradeCtrlService *ctrl_ugr;
+    UpgradeModuleService *module_ugr;
     uint32_t seq;
 };
 

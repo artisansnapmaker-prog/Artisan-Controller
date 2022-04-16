@@ -22,6 +22,62 @@
 #include "upgrade_service.h"
 #include "../../snapmaker.h"
 
+
+static err_code_t module_call_start_ack(uint8_t);
+static err_code_t module_call_trans_req(uint32_t req_offset, uint32_t len);
+static err_code_t module_call_end_ack(uint8_t);
+static err_code_t module_call_notify_ack(uint8_t);
+
+UpgradeModuleInfo upgrade_module_info_tab[] = {
+  
+  {
+    ESP32_FW,                                             /* packet type */
+    0,                                                    /* start id    */
+    0,                                                    /* end id      */
+    NULL,
+    {
+      NULL, 
+      NULL, 
+      NULL, 
+      NULL, 
+      NULL, 
+      NULL, 
+      NULL, 
+      NULL
+    }
+  },
+
+  {
+    SM2_MODULE_FW,                                        /* packet type */
+    0,                                                    /* start id    */
+    13,                                                   /* end id      */
+    NULL,
+    {
+      NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL
+    }
+  },
+};
+
+err_code_t module_call_start_ack(uint8_t) {
+  FUN_LOG();
+  return E_SUCCESS;
+}
+
+err_code_t module_call_trans_req(uint32_t req_offset, uint32_t len) {
+  FUN_LOG();
+  return E_SUCCESS;
+}
+
+err_code_t module_call_end_ack(uint8_t) {
+  FUN_LOG();
+  return E_SUCCESS;
+}
+
+err_code_t module_call_notify_ack(uint8_t) {
+  FUN_LOG();
+  return E_SUCCESS;
+}
+
 err_code_t UpgradeModuleService::init(UpdateService *s) {
   status = UPGRADE_MODULE_STATUS_IDLE;
   return E_SUCCESS;
@@ -77,7 +133,7 @@ void UpgradeModuleService::loop(void) {
   }
 }
 
-err_code_t UpgradeModuleService::start_proc(boot_info_t *bti, sacp_hmi_message_t *msg) {
+err_code_t UpgradeModuleService::start_proc(pack_info_t *bti, sacp_hmi_message_t *msg) {
 
   if (UPGRADE_MODULE_STATUS_IDLE != status) {
     LOG_E("upgrade_module: can not start a upgrade as current is not in IDLE status\r\n");
@@ -85,7 +141,7 @@ err_code_t UpgradeModuleService::start_proc(boot_info_t *bti, sacp_hmi_message_t
   }
   // ugr_svc->print_boot_info();
 
-  ugr_type = packet_upgrade_type(bti);
+  ugr_type = module_upgrade_type(bti);
   if (UPGRADE_MODULE_BY_CONTROLLER == ugr_type) {
     if (!flash_erase(module_fw_partition)) {
       if (!flash_erase(module_fw_partition)) {
@@ -110,18 +166,28 @@ err_code_t UpgradeModuleService::start_proc(boot_info_t *bti, sacp_hmi_message_t
   }
   else {
     // transparent to module
-    // 1) get the module handle
-    // 2) get the transport function list
-    // 3) send it to module
-    // 4) start a timer
-  }
+    // 1) get the module handle and the transport function list
+    module_handls = get_module_upgrade_handls((UpdatePackType)bti->pack_type, bti->start_index);
+    if (!module_handls) {
+      LOG_E("upgrade_module: unsupported pack %d with id %d\r\n", bti->pack_type, bti->start_index);
+      return ugr_svc->upgrade_start_ack(msg, E_FAILURE);
+    }
 
-  
+    if (E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_MODULE_UPGRADE, NULL)) {
+      LOG_E("upgrade_module: can not enter module upgrade status\r\n");
+      return ugr_svc->upgrade_start_ack(msg, E_FAILURE);
+    }
+
+    ugr_svc->set_updgrade_phase(UPGRADE_HOST_TO_MODULE);
+    status = UPGRADE_MODULE_STATUS_START;
+
+    module_handls->start_req(bti);
+  }
 
   return E_SUCCESS;
 }
 
-err_code_t UpgradeModuleService::trans_proc(boot_info_t *boot_info, sacp_hmi_message_t *msg) {
+err_code_t UpgradeModuleService::trans_proc(pack_info_t *pack_info_t, sacp_hmi_message_t *msg) {
   uint8_t ret;
   uint32_t rx_offset;
   uint16_t rx_pack_len;
@@ -177,7 +243,7 @@ err_code_t UpgradeModuleService::trans_proc(boot_info_t *boot_info, sacp_hmi_mes
   return E_SUCCESS;
 }
 
-err_code_t UpgradeModuleService::end_proc(boot_info_t *boot_info, sacp_hmi_message_t *msg) {
+err_code_t UpgradeModuleService::end_proc(pack_info_t *pack_info_t, sacp_hmi_message_t *msg) {
 
   if (UPGRADE_MODULE_STATUS_END != status) {
     LOG_E("upgrade_module: can not handle end ack packet as current is not in UPGRADE_MODULE_STATUS_END state\r\n");
@@ -243,13 +309,13 @@ bool UpgradeModuleService::firmware_flash_checksum(uint32_t rx_checsum, uint32_t
   return cs == rx_checsum;
 }
 
-ModuleUpgradeType UpgradeModuleService::packet_upgrade_type(boot_info_t *boot_info) {
+ModuleUpgradeType UpgradeModuleService::module_upgrade_type(pack_info_t *pack_info_t) {
 
-  if (ESP32_FW == boot_info->pack_type) {
+  if (ESP32_FW == pack_info_t->pack_type) {
     return UPGRADE_MODULE_BY_HOST;
   }
-  else if (SM2_MODULE_FW == boot_info->pack_type) {
-    if (boot_info->fw_lenght > module_fw_partition.size) {
+  else if (SM2_MODULE_FW == pack_info_t->pack_type) {
+    if (pack_info_t->fw_lenght > module_fw_partition.size) {
       LOG_I("upgrade_moduel: firmware too large for controller's flash. So, use traspare upgrade\r\n");
       return UPGRADE_MODULE_BY_HOST;
     }
@@ -260,4 +326,25 @@ ModuleUpgradeType UpgradeModuleService::packet_upgrade_type(boot_info_t *boot_in
     return UPGRADE_MODULE_BY_HOST;
   }
 
+}
+
+UpgradeModuleHandle *UpgradeModuleService::get_module_upgrade_handls(UpdatePackType pack_type, uint16_t id) {
+  for (uint32_t i = 0; i < TAB_SIZE(upgrade_module_info_tab, UpgradeModuleInfo); i++) {
+
+    if (pack_type != upgrade_module_info_tab[i].pack_type)
+      continue;
+
+    if (ESP32_FW == pack_type) {
+      return &(upgrade_module_info_tab[i].handls);
+    }
+    else if (SM2_MODULE_FW == pack_type) {
+      if (upgrade_module_info_tab[i].start_id <= id && 
+          id <= upgrade_module_info_tab[i].end_id) {
+        return &(upgrade_module_info_tab[i].handls);
+      }
+    }
+
+  }
+
+  return NULL;
 }

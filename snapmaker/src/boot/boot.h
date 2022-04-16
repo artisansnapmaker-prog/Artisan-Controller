@@ -83,27 +83,27 @@ typedef struct{
   uint8_t peer;
   uint8_t link_ch;
   uint32_t boot_data_checksum; 
-} boot_info_t;
+} pack_info_t;
 #pragma pack()
 
 typedef void (*pf)(void);
 
-static inline void load_boot_info(boot_info_t *bi) {
-  memcpy(bi, (void *)FLASH_BOOT_DATA_ADDR, sizeof(boot_info_t));
+static inline void load_boot_info(pack_info_t *pi) {
+  memcpy(pi, (void *)FLASH_BOOT_DATA_ADDR, sizeof(pack_info_t));
 }
 
-static inline bool boot_info_check(boot_info_t *bi) {
+static inline bool boot_info_check(pack_info_t *pi) {
   uint8_t *p = (uint8_t *)BOOT_DATA_DEFAULT_MAGIC_STR;
   for (uint32_t i = 0; i < BOOT_PACK_MAGIC_STR_LEN; i++) {
-    if (bi->magic_str[i] != p[i])
+    if (pi->magic_str[i] != p[i])
       return false;
   }
-  return bi->boot_data_checksum == calculate_checksum((uint8_t *)bi, sizeof(boot_info_t) - 4);
+  return pi->boot_data_checksum == calculate_checksum((uint8_t *)pi, sizeof(pack_info_t) - 4);
 }
 
 void setup(void);
 void loop(void);
-void print_boot_info(boot_info_t *bi);
+void print_boot_info(pack_info_t *pi);
 bool application_fw_valid(uint32_t checksum, uint8_t *app_fw_start, uint32_t app_fw_len);
 bool set_boot_upgrade_state_and_flush_to_flash(UpdateState s);
 bool boot_info_flush_to_flash(void);

@@ -30,7 +30,7 @@ err_code_t UpgradeCtrlService::init(UpdateService *s) {
 }
 
 void UpgradeCtrlService::mark_boot_info(void) {
-  boot_info_t boot_info;
+  pack_info_t boot_info;
   // Change application's update flag in boot data
   load_boot_info(&boot_info);
   if (boot_info_check(&boot_info)) {
@@ -54,7 +54,7 @@ void UpgradeCtrlService::loop(void) {
   
 }
 
-err_code_t UpgradeCtrlService::start_proc(boot_info_t *boot_info, sacp_hmi_message_t *msg) {
+err_code_t UpgradeCtrlService::start_proc(pack_info_t *boot_info, sacp_hmi_message_t *msg) {
 
   if (SACP_HMI_CH_SCREEN == msg->ch) {
     boot_info->link_ch = LINK_CH_SC;
@@ -68,7 +68,7 @@ err_code_t UpgradeCtrlService::start_proc(boot_info_t *boot_info, sacp_hmi_messa
 
   boot_info->peer = msg->peer;
   boot_info->upgrade_state = UPGRADE_STATE_START;
-  ugr_svc->set_boot_info((boot_info_t *)(msg->data));
+  ugr_svc->set_boot_info((pack_info_t *)(msg->data));
 
   if (!ugr_svc->boot_info_flush_to_flash()) {
     if (!ugr_svc->boot_info_flush_to_flash()) {

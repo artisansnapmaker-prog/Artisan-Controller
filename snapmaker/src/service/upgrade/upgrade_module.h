@@ -36,6 +36,7 @@
 
 #define UPGRADE_TRANS_BUF_SIZE                (SACP_PDU_MAX_SIZE - 64)
 
+
 enum ModuleUpgradeType {
   UPGRADE_MODULE_BY_CONTROLLER = 0,
   UPGRADE_MODULE_BY_HOST,
@@ -48,23 +49,60 @@ enum ModuleUpgradeStatus {
   UPGRADE_MODULE_STATUS_END,
 };
 
-class UpdateService;
+typedef err_code_t (*ugr_module_start_req )(pack_info_t *);
+typedef err_code_t (*ugr_module_start_ack)(uint8_t);
+typedef err_code_t (*ugr_module_trans_req)(uint32_t req_offset, uint32_t len);
+typedef err_code_t (*ugr_module_trans_ack)(uint32_t ack_offset, uint8_t *data, uint32_t len);
+typedef err_code_t (*ugr_module_end_req)(uint8_t);
+typedef err_code_t (*ugr_module_end_ack)(uint8_t);
+typedef err_code_t (*ugr_module_notify_req)(uint8_t err_code);
+typedef err_code_t (*ugr_module_notify_ack)(uint8_t err_code);
 
+typedef struct {
+  ugr_module_start_req start_req;
+  ugr_module_start_ack start_ack;
+  ugr_module_trans_req trans_req;
+  ugr_module_trans_ack trans_ack;
+  ugr_module_end_req end_req;
+  ugr_module_end_ack end_ack;
+  ugr_module_notify_req notify_req;
+  ugr_module_notify_ack notify_ack;
+} UpgradeModuleHandle;
+
+typedef void (*moudle_handl_init)(UpgradeModuleHandle *);
+
+typedef struct {
+  UpdatePackType pack_type;
+  uint16_t start_id;
+  uint16_t end_id;
+  moudle_handl_init module_init; 
+  UpgradeModuleHandle handls;
+} UpgradeModuleInfo;
+
+class UpdateService;
 
 /************************************************************************/
 // module upgrade class
 /************************************************************************/
+
+err_code_t module_call_start_ack(uint8_t);
+err_code_t module_call_trans_req(uint32_t req_offset, uint32_t len);
+err_code_t module_call_end_ack(uint8_t);
+err_code_t module_call_notify_ack(uint8_t);
+
+
 class UpgradeModuleService {
   public:
     UpgradeModuleService(){};
     err_code_t init(UpdateService *s);
     void loop(void);
     
-    err_code_t start_proc(boot_info_t *boot_info, sacp_hmi_message_t *msg);
-    err_code_t trans_proc(boot_info_t *boot_info, sacp_hmi_message_t *msg);
-    err_code_t end_proc(boot_info_t *boot_info, sacp_hmi_message_t *msg);
+    err_code_t start_proc(pack_info_t *pack_info_t, sacp_hmi_message_t *msg);
+    err_code_t trans_proc(pack_info_t *pack_info_t, sacp_hmi_message_t *msg);
+    err_code_t end_proc(pack_info_t *pack_info_t, sacp_hmi_message_t *msg);
 
-    ModuleUpgradeType packet_upgrade_type(boot_info_t *boot_info);
+    ModuleUpgradeType module_upgrade_type(pack_info_t *pack_info_t);
+    UpgradeModuleHandle *get_module_upgrade_handls(UpdatePackType pack_type, uint16_t id);
 
   private:
     void req_trans_data(void);
@@ -88,7 +126,11 @@ class UpgradeModuleService {
     uint32_t last_end_req_ms;
     uint32_t end_req_try;
     uint8_t end_ret;
+
+    UpgradeModuleHandle *module_handls;
 };
+
+extern UpgradeModuleService ugr_mdl_svc;
 
 
 #endif  // #ifndef SNAPMAKER_UPGRADE_MODULE_H_

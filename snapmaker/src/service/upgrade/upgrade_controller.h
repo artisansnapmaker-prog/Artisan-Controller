@@ -36,10 +36,12 @@ class UpgradeCtrlService {
     err_code_t init(UpdateService *s);
     void mark_boot_info(void);
     void loop(void);
-    err_code_t start_proc(boot_info_t *boot_info, sacp_hmi_message_t *msg);
+    err_code_t start_proc(pack_info_t *boot_info, sacp_hmi_message_t *msg);
 
   private:
     UpdateService *ugr_svc;
 };
+
+extern UpgradeCtrlService ugr_ctrl_svc;
 
 #endif  // #ifndef SNAPMAKER_CLIENT_NODE_H_

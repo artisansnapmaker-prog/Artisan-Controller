@@ -39,22 +39,24 @@ err_code_t UpdateService::init(void) {
   ret |= host_hmi.register_callback(CMD_SET_UPGRADE, CMD_ID_UPGRADE_TRANS, this, sacp_upgrade_trans, SACP_CB_ATTR_ACK);
   ret |= host_hmi.register_callback(CMD_SET_UPGRADE, CMD_ID_UPGRADE_END, this, sacp_upgrade_end, SACP_CB_ATTR_ACK);
 
-  ret |= ctrl_ugr.init(this);
-  ret |= module_ugr.init(this);
+  ctrl_ugr = &ugr_ctrl_svc;
+  module_ugr = &ugr_mdl_svc;
+  ret |= ctrl_ugr->init(this);
+  ret |= module_ugr->init(this);
 
   return ret;
 }
 
 void UpdateService::loop(void) {
-  ctrl_ugr.loop();
-  module_ugr.loop();
+  ctrl_ugr->loop();
+  module_ugr->loop();
 }
 
 err_code_t UpdateService::sacp_upgrade_start(void *obj, sacp_hmi_message_t *msg) {
   
   LOG_I("sacp_upgrade_start\r\n");
   UpdateService &upgrade = *(UpdateService *)obj;
-  boot_info_t *bti = (boot_info_t *)msg->data;
+  pack_info_t *bti = (pack_info_t *)msg->data;
 
   if (UPGRADE_PHASE_INIT != upgrade.phase) {
     LOG_E("ugr_svc: can not start a upgrade as not in INIT phase\r\n");
@@ -67,12 +69,12 @@ err_code_t UpdateService::sacp_upgrade_start(void *obj, sacp_hmi_message_t *msg)
   }
 
   if (A400_CONTROLLER_FW == bti->pack_type) {
-    return upgrade.ctrl_ugr.start_proc(bti, msg);
+    return upgrade.ctrl_ugr->start_proc(bti, msg);
   }
   else if (SM2_MODULE_FW == bti->pack_type ||
             ESP32_FW == bti->pack_type
   ){
-    return upgrade.module_ugr.start_proc(bti, msg);
+    return upgrade.module_ugr->start_proc(bti, msg);
   }
   else {
     LOG_E("upgrade_service: unsupported packet type\r\n");
@@ -126,7 +128,7 @@ err_code_t UpdateService::sacp_upgrade_trans(void *obj, sacp_hmi_message_t *msg)
 
   // Always module upgrade
   UpdateService &upgrade = *(UpdateService *)obj;
-  return upgrade.module_ugr.trans_proc(&(upgrade.boot_info), msg);
+  return upgrade.module_ugr->trans_proc(&(upgrade.boot_info), msg);
 }
 
 err_code_t UpdateService::sacp_upgrade_end(void *obj, sacp_hmi_message_t *msg) {
@@ -134,7 +136,7 @@ err_code_t UpdateService::sacp_upgrade_end(void *obj, sacp_hmi_message_t *msg) {
 
   // Always module upgrade
   UpdateService &upgrade = *(UpdateService *)obj;
-  return upgrade.module_ugr.end_proc(&(upgrade.boot_info), msg);
+  return upgrade.module_ugr->end_proc(&(upgrade.boot_info), msg);
 }
 
 err_code_t UpdateService::upgrade_start_ack(sacp_hmi_message_t *msg, err_code_t ret) {
@@ -155,13 +157,13 @@ err_code_t UpdateService::upgrade_notify(sacp_hmi_message_t *msg, err_code_t ret
 }
 
 bool UpdateService::boot_info_flush_to_flash() {
-  boot_info.boot_data_checksum = calculate_checksum((uint8_t *)&boot_info, sizeof(boot_info_t) - 4);
+  boot_info.boot_data_checksum = calculate_checksum((uint8_t *)&boot_info, sizeof(pack_info_t) - 4);
   if (!flash_erase(boot_data_partition)) {
     LOG_E("boot data erase error\r\n");
     return false;
   }
 
-  if (sizeof(boot_info_t) != flash_write(boot_data_partition, (uint8_t *)&boot_info, sizeof(boot_info_t))) {
+  if (sizeof(pack_info_t) != flash_write(boot_data_partition, (uint8_t *)&boot_info, sizeof(pack_info_t))) {
     LOG_E("boot data write error\r\n");
     return false;
   }
@@ -169,7 +171,7 @@ bool UpdateService::boot_info_flush_to_flash() {
   return true;
 }
 
-void UpdateService::set_boot_info(boot_info_t *bti) {
+void UpdateService::set_boot_info(pack_info_t *bti) {
   boot_info = *bti;
 }
 

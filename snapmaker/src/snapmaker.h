@@ -32,6 +32,26 @@
 #define POWER_DOMAIN_BED          (0x1<<4)
 #define POWER_DOMAIN_HMI          (0x1<<5)
 
+struct SnapmakerSettings {
+  int32_t laser_platform_hight;
+  int32_t laser_4axis_center_hight;
+};
+
+// settings defination
+#define SNAPMAKER_SETTINGS_STRUCT     SnapmakerSettings smsettings;
+
+#define SNAPMAKER_SETTINGS_WRITE()    uint8_t *smsettings = (uint8_t *)smprinter.get_settings();  \
+                                      for (int i = 0; i < sizeof(SnapmakerSettings); i++) { \
+                                        EEPROM_WRITE(smsettings[i]);  \
+                                      }
+
+#define SNAPMAKER_SETTINGS_READ()     uint8_t *smsettings = (uint8_t *)smprinter.get_settings();  \
+                                      for (int i = 0; i < sizeof(SnapmakerSettings); i++) { \
+                                        EEPROM_READ(smsettings[i]);  \
+                                      }
+
+#define SNAPMAKER_SETTINGS_RESET()    smprinter.reset_settings()
+
 enum SnapmakerModel {
   SNAPMAKER_MODEL_A150,
   SNAPMAKER_MODEL_A250,
@@ -352,6 +372,9 @@ class SnapmakerPrinter
     void disable_power_domain(uint32_t domains);
     void enable_power_domain(uint32_t domains);
 
+    void reset_settings();
+    SnapmakerSettings *get_settings() { return &settings; }
+
   private:
     enum SystemStatus sys_status;
     SemaphoreHandle_t status_lock;
@@ -359,6 +382,11 @@ class SnapmakerPrinter
     SnapmakerModel model = SNAPMAKER_MODEL_MAX;
 
     Rotary *rotary = NULL;
+
+  // settings save into marlin
+  private:
+    SnapmakerSettings settings;
+
 
   public:
     /* ToolHeadFDM *_3dp = NULL; */

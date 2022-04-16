@@ -166,6 +166,10 @@
   #include "../lcd/extui/dgus/DGUSDisplayDef.h"
 #endif
 
+#if MB_SNAPMAKER
+  #include "../snapmaker/src/snapmaker.h"
+#endif
+
 #pragma pack(push, 1) // No padding between variables
 
 #if HAS_ETHERNET
@@ -542,6 +546,10 @@ typedef struct SettingsDataStruct {
 
   #if HAS_MULTI_LANGUAGE
     uint8_t ui_language;                                // M414 S
+  #endif
+
+  #if MB_SNAPMAKER
+    SNAPMAKER_SETTINGS_STRUCT;
   #endif
 
 } SettingsData;
@@ -1536,6 +1544,12 @@ void MarlinSettings::postprocess() {
       EEPROM_WRITE(ui.language);
     #endif
 
+    #if MB_SNAPMAKER
+    {
+      SNAPMAKER_SETTINGS_WRITE();
+    }
+    #endif
+
     //
     // Report final CRC and Data Size
     //
@@ -2491,6 +2505,12 @@ void MarlinSettings::postprocess() {
       }
       #endif
 
+      #if MB_SNAPMAKER
+      {
+        SNAPMAKER_SETTINGS_READ();
+      }
+      #endif
+
       //
       // Validate Final Size and CRC
       //
@@ -3177,6 +3197,12 @@ void MarlinSettings::reset() {
   // MKS UI controller
   //
   TERN_(DGUS_LCD_UI_MKS, MKS_reset_settings());
+
+  #if MB_SNAPMAKER
+  {
+    SNAPMAKER_SETTINGS_RESET();
+  }
+  #endif
 
   postprocess();
 

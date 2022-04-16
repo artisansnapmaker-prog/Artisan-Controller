@@ -28,6 +28,9 @@
 #define LASER_POWER_SAFE_LIMIT    (0.5)
 #define LASER_CAMERA_FOCUS_MAX    (65000) // 65mm
 
+#define LASER_PLATFORM_HIGHT_DEFAULT      (50 * 1000)   // 50mm
+#define LASER_4AXIS_CENTER_HIGHT_DEFAULT  (150 * 1000)  // 150mm
+
 enum LaserSACPCommandId {
   SACP_CMD_ID_LASER_GET_INFO = 1,
   SACP_CMD_ID_LASER_SET_POWER,
@@ -36,6 +39,8 @@ enum LaserSACPCommandId {
   SACP_CMD_ID_LASER_SET_TEMP_THRESHOLD,
   SACP_CMD_ID_LASER_REPORT_BT_MAC,
   SACP_CMD_ID_LASER_SET_SAFETY_LOCK,
+  SACP_CMD_ID_LASER_SET_PLATFORM_HIGHT,
+  SACP_CMD_ID_LASER_SET_4AXIS_HIGHT,
 
   SACP_CMD_ID_LASER_MAX
 };
@@ -204,7 +209,10 @@ class ToolHeadLaser: public ModuleBase {
     static err_code_t hmi_cb_set_output(void *obj, sacp_hmi_message_t *message);
     static err_code_t hmi_cb_set_focus_assist_light(void *obj, sacp_hmi_message_t *message);
     static err_code_t hmi_cb_set_temp_threshold(void *obj, sacp_hmi_message_t *message);
+    static err_code_t hmi_cb_set_platform_hight(void *obj, sacp_hmi_message_t *message);
+    static err_code_t hmi_cb_set_4axis_center_hight(void *obj, sacp_hmi_message_t *message);
 
+    // calibration callback for HMI
     static err_code_t hmi_cb_do_auto_focusing(void *obj, sacp_hmi_message_t *message);
     static err_code_t hmi_cb_do_manual_focusing(void *obj, sacp_hmi_message_t *message);
     static err_code_t hmi_cb_set_cali_mode(void *obj, sacp_hmi_message_t *message);

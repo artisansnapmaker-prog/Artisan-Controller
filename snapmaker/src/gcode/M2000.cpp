@@ -328,6 +328,22 @@ void GcodeSuite::M2000() {
       }
       break;
 
+    case 9:
+      { // set laser paltform hight
+        int32_t *tmp = (int32_t *)(buffer + 1);
+        *tmp = q;
+        host_hmi.test_interface(SACP_CMD_SET_LASER, SACP_CMD_ID_LASER_SET_PLATFORM_HIGHT, buffer, 5);
+      }
+      break;
+
+    case 10:
+      { // set laser 4axis center hight
+        int32_t *tmp = (int32_t *)(buffer + 1);
+        *tmp = q;
+        host_hmi.test_interface(SACP_CMD_SET_LASER, SACP_CMD_ID_LASER_SET_4AXIS_HIGHT, buffer, 5);
+      }
+      break;
+
     default:
       break;
     }

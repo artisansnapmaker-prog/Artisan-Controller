@@ -155,6 +155,8 @@ struct __packed LaserToolHeadInfo {
   uint8_t key;
   uint8_t status;
   int32_t focal_length;
+  int32_t platform_height;
+  int32_t axis4_center_hight;
   int32_t current_power;
   int32_t target_power;
   uint8_t fan_number;
@@ -163,7 +165,7 @@ struct __packed LaserToolHeadInfo {
 
 err_code_t ToolHeadLaser::hmi_cb_get_info(void *obj, sacp_hmi_message_t *message) {
   ToolHeadLaser &laser = *(ToolHeadLaser *)obj;
-
+  SnapmakerSettings *smsettings;
   LaserToolHeadInfo *info;
 
   laser.tell_mac++;
@@ -200,6 +202,10 @@ err_code_t ToolHeadLaser::hmi_cb_get_info(void *obj, sacp_hmi_message_t *message
 
   // fixed type
   info->fan_info.type = 2;
+
+  smsettings = smprinter.get_settings();
+  info->platform_height = smsettings->laser_platform_hight;
+  info->axis4_center_hight = smsettings->laser_4axis_center_hight;
 
   message->length = sizeof(LaserToolHeadInfo) + 1;
 
@@ -298,6 +304,72 @@ err_code_t ToolHeadLaser::hmi_cb_set_temp_threshold(void *obj, sacp_hmi_message_
   message->data[0] = laser.set_temp_threshold((int8_t)(message->data[1]), (int8_t)(message->data[2]));
 
   message->length = 1;
+
+  return host_hmi.send_ack(message, E_SUCCESS);
+}
+
+
+err_code_t ToolHeadLaser::hmi_cb_set_platform_hight(void *obj, sacp_hmi_message_t *message) {
+  ToolHeadLaser &laser = *(ToolHeadLaser *)obj;
+  int32_t *p;
+  SnapmakerSettings *settings;
+
+  if (message->data[0] != laser.get_key()) {
+    LOG_E("invalid module key[%u] in cmd[%x:%x]\n", message->data[0], message->cmd_set, message->cmd_id);
+    return host_hmi.send_ack(message, E_INVALID_MODULE_KEY);
+  }
+
+  if (message->length < 5) {
+    LOG_E("invalid param length in cmd[%x:%x]\n", message->length, message->cmd_set, message->cmd_id);
+    return host_hmi.send_ack(message, E_PARAM);
+  }
+
+  if (laser.get_status() != MODULE_STATUS_NORMAL) {
+    LOG_E("invalid module state[%u] in cmd[%x:%x]\n", laser.get_status(), message->cmd_set, message->cmd_id);
+    return host_hmi.send_ack(message, E_INVALID_STATE);
+  }
+
+  p = (int32_t *)(message->data + 1);
+  LOG_I("new laser platform hight: %d\n", *p);
+
+  settings = smprinter.get_settings();
+
+  settings->laser_platform_hight = *p;
+
+  motion_platform_svc.save_settings();
+
+  return host_hmi.send_ack(message, E_SUCCESS);
+}
+
+
+err_code_t ToolHeadLaser::hmi_cb_set_4axis_center_hight(void *obj, sacp_hmi_message_t *message) {
+  ToolHeadLaser &laser = *(ToolHeadLaser *)obj;
+  int32_t *p;
+  SnapmakerSettings *settings;
+
+  if (message->data[0] != laser.get_key()) {
+    LOG_E("invalid module key[%u] in cmd[%x:%x]\n", message->data[0], message->cmd_set, message->cmd_id);
+    return host_hmi.send_ack(message, E_INVALID_MODULE_KEY);
+  }
+
+  if (message->length < 5) {
+    LOG_E("invalid param length in cmd[%x:%x]\n", message->length, message->cmd_set, message->cmd_id);
+    return host_hmi.send_ack(message, E_PARAM);
+  }
+
+  if (laser.get_status() != MODULE_STATUS_NORMAL) {
+    LOG_E("invalid module state[%u] in cmd[%x:%x]\n", laser.get_status(), message->cmd_set, message->cmd_id);
+    return host_hmi.send_ack(message, E_INVALID_STATE);
+  }
+
+  p = (int32_t *)(message->data + 1);
+  LOG_I("new laser 4axis center hight: %d\n", *p);
+
+  settings = smprinter.get_settings();
+
+  settings->laser_4axis_center_hight = *p;
+
+  motion_platform_svc.save_settings();
 
   return host_hmi.send_ack(message, E_SUCCESS);
 }
@@ -820,6 +892,10 @@ err_code_t ToolHeadLaser::post_init() {
   }
 
   // common API
+  host_hmi.register_callback(SACP_CMD_SET_LASER, SACP_CMD_ID_LASER_SET_PLATFORM_HIGHT, (void *)this,
+    hmi_cb_set_platform_hight);
+  host_hmi.register_callback(SACP_CMD_SET_LASER, SACP_CMD_ID_LASER_SET_4AXIS_HIGHT, (void *)this,
+    hmi_cb_set_4axis_center_hight);
   host_hmi.register_callback(SACP_CMD_SET_LASER, SACP_CMD_ID_LASER_GET_INFO, (void *)this,
     hmi_cb_get_info);
   host_hmi.register_callback(SACP_CMD_SET_LASER, SACP_CMD_ID_LASER_SET_POWER, (void *)this,
@@ -1270,6 +1346,7 @@ err_code_t ToolHeadLaser::report_bt_mac() {
 
 
 void ToolHeadLaser::show_status() {
+  SnapmakerSettings *smsettings = smprinter.get_settings();
   LOG_I("Laser status: \n");
   LOG_I("pwm pin: %u\n", output_pin);
   LOG_I("tube status: %u\n", tube_status);
@@ -1284,6 +1361,8 @@ void ToolHeadLaser::show_status() {
   LOG_I("roll: %d\n", roll);
   LOG_I("tube temp: %d\n", laser_temp);
   LOG_I("imu temp: %d\n", imu_temp);
+  LOG_I("platform hight: %d\n", smsettings->laser_platform_hight);
+  LOG_I("4axis center hight: %d\n", smsettings->laser_4axis_center_hight);
 }
 
 typedef struct __packed LaserEnv {

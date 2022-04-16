@@ -1123,6 +1123,17 @@ void SnapmakerPrinter::enable_power_domain(uint32_t domains) {
   }
 }
 
+void SnapmakerPrinter::reset_settings() {
+  // set to 0 firstly
+  memset(&settings, 0x00, sizeof(SnapmakerSettings));
+
+  // reset laser settings
+  settings.laser_platform_hight     = LASER_PLATFORM_HIGHT_DEFAULT;
+  settings.laser_4axis_center_hight = LASER_4AXIS_CENTER_HIGHT_DEFAULT;
+
+  // reset your settings
+}
+
 extern "C" {
   // hook for failing to apply memory in freeRTOS
   void vApplicationMallocFailedHook( void ) {

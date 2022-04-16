@@ -160,6 +160,7 @@ class MotionPlatformService {
     xyz_pos_t get_position_shift();
     xyz_pos_t get_active_coordinate_system(int8_t active_id);
     void update_soft_endstops(uint8_t axis, uint8_t old_tool_index, uint8_t new_tool_index);
+    void update_soft_endstops(uint8_t axis, uint8_t minmax, float val);
     float get_soft_endstop_min(uint8_t axis);
     float get_soft_endstop_max(uint8_t axis);
 

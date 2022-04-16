@@ -1004,6 +1004,41 @@ void MotionPlatformService::update_soft_endstops(uint8_t axis, uint8_t old_tool_
   update_software_endstops((AxisEnum)axis, old_tool_index, new_tool_index);
 }
 
+void MotionPlatformService::update_soft_endstops(uint8_t axis, uint8_t minmax, float val) {
+  if (axis > 2) {
+    return;
+  }
+  LOG_I("original axis %d soft endstop min is %f\n", axis, soft_endstop.min[axis]);
+  LOG_I("original axis %d soft endstop max is %f\n", axis, soft_endstop.max[axis]);
+  switch (axis) {
+    case X_AXIS:
+      if (minmax == 0) {
+        soft_endstop.min.x += val;
+      } else if (minmax == 1) {
+        soft_endstop.max.x += val;
+      }
+      break;
+    case Y_AXIS:
+      if (minmax == 0) {
+        soft_endstop.min.y += val;
+      } else if (minmax == 1) {
+        soft_endstop.max.y += val;
+      }
+      break;
+    case Z_AXIS:
+      if (minmax == 0) {
+        soft_endstop.min.z += val;
+      } else if (minmax == 1) {
+        soft_endstop.max.z += val;
+      }
+      break;
+    default:
+      break;
+  }
+  LOG_I("updated axis %d soft endstop min is %f\n", axis, soft_endstop.min[axis]);
+  LOG_I("updated axis %d soft endstop max is %f\n", axis, soft_endstop.max[axis]);
+}
+
 float MotionPlatformService::get_soft_endstop_min(uint8_t axis) {
   switch((AxisEnum)axis) {
     case X_AXIS:
@@ -1020,6 +1055,12 @@ float MotionPlatformService::get_soft_endstop_max(uint8_t axis) {
   switch(axis) {
     case X_AXIS:
       return soft_endstop.max.x;
+      break;
+    case Y_AXIS:
+      return soft_endstop.max.y;
+      break;
+    case Z_AXIS:
+      return soft_endstop.max.z;
       break;
     default:
       break;

@@ -885,6 +885,7 @@ void BedLevelService::set_live_z_offset(uint8_t e, float offset) {
     live_z_offset_changed = true;
     if (e == smprinter.fdm->get_active_extruder()) {
       motion_platform_svc.synchronize_planner();
+      motion_platform_svc.update_soft_endstops(Z_AXIS, 1, -offset);
       float cur_z = motion_platform_svc.get_current_position(Z_AXIS);
       motion_platform_svc.moveto_z(cur_z + (offset - live_z_offset[e]), 5);
       motion_platform_svc.sm_current_position[Z_AXIS] = cur_z;
@@ -1054,4 +1055,17 @@ void BedLevelService::auto_hotend_offset_calibration() {
 void BedLevelService::toolhead_auto_calibation() {
   auto_probe_sensor_calibration();
   auto_hotend_offset_calibration();
+}
+
+void BedLevelService::update_soft_endstop_max_z() {
+  ToolHeadFDM *fdm = (ToolHeadFDM *)module_svc.get_module(MODULE_DEVICE_ID_FDM_2EXTRUDER_2021, 0);
+  if (!fdm) {
+    return;
+  }
+
+  uint8_t active_extruder = fdm->get_active_extruder();
+  if (active_extruder > EXTRUDERS - 1) {
+    return;
+  }
+  motion_platform_svc.update_soft_endstops(Z_AXIS, 1, -live_z_offset[active_extruder]);
 }

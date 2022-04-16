@@ -21,9 +21,9 @@
 #include "../../snapmaker.h"
 #include "esp32_upgrade.h"
 
-UpgradeModuleHandle *esp32_func_tab = NULL;
-uint32_t send_pack_index = ESP32_FW_PACK_INDEX_INVALID;
-uint32_t fw_file_offset = ESP32_FW_PACK_OFFSET_INVALID;
+static UpgradeModuleHandle *esp32_func_tab = NULL;
+static uint32_t send_pack_index = ESP32_FW_PACK_INDEX_INVALID;
+static uint32_t fw_file_offset = ESP32_FW_FILE_OFFSET_INVALID;
 
 err_code_t esp32_camera_upgrade_handle_init(UpgradeModuleHandle *func_tab) {
   ModuleBase *laser = NULL;
@@ -54,10 +54,11 @@ err_code_t esp32_camera_upgrade_handle_init(UpgradeModuleHandle *func_tab) {
 }
 
 void esp32_camera_upgrade_handle_deinit(void) {
+  LOG_I("%s\n",__FUNCTION__);
   taskENTER_CRITICAL();
   esp32_func_tab = NULL;
   send_pack_index = ESP32_FW_PACK_INDEX_INVALID;
-  fw_file_offset = ESP32_FW_PACK_OFFSET_INVALID;
+  fw_file_offset = ESP32_FW_FILE_OFFSET_INVALID;
   taskEXIT_CRITICAL();
 }
 
@@ -79,7 +80,7 @@ err_code_t esp32_camera_upgrade_start(pack_info_t *) {
   // initialise variables directly as soon as a request is made
   taskENTER_CRITICAL();
   send_pack_index = ESP32_FW_PACK_INDEX_INVALID;
-  fw_file_offset = ESP32_FW_PACK_OFFSET_INVALID;
+  fw_file_offset = ESP32_FW_FILE_OFFSET_INVALID;
   taskEXIT_CRITICAL();
 
   if ((ret = host_hmi.send(&msg)) != E_SUCCESS) {
@@ -225,8 +226,10 @@ err_code_t esp32_camera_updgrade_end_cb(void *obj, sacp_hmi_message_t *msg) {
 }
 
 err_code_t esp32_camera_upgrade_fail_notify_cb(void *obj, sacp_hmi_message_t *msg) {
-  LOG_I("[%s]\n",__FUNCTION__);
   err_code_t ret = E_FAILURE;
+  if (msg && msg->length == 2) {
+    LOG_E("[%s] err_code: 0x%x", __FUNCTION__, msg->data[0] << 8 | msg->data[1]);
+  }
   if (esp32_func_tab && esp32_func_tab->notify_req) {
     esp32_func_tab->notify_req(E_FAILURE);
     ret = E_SUCCESS;

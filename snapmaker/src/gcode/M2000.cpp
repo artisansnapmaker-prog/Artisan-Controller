@@ -7,7 +7,7 @@
 #include "../src/service/client_node.h"
 #include "../src/service/emergency_handler.h"
 #include "../src/service/system.h"
-
+#include "../src/service/upgrade/esp32_upgrade.h"
 
 #if MB_SNAPMAKER
 
@@ -688,21 +688,24 @@ void GcodeSuite::M2000() {
     }
   break;
 
-  // case 60:
-  // case 61:
-  //   ToolHeadLaser *laser;
-  //   laser = (ToolHeadLaser *)module_svc.get_module(MODULE_DEVICE_ID_LASER_10W_2021, 0);
-  //   if (laser) {
-  //     extern err_code_t esp32_camera_upgrade_start(void);
-  //     extern err_code_t esp32_camera_upgrade_trans(uint32_t offset, uint8_t *data, uint32_t len);
-  //     if (w == 60)
-  //       esp32_camera_upgrade_start();
-  //     else if (w == 61) {
-  //       uint8_t data = 1;
-  //       esp32_camera_upgrade_trans(0, &data, 1);
-  //     }
-  //   }
-  // break;
+  case 60:
+  case 61:
+  case 62:
+    ToolHeadLaser *laser;
+    laser = (ToolHeadLaser *)module_svc.get_module(MODULE_DEVICE_ID_LASER_10W_2021, 0);
+    if (laser) {
+      if (w == 60)
+        esp32_camera_upgrade_start(NULL);
+      else if (w == 61) {
+        uint8_t data = 0xE9;
+        esp32_camera_upgrade_trans(0, &data, 1);
+      }
+      else if (w == 62) {
+        uint8_t data = 0x50;
+        esp32_camera_upgrade_trans(1, &data, 1);
+      }
+    }
+  break;
 
   default:
     break;

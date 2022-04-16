@@ -20,8 +20,11 @@
  */
 #include "upgrade_module.h"
 #include "upgrade_service.h"
+#include "esp32_upgrade.h"
 #include "../../snapmaker.h"
 #include "../../module/toolhead_laser.h"
+
+UpgradeModuleService ugr_mdl_svc;
 
 UpgradeModuleInfo upgrade_module_info_tab[] = {
   
@@ -38,7 +41,7 @@ UpgradeModuleInfo upgrade_module_info_tab[] = {
       esp32_camera_upgrade_trans, 
       esp32_camera_upgrade_end, 
       module_call_end_ack, 
-      module_call_notify_req
+      module_call_notify_req,
       NULL, 
     }
   },
@@ -166,7 +169,7 @@ void UpgradeModuleService::loop(void) {
 
 void UpgradeModuleService::reset_to_idle(void) {
   if (module_upgrade_info) {
-    module_upgrade_info->handle.module_deinit();
+    module_upgrade_info->module_deinit();
   }
   status = UPGRADE_MODULE_STATUS_IDLE;
   ugr_svc->set_updgrade_phase(UPGRADE_PHASE_INIT);

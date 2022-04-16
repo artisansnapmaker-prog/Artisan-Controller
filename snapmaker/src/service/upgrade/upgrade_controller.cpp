@@ -23,6 +23,8 @@
 #include "../../boot/boot.h"
 #include "upgrade_service.h"
 
+UpgradeCtrlService ugr_ctrl_svc;
+
 err_code_t UpgradeCtrlService::init(UpdateService *s) {
   ugr_svc = s;
   mark_boot_info();

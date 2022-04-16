@@ -32,7 +32,7 @@
 #define ESP32_UPDATE_OPCODE_FAIL_NOTIFY          (0xFF)
 
 #define ESP32_FW_PACK_INDEX_INVALID             (0xFFFFFFFF) 
-#define ESP32_FW_PACK_OFFSET_INVALID            (0xFFFFFFFF) 
+#define ESP32_FW_FILE_OFFSET_INVALID            (0xFFFFFFFF) 
 #define ESP32_FW_PACK_MAX_LEN                   (UPGRADE_TRANS_BUF_SIZE)
 
 // esp32 upgrade API

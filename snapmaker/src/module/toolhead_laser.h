@@ -28,10 +28,9 @@
 #define LASER_POWER_SAFE_LIMIT    (0.5)
 #define LASER_CAMERA_FOCUS_MAX    (65000) // 65mm
 
-<<<<<<< HEAD
+
 #define LASER_PLATFORM_HIGHT_DEFAULT      (50 * 1000)   // 50mm
 #define LASER_4AXIS_CENTER_HIGHT_DEFAULT  (150 * 1000)  // 150mm
-=======
 #define ESP32_UPDATE_OPCODE_START_NOTIFY         (0x00)
 #define ESP32_UPDATE_OPCODE_TRANS_NOTIFY         (0x01)
 #define ESP32_UPDATE_OPCODE_END_NOTIFY           (0x02)
@@ -39,7 +38,6 @@
 
 #define ESP32_FW_PACK_INDEX_INVALID             (0xFFFF) 
 #define ESP32_FW_PACK_MAX_LEN                   (SACP_PDU_MAX_SIZE - SACP_V1_PDU_MIN_SIZE)
->>>>>>> d3826d0d94 (Feature: add esp32 upgrade base code)
 
 enum LaserSACPCommandId {
   SACP_CMD_ID_LASER_GET_INFO = 1,
@@ -273,16 +271,8 @@ class ToolHeadLaser: public ModuleBase {
 
     uint8_t bt_mac[8] {0xff};
     uint8_t tell_mac = 0;
+
     ToolHeadLaserCalibrationStatus cali_status = LASER_CALI_STATUS_INVALID;
 };
-
-// esp32 upgrade API
-err_code_t esp32_camera_upgrade_start(void);
-err_code_t esp32_camera_upgrade_trans(uint32_t offset, uint8_t *data, uint32_t len);
-err_code_t esp32_camera_upgrade_end(void);
-err_code_t esp32_camera_upgrade_start_ack_cb(void *obj, sacp_hmi_message_t *msg);
-err_code_t esp32_camera_get_package_ack_cb(void *obj, sacp_hmi_message_t *msg);
-err_code_t esp32_camera_updgrade_end_cb(void *obj, sacp_hmi_message_t *msg);
-err_code_t esp32_camera_upgrade_fail_notify_cb(void *obj, sacp_hmi_message_t *msg);
 
 #endif

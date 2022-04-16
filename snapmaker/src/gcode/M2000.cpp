@@ -688,21 +688,21 @@ void GcodeSuite::M2000() {
     }
   break;
 
-  case 60:
-  case 61:
-    ToolHeadLaser *laser;
-    laser = (ToolHeadLaser *)module_svc.get_module(MODULE_DEVICE_ID_LASER_10W_2021, 0);
-    if (laser) {
-      extern err_code_t esp32_camera_upgrade_start(void);
-      extern err_code_t esp32_camera_upgrade_trans(uint32_t offset, uint8_t *data, uint32_t len);
-      if (w == 60)
-        esp32_camera_upgrade_start();
-      else if (w == 61) {
-        uint8_t data = 1;
-        esp32_camera_upgrade_trans(0, &data, 1);
-      }
-    }
-  break;
+  // case 60:
+  // case 61:
+  //   ToolHeadLaser *laser;
+  //   laser = (ToolHeadLaser *)module_svc.get_module(MODULE_DEVICE_ID_LASER_10W_2021, 0);
+  //   if (laser) {
+  //     extern err_code_t esp32_camera_upgrade_start(void);
+  //     extern err_code_t esp32_camera_upgrade_trans(uint32_t offset, uint8_t *data, uint32_t len);
+  //     if (w == 60)
+  //       esp32_camera_upgrade_start();
+  //     else if (w == 61) {
+  //       uint8_t data = 1;
+  //       esp32_camera_upgrade_trans(0, &data, 1);
+  //     }
+  //   }
+  // break;
 
   default:
     break;

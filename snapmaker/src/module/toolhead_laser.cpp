@@ -6,7 +6,7 @@
 #include "../snapmaker.h"
 #include "../service/module.h"
 #include "../service/motion_platform.h"
-#include "../service/system.h"
+#include "../service/upgrade/esp32_upgrade.h"
 #include "../HAL/pwm.h"
 #include "Arduino.h"
 
@@ -73,7 +73,6 @@ static __attribute__((section(".data"))) uint8_t power_table_10w[]= {
   255
 };
 
-uint16_t send_pack_index = ESP32_FW_PACK_INDEX_INVALID;
 
 // HMI subscription callbacks
 
@@ -1559,170 +1558,6 @@ bool ToolHeadLaser::prepare_start(void) {
   }
   else
     return true;
-}
-
-err_code_t esp32_camera_upgrade_start(void) {
-  err_code_t ret;
-  sacp_hmi_message_t msg;
-  msg.attr = (SACP_MESSAGE_ATTR_SET_VER | SACP_MESSAGE_ATTR_SET_SEQ);
-  msg.ch = SACP_HMI_CH_CAMERA;
-  msg.cmd_set = M_UPDATE_MOUDLE;
-  msg.cmd_id = ESP32_UPDATE_OPCODE_START_NOTIFY;
-  msg.peer = SACP_HOST_ID_ESP32;
-  msg.ver = SACP_VER_0;
-  msg.length = 0;
-  msg.data = NULL;
-
-  // initialise variables directly as soon as a request is made
-  send_pack_index = ESP32_FW_PACK_INDEX_INVALID;
-  if ((ret = host_hmi.send(&msg)) != E_SUCCESS) {
-    LOG_E("[%s] failed to send upgrade start, ret[%u]\n", __FUNCTION__, ret);
-  }
-  LOG_I("[%s] send result %d\n", __FUNCTION__, ret);
-  return ret;
-}
-
-err_code_t esp32_camera_upgrade_trans(uint32_t offset, uint8_t *data, uint32_t len) {
-  err_code_t ret;
-  sacp_hmi_message_t msg;
-  uint8_t *buffer = NULL;
-  uint32_t offset_tmp;
-
-  if (!data || !len) {
-    LOG_E("[%s] invalid param, data is %s, len %d\n", __FUNCTION__, data ? "not null" : "null", len);
-    return E_PARAM;
-  }
-
-  if (len > ESP32_FW_PACK_MAX_LEN) {
-    LOG_E("[%s] len is too long\n", __FUNCTION__);
-    return E_NO_MEM;
-  }
-
-  offset_tmp = send_pack_index * ESP32_FW_PACK_MAX_LEN;
-  if (offset_tmp != offset) {
-    LOG_E("[%s] mismatched offset, need offset:%d get offset: %d\n",\
-           __FUNCTION__, offset_tmp, offset);
-    return E_PARAM;
-  }
-
-  buffer = (uint8_t *)pvPortMalloc(sizeof(uint8_t) * len);
-  if (!buffer) {
-    LOG_E("[%s] buffer malloc fail\n", __FUNCTION__);
-    return E_NO_MEM;
-  }
-  memcpy(buffer, data, len);
-  msg.attr = (SACP_MESSAGE_ATTR_SET_VER | SACP_MESSAGE_ATTR_SET_SEQ);
-  msg.ch = SACP_HMI_CH_CAMERA;
-  msg.cmd_set = M_UPDATE_MOUDLE;
-  msg.cmd_id = ESP32_UPDATE_OPCODE_TRANS_NOTIFY;
-  msg.peer = SACP_HOST_ID_ESP32;
-  msg.ver = SACP_VER_0;
-  msg.length = len;
-  msg.data = buffer;
-
-  if ((ret = host_hmi.send(&msg)) != E_SUCCESS) {
-    LOG_E("[%s] failed to send upgrade start, ret[%u]\n", __FUNCTION__, ret);
-  }
-
-  if (buffer) 
-    vPortFree(buffer);
-
-  return ret;
-}
-
-err_code_t esp32_camera_upgrade_end(void) {
-  err_code_t ret;
-  sacp_hmi_message_t msg;
-  msg.attr = (SACP_MESSAGE_ATTR_SET_VER | SACP_MESSAGE_ATTR_SET_SEQ);
-  msg.ch = SACP_HMI_CH_CAMERA;
-  msg.cmd_set = M_UPDATE_MOUDLE;
-  msg.cmd_id = ESP32_UPDATE_OPCODE_END_NOTIFY;
-  msg.peer = SACP_HOST_ID_ESP32;
-  msg.ver = SACP_VER_0;
-  msg.length = 0;
-  msg.data = NULL;
-  if ((ret = host_hmi.send(&msg)) != E_SUCCESS) {
-    LOG_E("[%s] failed to send upgrade start, ret[%u]\n", __FUNCTION__, ret);
-  }
-  return ret;
-}
-
-
-err_code_t esp32_camera_upgrade_start_ack_cb(void *obj, sacp_hmi_message_t *msg) {
-  err_code_t ret = E_FAILURE;
-  LOG_I("[%s]\n",__FUNCTION__);
-  // SystemStatus sys_sta = smprinter.get_sys_status();
-  // if (sys_sta != SYSTEM_STATUS_UPGRADE_CAMERA) {
-  //   ret = E_INVALID_STATE;
-  //   LOG_E("[%s] invalid system status, cannot start upgrade, sys_sta:%d\n",__FUNCTION__, sys_sta);
-  // }
-  // else {
-  //   // TODO: send can start upgrade
-  //   //Send an upgrade request to the workflow and initialise send_pack_index if the request is successful
-  //   if (/**/) {
-        
-  //   }
-  //   ret = E_SUCCESS;
-  // }
-  return ret;
-}
-
-err_code_t esp32_camera_get_package_ack_cb(void *obj, sacp_hmi_message_t *msg) {
-  err_code_t ret = E_FAILURE;
-  uint16_t get_pack_index = 0;
-  bool index_err = true;
-  if (!msg || !obj || msg->length != 2) {
-    LOG_E("[%s] got a invalid parameter\n",__FUNCTION__);
-    return E_PARAM;
-  }
-
-  get_pack_index = msg->data[0] << 8 | msg->data[1];
-  LOG_I("[%s] get_pack_index: %d\n",__FUNCTION__, get_pack_index);
-  if (send_pack_index == ESP32_FW_PACK_INDEX_INVALID) {
-    if (get_pack_index != 0)
-      index_err= false;
-  }
-  else {
-    if (get_pack_index != send_pack_index + 1) {
-      index_err = false;
-    }
-  }
-
-  if (!index_err) {
-    LOG_E("[%s] mismatched package index, get_pack_index:%d send_pack_index:%d\n",\
-             __FUNCTION__, get_pack_index, send_pack_index);
-  }
-  else {
-    // TODO: request package data 
-    //  offset = ESP32_FW_PACK_MAX_LEN * get_pack_index
-    send_pack_index = get_pack_index;
-  }
-  return ret;
-}
-
-err_code_t esp32_camera_updgrade_end_cb(void *obj, sacp_hmi_message_t *msg) {
-  err_code_t ret = E_FAILURE;
-  LOG_I("[%s]\n",__FUNCTION__);
-  // SystemStatus sys_sta = smprinter.get_sys_status();
-  // if (sys_sta != SYSTEM_STATUS_UPGRADE_CAMERA) {
-  //   ret = E_INVALID_STATE;
-  //   LOG_E("[%s] invalid system status, cannot request, sys_sta:%d\n",__FUNCTION__, sys_sta);
-  // }
-  // else {
-  //   // TODO: send can upgrade end
-  //   // if (/**/) {
-        
-  //   // }
-  //   ret = E_SUCCESS;
-  // }
-  return ret;
-}
-
-err_code_t esp32_camera_upgrade_fail_notify_cb(void *obj, sacp_hmi_message_t *msg) {
-  LOG_I("[%s]\n",__FUNCTION__);
-  err_code_t ret = E_FAILURE;
-  // TODO: send esp32 upgrade fail notifi  
-  return ret;
 }
 
 err_code_t ToolHeadLaser::register_esp32_upgrade_callbake(void) {

@@ -21,12 +21,7 @@
 #include "upgrade_module.h"
 #include "upgrade_service.h"
 #include "../../snapmaker.h"
-
-
-static err_code_t module_call_start_ack(uint8_t);
-static err_code_t module_call_trans_req(uint32_t req_offset, uint32_t len);
-static err_code_t module_call_end_ack(uint8_t);
-static err_code_t module_call_notify_ack(uint8_t);
+#include "../../module/toolhead_laser.h"
 
 UpgradeModuleInfo upgrade_module_info_tab[] = {
   
@@ -35,15 +30,16 @@ UpgradeModuleInfo upgrade_module_info_tab[] = {
     0,                                                    /* start id    */
     0,                                                    /* end id      */
     NULL,
+    NULL,
     {
+      esp32_camera_upgrade_start, 
+      module_call_start_ack, 
+      module_call_trans_req, 
+      esp32_camera_upgrade_trans, 
+      esp32_camera_upgrade_end, 
+      module_call_end_ack, 
+      module_call_notify_req
       NULL, 
-      NULL, 
-      NULL, 
-      NULL, 
-      NULL, 
-      NULL, 
-      NULL, 
-      NULL
     }
   },
 
@@ -52,30 +48,31 @@ UpgradeModuleInfo upgrade_module_info_tab[] = {
     0,                                                    /* start id    */
     13,                                                   /* end id      */
     NULL,
+    NULL,
     {
       NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL
     }
   },
 };
 
-err_code_t module_call_start_ack(uint8_t) {
+err_code_t module_call_start_ack(uint8_t ret) {
   FUN_LOG();
-  return E_SUCCESS;
+  return ugr_mdl_svc.module_call_start_ack(ret);
 }
 
 err_code_t module_call_trans_req(uint32_t req_offset, uint32_t len) {
   FUN_LOG();
-  return E_SUCCESS;
+  return ugr_mdl_svc.module_call_trans_req(req_offset, len);
 }
 
-err_code_t module_call_end_ack(uint8_t) {
+err_code_t module_call_end_ack(uint8_t ret) {
   FUN_LOG();
-  return E_SUCCESS;
+  return ugr_mdl_svc.module_call_end_ack(ret);
 }
 
-err_code_t module_call_notify_ack(uint8_t) {
+err_code_t module_call_notify_req(uint8_t ret) {
   FUN_LOG();
-  return E_SUCCESS;
+  return ugr_mdl_svc.module_call_notify_req(ret);
 }
 
 err_code_t UpgradeModuleService::init(UpdateService *s) {
@@ -90,34 +87,68 @@ void UpgradeModuleService::loop(void) {
     break;
 
     case UPGRADE_MODULE_STATUS_START:
-      req_trans_data();
-      status = UPGRADE_MODULE_STATUS_TRANS;
+      if (UPGRADE_MODULE_BY_CONTROLLER == ugr_type) {
+        req_trans_data(offset, UPGRADE_TRANS_BUF_SIZE);
+        status = UPGRADE_MODULE_STATUS_TRANS;
+      }
+      else {
+        if (time_after(millis(), last_start_req_ms + 500)) {
+          if (start_req_try < 10) {
+            start_req_try++;
+          }
+          else {
+            LOG_E("upgrade_module: upgrade start request timeout, return to upgrade init\r\n");
+            reset_to_idle();
+          }
+        }
+      }
     break;
 
     case UPGRADE_MODULE_STATUS_TRANS:
-      if (!trans_req_try || time_after(millis(), last_trans_req_ms + 500)) {
-        if(trans_req_try) LOG_I("TIMEOUT \r\n");
-        if (trans_req_try < 10) {
-          req_trans_data();
+      if (UPGRADE_MODULE_BY_CONTROLLER == ugr_type) {
+        if (!trans_req_try || time_after(millis(), last_trans_req_ms + 500)) {
+          if (trans_req_try < 10) {
+            req_trans_data(offset, UPGRADE_TRANS_BUF_SIZE);
+          }
+          else {
+            LOG_E("upgrade_module: upgrade trans timeout, return to upgrade init\r\n");
+            reset_to_idle();
+          }
         }
-        else {
-          LOG_E("upgrade_module: upgrade trans error, return to upgrade init\r\n");
-          status = UPGRADE_MODULE_STATUS_IDLE;
-          smprinter.set_sys_status(SYSTEM_STATUS_IDLE, NULL);
+      }
+      else {
+        if (time_after(millis(), last_trans_req_ms + 500)) {
+          if (trans_req_try < 10) {
+            trans_req_try++;
+          }
+          else {
+            LOG_E("upgrade_module: upgrade trans timeout, return to upgrade init\r\n");
+            reset_to_idle();
+          }
         }
       }
     break;
 
     case UPGRADE_MODULE_STATUS_END:
-      if (UPGRADE_MODULE_BY_CONTROLLER == ugr_type) {
         if (time_after(millis(), last_end_req_ms + 500)) {
           if (end_req_try < 10) {
-            notify_end();
+            // UPGRADE_MODULE_BY_HOST and UPGRADE_MODULE_BY_CONTROLLER
+            notify_end(end_ret);
           }
           else {
             LOG_E("upgrade_module: upgrade end error, return to upgrade init\r\n");
-            status = UPGRADE_MODULE_STATUS_IDLE;
-            smprinter.set_sys_status(SYSTEM_STATUS_IDLE, NULL);
+            reset_to_idle();
+          }
+        }
+
+      if (UPGRADE_MODULE_BY_CONTROLLER == ugr_type) {
+        if (time_after(millis(), last_end_req_ms + 500)) {
+          if (end_req_try < 10) {
+            notify_end(end_ret);
+          }
+          else {
+            LOG_E("upgrade_module: upgrade end error, return to upgrade init\r\n");
+            reset_to_idle();
           }
         }
       }
@@ -133,13 +164,21 @@ void UpgradeModuleService::loop(void) {
   }
 }
 
+void UpgradeModuleService::reset_to_idle(void) {
+  if (module_upgrade_info) {
+    module_upgrade_info->handle.module_deinit();
+  }
+  status = UPGRADE_MODULE_STATUS_IDLE;
+  ugr_svc->set_updgrade_phase(UPGRADE_PHASE_INIT);
+  smprinter.set_sys_status(SYSTEM_STATUS_IDLE, NULL);
+}
+
 err_code_t UpgradeModuleService::start_proc(pack_info_t *bti, sacp_hmi_message_t *msg) {
 
   if (UPGRADE_MODULE_STATUS_IDLE != status) {
     LOG_E("upgrade_module: can not start a upgrade as current is not in IDLE status\r\n");
     return ugr_svc->upgrade_start_ack(msg, E_FAILURE);
   }
-  // ugr_svc->print_boot_info();
 
   ugr_type = module_upgrade_type(bti);
   if (UPGRADE_MODULE_BY_CONTROLLER == ugr_type) {
@@ -149,46 +188,47 @@ err_code_t UpgradeModuleService::start_proc(pack_info_t *bti, sacp_hmi_message_t
         return ugr_svc->upgrade_start_ack(msg, E_FAILURE);
       }
     }
-
-    if (E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_MODULE_UPGRADE, NULL)) {
-      LOG_E("upgrade_module: can not enter module upgrade status\r\n");
-      return ugr_svc->upgrade_start_ack(msg, E_FAILURE);
-    }
-
-    host_id = msg->peer;
-    host_ch = msg->ch;
-    offset = 0;
-    fw_lenght = bti->fw_lenght;
-    checksum = bti->fw_checksum;
-    ugr_svc->set_updgrade_phase(UPGRADE_PHASE_HOST_TO_CONTROLLER);
-    status = UPGRADE_MODULE_STATUS_START;
-    ugr_svc->upgrade_start_ack(msg, E_SUCCESS);
   }
   else {
-    // transparent to module
-    // 1) get the module handle and the transport function list
-    module_handls = get_module_upgrade_handls((UpdatePackType)bti->pack_type, bti->start_index);
-    if (!module_handls) {
+    module_upgrade_info = get_module_upgrade_handls((UpdatePackType)bti->pack_type, bti->start_index);
+    if (!module_upgrade_info) {
       LOG_E("upgrade_module: unsupported pack %d with id %d\r\n", bti->pack_type, bti->start_index);
       return ugr_svc->upgrade_start_ack(msg, E_FAILURE);
     }
 
-    if (E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_MODULE_UPGRADE, NULL)) {
-      LOG_E("upgrade_module: can not enter module upgrade status\r\n");
+    if (E_SUCCESS != module_upgrade_info->module_init(&(module_upgrade_info->handle))) {
+      LOG_E("upgrade_module: module upgrade init error\r\n");
       return ugr_svc->upgrade_start_ack(msg, E_FAILURE);
     }
+  }
 
-    ugr_svc->set_updgrade_phase(UPGRADE_HOST_TO_MODULE);
-    status = UPGRADE_MODULE_STATUS_START;
+  if (E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_MODULE_UPGRADE, NULL)) {
+    LOG_E("upgrade_module: can not enter module upgrade status\r\n");
+    reset_to_idle();
+    return ugr_svc->upgrade_start_ack(msg, E_FAILURE);
+  }
 
-    module_handls->start_req(bti);
+  host_id = msg->peer;
+  host_ch = msg->ch;
+  offset = 0;
+  fw_lenght = bti->fw_lenght;
+  checksum = bti->fw_checksum;
+  status = UPGRADE_MODULE_STATUS_START;
+  if (UPGRADE_MODULE_BY_CONTROLLER == ugr_type) {
+    ugr_svc->set_updgrade_phase(UPGRADE_PHASE_HOST_TO_CONTROLLER);
+    ugr_svc->upgrade_start_ack(msg, E_SUCCESS);
+  }
+  else {
+    ugr_svc->set_updgrade_phase(UPGRADE_PHASE_HOST_TO_MODULE);
+    module_upgrade_info->handle.start_req(bti);
+    last_start_req_ms = millis();
+    start_req_try = 0;
   }
 
   return E_SUCCESS;
 }
 
 err_code_t UpgradeModuleService::trans_proc(pack_info_t *pack_info_t, sacp_hmi_message_t *msg) {
-  uint8_t ret;
   uint32_t rx_offset;
   uint16_t rx_pack_len;
 
@@ -202,30 +242,34 @@ err_code_t UpgradeModuleService::trans_proc(pack_info_t *pack_info_t, sacp_hmi_m
     return ugr_svc->upgrade_notify(msg, E_FAILURE);
   }
 
-  ret = msg->data[0];
-  rx_offset = LITTLE_STREAM_TO_32(msg->data+1);
-  rx_pack_len = LITTLE_STREAM_TO_16(msg->data+5);
-
-  if (E_SUCCESS != ret) {
+  if (E_SUCCESS != msg->data[0]) {
     LOG_E("upgrade_module: trans return error\r\n");
     return ugr_svc->upgrade_notify(msg, E_FAILURE);
   }
-  LOG_I("rx offset %d, pack_len %d\r\n", rx_offset, rx_pack_len);
 
-  if (offset != rx_offset) {
-    LOG_E("upgrade_module: offset not match\r\n");
-    return ugr_svc->upgrade_notify(msg, E_FAILURE);
-  }
-
+  rx_offset = LITTLE_STREAM_TO_32(msg->data+1);
+  rx_pack_len = LITTLE_STREAM_TO_16(msg->data+5);
   configASSERT(rx_pack_len <= UPGRADE_TRANS_BUF_SIZE);
-  offset += flash_write(module_fw_partition, msg->data + 7, rx_pack_len);
-  // offset += rx_pack_len;
-  // reset this actully new data income
-  if (rx_pack_len) {
-    trans_req_try = 0;
+  LOG_I(">>> offset %d, pack_len %d\r\n", rx_offset, rx_pack_len);
+
+  if (UPGRADE_MODULE_BY_CONTROLLER == ugr_type) {
+    if (offset != rx_offset) {
+      LOG_E("upgrade_module: offset not match\r\n");
+      return ugr_svc->upgrade_notify(msg, E_FAILURE);
+    }
+
+    offset += flash_write(module_fw_partition, msg->data + 7, rx_pack_len);
+    if (rx_pack_len) {
+      trans_req_try = 0;
+    }
+  }
+  else {
+    configASSERT(module_upgrade_info);
+    if(E_SUCCESS == module_upgrade_info->handle.trans_ack(rx_offset, msg->data + 7, rx_pack_len)) {
+      offset += rx_pack_len;
+    }
   }
   
-
   if (offset >= fw_lenght) {
     LOG_I("upgrade_module: RX ALL DATA\r\n");
     if (UPGRADE_MODULE_BY_CONTROLLER == ugr_type) {
@@ -236,6 +280,10 @@ err_code_t UpgradeModuleService::trans_proc(pack_info_t *pack_info_t, sacp_hmi_m
         end_ret = E_FAILURE;
         LOG_E("upgrade_moduel: module firmware checksum failure in flash\r\n");
       }
+    }
+    else {
+      configASSERT(module_upgrade_info);
+      module_upgrade_info->handle.end_req(E_SUCCESS);
     }
     status = UPGRADE_MODULE_STATUS_END;
   }
@@ -250,15 +298,72 @@ err_code_t UpgradeModuleService::end_proc(pack_info_t *pack_info_t, sacp_hmi_mes
     return ugr_svc->upgrade_notify(msg, E_FAILURE);
   }
 
-  if (msg->length && E_SUCCESS == msg->data[0]) {
-    status = UPGRADE_MODULE_STATUS_IDLE;
-    smprinter.set_sys_status(SYSTEM_STATUS_IDLE, NULL);
+  if (!msg->length || E_SUCCESS != msg->data[0]) {
+    return E_SUCCESS;
   }
 
+  if (UPGRADE_MODULE_BY_HOST == ugr_type) {
+    if (module_upgrade_info) {
+      module_upgrade_info->handle.end_req(E_SUCCESS);
+    }
+  }
+
+  reset_to_idle();
   return E_SUCCESS;
 }
 
-void UpgradeModuleService::req_trans_data(void) {
+err_code_t UpgradeModuleService::module_call_start_ack(uint8_t ret) {
+  if (!module_upgrade_info) {
+    return E_FAILURE;
+  }
+
+  uint8_t data[4];
+  sacp_hmi_message_t msg;
+  msg.ver = SACP_VER_1;
+  msg.peer = host_id;
+  msg.ch = host_ch;
+  msg.attr = 0;
+  msg.cmd_set = CMD_SET_UPGRADE;
+  msg.cmd_id = CMD_ID_UPGRADE_START;
+  msg.data = data;
+  msg.data[0] = ret;
+  msg.length = 1;
+  return ugr_svc->upgrade_start_ack(&msg, ret);
+}
+
+err_code_t UpgradeModuleService::module_call_trans_req(uint32_t req_offset, uint32_t len) {
+  if (!module_upgrade_info) {
+    return E_FAILURE;
+  }
+
+  if (UPGRADE_MODULE_STATUS_START == status) {
+    status = UPGRADE_MODULE_STATUS_TRANS;
+  }
+
+  trans_req_try = 0;
+  req_trans_data(req_offset, len);
+  return E_SUCCESS;
+}
+
+err_code_t UpgradeModuleService::module_call_end_ack(uint8_t ret) {
+  if (!module_upgrade_info) {
+    return E_FAILURE;
+  }
+
+  notify_end(ret);
+  return E_SUCCESS;
+}
+
+err_code_t UpgradeModuleService::module_call_notify_req(uint8_t ret) {
+  if (!module_upgrade_info) {
+    return E_FAILURE;
+  }
+
+  notify_error(ret);
+  return E_SUCCESS;
+}
+
+void UpgradeModuleService::req_trans_data(uint32_t offset, uint16_t len) {
   uint32_t index = 0;
   sacp_hmi_message_t tx_msg;
   uint8_t send_frame[16];
@@ -272,20 +377,19 @@ void UpgradeModuleService::req_trans_data(void) {
   tx_msg.data = send_frame;
   _32_TO_LITTLE_STREAM(offset, tx_msg.data + index);
   index += 4;
-  _16_TO_LITTLE_STREAM(UPGRADE_TRANS_BUF_SIZE, tx_msg.data + index);
+  _16_TO_LITTLE_STREAM(len, tx_msg.data + index);
   index += 2;
   tx_msg.length = index;
-  LOG_I("%dms upgrade_module: trans_req offset %d, buffer %d\r\n", millis(), offset, UPGRADE_TRANS_BUF_SIZE);
+  LOG_I("%dms upgrade_module: trans_req offset %d, buffer %d\r\n", millis(), offset, len);
   host_hmi.send(&tx_msg);
 
   last_trans_req_ms = millis();
   trans_req_try++;
 }
 
-void UpgradeModuleService::notify_end(void) {
-  uint32_t index = 0;
+void UpgradeModuleService::notify_end(uint8_t ret) {
   sacp_hmi_message_t tx_msg;
-  uint8_t send_frame[16];
+  uint8_t send_frame[4];
 
   tx_msg.ver = SACP_VER_1;
   tx_msg.peer = host_id;
@@ -294,13 +398,30 @@ void UpgradeModuleService::notify_end(void) {
   tx_msg.cmd_set = CMD_SET_UPGRADE;
   tx_msg.cmd_id = CMD_ID_UPGRADE_END;
   tx_msg.data = send_frame;
-  tx_msg.data[0] = end_ret;
+  tx_msg.data[0] = ret;
   tx_msg.length = 1;
   host_hmi.send(&tx_msg);
-  LOG_I("%dms upgrade_module: end_req, ret %d\r\n", millis(), end_ret);
+  LOG_I("%dms upgrade_module: end_req, ret %d\r\n", millis(), ret);
 
   last_end_req_ms = millis();
   end_req_try++;
+}
+
+void UpgradeModuleService::notify_error(uint8_t ret) {
+  sacp_hmi_message_t tx_msg;
+  uint8_t send_frame[4];
+
+  tx_msg.ver = SACP_VER_1;
+  tx_msg.peer = host_id;
+  tx_msg.ch = host_ch;
+  tx_msg.attr = 0;
+  tx_msg.cmd_set = CMD_SET_UPGRADE;
+  tx_msg.cmd_id = CMD_ID_UPGRADE_NOTIFY;
+  tx_msg.data = send_frame;
+  tx_msg.data[0] = ret;
+  tx_msg.length = 1;
+  host_hmi.send(&tx_msg);
+  LOG_I("%dms upgrade_module: notify %d\r\n", millis(), ret);
 }
 
 bool UpgradeModuleService::firmware_flash_checksum(uint32_t rx_checsum, uint32_t flash_addr, uint32_t len) {
@@ -328,19 +449,19 @@ ModuleUpgradeType UpgradeModuleService::module_upgrade_type(pack_info_t *pack_in
 
 }
 
-UpgradeModuleHandle *UpgradeModuleService::get_module_upgrade_handls(UpdatePackType pack_type, uint16_t id) {
+UpgradeModuleInfo *UpgradeModuleService::get_module_upgrade_handls(UpdatePackType pack_type, uint16_t id) {
   for (uint32_t i = 0; i < TAB_SIZE(upgrade_module_info_tab, UpgradeModuleInfo); i++) {
 
     if (pack_type != upgrade_module_info_tab[i].pack_type)
       continue;
 
     if (ESP32_FW == pack_type) {
-      return &(upgrade_module_info_tab[i].handls);
+      return &(upgrade_module_info_tab[i]);
     }
     else if (SM2_MODULE_FW == pack_type) {
       if (upgrade_module_info_tab[i].start_id <= id && 
           id <= upgrade_module_info_tab[i].end_id) {
-        return &(upgrade_module_info_tab[i].handls);
+        return &(upgrade_module_info_tab[i]);
       }
     }
 

@@ -69,14 +69,16 @@ typedef struct {
   ugr_module_notify_ack notify_ack;
 } UpgradeModuleHandle;
 
-typedef void (*moudle_handl_init)(UpgradeModuleHandle *);
+typedef err_code_t (*moudle_handle_init)(UpgradeModuleHandle *);
+typedef void (*moudle_handle_deinit)(void);
 
 typedef struct {
   UpdatePackType pack_type;
   uint16_t start_id;
   uint16_t end_id;
-  moudle_handl_init module_init; 
-  UpgradeModuleHandle handls;
+  moudle_handle_init module_init;
+  moudle_handle_deinit module_deinit;
+  UpgradeModuleHandle handle;
 } UpgradeModuleInfo;
 
 class UpdateService;
@@ -88,25 +90,31 @@ class UpdateService;
 err_code_t module_call_start_ack(uint8_t);
 err_code_t module_call_trans_req(uint32_t req_offset, uint32_t len);
 err_code_t module_call_end_ack(uint8_t);
-err_code_t module_call_notify_ack(uint8_t);
-
+err_code_t module_call_notify_req(uint8_t);
 
 class UpgradeModuleService {
   public:
     UpgradeModuleService(){};
     err_code_t init(UpdateService *s);
     void loop(void);
+    void reset_to_idle(void);
     
     err_code_t start_proc(pack_info_t *pack_info_t, sacp_hmi_message_t *msg);
     err_code_t trans_proc(pack_info_t *pack_info_t, sacp_hmi_message_t *msg);
     err_code_t end_proc(pack_info_t *pack_info_t, sacp_hmi_message_t *msg);
 
+    err_code_t module_call_start_ack(uint8_t);
+    err_code_t module_call_trans_req(uint32_t req_offset, uint32_t len);
+    err_code_t module_call_end_ack(uint8_t);
+    err_code_t module_call_notify_req(uint8_t);
+
     ModuleUpgradeType module_upgrade_type(pack_info_t *pack_info_t);
-    UpgradeModuleHandle *get_module_upgrade_handls(UpdatePackType pack_type, uint16_t id);
+    UpgradeModuleInfo *get_module_upgrade_handls(UpdatePackType pack_type, uint16_t id);
 
   private:
-    void req_trans_data(void);
-    void notify_end(void);
+    void req_trans_data(uint32_t offset, uint16_t len);
+    void notify_end(uint8_t ret);
+    void notify_error(uint8_t ret);
     bool firmware_flash_checksum(uint32_t rx_checsum, uint32_t flash_addr, uint32_t len);
 
     ModuleUpgradeStatus status;
@@ -120,6 +128,9 @@ class UpgradeModuleService {
     uint32_t fw_lenght;
     uint32_t checksum;
 
+    uint32_t last_start_req_ms;
+    uint32_t start_req_try;
+
     uint32_t last_trans_req_ms;
     uint32_t trans_req_try;
 
@@ -127,7 +138,7 @@ class UpgradeModuleService {
     uint32_t end_req_try;
     uint8_t end_ret;
 
-    UpgradeModuleHandle *module_handls;
+    UpgradeModuleInfo *module_upgrade_info;
 };
 
 extern UpgradeModuleService ugr_mdl_svc;

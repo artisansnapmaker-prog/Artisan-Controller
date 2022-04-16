@@ -155,18 +155,12 @@ err_code_t HostSACPHMI::register_callback(uint8_t cmd_set, uint8_t cmd_id, void 
 
   handle = cmd_set_handle[cmd_set];
   for (; i < cmd_set_handle_len[cmd_set]; i++) {
+    if (handle[i].cmd_id == SACP_V1_CMD_ID_INVALID) {
+      break;
+    }
     if (handle[i].cmd_id == cmd_id) {
       LOG_W("will overwirte handle of [%x:%x]\n", cmd_set, cmd_id);
       break;
-    }
-
-    if (attr & SACP_CB_ATTR_ACK) {
-      if (handle[i].ack_cb == NULL)
-        break;
-    }
-    else {
-      if (handle[i].req_cb == NULL)
-        break;
     }
   }
 
@@ -968,8 +962,9 @@ void HostSACPHMI::handle_events() {
 
   length = xMessageBufferReceive(event_queue, buffer, SACP_V1_PDU_MAX_SIZE, 0);
 
-  if (!length)
+  if (!length) {
     return;
+  }
 
   if (length < (SACP_V1_PDU_MIN_SIZE - 2)) {
     LOG_E("invalid message, len[%u]\n", length);

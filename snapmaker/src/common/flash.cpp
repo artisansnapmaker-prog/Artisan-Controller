@@ -110,17 +110,20 @@ bool flash_erase(flash_partition_t &flash_partition) {
   FLASH_EraseInitTypeDef erase_config;
   uint32_t page_error;
   
+  erase_config.TypeErase = FLASH_TYPEERASE_SECTORS;
   if (!flash_addr_to_sector_number( flash_partition.start_addr, flash_partition.size, 
                                     erase_config.Sector, erase_config.NbSectors))
     return false;
 
   HAL_FLASH_Unlock();
+  __HAL_FLASH_CLEAR_FLAG(FLASH_FLAG_OPERR | FLASH_FLAG_WRPERR | FLASH_FLAG_PGAERR | FLASH_FLAG_PGPERR | FLASH_FLAG_PGSERR);
   if (HAL_OK != HAL_FLASHEx_Erase(&erase_config, &page_error)) {
     ret = false;
   }
   if (0xFFFFFFFF != page_error) {
     ret = false;
   }
+  __HAL_FLASH_CLEAR_FLAG(FLASH_FLAG_OPERR | FLASH_FLAG_WRPERR | FLASH_FLAG_PGAERR | FLASH_FLAG_PGPERR | FLASH_FLAG_PGSERR);
   FLASH_WaitForLastOperation(HAL_MAX_DELAY);
   HAL_FLASH_Lock();
 
@@ -152,6 +155,7 @@ uint32_t flash_write(flash_partition_t &flash_partition, uint8_t *data, uint32_t
   need_to_write_len = MIN(flash_free_size, len);
   
   HAL_FLASH_Unlock();
+  __HAL_FLASH_CLEAR_FLAG(FLASH_FLAG_OPERR | FLASH_FLAG_WRPERR | FLASH_FLAG_PGAERR | FLASH_FLAG_PGPERR | FLASH_FLAG_PGSERR);
   // Write the not aligned data
   uint8_t *_8_data = data;
   // uint32_t _not_aligned_write_len = ROUNDUP(uint32_t(flash_partition.write_addr), 4) - (uint32_t)flash_partition.write_addr;
@@ -192,6 +196,8 @@ uint32_t flash_write(flash_partition_t &flash_partition, uint8_t *data, uint32_t
   //     _8_data++;
   //   }
   // }
+  __HAL_FLASH_CLEAR_FLAG(FLASH_FLAG_OPERR | FLASH_FLAG_WRPERR | FLASH_FLAG_PGAERR | FLASH_FLAG_PGPERR | FLASH_FLAG_PGSERR);
+  FLASH_WaitForLastOperation(HAL_MAX_DELAY);
   HAL_FLASH_Lock();
 
   return have_write_len;

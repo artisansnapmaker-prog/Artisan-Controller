@@ -30,50 +30,24 @@ UpdateService upgrade_svc;
 err_code_t UpdateService::init(void) {
   err_code_t ret;
 
-  status = UPGRADE_INIT;
+  phase = UPGRADE_PHASE_INIT;
+  seq = 0;
 
   ret = E_SUCCESS;
-  ret |= host_hmi.apply_cmd_set_handle(CMD_SET_UPGRADE, 1);
+  ret |= host_hmi.apply_cmd_set_handle(CMD_SET_UPGRADE, 3);
   ret |= host_hmi.register_callback(CMD_SET_UPGRADE, CMD_ID_UPGRADE_START, this, sacp_upgrade_start);
+  ret |= host_hmi.register_callback(CMD_SET_UPGRADE, CMD_ID_UPGRADE_TRANS, this, sacp_upgrade_trans, SACP_CB_ATTR_ACK);
+  ret |= host_hmi.register_callback(CMD_SET_UPGRADE, CMD_ID_UPGRADE_END, this, sacp_upgrade_end, SACP_CB_ATTR_ACK);
+
   ret |= ctrl_ugr.init(this);
   ret |= module_ugr.init(this);
 
-  mark_boot_info();
   return ret;
 }
 
-void UpdateService::mark_boot_info(void) {
-  // Change application's update flag in boot data
-  load_boot_info(&boot_info);
-  if (boot_info_check(&boot_info)) {
-    if (UPGRADE_STATE_JUMP_SUCCESS != boot_info.upgrade_state) {
-    boot_info.upgrade_state = UPGRADE_STATE_JUMP_SUCCESS;
-      if (!boot_info_flush_to_flash()) {
-        if (!boot_info_flush_to_flash()) {
-          LOG_E("upgrade: can not write boot info to flash\r\n");
-        }
-      }
-    }
-  }
-  else {
-    LOG_E("upgrade: boot info check failure\r\n");
-  }
-
-  return;
-}
-
 void UpdateService::loop(void) {
-  // LOG_I("upgrade loop\r\n");
-  switch(status) {
-    case UPGRADE_INIT:
-    break;
-
-    case UPGRADE_CONTROLLER_TO_MODULE:
-    break;
-
-    case UPGRADE_HOST_TO_CONTROLLER:
-    break;
-  }
+  ctrl_ugr.loop();
+  module_ugr.loop();
 }
 
 err_code_t UpdateService::sacp_upgrade_start(void *obj, sacp_hmi_message_t *msg) {
@@ -82,16 +56,27 @@ err_code_t UpdateService::sacp_upgrade_start(void *obj, sacp_hmi_message_t *msg)
   UpdateService &upgrade = *(UpdateService *)obj;
   boot_info_t *bti = (boot_info_t *)msg->data;
 
+  if (UPGRADE_PHASE_INIT != upgrade.phase) {
+    LOG_E("ugr_svc: can not start a upgrade as not in INIT phase\r\n");
+    return upgrade.upgrade_start_ack(msg, E_FAILURE);
+  }
+
   if (!boot_info_check(bti)) {
     LOG_E("boot info checksum failure\r\n");
     return upgrade.upgrade_start_ack(msg, E_FAILURE);
   }
 
   if (A400_CONTROLLER_FW == bti->pack_type) {
-    return upgrade.ctrl_ugr.proc(bti, msg);
+    return upgrade.ctrl_ugr.start_proc(bti, msg);
+  }
+  else if (SM2_MODULE_FW == bti->pack_type ||
+            ESP32_FW == bti->pack_type
+  ){
+    return upgrade.module_ugr.start_proc(bti, msg);
   }
   else {
-    // upgrade.module_upgrade_type = upgrade.packet_upgrade_type(bti);
+    LOG_E("upgrade_service: unsupported packet type\r\n");
+    return upgrade.upgrade_start_ack(msg, E_FAILURE);
   }
   
   #if 0
@@ -134,19 +119,39 @@ err_code_t UpdateService::sacp_upgrade_start(void *obj, sacp_hmi_message_t *msg)
     return upgrade.upgrade_start_ack(msg, E_FAILURE);
   }
   #endif
+}
 
-  return E_SUCCESS;
+err_code_t UpdateService::sacp_upgrade_trans(void *obj, sacp_hmi_message_t *msg) {
+  LOG_I("sacp_upgrade_trans\r\n");
+
+  // Always module upgrade
+  UpdateService &upgrade = *(UpdateService *)obj;
+  return upgrade.module_ugr.trans_proc(&(upgrade.boot_info), msg);
+}
+
+err_code_t UpdateService::sacp_upgrade_end(void *obj, sacp_hmi_message_t *msg) {
+  LOG_I("sacp_upgrade_end\r\n");
+
+  // Always module upgrade
+  UpdateService &upgrade = *(UpdateService *)obj;
+  return upgrade.module_ugr.end_proc(&(upgrade.boot_info), msg);
 }
 
 err_code_t UpdateService::upgrade_start_ack(sacp_hmi_message_t *msg, err_code_t ret) {
+  return host_hmi.send_ack(msg, ret);
+}
 
+err_code_t UpdateService::upgrade_notify(sacp_hmi_message_t *msg, err_code_t ret) {
   uint8_t send_buf[8];
 
-  send_buf[0] = ret;
+  msg->attr = 0;
+  msg->seq = seq++;
+  msg->cmd_id = CMD_SET_UPGRADE;
+  msg->cmd_id = CMD_ID_UPGRADE_NOTIFY;
   msg->data = send_buf;
+  msg->data[0] = ret;
   msg->length = 1;
-  host_hmi.send_ack(msg);
-  return E_SUCCESS;
+  return host_hmi.send(msg);
 }
 
 bool UpdateService::boot_info_flush_to_flash() {
@@ -185,6 +190,14 @@ void UpdateService::print_boot_info(void) {
   LOG_I("peer: %d\r\n", boot_info.peer);
   LOG_I("link_ch: %d\r\n", boot_info.link_ch);
   LOG_I("boot data checksum: 0x%08x", boot_info.boot_data_checksum);
+}
+
+uint32_t UpdateService::get_seq(void) {
+  return seq++;
+}
+
+void UpdateService::set_updgrade_phase(UpgradePhase p) {
+  phase = p;
 }
 
 void UpdateService::host_to_controller_loop(void) {

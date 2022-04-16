@@ -34,9 +34,18 @@
 #include "../../boot/boot.h"
 
 
+#define UPGRADE_TRANS_BUF_SIZE                (SACP_PDU_MAX_SIZE - 64)
+
 enum ModuleUpgradeType {
   UPGRADE_MODULE_BY_CONTROLLER = 0,
   UPGRADE_MODULE_BY_HOST,
+};
+
+enum ModuleUpgradeStatus {
+  UPGRADE_MODULE_STATUS_IDLE = 0,
+  UPGRADE_MODULE_STATUS_START,
+  UPGRADE_MODULE_STATUS_TRANS,
+  UPGRADE_MODULE_STATUS_END,
 };
 
 class UpdateService;
@@ -49,12 +58,36 @@ class UpgradeModuleService {
   public:
     UpgradeModuleService(){};
     err_code_t init(UpdateService *s);
-    err_code_t proc(boot_info_t *boot_info, sacp_hmi_message_t *msg);
+    void loop(void);
+    
+    err_code_t start_proc(boot_info_t *boot_info, sacp_hmi_message_t *msg);
+    err_code_t trans_proc(boot_info_t *boot_info, sacp_hmi_message_t *msg);
+    err_code_t end_proc(boot_info_t *boot_info, sacp_hmi_message_t *msg);
+
     ModuleUpgradeType packet_upgrade_type(boot_info_t *boot_info);
 
   private:
+    void req_trans_data(void);
+    void notify_end(void);
+    bool firmware_flash_checksum(uint32_t rx_checsum, uint32_t flash_addr, uint32_t len);
+
+    ModuleUpgradeStatus status;
     UpdateService *ugr_svc;
     ModuleUpgradeType ugr_type;
+
+    uint32_t host_id;
+    uint32_t host_ch;
+    
+    uint32_t offset;
+    uint32_t fw_lenght;
+    uint32_t checksum;
+
+    uint32_t last_trans_req_ms;
+    uint32_t trans_req_try;
+
+    uint32_t last_end_req_ms;
+    uint32_t end_req_try;
+    uint8_t end_ret;
 };
 
 

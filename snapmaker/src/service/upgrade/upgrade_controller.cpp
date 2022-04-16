@@ -20,14 +20,41 @@
  */
 
 #include "upgrade_controller.h"
+#include "../../boot/boot.h"
 #include "upgrade_service.h"
 
 err_code_t UpgradeCtrlService::init(UpdateService *s) {
   ugr_svc = s;
+  mark_boot_info();
   return E_SUCCESS;
 }
 
-err_code_t UpgradeCtrlService::proc(boot_info_t *boot_info, sacp_hmi_message_t *msg) {
+void UpgradeCtrlService::mark_boot_info(void) {
+  boot_info_t boot_info;
+  // Change application's update flag in boot data
+  load_boot_info(&boot_info);
+  if (boot_info_check(&boot_info)) {
+    if (UPGRADE_STATE_JUMP_SUCCESS != boot_info.upgrade_state) {
+    boot_info.upgrade_state = UPGRADE_STATE_JUMP_SUCCESS;
+      if (!ugr_svc->boot_info_flush_to_flash()) {
+        if (!ugr_svc->boot_info_flush_to_flash()) {
+          LOG_E("upgrade: can not write boot info to flash\r\n");
+        }
+      }
+    }
+  }
+  else {
+    LOG_E("upgrade: boot info check failure\r\n");
+  }
+
+  return;
+}
+
+void UpgradeCtrlService::loop(void) {
+  
+}
+
+err_code_t UpgradeCtrlService::start_proc(boot_info_t *boot_info, sacp_hmi_message_t *msg) {
 
   if (SACP_HMI_CH_SCREEN == msg->ch) {
     boot_info->link_ch = LINK_CH_SC;
@@ -50,6 +77,7 @@ err_code_t UpgradeCtrlService::proc(boot_info_t *boot_info, sacp_hmi_message_t *
     }
   }
 
+  ugr_svc->set_updgrade_phase(UPGRADE_PAHSE_APP_START);
   ugr_svc->print_boot_info();
   LOG_I("System will restart in 1 second to start updating\r\n");
   vTaskDelay(pdMS_TO_TICKS(1000));

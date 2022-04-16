@@ -16,7 +16,7 @@
 #include "service/client_node.h"
 #include "service/job_ctrl.h"
 #include "common/utility.h"
-#include "service/upgrade/upgrade_service.h""
+#include "service/upgrade/upgrade_service.h"
 
 #include "HAL/interrupt.h"
 
@@ -750,7 +750,6 @@ err_code_t SnapmakerPrinter::set_sys_status(enum SystemStatus req_status, enum S
   switch (req_status)
   {
   case SYSTEM_STATUS_IDLE:
-    // TODO: Can we just set to idle status?
     sys_status = req_status;
     ret = E_SUCCESS;
     break;

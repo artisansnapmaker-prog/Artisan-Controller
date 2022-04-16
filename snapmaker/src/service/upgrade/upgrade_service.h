@@ -40,17 +40,18 @@
 #define CMD_ID_UPGRADE_TRANS                  (0x02)
 #define CMD_ID_UPGRADE_END                    (0x03)
 #define CMD_ID_UPGRADE_NOTIFY                 (0x10)
-#define CMD_ID_UPGRADE_NOTIFY                 (0x10)
 #define SUB_ID_UPGRADE_STATUE
 
 #define CMD_UPGRADE_START_MIN_LEN             (256)
 #define SCAP_PAYLOAD_ADDITION_LEN             (8)
 #define CMD_START_MIN_LEN                     (CMD_UPGRADE_START_MIN_LEN + SCAP_PAYLOAD_ADDITION_LEN)
 
-enum UpgradeStatus {
-  UPGRADE_INIT = 0,
-  UPGRADE_CONTROLLER_TO_MODULE,
-  UPGRADE_HOST_TO_CONTROLLER,
+enum UpgradePhase {
+  UPGRADE_PHASE_INIT = 0,
+  UPGRADE_PAHSE_APP_START,
+  UPGRADE_PHASE_CONTROLLER_TO_MODULE,
+  UPGRADE_PHASE_HOST_TO_CONTROLLER,
+  UPGRADE_HOST_TO_MODULE,
 };
 
 
@@ -62,26 +63,28 @@ class UpdateService {
   public:
     UpdateService(){};
     err_code_t init(void);
-    void mark_boot_info(void);
     void loop(void);
     static err_code_t sacp_upgrade_start(void *obj, sacp_hmi_message_t *);
+    static err_code_t sacp_upgrade_trans(void *obj, sacp_hmi_message_t *);
+    static err_code_t sacp_upgrade_end(void *obj, sacp_hmi_message_t *);
+
     err_code_t upgrade_start_ack(sacp_hmi_message_t *msg, err_code_t ret);
+    err_code_t upgrade_notify(sacp_hmi_message_t *msg, err_code_t ret);
 
     bool boot_info_flush_to_flash();
     void set_boot_info(boot_info_t *bti);
     void print_boot_info(void);
-
-    err_code_t controller_update_proc(sacp_hmi_message_t *msg);
-    err_code_t module_update_proc(sacp_hmi_message_t *msg);
+    uint32_t get_seq(void);
+    void set_updgrade_phase(UpgradePhase);
 
   private:
     void host_to_controller_loop(void);
 
-    UpgradeStatus status;
-    ModuleUpgradeType module_upgrade_type;
+    UpgradePhase phase;
     boot_info_t boot_info;
     UpgradeCtrlService ctrl_ugr;
     UpgradeModuleService module_ugr;
+    uint32_t seq;
 };
 
 extern UpdateService upgrade_svc;

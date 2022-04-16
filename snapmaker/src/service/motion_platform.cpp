@@ -215,6 +215,9 @@ err_code_t MotionPlatformService::hmi_cb_request_home(void *obj, sacp_hmi_messag
   MotionPlatformService *motion = (MotionPlatformService *)obj;
   uint8_t home_axis;
 
+  uint8_t recv_buff[8];
+  uint16_t recv_len = 8;
+
   LOG_I("hmi_cb_request_home[%u]\n", msg->data[0]);
 
   home_axis = msg->data[0];
@@ -270,13 +273,38 @@ err_code_t MotionPlatformService::hmi_cb_request_home(void *obj, sacp_hmi_messag
   if (ret != E_SUCCESS) {
     ret = 1;
     msg->data = &ret;
-  }
-  else {
-    msg->data = &ret;
+    goto ack_hmi; 
   }
 
-  uint8_t recv_buff[8];
-  uint16_t recv_len = 8;
+  switch (home_axis) {
+  case SACP_HOME_ALL:
+    ret = all_axes_homed()? E_SUCCESS : 1;
+    break;
+
+  case SACP_HOME_X:
+    ret = axis_was_homed(X_AXIS)? E_SUCCESS : 1;
+    break;
+
+  case SACP_HOME_Y:
+    ret = axis_was_homed(Y_AXIS)? E_SUCCESS : 1;
+    break;
+
+  case SACP_HOME_Z:
+    ret = axis_was_homed(Z_AXIS)? E_SUCCESS : 1;
+    break;
+
+  case SACP_HOME_B:
+    ret = axis_was_homed(J_AXIS)? E_SUCCESS : 1;
+    break;
+
+  default:
+    LOG_I("invalid home axis\n");
+    return host_hmi.send_ack(msg);
+  }
+
+  msg->data = &ret;
+
+ack_hmi:
   if ((ret = host_hmi.send_sync(msg, recv_buff, &recv_len)) != E_SUCCESS) {
     LOG_E("failed to tell screen the home state, ret[%u]\n", ret);
   }

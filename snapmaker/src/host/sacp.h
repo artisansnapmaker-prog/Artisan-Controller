@@ -37,7 +37,9 @@
 #define SACP_FRAME_SOF_2  (0x55)
 
 #define SACP_FRONT_HEADER_MIN_SIZE  (7)
-#define SACP_FRAME_INDEX_VER        (5)
+#define SACP_FRAME_INDEX_VER        (4)
+
+#define SACP_CMD_ID_INVALID   (0xFFFF)
 
 #define SACP_HOST_INVALID     (0xFFFFFFFF)
 
@@ -83,6 +85,7 @@ enum SACPCommandSet {
 #define SACP_CMD_ID_GLOABL_REQ_UNSUBSCRIPT    (0x01)
 #define SACP_CMD_ID_GLOABL_REQ_REBOOT         (0x03)
 
+#define SSTP_ESP32_UPDATE_FW_EVENT_ASK        (0x10)
 
 #define SACP_CMD_ID_GLOABL_REQ_SET_PC_PROTOCOL  (0x11)
 
@@ -128,7 +131,7 @@ enum SACPHostID {
   SACP_HOST_ID_LUBAN,
   SACP_HOST_ID_CONTROLLER,
   SACP_HOST_ID_SCREEN,
-
+  SACP_HOST_ID_ESP32,
 };
 
 enum SACPVerion {
@@ -171,6 +174,8 @@ typedef struct {
 #define SACP_V0_REAR_HEADER_SIZE  (4)
 #define SACP_V0_NON_PAYPLOAD_SIZE (8)
 
+#define SACP_V0_PDU_MIN_SIZE  (9)
+
 // use big ending when V0
 enum SACPV0FrameIndex {
   SACP_V0_FRAME_INDEX_SOF_1,
@@ -207,6 +212,9 @@ typedef struct {
 #define SACP_V1_SEQ_INVALID     (0xFFFFFFFF)
 #define SACP_V1_CMD_SET_INVALID (0xFFFF)
 #define SACP_V1_CMD_ID_INVALID  (0xFFFF)
+
+
+#define SACP_PDU_MIN_SIZE   (SACP_V0_PDU_MIN_SIZE)
 
 typedef sacp_message_t sacp_hmi_message_t;
 

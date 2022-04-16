@@ -132,7 +132,8 @@ err_code_t HostSACPHMI::apply_cmd_set_handle(uint8_t cmd_set, uint8_t length) {
     handles[i].req_cb = NULL;
     handles[i].cb_attr = 0;
     handles[i].obj    = NULL;
-    handles[i].cmd_id = SACP_V1_CMD_ID_INVALID;
+    handles[i].cmd_id = SACP_CMD_ID_INVALID;
+    handles[i].version = SACP_VER_INVALID;
   }
 
   taskENTER_CRITICAL();
@@ -144,42 +145,69 @@ err_code_t HostSACPHMI::apply_cmd_set_handle(uint8_t cmd_set, uint8_t length) {
 }
 
 
-err_code_t HostSACPHMI::register_callback(uint8_t cmd_set, uint8_t cmd_id, void *obj, sacp_hmi_callback cb, uint32_t attr) {
+err_code_t HostSACPHMI::register_callback(uint8_t cmd_set, uint8_t cmd_id, void *obj, sacp_hmi_callback cb,
+                                          uint32_t attr/*=0*/, uint8_t ver/*=SACP_VER_INVALID*/) {
   int i = 0;
   sacp_hmi_handle_t *handle =NULL;
+
+  if (ver == SACP_VER_INVALID) {
+    LOG_I("register CB with default ver[%u]\n", this->version);
+    ver = this->version;
+  }
 
   if (!cmd_set_handle[cmd_set] || cmd_set_handle_len[cmd_set] == 0) {
     LOG_E("you didn't registered handle for cmd[%x:%x]\n", cmd_set, cmd_id);
     return E_NO_RESRC;
   }
 
+  if ((attr & SACP_CB_ATTR_ACK) && (ver == SACP_VER_0)) {
+    LOG_E("cannot register ACK callback[%x:%x] for V0\n", cmd_set, cmd_id);
+    return E_PARAM;
+  }
+
   handle = cmd_set_handle[cmd_set];
-  for (; i < cmd_set_handle_len[cmd_set]; i++) {
-    if (handle[i].cmd_id == SACP_V1_CMD_ID_INVALID) {
+  for (i = 0; i < cmd_set_handle_len[cmd_set]; i++) {
+    if (handle[i].cmd_id == SACP_CMD_ID_INVALID) {
       break;
     }
-    if (handle[i].cmd_id == cmd_id) {
-      LOG_W("will overwirte handle of [%x:%x]\n", cmd_set, cmd_id);
+    else if (handle[i].cmd_id == cmd_id) {
+      if(handle[i].version != ver) {
+        LOG_I("will register same cmd[%x:%x] CB for other ver[%u]\n", cmd_set, cmd_id, ver);
+        continue;
+      }
+
+      // V0 won't allow register ACK callback
+      if (attr & SACP_CB_ATTR_ACK) {
+        if (handle[i].ack_cb == NULL)
+          break;
+      }
+      else {
+        if (handle[i].req_cb == NULL)
+          break;
+      }
+
+      LOG_W("will overwirte handle of [%x:%x] for ver[%u]\n", cmd_set, cmd_id, ver);
       break;
     }
   }
 
   if (i >= cmd_set_handle_len[cmd_set]) {
-    LOG_E("no available callback handle for cmd[%x:%x]\n", cmd_set, cmd_id);
+    LOG_E("no available callback handle for cmd[%x:%x] of ver[%u]\n", cmd_set, cmd_id, ver);
     return E_NO_RESRC;
   }
 
   cmd_set_handle[cmd_set][i].cmd_id  = cmd_id;
   cmd_set_handle[cmd_set][i].obj     = obj;
   cmd_set_handle[cmd_set][i].cb_attr = attr;
+  cmd_set_handle[cmd_set][i].version = ver;
 
-  if (attr & SACP_CB_ATTR_ACK) {
+  if ((attr & SACP_CB_ATTR_ACK) && (ver == SACP_VER_1)) {
     cmd_set_handle[cmd_set][i].ack_cb = cb;
-    LOG_I("register CB for ACK[%x:%x]\n", cmd_set, cmd_id);
+    LOG_I("register V[%u] CB for ACK[%x:%x]\n", ver, cmd_set, cmd_id, i);
   }
   else {
     cmd_set_handle[cmd_set][i].req_cb = cb;
-    LOG_I("register CB for REQ[%x:%x]\n", cmd_set, cmd_id);
+    LOG_I("register V[%u] CB for REQ[%x:%x]\n", ver, cmd_set, cmd_id, i);
   }
 
   return E_SUCCESS;
@@ -660,16 +688,37 @@ struct __packed EventHandle {
 };
 
 MessageBufferHandle_t HostSACPHMI::get_event_queue_by_cmd(uint8_t *buffer, uint8_t channel) {
-  uint8_t cmd_set = buffer[SACP_V1_FRAME_INDEX_CMD_SET];
-  uint8_t cmd_id = buffer[SACP_V1_FRAME_INDEX_CMD_ID];
-  uint16_t length = (buffer[SACP_V1_FRAME_INDEX_LEN_H]<<8 | buffer[SACP_V1_FRAME_INDEX_LEN_L]) & 0x0FFF;
+  uint8_t cmd_set;
+  uint16_t cmd_id;
+  uint16_t length;
   sacp_hmi_message_t msg;
   sacp_hmi_handle_t *handle = NULL;
 
   EventHandle *event_handle = (EventHandle *)buffer;
 
+  if (buffer[SACP_FRAME_INDEX_VER] == SACP_VER_1) {
+    cmd_set = buffer[SACP_V1_FRAME_INDEX_CMD_SET];
+    cmd_id = buffer[SACP_V1_FRAME_INDEX_CMD_ID];
+    length = (buffer[SACP_V1_FRAME_INDEX_LEN_H]<<8 | buffer[SACP_V1_FRAME_INDEX_LEN_L]) & 0x0FFF;
+  }
+  else if (buffer[SACP_FRAME_INDEX_VER] == SACP_VER_0) {
+    cmd_set = buffer[SACP_V0_FRAME_INDEX_EVENT_ID];
+    length = (buffer[SACP_V0_FRAME_INDEX_LEN_H]<<8 | buffer[SACP_V0_FRAME_INDEX_LEN_L]) & 0x0FFF;
+    if (length < 2) {
+      LOG_E("for now didn't support single command of V0!\n");
+      return NULL;
+    }
+    cmd_id = buffer[SACP_V0_FRAME_INDEX_OPCODE];
+  }
+  else {
+    LOG_E("didn't support version[%u]\n", buffer[SACP_FRAME_INDEX_VER]);
+    return NULL;
+  }
+
   if (!cmd_set_handle[cmd_set] || cmd_set_handle_len[cmd_set] == 0) {
-    LOG_E("nobody have registered handle for cmd[%x:%x]\n", cmd_set, cmd_id);
+    LOG_E("nobody apply cmd set handle for cmd[%x:%x]\n", cmd_set, cmd_id);
+    if (buffer[SACP_FRAME_INDEX_VER] != SACP_VER_1)
+      return NULL;
     // use flash resource to save CPU resource
     msg.peer    = buffer[SACP_V1_FRAME_INDEX_SENDER_ID];
     msg.attr    = buffer[SACP_V1_FRAME_INDEX_ATTR];
@@ -683,8 +732,10 @@ MessageBufferHandle_t HostSACPHMI::get_event_queue_by_cmd(uint8_t *buffer, uint8
     return NULL;
   }
 
+  //cmd_set_handle[cmd_set][i].cmd_id == cmd_id
   for (int i = 0; i < cmd_set_handle_len[cmd_set]; i++) {
-    if (cmd_set_handle[cmd_set][i].cmd_id == cmd_id) {
+    if ((cmd_set_handle[cmd_set][i].cmd_id == cmd_id) &&
+        (cmd_set_handle[cmd_set][i].version == buffer[SACP_FRAME_INDEX_VER])) {
       handle = &cmd_set_handle[cmd_set][i];
       break;
     }
@@ -692,6 +743,8 @@ MessageBufferHandle_t HostSACPHMI::get_event_queue_by_cmd(uint8_t *buffer, uint8
 
   if (!handle) {
     LOG_E("nobody have registered handle for cmd[%x:%x]\n", cmd_set, cmd_id);
+    if (buffer[SACP_FRAME_INDEX_VER] != SACP_VER_1)
+      return NULL;
     // use flash resource to save CPU resource
     msg.peer    = buffer[SACP_V1_FRAME_INDEX_SENDER_ID];
     msg.attr    = buffer[SACP_V1_FRAME_INDEX_ATTR];
@@ -708,7 +761,7 @@ MessageBufferHandle_t HostSACPHMI::get_event_queue_by_cmd(uint8_t *buffer, uint8
   // change thr front 7 bytes to save handle
   event_handle->handle  = handle;
   event_handle->channel = channel;
-  event_handle->version = SACP_VER_1; // for now only support V1
+  event_handle->version = buffer[SACP_FRAME_INDEX_VER]; // for now only support V1
   event_handle->length  = length;
 
   if (handle->cb_attr & SACP_CB_ATTR_BLOCKED_WITH_MOTION) {
@@ -868,11 +921,11 @@ void HostSACPHMI::handle_receive() {
     }
 
     // for now, won't support handle V0 events async
-    if (version != SACP_VER_1) {
-      channels[i].parser.status = SACP_PARSER_STA_IDLE;
-      LOG_I("for now, won't support handle V0 events async\n");
-      continue;
-    }
+    // if (version != SACP_VER_1) {
+    //   channels[i].parser.status = SACP_PARSER_STA_IDLE;
+    //   LOG_I("for now, won't support handle V0 events async\n");
+    //   // continue;
+    // }
 
     event_queue = get_event_queue_by_cmd(parser_buff, i);
     if (!event_queue) {
@@ -883,7 +936,7 @@ void HostSACPHMI::handle_receive() {
 
     // check if we have callback for this message, if yes, send it to event thread
     // data send to event thread doesn't include the 2 bytes checksum
-    xMessageBufferSend(event_queue, parser_buff, buffer_len - 2, pdMS_TO_TICKS(100));
+    xMessageBufferSend(event_queue, parser_buff, buffer_len, pdMS_TO_TICKS(100));
 
     // reset the parser to tell it we have toke message
     channels[i].parser.status = SACP_PARSER_STA_IDLE;
@@ -911,28 +964,44 @@ err_code_t HostSACPHMI::handle_message(sacp_hmi_message_t &msg) {
 
 err_code_t HostSACPHMI::handle_message(sacp_hmi_message_t &msg, sacp_hmi_handle_t *handle) {
   if (!handle) {
-    LOG_E("no handle for cmd[%x:%x]\n", msg.cmd_set, msg.cmd_id);
-    return send_ack(&msg, E_INVALID_CMD_ID);
+    LOG_E("no handle for cmd[%x:%x], ver[%u]\n", msg.cmd_set, msg.cmd_id, msg.ver);
+    if (msg.ver == SACP_VER_1)
+      return send_ack(&msg, E_INVALID_CMD_ID);
+    else
+      return E_INVALID_CMD_ID;
   }
 
-  if (msg.attr & SACP_MESSAGE_ATTR_ACK) {
-    if (handle->ack_cb) {
-      return handle->ack_cb(handle->obj, &msg);
+  if (msg.ver == SACP_VER_1) {
+    if (msg.attr & SACP_MESSAGE_ATTR_ACK) {
+      if (handle->ack_cb) {
+        return handle->ack_cb(handle->obj, &msg);
+      }
+      else {
+        LOG_E("no V[%u] callback for ACK[%x:%x]\n", msg.ver, msg.cmd_set, msg.cmd_id);
+      }
     }
     else {
-      LOG_E("no callback for ACK[%x:%x]\n", msg.cmd_set, msg.cmd_id);
+      if (handle->req_cb) {
+        return handle->req_cb(handle->obj, &msg);
+      }
+      else {
+        LOG_E("no V[%u] callback for REQ[%x:%x]\n", msg.ver, msg.cmd_set, msg.cmd_id);
+      }
     }
+
+    return send_ack(&msg, E_INVALID_CMD_ID);
   }
   else {
+    // for now, callback type of V0 must be request
     if (handle->req_cb) {
       return handle->req_cb(handle->obj, &msg);
     }
     else {
-      LOG_E("no callback for REQ[%x:%x]\n", msg.cmd_set, msg.cmd_id);
+      LOG_E("no V[%u] callback for cmd[%x:%x]\n", msg.ver, msg.cmd_set, msg.cmd_id);
     }
   }
 
-  return send_ack(&msg, E_INVALID_CMD_ID);
+  return E_INVALID_CMD_ID;
 }
 
 
@@ -960,36 +1029,59 @@ void HostSACPHMI::handle_events() {
   if (!event_queue)
     return;
 
-  length = xMessageBufferReceive(event_queue, buffer, SACP_V1_PDU_MAX_SIZE, 0);
+  length = xMessageBufferReceive(event_queue, buffer, SACP_PDU_MAX_SIZE, 0);
 
   if (!length) {
     return;
   }
 
-  if (length < (SACP_V1_PDU_MIN_SIZE - 2)) {
+  if (length < SACP_PDU_MIN_SIZE) {
     LOG_E("invalid message, len[%u]\n", length);
     return;
   }
 
   event_handle = (EventHandle *)buffer;
 
-  pdu_length = event_handle->length + SACP_V1_FRONT_HEADER_SIZE - 2;
+  if (event_handle->version == SACP_VER_1) {
+    pdu_length = event_handle->length + SACP_V1_FRONT_HEADER_SIZE;
+  }
+  else if (event_handle->version  == SACP_VER_0) {
+    pdu_length = event_handle->length + SACP_V0_NON_PAYPLOAD_SIZE;
+  }
+  else {
+    LOG_E("invalid version[%u] of HMI envent\n", event_handle->version);
+    return;
+  }
 
   if (length != pdu_length) {
     LOG_E("invalid message, len[%u], pdu len[%u], even len[%u]\n", length, pdu_length, event_handle->length);
     return;
   }
 
-  msg.length  = event_handle->length - SACP_V1_REAR_HEADER_SIZE - 2;
-  msg.ver     = event_handle->version;
-  msg.ch      = event_handle->channel;
-  msg.peer    = buffer[SACP_V1_FRAME_INDEX_SENDER_ID];
-  msg.attr    = buffer[SACP_V1_FRAME_INDEX_ATTR];
-  msg.cmd_set = buffer[SACP_V1_FRAME_INDEX_CMD_SET];
-  msg.cmd_id  = buffer[SACP_V1_FRAME_INDEX_CMD_ID];
-  msg.seq     = buffer[SACP_V1_FRAME_INDEX_SEQ_H]<<8 | buffer[SACP_V1_FRAME_INDEX_SEQ_L];
+  msg.ver = event_handle->version;
+  msg.ch  = event_handle->channel;
 
-  msg.data = buffer + (SACP_V1_FRONT_HEADER_SIZE + SACP_V1_REAR_HEADER_SIZE);
+  if (event_handle->version == SACP_VER_1) {
+    msg.length  = event_handle->length - SACP_V1_REAR_HEADER_SIZE - 2;
+    msg.cmd_set = buffer[SACP_V1_FRAME_INDEX_CMD_SET];
+    msg.cmd_id  = buffer[SACP_V1_FRAME_INDEX_CMD_ID];
+    msg.peer    = buffer[SACP_V1_FRAME_INDEX_SENDER_ID];
+    msg.attr    = buffer[SACP_V1_FRAME_INDEX_ATTR];
+    msg.seq     = buffer[SACP_V1_FRAME_INDEX_SEQ_H]<<8 | buffer[SACP_V1_FRAME_INDEX_SEQ_L];
+    msg.data    = buffer + (SACP_V1_FRONT_HEADER_SIZE + SACP_V1_REAR_HEADER_SIZE);
+  }
+  else if (event_handle->version == SACP_VER_0) {
+    if (event_handle->length < 2) {
+      LOG_E("for now didn't support single command of V0!\n");
+      return;
+    }
+
+    msg.length  = event_handle->length - 2;
+    msg.cmd_set = buffer[SACP_V0_FRAME_INDEX_EVENT_ID];
+    msg.cmd_id  = buffer[SACP_V0_FRAME_INDEX_OPCODE];
+    msg.attr    = 0;
+    msg.data    = &buffer[SACP_V0_FRAME_INDEX_DATA];
+  }
 
   handle_message(msg, event_handle->handle);
 }

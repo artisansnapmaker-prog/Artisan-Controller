@@ -40,6 +40,7 @@ typedef struct {
   sacp_hmi_callback req_cb;
   sacp_hmi_callback ack_cb;
   uint32_t cb_attr;
+  uint8_t  version;
 } sacp_hmi_handle_t;
 
 typedef struct {
@@ -146,7 +147,8 @@ class HostSACPHMI: public HostSACP {
     // apply resource to save cmd set handle, except the command id for subcribtion
     err_code_t apply_cmd_set_handle(uint8_t cmd_set, uint8_t length);
 
-    err_code_t register_callback(uint8_t cmd_set, uint8_t cmd_id, void *obj, sacp_hmi_callback cb, uint32_t attr=0);
+    err_code_t register_callback(uint8_t cmd_set, uint8_t cmd_id, void *obj, sacp_hmi_callback cb,
+                                  uint32_t attr=0, uint8_t ver=SACP_VER_INVALID);
 
     err_code_t register_subscription(uint8_t cmd_set, uint8_t cmd_id, void *obj, sacp_hmi_subscribe_callback cb);
 

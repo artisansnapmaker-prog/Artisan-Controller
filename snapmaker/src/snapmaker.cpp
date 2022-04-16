@@ -345,6 +345,9 @@ static void system_thread(void *p) {
   host_hmi.apply_cmd_set_handle(SACP_CMD_SET_GLOBAL_REQ, 24);
   system_svc.init();
 
+  // add process esp_32 upgrade
+  host_hmi.apply_cmd_set_handle(SSTP_ESP32_UPDATE_FW_EVENT_ASK, 15);
+
   // module init
   module_svc.init();
 

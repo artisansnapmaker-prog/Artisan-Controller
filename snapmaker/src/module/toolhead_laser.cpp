@@ -378,19 +378,17 @@ err_code_t ToolHeadLaser::hmi_cb_set_4axis_center_hight(void *obj, sacp_hmi_mess
 err_code_t ToolHeadLaser::hmi_cb_do_manual_focusing(void *obj, sacp_hmi_message_t *message) {
   ToolHeadLaser &laser = *(ToolHeadLaser *)obj;
 
-  // if (message->data[0] != laser.get_key()) {
-  //   return host_hmi.send_ack(message, E_INVALID_MODULE_KEY);
-  // }
-
   if (message->length < 12) {
     return host_hmi.send_ack(message, E_PARAM);
   }
 
   if (laser.get_status() != MODULE_STATUS_NORMAL) {
-    return host_hmi.send_ack(message, E_INVALID_STATE);
+    return host_hmi.send_ack(message, E_HARDWARE);
   }
 
-  // TODO: check system status
+  if (smprinter.get_sys_status() != SYSTEM_STATUS_IDLE) {
+    return host_hmi.send_ack(message, E_INVALID_STATE);
+  }
 
   int32_t *tmp;
   float target_pos[3];
@@ -403,6 +401,9 @@ err_code_t ToolHeadLaser::hmi_cb_do_manual_focusing(void *obj, sacp_hmi_message_
 
   tmp = (int32_t *)(message->data + 8);
   target_pos[2] = (*tmp / 1000.0);
+
+  // send_ack will change message->data, so need to send ack after picking data
+  host_hmi.send_ack(message, E_SUCCESS);
 
   LOG_I("hmi_cb_do_manual_focusing: X: %.3f, Y%.3f, Z%.3f\n", target_pos[0], target_pos[1], target_pos[2]);
 
@@ -417,26 +418,37 @@ err_code_t ToolHeadLaser::hmi_cb_do_manual_focusing(void *obj, sacp_hmi_message_
 
   motion_platform_svc.moveto_z(target_pos[2], 30, true);
 
-  return host_hmi.send_ack(message, E_SUCCESS);
+  uint16_t recv_len = 4;
+  uint8_t  recv_buff[4];
+  err_code_t ret = E_SUCCESS;
+
+  message->cmd_id = SACP_CMD_ID_LASER_CALI_MANUAL_END;
+  message->data   = &ret;
+  message->length = 1;
+
+  ret = host_hmi.send_sync(message, recv_buff, &recv_len, SACP_HMI_TIMEOUT_DEFAULT, SACP_HMI_RETRY_DEFAULT);
+  if (ret != E_SUCCESS) {
+    LOG_E("failed to report manual_focusings, ret[%u]\n", ret);
+  }
+
+  return ret;
 }
 
 
 err_code_t ToolHeadLaser::hmi_cb_do_auto_focusing(void *obj, sacp_hmi_message_t *message) {
   ToolHeadLaser &laser = *(ToolHeadLaser *)obj;
 
-  // if (message->data[0] != laser.get_key()) {
-  //   return host_hmi.send_ack(message, E_INVALID_MODULE_KEY);
-  // }
-
   if (message->length < 4) {
     return host_hmi.send_ack(message, E_PARAM);
   }
 
   if (laser.get_status() != MODULE_STATUS_NORMAL) {
-    return host_hmi.send_ack(message, E_INVALID_STATE);
+    return host_hmi.send_ack(message, E_HARDWARE);
   }
 
-  // TODO: check system status
+  if (smprinter.get_sys_status() != SYSTEM_STATUS_IDLE) {
+    return host_hmi.send_ack(message, E_INVALID_STATE);
+  }
 
   int32_t *tmp = (int32_t *)(message->data);
   float   z_interval = *tmp / 1000.0;
@@ -447,6 +459,9 @@ err_code_t ToolHeadLaser::hmi_cb_do_auto_focusing(void *obj, sacp_hmi_message_t 
   float line_space = 2;
   float line_len_short = 5;
   float line_len_long = 10;
+
+  // send_ack will change message->data, so need to send ack after picking data
+  host_hmi.send_ack(message, E_SUCCESS);
 
   LOG_I("hmi_cb_do_auto_focusing: interval: %.3f\n", z_interval);
 
@@ -512,7 +527,20 @@ err_code_t ToolHeadLaser::hmi_cb_do_auto_focusing(void *obj, sacp_hmi_message_t 
   motion_platform_svc.moveto_xy(start_pos[X_AXIS], start_pos[Y_AXIS], 20.0f);
   motion_platform_svc.synchronize_planner();
 
-  return host_hmi.send_ack(message, E_SUCCESS);
+  uint16_t recv_len = 4;
+  uint8_t  recv_buff[4];
+  err_code_t ret = E_SUCCESS;
+
+  message->cmd_id = SACP_CMD_ID_LASER_CALI_AUTO_END;
+  message->data   = &ret;
+  message->length = 1;
+
+  ret = host_hmi.send_sync(message, recv_buff, &recv_len, SACP_HMI_TIMEOUT_DEFAULT, SACP_HMI_RETRY_DEFAULT);
+  if (ret != E_SUCCESS) {
+    LOG_E("failed to report manual_focusings, ret[%u]\n", ret);
+  }
+
+  return ret;
 }
 
 

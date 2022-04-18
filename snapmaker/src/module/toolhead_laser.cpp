@@ -390,6 +390,11 @@ err_code_t ToolHeadLaser::hmi_cb_do_manual_focusing(void *obj, sacp_hmi_message_
     return host_hmi.send_ack(message, E_INVALID_STATE);
   }
 
+  if (!motion_platform_svc.is_all_axes_homed()) {
+    LOG_E("hmi_cb_do_manual_focusing: must home firstly!\n");
+    return host_hmi.send_ack(message, E_FAILURE);
+  }
+
   int32_t *tmp;
   float target_pos[3];
 
@@ -407,10 +412,6 @@ err_code_t ToolHeadLaser::hmi_cb_do_manual_focusing(void *obj, sacp_hmi_message_
 
   LOG_I("hmi_cb_do_manual_focusing: X: %.3f, Y%.3f, Z%.3f\n", target_pos[0], target_pos[1], target_pos[2]);
 
-  if (!motion_platform_svc.is_all_axes_homed()) {
-    motion_platform_svc.home();
-  }
-
   motion_platform_svc.synchronize_planner();
 
   // TODO: speed to be defined
@@ -425,6 +426,7 @@ err_code_t ToolHeadLaser::hmi_cb_do_manual_focusing(void *obj, sacp_hmi_message_
   message->cmd_id = SACP_CMD_ID_LASER_CALI_MANUAL_END;
   message->data   = &ret;
   message->length = 1;
+  message->attr   = 0;
 
   ret = host_hmi.send_sync(message, recv_buff, &recv_len, SACP_HMI_TIMEOUT_DEFAULT, SACP_HMI_RETRY_DEFAULT);
   if (ret != E_SUCCESS) {
@@ -450,6 +452,11 @@ err_code_t ToolHeadLaser::hmi_cb_do_auto_focusing(void *obj, sacp_hmi_message_t 
     return host_hmi.send_ack(message, E_INVALID_STATE);
   }
 
+  if (!motion_platform_svc.is_all_axes_homed()) {
+    LOG_E("hmi_cb_do_auto_focusing: must home firstly!\n");
+    return host_hmi.send_ack(message, E_FAILURE);
+  }
+
   int32_t *tmp = (int32_t *)(message->data);
   float   z_interval = *tmp / 1000.0;
   uint8_t count = 21;
@@ -464,10 +471,6 @@ err_code_t ToolHeadLaser::hmi_cb_do_auto_focusing(void *obj, sacp_hmi_message_t 
   host_hmi.send_ack(message, E_SUCCESS);
 
   LOG_I("hmi_cb_do_auto_focusing: interval: %.3f\n", z_interval);
-
-  if (!motion_platform_svc.is_all_axes_homed()) {
-    motion_platform_svc.home();
-  }
 
   motion_platform_svc.synchronize_planner();
 
@@ -534,6 +537,7 @@ err_code_t ToolHeadLaser::hmi_cb_do_auto_focusing(void *obj, sacp_hmi_message_t 
   message->cmd_id = SACP_CMD_ID_LASER_CALI_AUTO_END;
   message->data   = &ret;
   message->length = 1;
+  message->attr   = 0;
 
   ret = host_hmi.send_sync(message, recv_buff, &recv_len, SACP_HMI_TIMEOUT_DEFAULT, SACP_HMI_RETRY_DEFAULT);
   if (ret != E_SUCCESS) {

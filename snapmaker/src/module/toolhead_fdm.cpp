@@ -1408,13 +1408,45 @@ err_code_t ToolHeadFDM::set_extruders_feedrate_percentage(int16_t percentage, ui
     return E_PARAM;
   }
 
-  LOG_I("set extruder%d feedrate percentage: %d\n", e, percentage);
   extruders_feedrate_percentage[e] = percentage;
+  LOG_I("set extruder%d feedrate percentage: %d\n", e, extruders_feedrate_percentage[e]);
   if (e == active_extruder) {
     motion_platform_svc.sync_feedrate_percentage_to_platform(percentage);
   }
 
   return E_SUCCESS;
+}
+
+int16_t ToolHeadFDM::get_extruders_feedrate_percentage(uint8_t e) {
+  if (e > get_extruders_count() - 1) {
+    return E_PARAM;
+  }
+
+  LOG_I("get extruder%d feedrate percentage: %d\n", e, extruders_feedrate_percentage[e]);
+  return extruders_feedrate_percentage[e];
+}
+
+err_code_t ToolHeadFDM::set_extruders_flowrate_percentage(int16_t percentage, uint8_t e) {
+  if (e > get_extruders_count() - 1) {
+    return E_PARAM;
+  }
+
+  extruders_flowrate_percentage[e] = percentage;
+  LOG_I("set extruder%d flowrate percentage: %d\n", e, extruders_flowrate_percentage[e]);
+  if (e == active_extruder) {
+    motion_platform_svc.sync_flowrate_percentage_to_platform(percentage, e);
+  }
+
+  return E_SUCCESS;
+}
+
+int16_t ToolHeadFDM::get_extruders_flowrate_percentage(uint8_t e) {
+  if (e > get_extruders_count() - 1) {
+    return E_PARAM;
+  }
+
+  LOG_I("get extruder%d flowrate percentage: %d\n", e, extruders_flowrate_percentage[e]);
+  return extruders_flowrate_percentage[e];
 }
 
 err_code_t ToolHeadFDM::filament_detect_ctrl(uint8_t state, uint8_t e) {

@@ -201,6 +201,9 @@ class ToolHeadFDM: public ModuleBase {
     void set_hotend_offset_z(float offset) { hotend_offset[2][1] = offset; }
     uint8_t get_extruders_count();
     err_code_t set_extruders_feedrate_percentage(int16_t percentage, uint8_t e);
+    int16_t get_extruders_feedrate_percentage(uint8_t e);
+    err_code_t set_extruders_flowrate_percentage(int16_t percentage, uint8_t e);
+    int16_t get_extruders_flowrate_percentage(uint8_t e);
     err_code_t filament_detect_ctrl(uint8_t state, uint8_t e);
     uint8_t get_active_extruder();
     err_code_t save_hotend_offset_to_module(float offset, uint8_t axis);
@@ -238,6 +241,7 @@ class ToolHeadFDM: public ModuleBase {
     float hotend_diameter[EXTRUDERS];
     uint8_t fan_speed[3];
     int16_t extruders_feedrate_percentage[EXTRUDERS];
+    int16_t extruders_flowrate_percentage[EXTRUDERS];
     uint8_t filament_detect_state[EXTRUDERS];
     float pid[3];
     bool hotend_type_initialized;

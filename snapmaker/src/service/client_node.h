@@ -55,7 +55,10 @@
 #define CMD_ID_JOB_CTRL_REQ_POWERLOSS_CLEAR           (0x09)
 
 #define CMD_ID_JOB_SET_FEEDRATE_PERCENTAGE            (0x0e)
-#define CMD_ID_JOB_CTRL_NUM                           (15)
+#define CMD_ID_JOB_GET_FEEDRATE_PERCENTAGE            (0x0f)
+#define CMD_ID_JOB_SET_FLOWRATE_PERCENTAGE            (0x10)
+#define CMD_ID_JOB_GET_FLOWRATE_PERCENTAGE            (0x11)
+#define CMD_ID_JOB_CTRL_NUM                           (18)
 #define SUB_ID_JOB_CTRL_CUR_LINE_NUM                  (0xA0)
 
 #define CMD_SET_SYS                                   (1)
@@ -185,6 +188,9 @@ class ClientNode {
     err_code_t req_resume_job(sacp_hmi_message_t*);
     err_code_t req_stop_job(sacp_hmi_message_t*);
     err_code_t req_set_feedrate_percentage(sacp_hmi_message_t* msg);
+    err_code_t req_get_feedrate_percentage(sacp_hmi_message_t* msg);
+    err_code_t req_set_flowrate_percentage(sacp_hmi_message_t* msg);
+    err_code_t req_get_flowrate_percentage(sacp_hmi_message_t* msg);
 };
 
 #endif  // #ifndef SNAPMAKER_CLIENT_NODE_H_

@@ -607,6 +607,36 @@ void GcodeSuite::M2000() {
         }
         break;
 
+      case 12:
+        {
+          uint8_t t = (uint8_t)parser.byteval('T', (uint8_t)0);
+          float p = (float)parser.floatval('P', (float)0);
+          uint32_t scaled_p = (uint32_t)(p * 1000);
+          buffer[index++] = smprinter.fdm->get_key();
+          buffer[index++] = t;
+          buffer[index++] = scaled_p & 0xff;
+          buffer[index++] = (scaled_p >> 8) & 0xff;
+          buffer[index++] = (scaled_p >> 16) & 0xff;
+          buffer[index++] = (scaled_p >> 24) & 0xff;
+          host_hmi.test_interface(CMD_SET_JOB_CTRL, CMD_ID_JOB_SET_FEEDRATE_PERCENTAGE, buffer, index);
+        }
+        break;
+
+      case 13:
+        {
+          uint8_t t = (uint8_t)parser.byteval('T', (uint8_t)0);
+          float p = (float)parser.floatval('P', (float)0);
+          uint32_t scaled_p = (uint32_t)(p * 1000);
+          buffer[index++] = smprinter.fdm->get_key();
+          buffer[index++] = t;
+          buffer[index++] = scaled_p & 0xff;
+          buffer[index++] = (scaled_p >> 8) & 0xff;
+          buffer[index++] = (scaled_p >> 16) & 0xff;
+          buffer[index++] = (scaled_p >> 24) & 0xff;
+          host_hmi.test_interface(CMD_SET_JOB_CTRL, CMD_ID_JOB_SET_FLOWRATE_PERCENTAGE, buffer, index);
+        }
+        break;
+
       case 100:
         {
           ToolHeadFDM *fdm = NULL;
@@ -756,13 +786,13 @@ void GcodeSuite::M2000() {
         {
           uint8_t e = (uint8_t)parser.byteval('E', (uint8_t)0);
           float z = (float)parser.floatval('Z', (float)0);
-          z = z * 1000;
+          uint32_t scaled_z = (uint32_t)(z * 1000);
           buffer[index++] = smprinter.fdm->get_key();
           buffer[index++] = e;
-          buffer[index++] = ((uint8_t *)&z)[0];
-          buffer[index++] = ((uint8_t *)&z)[1];
-          buffer[index++] = ((uint8_t *)&z)[2];
-          buffer[index++] = ((uint8_t *)&z)[3];
+          buffer[index++] = scaled_z & 0xff;
+          buffer[index++] = (scaled_z >> 8) & 0xff;
+          buffer[index++] = (scaled_z >> 16) & 0xff;
+          buffer[index++] = (scaled_z >> 24) & 0xff;
           host_hmi.test_interface(SACP_CMD_SET_CALIBRATE_FDM, BEDLEVEL_REQ_CMD_ID_SET_LIVE_Z_OFFSET, buffer, index);
         }
         break;
@@ -776,26 +806,6 @@ void GcodeSuite::M2000() {
           bedlevel_svc.toolhead_auto_calibation();
         }
         break;
-
-      case 20:
-        {
-          uint8_t t = (uint8_t)parser.byteval('T', (uint8_t)0);
-          float z = (float)parser.floatval('Z', (float)0);
-        }
-        break;
-
-      case 21:
-        {
-
-        }
-        break;
-
-      case 22:
-        {
-
-        }
-        break;
-
       case 100:
         {
           host_hmi.test_interface(SACP_CMD_SET_CALIBRATE_FDM, BEDLEVEL_REQ_CMD_ID_EXIT_LEVEL, buffer, index);

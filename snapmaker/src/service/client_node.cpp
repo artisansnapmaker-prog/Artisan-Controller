@@ -66,7 +66,9 @@ void ClientNode::class_init(void) {
   ret |= host_hmi.register_callback(CMD_SET_JOB_CTRL, CMD_ID_JOB_CTRL_RESUME, NULL, sacp_cb);
   ret |= host_hmi.register_callback(CMD_SET_JOB_CTRL, CMD_ID_JOB_CTRL_STOP, NULL, sacp_cb);
   ret |= host_hmi.register_callback(CMD_SET_JOB_CTRL, CMD_ID_JOB_SET_FEEDRATE_PERCENTAGE, NULL, sacp_cb);
-
+  ret |= host_hmi.register_callback(CMD_SET_JOB_CTRL, CMD_ID_JOB_GET_FEEDRATE_PERCENTAGE, NULL, sacp_cb);
+  ret |= host_hmi.register_callback(CMD_SET_JOB_CTRL, CMD_ID_JOB_SET_FLOWRATE_PERCENTAGE, NULL, sacp_cb);
+  ret |= host_hmi.register_callback(CMD_SET_JOB_CTRL, CMD_ID_JOB_GET_FLOWRATE_PERCENTAGE, NULL, sacp_cb);
   // register subscibtion
   LOG_I("Client node: register SACP subscription callback\r\n");
   ret |= host_hmi.register_subscription(  CMD_SET_JOB_CTRL,
@@ -163,7 +165,7 @@ ClientNode *ClientNode::touch_client(uint32_t peer, uint8_t ch) {
   else {
     return malloc_client_node(peer, ch);
   }
-  
+
 }
 
 bool ClientNode::get_batch_gcode(uint8_t client_id, req_batch_gcode_t &req_batch_gcode, res_batch_gcode_t &res_batch_gcode) {
@@ -416,6 +418,18 @@ err_code_t ClientNode::sacp_handle(sacp_hmi_message_t *msg) {
       return req_set_feedrate_percentage(msg);
     break;
 
+    case CMD_ID_JOB_GET_FEEDRATE_PERCENTAGE:
+      return req_get_feedrate_percentage(msg);
+    break;
+
+    case CMD_ID_JOB_SET_FLOWRATE_PERCENTAGE:
+      return req_set_flowrate_percentage(msg);
+      break;
+
+    case CMD_ID_JOB_GET_FLOWRATE_PERCENTAGE:
+      return req_get_flowrate_percentage(msg);
+      break;
+
     default:
       LOG_E("Client node: Unkonw command id %d in command set %d\r\n", msg->cmd_id, msg->cmd_set);
       return E_FAILURE;
@@ -578,5 +592,119 @@ err_code_t ClientNode::req_stop_job(sacp_hmi_message_t* msg) {
 }
 
 err_code_t ClientNode::req_set_feedrate_percentage(sacp_hmi_message_t* msg) {
-  return E_SUCCESS;
+  err_code_t ret = E_SUCCESS;
+
+  // uint8_t key = msg->data[0];
+  uint8_t e = msg->data[1];
+  int16_t feedrate_percentage = msg->data[2] | (msg->data[1] << 8);
+
+  ToolHeadFDM *fdm = (ToolHeadFDM *)module_svc.get_module(MODULE_DEVICE_ID_FDM_2EXTRUDER_2021, 0);
+  if (!fdm) {
+    fdm = (ToolHeadFDM *)module_svc.get_module(MODULE_DEVICE_ID_FDM_1EXTRUDER_2019, 0);
+    if (!fdm) {
+      ret = E_FAILURE;
+      goto EXIT;
+    }
+  }
+
+  ret = fdm->set_extruders_feedrate_percentage(feedrate_percentage, e);
+
+  // response to hmi
+  host_hmi.send_ack(msg, ret);
+
+EXIT:
+  return ret;
+}
+
+err_code_t ClientNode::req_get_feedrate_percentage(sacp_hmi_message_t* msg) {
+  err_code_t ret = E_SUCCESS;
+  uint8_t key;
+  int16_t extruder0_feedrate_percentage;
+  int16_t extruder1_feedrate_percentage;
+  uint16_t index;
+
+  ToolHeadFDM *fdm = (ToolHeadFDM *)module_svc.get_module(MODULE_DEVICE_ID_FDM_2EXTRUDER_2021, 0);
+  if (!fdm) {
+    fdm = (ToolHeadFDM *)module_svc.get_module(MODULE_DEVICE_ID_FDM_1EXTRUDER_2019, 0);
+    if (!fdm) {
+      ret = E_FAILURE;
+      goto EXIT;
+    }
+  }
+
+  key = msg->data[0];
+  extruder0_feedrate_percentage = fdm->get_extruders_feedrate_percentage(0);
+  extruder1_feedrate_percentage = fdm->get_extruders_feedrate_percentage(1);
+
+  index = 0;
+  msg->data[index++] = ret;
+  msg->data[index++] = key;
+  msg->data[index++] = extruder0_feedrate_percentage & 0xff;
+  msg->data[index++] = (extruder0_feedrate_percentage >> 8) & 0xff;
+  msg->data[index++] = extruder1_feedrate_percentage & 0xff;
+  msg->data[index++] = (extruder1_feedrate_percentage >> 8) & 0xff;
+  msg->length = index;
+  host_hmi.send_ack(msg);
+
+EXIT:
+  return ret;
+}
+
+err_code_t ClientNode::req_set_flowrate_percentage(sacp_hmi_message_t* msg) {
+  err_code_t ret = E_SUCCESS;
+
+  // uint8_t key = msg->data[0];
+  uint8_t e = msg->data[1];
+  int16_t flowrate_percentage = msg->data[2] | (msg->data[1] << 8);
+
+  ToolHeadFDM *fdm = (ToolHeadFDM *)module_svc.get_module(MODULE_DEVICE_ID_FDM_2EXTRUDER_2021, 0);
+  if (!fdm) {
+    fdm = (ToolHeadFDM *)module_svc.get_module(MODULE_DEVICE_ID_FDM_1EXTRUDER_2019, 0);
+    if (!fdm) {
+      ret = E_FAILURE;
+      goto EXIT;
+    }
+  }
+
+  ret = fdm->set_extruders_flowrate_percentage(flowrate_percentage, e);
+
+  // response to hmi
+  host_hmi.send_ack(msg, ret);
+
+EXIT:
+  return ret;
+}
+
+err_code_t ClientNode::req_get_flowrate_percentage(sacp_hmi_message_t* msg) {
+  err_code_t ret = E_SUCCESS;
+  uint8_t key;
+  int16_t extruder0_flowrate_percentage;
+  int16_t extruder1_flowrate_percentage;
+  uint16_t index;
+
+  ToolHeadFDM *fdm = (ToolHeadFDM *)module_svc.get_module(MODULE_DEVICE_ID_FDM_2EXTRUDER_2021, 0);
+  if (!fdm) {
+    fdm = (ToolHeadFDM *)module_svc.get_module(MODULE_DEVICE_ID_FDM_1EXTRUDER_2019, 0);
+    if (!fdm) {
+      ret = E_FAILURE;
+      goto EXIT;
+    }
+  }
+
+  key = msg->data[0];
+  extruder0_flowrate_percentage = fdm->get_extruders_flowrate_percentage(0);
+  extruder1_flowrate_percentage = fdm->get_extruders_flowrate_percentage(1);
+
+  index = 0;
+  msg->data[index++] = ret;
+  msg->data[index++] = key;
+  msg->data[index++] = extruder0_flowrate_percentage & 0xff;
+  msg->data[index++] = (extruder0_flowrate_percentage >> 8) & 0xff;
+  msg->data[index++] = extruder1_flowrate_percentage & 0xff;
+  msg->data[index++] = (extruder1_flowrate_percentage >> 8) & 0xff;
+  msg->length = index;
+  host_hmi.send_ack(msg);
+
+EXIT:
+  return ret;
 }

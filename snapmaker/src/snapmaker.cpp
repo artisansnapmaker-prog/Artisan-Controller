@@ -233,11 +233,11 @@ err_code_t SnapmakerPrinter::hmi_cb_get_machine_size(void *obj, sacp_hmi_message
   msize = (MachineSizeInfo *)(msg->data + 1);
   msize->axis_number = 3;
   msize->axis_length[0].axis  = AXIS_KEY_X1;
-  msize->axis_length[0].value = machine_size[MACHINE_MODEL_A400].x * 1000;
+  msize->axis_length[0].value = machine_size[SNAPMAKER_MODEL_A400].x * 1000;
   msize->axis_length[1].axis  = AXIS_KEY_Y1;
-  msize->axis_length[1].value = machine_size[MACHINE_MODEL_A400].y * 1000;
+  msize->axis_length[1].value = machine_size[SNAPMAKER_MODEL_A400].y * 1000;
   msize->axis_length[2].axis  = AXIS_KEY_Z1;
-  msize->axis_length[2].value = machine_size[MACHINE_MODEL_A400].z * 1000;
+  msize->axis_length[2].value = machine_size[SNAPMAKER_MODEL_A400].z * 1000;
 
   msize->home_offset_number = 3;
   msize->home_offset[0].axis = AXIS_KEY_X1;
@@ -263,7 +263,7 @@ err_code_t SnapmakerPrinter::hmi_cb_set_protocol_for_PC(void *obj, sacp_hmi_mess
   }
 
   if (msg->data[0] > PC_PORT_PROTOCOL_MAX) {
-    LOG_E("unsupport protocol[] for PC\n", msg->data[0]);
+    LOG_E("unsupport protocol[%u] for PC\n", msg->data[0]);
     return host_hmi.send_ack(msg, E_PARAM);
   }
 
@@ -342,6 +342,7 @@ static void system_thread(void *p) {
   // must init hmi firstly
   host_hmi.init(thandle_hmi_event, hmi_recv_signal);
   host_hmi.apply_cmd_set_handle(SACP_CMD_SET_GLOBAL_REQ, 24);
+  system_svc.init();
 
   // module init
   module_svc.init();

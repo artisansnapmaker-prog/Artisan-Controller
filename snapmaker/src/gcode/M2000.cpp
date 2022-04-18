@@ -6,6 +6,7 @@
 #include "../common/utility.h"
 #include "../src/service/client_node.h"
 #include "../src/service/emergency_handler.h"
+#include "../src/service/system.h"
 
 
 #if MB_SNAPMAKER
@@ -50,19 +51,30 @@ void GcodeSuite::M2000() {
     break;
 
   case 1:
-    /* set pc log level */
+    /* set log level */
     break;
 
   case 2:
-    /* set screen log level */
+    /* raise  exception*/
+    {
+      uint32_t k = (uint32_t)parser.ulongval('K', (uint32_t)0);
+      uint32_t r = (uint32_t)parser.ulongval('R', (uint32_t)0);
+      system_svc.raise_exception((uint16_t)p, (uint8_t)q, k, r);
+    }
     break;
 
   case 3:
-    /* show exception */
+    /* clear exception */
+    {
+      system_svc.clear_exception((uint16_t)p, (uint8_t)q);
+    }
     break;
 
   case 4:
-    /* clear exception */
+    /* show exception */
+    {
+      host_hmi.test_interface(SACP_CMD_SET_NOTIFICATION, SACP_CMD_ID_NOTIFICATION_GET_EXCEPTION, NULL, 0);
+    }
     break;
 
   case 5:

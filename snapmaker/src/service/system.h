@@ -23,36 +23,87 @@
 
 #include <stdint.h>
 #include "../config.h"
+#include "../common/debug.h"
+#include "../common/error.h"
+#include "../host/sacp_hmi.h"
 
-enum MachineModel {
-  MACHINE_MODEL_A150,
-  MACHINE_MODEL_A250,
-  MACHINE_MODEL_A350,
-  MACHINE_MODEL_A400,
-  MACHINE_MODEL_J1
+#define EXCEPTION_STATIC_SIZE     (64)
+#define EXCEPTION_OWNER_INVALID   (0xFFFF)
+struct ExceptionNode {  
+  uint16_t owner;
+  uint8_t  state;
+  uint32_t ban;
 };
+
+#define EXCEPTION_ACTION_PAUSE_WORK
+#define EXCEPTION_ACTION_STOP_WORK
+#define EXCEPTION_ACTION_DISABLE_POWER_MOTIVE
+#define EXCEPTION_ACTION_DISABLE_POWER_8P_MOTOR
+#define EXCEPTION_ACTION_DISABLE_POWER_8P_TOOLHEAD
+#define EXCEPTION_ACTION_DISABLE_POWER_4P_ADDON
+#define EXCEPTION_ACTION_DISABLE_POWER_BED
+#define EXCEPTION_ACTION_DISABLE_POWER_HMI
+
+#define EXCEPTION_BAN_MOVING          (0x00000001)
+#define EXCEPTION_BAN_WORKING         (0x00000002)
+#define EXCEPTION_BAN_HEATING_HOTEND  (0x00000004)
+#define EXCEPTION_BAN_HEATING_BED     (0x00000008)
+#define EXCEPTION_BAN_TURN_ON_LASER   (0x00000010)
+#define EXCEPTION_BAN_TURN_ON_CNC     (0x00000020)
+
+
+enum A400ControllerExceptionState {
+  A400_CTRL_EXCEP_STA_NO_TOOLHEAD = 1,
+  A400_CTRL_EXCEP_STA_NO_BED,
+  A400_CTRL_EXCEP_STA_NO_LINEAR,
+  A400_CTRL_EXCEP_STA_MISS_LINEAR,
+  A400_CTRL_EXCEP_STA_OVERTEMP,
+  A400_CTRL_EXCEP_STA_MISS_SETTINGS,
+  A400_CTRL_EXCEP_STA_HOME_FAILED,
+  A400_CTRL_EXCEP_STA_REPLACE_TOOLHEAD,
+};
+
+/*
+#define POWER_DOMAIN_MOTIVE_POWER (0x1)
+#define POWER_DOMAIN_8P_TOOLHEAD  (0x1<<1)
+#define POWER_DOMAIN_8P_MOTOR     (0x1<<2)
+#define POWER_DOMAIN_4P_ADDON     (0x1<<3)
+#define POWER_DOMAIN_BED          (0x1<<4)
+#define POWER_DOMAIN_HMI          (0x1<<5)
+*/
 
 class SystemService {
   // public methods
   public:
     SystemService() {}
-    void init() {}
+    void init();
     void background_thread() { return ; }
     uint32_t millis(void);
+
+
+    err_code_t raise_exception(uint16_t owner, uint8_t state, uint32_t actions, uint32_t ban = 0);
+    err_code_t clear_exception(uint16_t owner, uint8_t state);
+    void raise_exception_from_isr(uint16_t owner, uint8_t state, uint32_t actions, uint32_t ban = 0);
+
+    static err_code_t hmi_cb_get_exceptions(void *obj, sacp_hmi_message_t *msg);
     
   // private methods
   private:
-
+    uint32_t get_bans(uint8_t *buffer, uint32_t buff_len);
+    void update_bans();
+    uint32_t get_level(uint32_t ban);
 
   // public properties
   public:
 
   // private properties
   private:
-    MachineModel model;         // machine model
-    uint8_t      hw_ver;        // controller hardware version
-    uint32_t     sn;            // controller serial number
-    char         fw_ver[33];    // controller version
+    ExceptionNode nodes[EXCEPTION_STATIC_SIZE];
+    uint32_t      bans;
+
+    // if node above is not enough for save current exceptions
+    // won't apply dynamic memory from heap for them
+    ExceptionNode *dynamic_nodes;
 };
 
 

@@ -55,7 +55,7 @@
 enum SACPCommandSet {
   SACP_CMD_SET_GLOBAL_REQ                 = 0x1,
 
-  SACP_CMD_SET_GLOBAL_NOTIFICATION        = 0x4,
+  SACP_CMD_SET_NOTIFICATION               = 0x4,
 
   SACP_CMD_SET_FDM                        = 0x10,
   SACP_CMD_SET_CNC                        = 0x11,
@@ -99,6 +99,13 @@ enum SACPCommandSet {
 
 #define SACP_CMD_ID_GLOABL_REQ_HEARTBEAT          (0xa0)
 #define SACP_CMD_ID_GLOABL_REQ_SUB_COORDINATE     (0xa2)
+
+enum SACPCommandIdNotification {
+  SACP_CMD_ID_NOTIFICATION_RAISE_EXCEPTION = 0,
+  SACP_CMD_ID_NOTIFICATION_CEALR_EXCEPTION,
+  SACP_CMD_ID_NOTIFICATION_GET_EXCEPTION,
+};
+
 
 typedef struct {
   uint32_t peer;

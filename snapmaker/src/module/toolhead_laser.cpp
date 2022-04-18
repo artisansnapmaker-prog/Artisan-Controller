@@ -395,14 +395,16 @@ err_code_t ToolHeadLaser::hmi_cb_do_manual_focusing(void *obj, sacp_hmi_message_
   int32_t *tmp;
   float target_pos[3];
 
-  tmp = (int32_t *)(message->data + 1);
+  tmp = (int32_t *)(message->data);
   target_pos[0] = (*tmp / 1000.0);
 
-  tmp = (int32_t *)(message->data + 5);
+  tmp = (int32_t *)(message->data + 4);
   target_pos[1] = (*tmp / 1000.0);
 
-  tmp = (int32_t *)(message->data + 9);
+  tmp = (int32_t *)(message->data + 8);
   target_pos[2] = (*tmp / 1000.0);
+
+  LOG_I("hmi_cb_do_manual_focusing: X: %.3f, Y%.3f, Z%.3f\n", target_pos[0], target_pos[1], target_pos[2]);
 
   if (!motion_platform_svc.is_all_axes_homed()) {
     motion_platform_svc.home();
@@ -446,6 +448,8 @@ err_code_t ToolHeadLaser::hmi_cb_do_auto_focusing(void *obj, sacp_hmi_message_t 
   float line_len_short = 5;
   float line_len_long = 10;
 
+  LOG_I("hmi_cb_do_auto_focusing: interval: %.3f\n", z_interval);
+
   if (!motion_platform_svc.is_all_axes_homed()) {
     motion_platform_svc.home();
   }
@@ -466,6 +470,8 @@ err_code_t ToolHeadLaser::hmi_cb_do_auto_focusing(void *obj, sacp_hmi_message_t 
     LOG_E("start Z height is too low: %.2f\n", next_z);
     return host_hmi.send_ack(message, E_FAILURE);
   }
+
+  motion_platform_svc.moveto_z(next_z, 20.0f);
 
   // Draw 10 Line
   do {
@@ -490,8 +496,10 @@ err_code_t ToolHeadLaser::hmi_cb_do_auto_focusing(void *obj, sacp_hmi_message_t 
     laser.set_output((float)0);
 
     // Move up Z increase
-    if(i != (count - 1))
-      motion_platform_svc.moveto_z(motion_platform_svc.sm_current_position[Z_AXIS] + z_interval, 20.0f);
+    if(i != (count - 1)) {
+      motion_platform_svc.moveto_z(next_z + z_interval, 20.0f);
+      next_z += z_interval;
+    }
 
     next_x = next_x + line_space;
     i++;
@@ -875,6 +883,9 @@ err_code_t ToolHeadLaser::post_init() {
   master_switch_tick  = 0;
   master_switch_state = LASER_SWITCH_STATE_CLOSED;
 
+  // calibration API
+  host_hmi.apply_cmd_set_handle(SACP_CMD_SET_CALIBRATE_LASER, SACP_CMD_ID_LASER_CALI_MAX);
+
   if (get_device_id() == MODULE_DEVICE_ID_LASER_10W_2021) {
     LOG_I("Got 10W laser!\n");
     host_hmi.apply_cmd_set_handle(SACP_CMD_SET_LASER, SACP_CMD_ID_LASER_MAX);
@@ -888,7 +899,14 @@ err_code_t ToolHeadLaser::post_init() {
   }
   else {
     LOG_I("Got 1.6W laser!\n");
+
     host_hmi.apply_cmd_set_handle(SACP_CMD_SET_LASER, SACP_CMD_ID_LASER_MAX - 2);
+
+    // calibration Callback for MODULE_DEVICE_ID_LASER_1P6W_2019 only
+    host_hmi.register_callback(SACP_CMD_SET_CALIBRATE_LASER, SACP_CMD_ID_LASER_CALI_MANUAL, (void *)this,
+      hmi_cb_do_manual_focusing, SACP_CB_ATTR_BLOCKED_WITH_MOTION);
+    host_hmi.register_callback(SACP_CMD_SET_CALIBRATE_LASER, SACP_CMD_ID_LASER_CALI_AUTO, (void *)this,
+    hmi_cb_do_auto_focusing, SACP_CB_ATTR_BLOCKED_WITH_MOTION);
   }
 
   // common API
@@ -908,11 +926,6 @@ err_code_t ToolHeadLaser::post_init() {
     hmi_cb_publish_power);
 
   // calibration API
-  host_hmi.apply_cmd_set_handle(SACP_CMD_SET_CALIBRATE_LASER, SACP_CMD_ID_LASER_CALI_MAX);
-  host_hmi.register_callback(SACP_CMD_SET_CALIBRATE_LASER, SACP_CMD_ID_LASER_CALI_MANUAL, (void *)this,
-    hmi_cb_do_manual_focusing);
-  host_hmi.register_callback(SACP_CMD_SET_CALIBRATE_LASER, SACP_CMD_ID_LASER_CALI_AUTO, (void *)this,
-    hmi_cb_do_auto_focusing);
   host_hmi.register_callback(SACP_CMD_SET_CALIBRATE_LASER, SACP_CMD_ID_LASER_CALI_SET_MODE, (void *)this,
     hmi_cb_set_cali_mode);
   host_hmi.register_callback(SACP_CMD_SET_CALIBRATE_LASER, SACP_CMD_ID_LASER_CALI_REQ_EXIT, (void *)this,

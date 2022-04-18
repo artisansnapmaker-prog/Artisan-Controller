@@ -135,7 +135,7 @@ void UpgradeHostToModule::loop(void) {
 
 void UpgradeHostToModule::reset_to_idle(void) {
   if (module_upgrade_info) {
-    module_upgrade_info->handle.module_deinit();
+    module_upgrade_info->module_deinit();
   }
   status = UPGRADE_HM_STATUS_IDLE;
   ugr_svc->set_updgrade_phase(UPGRADE_PHASE_INIT);

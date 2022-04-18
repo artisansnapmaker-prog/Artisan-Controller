@@ -36,6 +36,13 @@
 #define DUAL_EXTRUDER_RIGHT_SOFT_ENDSTOP_MIN_X  0
 
 #define DELAY_TURNOFF_TIME_MS      (5*60*1000)
+#define DUAL_EXTRUDER_SAFE_SPACE_MIN_X          35
+#define DUAL_EXTRUDER_SAFE_SPACE_MAX_X          35
+#define DUAL_EXTRUDER_SAFE_SPACE_MIN_Y          2
+#define DUAL_EXTRUDER_SAFE_SPACE_MAX_Y          2
+#define DUAL_EXTRUDER_SAFE_SPACE_MAX_Z          6
+#define TOOL_CHANGE_RAISE_SPACE                 1
+
 
 /****************************************************************************************
 reference links: https://snapmaker2.atlassian.net/wiki/spaces/SNAP/pages/1984987369/FDM
@@ -203,6 +210,7 @@ class ToolHeadFDM: public ModuleBase {
     void fdm_exception_clear(fdm_fault_e fault);
     void show_fdm_info();
     void delay_turnoff_heating_process();
+    void dual_extruder_process_after_z_homed();
 
   // private methods
   private:

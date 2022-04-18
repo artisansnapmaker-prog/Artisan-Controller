@@ -883,9 +883,9 @@ err_code_t BedLevelService::unapply_live_z_offset(uint8_t e) {
 void BedLevelService::set_live_z_offset(uint8_t e, float offset) {
   if (live_z_offset[e] != offset) {
     live_z_offset_changed = true;
+    LOG_I("z cur height changed: %f\n", offset - live_z_offset[e]);
     if (e == smprinter.fdm->get_active_extruder()) {
       motion_platform_svc.synchronize_planner();
-      motion_platform_svc.update_soft_endstops(Z_AXIS, 1, -offset);
       float cur_z = motion_platform_svc.get_current_position(Z_AXIS);
       motion_platform_svc.moveto_z(cur_z + (offset - live_z_offset[e]), 5);
       motion_platform_svc.sm_current_position[Z_AXIS] = cur_z;
@@ -898,7 +898,7 @@ void BedLevelService::set_live_z_offset(uint8_t e, float offset) {
       motion_platform_svc.save_settings();
     }
   } else {
-    LOG_I("\n");
+    LOG_I("live_z_offset no changes\n");
   }
 }
 

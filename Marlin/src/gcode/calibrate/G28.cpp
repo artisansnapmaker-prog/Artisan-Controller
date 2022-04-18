@@ -384,6 +384,11 @@ void GcodeSuite::G28() {
     #endif
 
     TERN_(HOME_Z_FIRST, if (doZ) homeaxis(Z_AXIS));
+    #if MB_SNAPMAKER
+      if (doZ) {
+        smprinter.dual_extruder_process_after_z_homed();
+      }
+    #endif
 
     const float z_homing_height = parser.seenval('R') ? parser.value_linear_units() : Z_HOMING_HEIGHT;
 

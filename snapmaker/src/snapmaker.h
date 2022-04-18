@@ -308,6 +308,12 @@ class SnapmakerPrinter
       }
     }
 
+    void dual_extruder_process_after_z_homed() {
+      if (fdm) {
+        fdm->dual_extruder_process_after_z_homed();
+      }
+    }
+
     // LASER
     void set_laser_fan_speed(uint16_t speed) {}
 

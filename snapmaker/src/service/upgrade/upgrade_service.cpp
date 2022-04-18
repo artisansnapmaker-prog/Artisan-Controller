@@ -25,6 +25,7 @@
 #include "../../snapmaker.h"
 #include "upgrade_service.h"
 
+
 UpdateService upgrade_svc;
 
 err_code_t UpdateService::init(void) {
@@ -48,6 +49,7 @@ err_code_t UpdateService::init(void) {
 void UpdateService::loop(void) {
   ugr_ctrl_svc.loop();
   ugr_hc_svc.loop();
+  ugr_hm_svc.loop();
 }
 
 err_code_t UpdateService::sacp_msg_proc(void * obj, sacp_hmi_message_t *msg) {
@@ -83,6 +85,7 @@ err_code_t UpdateService::sacp_msg_proc(void * obj, sacp_hmi_message_t *msg) {
     break;  
 
     case UPGRADE_PHASE_HOST_TO_MODULE:
+      ugr_hm_svc.sacp_msg_proc(msg);
     break;
 
     default:

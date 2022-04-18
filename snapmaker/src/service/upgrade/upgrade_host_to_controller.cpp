@@ -21,7 +21,6 @@
 #include "upgrade_host_to_controller.h"
 #include "upgrade_service.h"
 #include "../../snapmaker.h"
-#include "../../module/toolhead_laser.h"
 
 UpgradeHostToController ugr_hc_svc;
 
@@ -107,25 +106,25 @@ err_code_t UpgradeHostToController::start_proc(sacp_hmi_message_t *msg) {
   pit = (pack_info_t *)msg->data;
   if (!boot_info_check(pit)) {
     LOG_E("upgrade_hc: packet info checksum failure\r\n");
-    return ugr_svc->upgrade_start_ack(msg, E_FAILURE);
+    return start_ack(msg, E_FAILURE);
   }
 
   if (UPGRADE_HC_STATUS_IDLE != status) {
     LOG_E("upgrade_module: can not start a upgrade as current is not in IDLE status\r\n");
-    return ugr_svc->upgrade_start_ack(msg, E_FAILURE);
+    return start_ack(msg, E_FAILURE);
   }
 
   if (!flash_erase(module_fw_partition)) {
     if (!flash_erase(module_fw_partition)) {
       LOG_E("upgrade_module: module flash partition erase failure\r\n");
-      return ugr_svc->upgrade_start_ack(msg, E_FAILURE);
+      return start_ack(msg, E_FAILURE);
     }
   }
 
   if (E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_MODULE_UPGRADE, NULL)) {
     LOG_E("upgrade_module: can not enter module upgrade status\r\n");
     reset_to_idle();
-    return ugr_svc->upgrade_start_ack(msg, E_FAILURE);
+    return start_ack(msg, E_FAILURE);
   }
   ugr_svc->print_packet_info(pit);
 
@@ -136,7 +135,7 @@ err_code_t UpgradeHostToController::start_proc(sacp_hmi_message_t *msg) {
   checksum = pit->fw_checksum;
   status = UPGRADE_HC_STATUS_START;
   ugr_svc->set_updgrade_phase(UPGRADE_PHASE_HOST_TO_CONTROLLER);
-  ugr_svc->upgrade_start_ack(msg, E_SUCCESS);
+  start_ack(msg, E_SUCCESS);
 
   return E_SUCCESS;
 }
@@ -205,8 +204,8 @@ err_code_t UpgradeHostToController::end_proc(sacp_hmi_message_t *msg) {
   return E_SUCCESS;
 }
 
-void UpgradeHostToController::start_ack(sacp_hmi_message_t *msg, uint8_t ret) {
-  host_hmi.send_ack(msg, ret);
+err_code_t UpgradeHostToController::start_ack(sacp_hmi_message_t *msg, uint8_t ret) {
+  return host_hmi.send_ack(msg, ret);
 }
 
 void UpgradeHostToController::trans_data_req(uint32_t offset, uint16_t len) {

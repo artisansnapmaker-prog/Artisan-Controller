@@ -59,7 +59,6 @@ typedef struct {
 } sacp_hmi_waiting_node_t;
 
 #define SACP_HMI_WAITING_NODE_MAX (4)
-
 #define SACP_V1_CMD_SET_MAX (0x100)
 
 enum SACPHMIChannel {

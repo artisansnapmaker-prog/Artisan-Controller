@@ -24,7 +24,7 @@
 
 #include "../../common/error.h"
 #include "../../host/sacp_hmi.h"
-#include "upgrade_module.h"
+#include "upgrade_host_to_module.h"
 
 #define ESP32_UPDATE_OPCODE_START_NOTIFY         (0x00)
 #define ESP32_UPDATE_OPCODE_TRANS_NOTIFY         (0x01)

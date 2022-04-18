@@ -35,12 +35,12 @@ typedef struct {
 
 typedef struct {
   uint32_t offset;
-  boot_info_t *boot_info;
+  pack_info_t *boot_info;
   flash_partition_t *boot_data_partition;
   flash_partition_t *app_partition;
 } upgrade_info_t;
 
-void upgrade_init(boot_info_t *boot_info, 
+void upgrade_init(pack_info_t *boot_info, 
               flash_partition_t *boot_data_partition, 
               flash_partition_t *app_partition);
 void cmd_proc(uint8_t *pl, uint32_t len, uint8_t *out, uint32_t &out_len);

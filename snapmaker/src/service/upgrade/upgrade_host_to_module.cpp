@@ -21,41 +21,40 @@
 #include "upgrade_host_to_module.h"
 #include "upgrade_service.h"
 #include "../../snapmaker.h"
-#include "../../module/toolhead_laser.h"
+#include "esp32_upgrade.h"
 
 UpgradeHostToModule ugr_hm_svc;
 
 UpgradeModuleInfo upgrade_module_info_tab[] = {
   
-  // {
-  //   ESP32_FW,                                             /* packet type */
-  //   0,                                                    /* start id    */
-  //   0,                                                    /* end id      */
-  //   NULL,
-  //   NULL,
-  //   {
-  //     esp32_camera_upgrade_start, 
-  //     module_call_start_ack, 
-  //     module_call_trans_req, 
-  //     esp32_camera_upgrade_trans, 
-  //     esp32_camera_upgrade_end, 
-  //     module_call_end_ack, 
-  //     module_call_notify_req
-  //     NULL, 
-  //   }
-  // },
+  {
+    ESP32_FW,                                             /* packet type */
+    0,                                                    /* start id    */
+    0,                                                    /* end id      */
+    esp32_camera_upgrade_handle_init,
+    esp32_camera_upgrade_handle_deinit,
+    {
+      esp32_camera_upgrade_start, 
+      module_call_start_ack, 
+      module_call_trans_req, 
+      esp32_camera_upgrade_trans, 
+      esp32_camera_upgrade_end, 
+      module_call_end_ack, 
+      module_call_notify_req,
+      NULL, 
+    }
+  },
 
-  // {
-  //   SM2_HM_FW,                                        /* packet type */
-  //   0,                                                    /* start id    */
-  //   13,                                                   /* end id      */
-  //   NULL,
-  //   NULL,
-  //   {
-  //     NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL
-  //   }
-  // },
-  
+  {
+    SM2_MODULE_FW,                                        /* packet type */
+    0,                                                    /* start id    */
+    13,                                                   /* end id      */
+    NULL,
+    NULL,
+    {
+      NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL
+    }
+  },
 };
 
 err_code_t module_call_start_ack(uint8_t ret) {
@@ -94,9 +93,10 @@ void UpgradeHostToModule::loop(void) {
       if (time_after(millis(), last_start_req_ms + 500)) {
         if (start_req_try < 10) {
           start_req_try++;
+          last_start_req_ms = millis();
         }
         else {
-          LOG_E("upgrade_module: upgrade start request timeout, return to upgrade init\r\n");
+          LOG_E("upgrade_hm: upgrade start request timeout, return to upgrade init\r\n");
           reset_to_idle();
         }
       }
@@ -106,9 +106,10 @@ void UpgradeHostToModule::loop(void) {
       if (time_after(millis(), last_trans_req_ms + 500)) {
         if (trans_req_try < 10) {
           trans_req_try++;
+          last_trans_req_ms = millis();
         }
         else {
-          LOG_E("upgrade_module: upgrade trans timeout, return to upgrade init\r\n");
+          LOG_E("upgrade_hm: upgrade trans timeout, return to upgrade init\r\n");
           reset_to_idle();
         }
       }
@@ -117,12 +118,11 @@ void UpgradeHostToModule::loop(void) {
     case UPGRADE_HM_STATUS_END:
       if (time_after(millis(), last_end_req_ms + 500)) {
         if (end_req_try < 10) {
-          // UPGRADE_HM_BY_HOST and UPGRADE_HM_BY_CONTROLLER
-          // use the same api to notify the HOST
-          notify_end(end_ret);
+          end_req_try++;
+          last_end_req_ms = millis();
         }
         else {
-          LOG_E("upgrade_module: upgrade end error, return to upgrade init\r\n");
+          LOG_E("upgrade_hm: upgrade end error, return to upgrade init\r\n");
           reset_to_idle();
         }
       }
@@ -170,27 +170,33 @@ err_code_t UpgradeHostToModule::start_proc(sacp_hmi_message_t *msg) {
   pack_info_t *pit;
 
   pit = (pack_info_t *)msg->data;
+  if (!boot_info_check(pit)) {
+    LOG_E("upgrade_hm: packet info checksum failure\r\n");
+    return start_ack(msg, E_FAILURE);
+  }
+
   if (UPGRADE_HM_STATUS_IDLE != status) {
-    LOG_E("upgrade_module: can not start a upgrade as current is not in IDLE status\r\n");
-    return ugr_svc->upgrade_start_ack(msg, E_FAILURE);
+    LOG_E("upgrade_hm: can not start a upgrade as current is not in IDLE status\r\n");
+    return start_ack(msg, E_FAILURE);
   }
 
   module_upgrade_info = get_module_upgrade_handls((UpdatePackType)pit->pack_type, pit->start_index);
   if (!module_upgrade_info) {
-    LOG_E("upgrade_module: unsupported pack %d with id %d\r\n", pit->pack_type, pit->start_index);
-    return ugr_svc->upgrade_start_ack(msg, E_FAILURE);
+    LOG_E("upgrade_hm: unsupported pack %d with id %d\r\n", pit->pack_type, pit->start_index);
+    return start_ack(msg, E_FAILURE);
   }
 
   if (E_SUCCESS != module_upgrade_info->module_init(&(module_upgrade_info->handle))) {
-    LOG_E("upgrade_module: module upgrade init error\r\n");
-    return ugr_svc->upgrade_start_ack(msg, E_FAILURE);
+    LOG_E("upgrade_hm: module upgrade init error\r\n");
+    return start_ack(msg, E_FAILURE);
   }
 
   if (E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_MODULE_UPGRADE, NULL)) {
-    LOG_E("upgrade_module: can not enter module upgrade status\r\n");
+    LOG_E("upgrade_hm: can not enter module upgrade status\r\n");
     reset_to_idle();
-    return ugr_svc->upgrade_start_ack(msg, E_FAILURE);
+    return start_ack(msg, E_FAILURE);
   }
+  ugr_svc->print_packet_info(pit);
 
   host_id = msg->peer;
   host_ch = msg->ch;
@@ -212,17 +218,17 @@ err_code_t UpgradeHostToModule::trans_proc(sacp_hmi_message_t *msg) {
   uint16_t rx_pack_len;
 
   if (UPGRADE_HM_STATUS_TRANS != status) {
-    LOG_E("upgrade_module: can not handle trans packet as current is not in UPGRADE_STATE_TRANS state\r\n");
+    LOG_E("upgrade_hm: can not handle trans packet as current is not in UPGRADE_STATE_TRANS state\r\n");
     return ugr_svc->upgrade_notify(msg, E_FAILURE);
   }
 
   if (msg->length < 7) {
-    LOG_E("upgrade_module: lenght error\r\n");
+    LOG_E("upgrade_hm: lenght error\r\n");
     return ugr_svc->upgrade_notify(msg, E_FAILURE);
   }
 
   if (E_SUCCESS != msg->data[0]) {
-    LOG_E("upgrade_module: trans return error\r\n");
+    LOG_E("upgrade_hm: trans return error\r\n");
     return ugr_svc->upgrade_notify(msg, E_FAILURE);
   }
 
@@ -237,8 +243,11 @@ err_code_t UpgradeHostToModule::trans_proc(sacp_hmi_message_t *msg) {
   }
   
   if (offset >= fw_lenght) {
+    LOG_I("upgrade_hm: RX all the data\r\n");
     configASSERT(module_upgrade_info);
     end_ret = E_SUCCESS;
+    last_end_req_ms = millis();
+    end_req_try = 0;
     module_upgrade_info->handle.end_req(end_ret);
     status = UPGRADE_HM_STATUS_END;
   }
@@ -249,7 +258,7 @@ err_code_t UpgradeHostToModule::trans_proc(sacp_hmi_message_t *msg) {
 err_code_t UpgradeHostToModule::end_proc(sacp_hmi_message_t *msg) {
 
   if (UPGRADE_HM_STATUS_END != status) {
-    LOG_E("upgrade_module: can not handle end ack packet as current is not in UPGRADE_HM_STATUS_END state\r\n");
+    LOG_E("upgrade_hm: can not handle end ack packet as current is not in UPGRADE_HM_STATUS_END state\r\n");
     return ugr_svc->upgrade_notify(msg, E_FAILURE);
   }
 
@@ -277,7 +286,10 @@ err_code_t UpgradeHostToModule::module_call_start_ack(uint8_t ret) {
   msg.data = data;
   msg.data[0] = ret;
   msg.length = 1;
-  return ugr_svc->upgrade_start_ack(&msg, ret);
+
+  last_start_req_ms = millis();
+  start_req_try = 0;
+  return start_ack(&msg, ret);
 }
 
 err_code_t UpgradeHostToModule::module_call_trans_req(uint32_t req_offset, uint32_t len) {
@@ -299,7 +311,7 @@ err_code_t UpgradeHostToModule::module_call_end_ack(uint8_t ret) {
     return E_FAILURE;
   }
 
-  notify_end(ret);
+  end_req(ret);
   return E_SUCCESS;
 }
 
@@ -308,8 +320,12 @@ err_code_t UpgradeHostToModule::module_call_notify_req(uint8_t ret) {
     return E_FAILURE;
   }
 
-  notify_error(ret);
+  error_notify(ret);
   return E_SUCCESS;
+}
+
+err_code_t UpgradeHostToModule::start_ack(sacp_hmi_message_t *msg, uint8_t ret) {
+  return host_hmi.send_ack(msg, ret);
 }
 
 void UpgradeHostToModule::trans_data_req(uint32_t offset, uint16_t len) {
@@ -329,14 +345,14 @@ void UpgradeHostToModule::trans_data_req(uint32_t offset, uint16_t len) {
   _16_TO_LITTLE_STREAM(len, tx_msg.data + index);
   index += 2;
   tx_msg.length = index;
-  LOG_I("%dms upgrade_module: trans_req offset %d, buffer %d\r\n", millis(), offset, len);
+  LOG_I("%dms upgrade_hm: trans_req offset %d, buffer %d\r\n", millis(), offset, len);
   host_hmi.send(&tx_msg);
 
   last_trans_req_ms = millis();
   trans_req_try++;
 }
 
-void UpgradeHostToModule::notify_end(uint8_t ret) {
+void UpgradeHostToModule::end_req(uint8_t ret) {
   sacp_hmi_message_t tx_msg;
   uint8_t send_frame[4];
 
@@ -350,13 +366,13 @@ void UpgradeHostToModule::notify_end(uint8_t ret) {
   tx_msg.data[0] = ret;
   tx_msg.length = 1;
   host_hmi.send(&tx_msg);
-  LOG_I("%dms upgrade_module: end_req, ret %d\r\n", millis(), ret);
+  LOG_I("%dms upgrade_hm: end_req, ret %d\r\n", millis(), ret);
 
   last_end_req_ms = millis();
   end_req_try++;
 }
 
-void UpgradeHostToModule::notify_error(uint8_t ret) {
+void UpgradeHostToModule::error_notify(uint8_t ret) {
   sacp_hmi_message_t tx_msg;
   uint8_t send_frame[4];
 
@@ -370,13 +386,7 @@ void UpgradeHostToModule::notify_error(uint8_t ret) {
   tx_msg.data[0] = ret;
   tx_msg.length = 1;
   host_hmi.send(&tx_msg);
-  LOG_I("%dms upgrade_module: notify %d\r\n", millis(), ret);
-}
-
-bool UpgradeHostToModule::firmware_flash_checksum(uint32_t rx_checsum, uint32_t flash_addr, uint32_t len) {
-  uint32_t cs;
-  cs = calculate_checksum((uint8_t *)flash_addr, len);
-  return cs == rx_checsum;
+  LOG_I("%dms upgrade_hm: notify %d\r\n", millis(), ret);
 }
 
 UpgradeModuleInfo *UpgradeHostToModule::get_module_upgrade_handls(UpdatePackType pack_type, uint16_t id) {

@@ -36,6 +36,7 @@
 
 #define UPGRADE_TRANS_BUF_SIZE                (SACP_PDU_MAX_SIZE - 64)
 
+
 enum UpgradeHMStatus {
   UPGRADE_HM_STATUS_IDLE = 0,
   UPGRADE_HM_STATUS_START,
@@ -75,17 +76,16 @@ typedef struct {
   UpgradeModuleHandle handle;
 } UpgradeModuleInfo;
 
-class UpdateService;
-
-/************************************************************************/
-// module upgrade class
-/************************************************************************/
-
 err_code_t module_call_start_ack(uint8_t);
 err_code_t module_call_trans_req(uint32_t req_offset, uint32_t len);
 err_code_t module_call_end_ack(uint8_t);
 err_code_t module_call_notify_req(uint8_t);
 
+class UpdateService;
+
+/************************************************************************/
+// module upgrade class
+/************************************************************************/
 class UpgradeHostToModule {
   public:
     UpgradeHostToModule(){};
@@ -106,10 +106,10 @@ class UpgradeHostToModule {
     UpgradeModuleInfo *get_module_upgrade_handls(UpdatePackType pack_type, uint16_t id);
 
   private:
+    err_code_t start_ack(sacp_hmi_message_t *msg, uint8_t ret);
     void trans_data_req(uint32_t offset, uint16_t len);
-    void notify_end(uint8_t ret);
-    void notify_error(uint8_t ret);
-    bool firmware_flash_checksum(uint32_t rx_checsum, uint32_t flash_addr, uint32_t len);
+    void end_req(uint8_t ret);
+    void error_notify(uint8_t ret);
 
     UpgradeHMStatus status;
     UpdateService *ugr_svc;

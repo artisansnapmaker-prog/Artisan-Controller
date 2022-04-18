@@ -62,7 +62,7 @@ class UpgradeHostToController {
     err_code_t end_proc(sacp_hmi_message_t *msg);
 
   private:
-    void start_ack(sacp_hmi_message_t *msg, uint8_t ret);
+    err_code_t start_ack(sacp_hmi_message_t *msg, uint8_t ret);
     void trans_data_req(uint32_t offset, uint16_t len);
     void end_req(uint8_t ret);
     void error_notify(uint8_t ret);
@@ -76,9 +76,6 @@ class UpgradeHostToController {
     uint32_t offset;
     uint32_t fw_lenght;
     uint32_t checksum;
-
-    uint32_t last_start_req_ms;
-    uint32_t start_req_try;
 
     uint32_t last_trans_req_ms;
     uint32_t trans_req_try;

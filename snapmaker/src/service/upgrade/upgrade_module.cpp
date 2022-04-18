@@ -32,8 +32,8 @@ UpgradeModuleInfo upgrade_module_info_tab[] = {
     ESP32_FW,                                             /* packet type */
     0,                                                    /* start id    */
     0,                                                    /* end id      */
-    NULL,
-    NULL,
+    esp32_camera_upgrade_handle_init,
+    esp32_camera_upgrade_handle_deinit,
     {
       esp32_camera_upgrade_start, 
       module_call_start_ack, 

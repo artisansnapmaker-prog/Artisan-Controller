@@ -34,6 +34,8 @@
 #include "../../boot/boot.h"
 #include "upgrade_controller.h"
 #include "upgrade_host_to_controller.h"
+#include "upgrade_host_to_module.h"
+
 
 #define CMD_SET_UPGRADE                       (0xAD)
 #define CMD_ID_UPGRADE_START                  (0x01)

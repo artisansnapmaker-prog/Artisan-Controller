@@ -38,7 +38,7 @@ err_code_t esp32_camera_upgrade_handle_init(UpgradeModuleHandle *func_tab) {
   }
 
   laser = smprinter.get_cur_toolhead();
-  if (!laser || laser->check_online()) {
+  if (!laser || !laser->check_online()) {
     LOG_E("[%s] laser offine, upgrading esp32 stop\n", __FUNCTION__);
     return E_INVALID_STATE;
   }

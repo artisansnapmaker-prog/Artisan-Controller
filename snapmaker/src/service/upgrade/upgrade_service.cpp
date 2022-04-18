@@ -35,21 +35,61 @@ err_code_t UpdateService::init(void) {
 
   ret = E_SUCCESS;
   ret |= host_hmi.apply_cmd_set_handle(CMD_SET_UPGRADE, 3);
-  ret |= host_hmi.register_callback(CMD_SET_UPGRADE, CMD_ID_UPGRADE_START, this, sacp_upgrade_start);
-  ret |= host_hmi.register_callback(CMD_SET_UPGRADE, CMD_ID_UPGRADE_TRANS, this, sacp_upgrade_trans, SACP_CB_ATTR_ACK);
-  ret |= host_hmi.register_callback(CMD_SET_UPGRADE, CMD_ID_UPGRADE_END, this, sacp_upgrade_end, SACP_CB_ATTR_ACK);
+  ret |= host_hmi.register_callback(CMD_SET_UPGRADE, CMD_ID_UPGRADE_START, this, sacp_msg_proc);
+  ret |= host_hmi.register_callback(CMD_SET_UPGRADE, CMD_ID_UPGRADE_TRANS, this, sacp_msg_proc, SACP_CB_ATTR_ACK);
+  ret |= host_hmi.register_callback(CMD_SET_UPGRADE, CMD_ID_UPGRADE_END, this, sacp_msg_proc, SACP_CB_ATTR_ACK);
 
-  ctrl_ugr = &ugr_ctrl_svc;
-  module_ugr = &ugr_mdl_svc;
-  ret |= ctrl_ugr->init(this);
-  ret |= module_ugr->init(this);
+  ret |= ugr_ctrl_svc.init(this);
+  ret |= ugr_hc_svc.init(this);
 
   return ret;
 }
 
 void UpdateService::loop(void) {
-  ctrl_ugr->loop();
-  module_ugr->loop();
+  ugr_ctrl_svc.loop();
+  ugr_hc_svc.loop();
+}
+
+err_code_t UpdateService::sacp_msg_proc(void * obj, sacp_hmi_message_t *msg) {
+  pack_info_t *pit;
+  UpdateService &upgrade = *(UpdateService *)obj;
+
+  switch (upgrade.phase) {
+    case UPGRADE_PHASE_INIT:
+      if (CMD_ID_UPGRADE_START != msg->cmd_id) {
+        LOG_E("upgrade_service: only upgrade start can been accepted IN UPGRADE_PHASE_INIT\r\n");
+        break;
+      }
+
+      pit = (pack_info_t *)msg->data;
+      if (!boot_info_check(pit)) {
+        LOG_E("upgrade_service: packet info checksum failure\r\n");
+        break;
+      }
+
+      upgrade.phase = upgrade.upgrade_phase(pit);
+      LOG_I("upgread_servicde: upgrade.phase %d\r\n", upgrade.phase);
+      UpdateService::sacp_msg_proc(obj, msg);
+    break;
+
+    case UPGRADE_PAHSE_APP_START:
+    break;
+
+    case UPGRADE_PHASE_CONTROLLER_TO_MODULE:
+    break;
+
+    case UPGRADE_PHASE_HOST_TO_CONTROLLER:
+      ugr_hc_svc.sacp_msg_proc(msg);
+    break;  
+
+    case UPGRADE_PHASE_HOST_TO_MODULE:
+    break;
+
+    default:
+    break;  
+  }
+
+  return E_SUCCESS;
 }
 
 err_code_t UpdateService::sacp_upgrade_start(void *obj, sacp_hmi_message_t *msg) {
@@ -67,7 +107,8 @@ err_code_t UpdateService::sacp_upgrade_start(void *obj, sacp_hmi_message_t *msg)
     LOG_E("boot info checksum failure\r\n");
     return upgrade.upgrade_start_ack(msg, E_FAILURE);
   }
-
+  
+  #if 0
   if (A400_CONTROLLER_FW == bti->pack_type) {
     return upgrade.ctrl_ugr->start_proc(bti, msg);
   }
@@ -80,8 +121,7 @@ err_code_t UpdateService::sacp_upgrade_start(void *obj, sacp_hmi_message_t *msg)
     LOG_E("upgrade_service: unsupported packet type\r\n");
     return upgrade.upgrade_start_ack(msg, E_FAILURE);
   }
-  
-  #if 0
+
   switch (bti->pack_type)
   {
   case A400_CONTROLLER_FW:
@@ -127,16 +167,36 @@ err_code_t UpdateService::sacp_upgrade_trans(void *obj, sacp_hmi_message_t *msg)
   LOG_I("sacp_upgrade_trans\r\n");
 
   // Always module upgrade
-  UpdateService &upgrade = *(UpdateService *)obj;
-  return upgrade.module_ugr->trans_proc(&(upgrade.boot_info), msg);
+  // UpdateService &upgrade = *(UpdateService *)obj;
+  // return upgrade.module_ugr->trans_proc(&(upgrade.boot_info), msg);
 }
 
 err_code_t UpdateService::sacp_upgrade_end(void *obj, sacp_hmi_message_t *msg) {
   LOG_I("sacp_upgrade_end\r\n");
 
   // Always module upgrade
-  UpdateService &upgrade = *(UpdateService *)obj;
-  return upgrade.module_ugr->end_proc(&(upgrade.boot_info), msg);
+  // UpdateService &upgrade = *(UpdateService *)obj;
+  // return upgrade.module_ugr->end_proc(&(upgrade.boot_info), msg);
+}
+
+UpgradePhase UpdateService::upgrade_phase(pack_info_t *pit) {
+  if (A400_CONTROLLER_FW == pit->pack_type) {
+    return UPGRADE_PAHSE_APP_START;
+  }
+  else if (ESP32_FW == pit->pack_type){
+    return UPGRADE_PHASE_HOST_TO_MODULE;
+  }
+  else if (SM2_MODULE_FW == pit->pack_type) {
+    if (pit->fw_lenght > module_fw_partition.size) {
+      LOG_I("upgrade_service: firmware too large for controller's flash. So, use HOST TO MODULE upgrade\r\n");
+      return UPGRADE_PHASE_HOST_TO_MODULE;
+    }
+    else
+      return UPGRADE_PHASE_HOST_TO_CONTROLLER;
+  }
+  else {
+    UPGRADE_PHASE_INIT;
+  }
 }
 
 err_code_t UpdateService::upgrade_start_ack(sacp_hmi_message_t *msg, err_code_t ret) {
@@ -175,23 +235,23 @@ void UpdateService::set_boot_info(pack_info_t *bti) {
   boot_info = *bti;
 }
 
-void UpdateService::print_boot_info(void) {
-  LOG_I("========== boot info ==========\r\n");
-  LOG_I("magic_str: %s\r\n", (char *)boot_info.magic_str);
-  LOG_I("protocol ver: %d\r\n", boot_info.protocol_ver);
-  LOG_I("pack_type: %d\r\n", boot_info.pack_type);
-  LOG_I("upgrade ctrl flag: %d\r\n", boot_info.upgrade_ctrl_flag);
-  LOG_I("start index: %d\r\n", boot_info.start_index);
-  LOG_I("end index: %d\r\n", boot_info.end_index);
-  LOG_I("fw version: %s\r\n", boot_info.fw_ver_str);
-  LOG_I("timestamp: %s\r\n", boot_info.timestamp_str);
-  LOG_I("upgrade state: 0x%04x\r\n", boot_info.upgrade_state);
-  LOG_I("fw lenght: %d, 0x%04x\r\n", boot_info.fw_lenght, boot_info.fw_lenght);
-  LOG_I("fw checksum: 0x%08x\r\n", boot_info.fw_checksum);
-  LOG_I("fw run addr: 0x%08x\r\n", boot_info.fw_runaddr);
-  LOG_I("peer: %d\r\n", boot_info.peer);
-  LOG_I("link_ch: %d\r\n", boot_info.link_ch);
-  LOG_I("boot data checksum: 0x%08x", boot_info.boot_data_checksum);
+void UpdateService::print_packet_info(pack_info_t *pit) {
+  LOG_I("========== packet info ==========\r\n");
+  LOG_I("magic_str: %s\r\n", (char *)pit->magic_str);
+  LOG_I("protocol ver: %d\r\n", pit->protocol_ver);
+  LOG_I("pack_type: %d\r\n", pit->pack_type);
+  LOG_I("upgrade ctrl flag: %d\r\n", pit->upgrade_ctrl_flag);
+  LOG_I("start index: %d\r\n", pit->start_index);
+  LOG_I("end index: %d\r\n", pit->end_index);
+  LOG_I("fw version: %s\r\n", pit->fw_ver_str);
+  LOG_I("timestamp: %s\r\n", pit->timestamp_str);
+  LOG_I("upgrade state: 0x%04x\r\n", pit->upgrade_state);
+  LOG_I("fw lenght: %d, 0x%04x\r\n", pit->fw_lenght, pit->fw_lenght);
+  LOG_I("fw checksum: 0x%08x\r\n", pit->fw_checksum);
+  LOG_I("fw run addr: 0x%08x\r\n", pit->fw_runaddr);
+  LOG_I("peer: %d\r\n", pit->peer);
+  LOG_I("link_ch: %d\r\n", pit->link_ch);
+  LOG_I("boot data checksum: 0x%08x", pit->boot_data_checksum);
 }
 
 uint32_t UpdateService::get_seq(void) {
@@ -204,4 +264,10 @@ void UpdateService::set_updgrade_phase(UpgradePhase p) {
 
 void UpdateService::host_to_controller_loop(void) {
 
+}
+
+bool UpdateService::firmware_flash_checksum(uint32_t rx_checsum, uint32_t flash_addr, uint32_t len) {
+  uint32_t cs;
+  cs = calculate_checksum((uint8_t *)flash_addr, len);
+  return cs == rx_checsum;
 }

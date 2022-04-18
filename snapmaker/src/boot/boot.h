@@ -92,13 +92,13 @@ static inline void load_boot_info(pack_info_t *pi) {
   memcpy(pi, (void *)FLASH_BOOT_DATA_ADDR, sizeof(pack_info_t));
 }
 
-static inline bool boot_info_check(pack_info_t *pi) {
+static inline bool boot_info_check(pack_info_t *pti) {
   uint8_t *p = (uint8_t *)BOOT_DATA_DEFAULT_MAGIC_STR;
   for (uint32_t i = 0; i < BOOT_PACK_MAGIC_STR_LEN; i++) {
-    if (pi->magic_str[i] != p[i])
+    if (pti->magic_str[i] != p[i])
       return false;
   }
-  return pi->boot_data_checksum == calculate_checksum((uint8_t *)pi, sizeof(pack_info_t) - 4);
+  return pti->boot_data_checksum == calculate_checksum((uint8_t *)pti, sizeof(pack_info_t) - 4);
 }
 
 void setup(void);

@@ -33,7 +33,7 @@
 #include "../../host/sacp_hmi.h"
 #include "../../boot/boot.h"
 #include "upgrade_controller.h"
-#include "upgrade_module.h"
+#include "upgrade_host_to_controller.h"
 
 #define CMD_SET_UPGRADE                       (0xAD)
 #define CMD_ID_UPGRADE_START                  (0x01)
@@ -64,26 +64,27 @@ class UpdateService {
     err_code_t init(void);
     void loop(void);
 
+    static err_code_t sacp_msg_proc(void * obj, sacp_hmi_message_t *msg);
     static err_code_t sacp_upgrade_start(void *obj, sacp_hmi_message_t *);
     static err_code_t sacp_upgrade_trans(void *obj, sacp_hmi_message_t *);
     static err_code_t sacp_upgrade_end(void *obj, sacp_hmi_message_t *);
 
+    UpgradePhase upgrade_phase(pack_info_t *pit);
     err_code_t upgrade_start_ack(sacp_hmi_message_t *msg, err_code_t ret);
     err_code_t upgrade_notify(sacp_hmi_message_t *msg, err_code_t ret);
 
     bool boot_info_flush_to_flash();
     void set_boot_info(pack_info_t *bti);
-    void print_boot_info(void);
+    void print_packet_info(pack_info_t *pit);
     uint32_t get_seq(void);
     void set_updgrade_phase(UpgradePhase);
+    bool firmware_flash_checksum(uint32_t rx_checsum, uint32_t flash_addr, uint32_t len);
 
   private:
     void host_to_controller_loop(void);
 
     UpgradePhase phase;
     pack_info_t boot_info;
-    UpgradeCtrlService *ctrl_ugr;
-    UpgradeModuleService *module_ugr;
     uint32_t seq;
 };
 

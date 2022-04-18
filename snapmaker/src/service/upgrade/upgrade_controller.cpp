@@ -80,7 +80,7 @@ err_code_t UpgradeCtrlService::start_proc(pack_info_t *boot_info, sacp_hmi_messa
   }
 
   ugr_svc->set_updgrade_phase(UPGRADE_PAHSE_APP_START);
-  ugr_svc->print_boot_info();
+  ugr_svc->print_packet_info(boot_info);
   LOG_I("System will restart in 1 second to start updating\r\n");
   vTaskDelay(pdMS_TO_TICKS(1000));
   NVIC_SystemReset();

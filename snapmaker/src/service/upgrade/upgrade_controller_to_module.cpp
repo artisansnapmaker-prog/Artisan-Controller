@@ -20,42 +20,40 @@
  */
 #include "upgrade_module.h"
 #include "upgrade_service.h"
-#include "esp32_upgrade.h"
 #include "../../snapmaker.h"
 #include "../../module/toolhead_laser.h"
 
-UpgradeModuleService ugr_mdl_svc;
-
 UpgradeModuleInfo upgrade_module_info_tab[] = {
   
-  {
-    ESP32_FW,                                             /* packet type */
-    0,                                                    /* start id    */
-    0,                                                    /* end id      */
-    NULL,
-    NULL,
-    {
-      esp32_camera_upgrade_start, 
-      module_call_start_ack, 
-      module_call_trans_req, 
-      esp32_camera_upgrade_trans, 
-      esp32_camera_upgrade_end, 
-      module_call_end_ack, 
-      module_call_notify_req,
-      NULL, 
-    }
-  },
+  // {
+  //   ESP32_FW,                                             /* packet type */
+  //   0,                                                    /* start id    */
+  //   0,                                                    /* end id      */
+  //   NULL,
+  //   NULL,
+  //   {
+  //     esp32_camera_upgrade_start, 
+  //     module_call_start_ack, 
+  //     module_call_trans_req, 
+  //     esp32_camera_upgrade_trans, 
+  //     esp32_camera_upgrade_end, 
+  //     module_call_end_ack, 
+  //     module_call_notify_req
+  //     NULL, 
+  //   }
+  // },
 
-  {
-    SM2_MODULE_FW,                                        /* packet type */
-    0,                                                    /* start id    */
-    13,                                                   /* end id      */
-    NULL,
-    NULL,
-    {
-      NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL
-    }
-  },
+  // {
+  //   SM2_MODULE_FW,                                        /* packet type */
+  //   0,                                                    /* start id    */
+  //   13,                                                   /* end id      */
+  //   NULL,
+  //   NULL,
+  //   {
+  //     NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL
+  //   }
+  // },
+  
 };
 
 err_code_t module_call_start_ack(uint8_t ret) {
@@ -153,7 +151,7 @@ void UpgradeModuleService::loop(void) {
 
 void UpgradeModuleService::reset_to_idle(void) {
   if (module_upgrade_info) {
-    module_upgrade_info->module_deinit();
+    module_upgrade_info->handle.module_deinit();
   }
   status = UPGRADE_MODULE_STATUS_IDLE;
   ugr_svc->set_updgrade_phase(UPGRADE_PHASE_INIT);
@@ -446,6 +444,7 @@ UpgradeModuleInfo *UpgradeModuleService::get_module_upgrade_handls(UpdatePackTyp
         return &(upgrade_module_info_tab[i]);
       }
     }
+
   }
 
   return NULL;

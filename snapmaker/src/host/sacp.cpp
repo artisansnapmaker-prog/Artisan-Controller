@@ -64,8 +64,8 @@ uint16_t HostSACP::package_v0(uint8_t *in, uint16_t in_len, uint8_t *out, uint16
     out[i++] = in[l];
   }
 
-  out[SACP_V0_FRAME_INDEX_LEN_H] = (uint8_t)payload_len>>8;
-  out[SACP_V0_FRAME_INDEX_LEN_L] = (uint8_t)payload_len&0x00FF;
+  out[SACP_V0_FRAME_INDEX_LEN_H] = (uint8_t)(payload_len>>8);
+  out[SACP_V0_FRAME_INDEX_LEN_L] = (uint8_t)(payload_len&0xFF);
 
   out[SACP_V0_FRAME_INDEX_LEN_CHK] = out[SACP_V0_FRAME_INDEX_LEN_H]^out[SACP_V0_FRAME_INDEX_LEN_L];
 

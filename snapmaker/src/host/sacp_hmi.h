@@ -52,7 +52,7 @@ typedef struct {
 
 #define SACP_HMI_WAITING_NODE_MAX (4)
 
-#define SACP_V1_CMD_SET_MAX (0xFF)
+#define SACP_V1_CMD_SET_MAX (0x100)
 
 enum SACPHMIChannel {
   SACP_HMI_CH_SCREEN,

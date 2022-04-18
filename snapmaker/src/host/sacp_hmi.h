@@ -25,6 +25,9 @@
 #include "sacp.h"
 #include "../link/link_uart.h"
 
+#define SACP_HMI_TIMEOUT_DEFAULT  (3000)
+#define SACP_HMI_RETRY_DEFAULT    (3)
+
 typedef err_code_t (*sacp_hmi_callback)(void *obj, sacp_hmi_message_t *msg);
 
 typedef uint16_t (*sacp_hmi_subscribe_callback)(void *obj, uint8_t *buffer);

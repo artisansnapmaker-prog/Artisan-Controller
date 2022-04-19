@@ -129,6 +129,7 @@ ClientNode * ClientNode::malloc_client_node(uint32_t peer, uint8_t ch) {
       client_node_tab[i]->ch = ch;
       client_node_tab[i]->id = i;
       ret = client_node_tab[i];
+      break;
     }
   }
   UNLOCK(_lock);

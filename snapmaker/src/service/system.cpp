@@ -187,7 +187,7 @@ ack_hmi:
   // actions to job ctrl
   if (actions & EXCEP_ACT_STOP_WORKING) {
     if (smprinter.on_working()) {
-      job_ctrl_svc.req_stop(STOP_EXCEPTION, NULL, NULL);
+      job_ctrl_svc.req_stop(STOP_EXCEPTION, SACP_JOB_PAUSE_ISSUE_RET_EXCEPTION, NULL, NULL);
     }
     else {
       LOG_W("not in working, cannot stop printer!, excep:[%u, %u]\n", owner, state);
@@ -202,11 +202,11 @@ ack_hmi:
         JobEnv *env = job_ctrl_svc.get_env();
         emergency_hdl.save_env_manually((uint8_t *)env, sizeof(JobEnv));
         // then stop work
-        job_ctrl_svc.req_stop(STOP_EXCEPTION, NULL, NULL);
+        job_ctrl_svc.req_stop(STOP_EXCEPTION, SACP_JOB_PAUSE_ISSUE_RET_EXCEPTION, NULL, NULL);
     }
     else if (smprinter.on_printing()) {
       // but if printer start working from calibraion, not allow be paused, just stop it
-      job_ctrl_svc.req_stop(STOP_EXCEPTION, NULL, NULL);
+      job_ctrl_svc.req_stop(STOP_EXCEPTION, SACP_JOB_PAUSE_ISSUE_RET_EXCEPTION, NULL, NULL);
     }
     else {
       LOG_W("not in working, cannot stop printer with recovery!, excep:[%u, %u]\n", owner, state);
@@ -219,7 +219,7 @@ ack_hmi:
     }
     else if (smprinter.on_printing()) {
       // but if printer start working from calibraion, not allow be paused, just stop it
-      job_ctrl_svc.req_stop(STOP_EXCEPTION, NULL, NULL);
+      job_ctrl_svc.req_stop(STOP_EXCEPTION, SACP_JOB_PAUSE_ISSUE_RET_EXCEPTION, NULL, NULL);
     }
     else {
       LOG_W("not in working, cannot pause printer!, excep:[%u, %u]\n", owner, state);

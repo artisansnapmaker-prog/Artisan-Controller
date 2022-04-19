@@ -260,7 +260,7 @@ err_code_t ModuleService::report_module_info(void *obj, sacp_hmi_message_t *mess
     message->data[1]++;
   }
 
-  LOG_V("module info: count[%u], data len[0x%x]\n", message->data[1], message->length);
+  LOG_I("module info: count[%u], data len[0x%x]\n", message->data[1], message->length);
 
   message->attr |= SACP_MESSAGE_ATTR_ACK;
 

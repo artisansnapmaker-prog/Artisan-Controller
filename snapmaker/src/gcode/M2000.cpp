@@ -610,14 +610,11 @@ void GcodeSuite::M2000() {
       case 12:
         {
           uint8_t t = (uint8_t)parser.byteval('T', (uint8_t)0);
-          float p = (float)parser.floatval('P', (float)0);
-          uint32_t scaled_p = (uint32_t)(p * 1000);
+          int16_t p = (int16_t)parser.intval('P', (int16_t)0);
           buffer[index++] = smprinter.fdm->get_key();
           buffer[index++] = t;
-          buffer[index++] = scaled_p & 0xff;
-          buffer[index++] = (scaled_p >> 8) & 0xff;
-          buffer[index++] = (scaled_p >> 16) & 0xff;
-          buffer[index++] = (scaled_p >> 24) & 0xff;
+          buffer[index++] = p & 0xff;
+          buffer[index++] = (p >> 8) & 0xff;
           host_hmi.test_interface(CMD_SET_JOB_CTRL, CMD_ID_JOB_SET_FEEDRATE_PERCENTAGE, buffer, index);
         }
         break;

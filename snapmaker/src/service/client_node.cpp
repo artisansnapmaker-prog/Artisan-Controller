@@ -596,7 +596,7 @@ err_code_t ClientNode::req_set_feedrate_percentage(sacp_hmi_message_t* msg) {
 
   // uint8_t key = msg->data[0];
   uint8_t e = msg->data[1];
-  int16_t feedrate_percentage = msg->data[2] | (msg->data[1] << 8);
+  int16_t feedrate_percentage = msg->data[2] | (msg->data[3] << 8);
 
   ToolHeadFDM *fdm = (ToolHeadFDM *)module_svc.get_module(MODULE_DEVICE_ID_FDM_2EXTRUDER_2021, 0);
   if (!fdm) {
@@ -655,7 +655,7 @@ err_code_t ClientNode::req_set_flowrate_percentage(sacp_hmi_message_t* msg) {
 
   // uint8_t key = msg->data[0];
   uint8_t e = msg->data[1];
-  int16_t flowrate_percentage = msg->data[2] | (msg->data[1] << 8);
+  int16_t flowrate_percentage = msg->data[2] | (msg->data[3] << 8);
 
   ToolHeadFDM *fdm = (ToolHeadFDM *)module_svc.get_module(MODULE_DEVICE_ID_FDM_2EXTRUDER_2021, 0);
   if (!fdm) {

@@ -1326,6 +1326,7 @@ err_code_t ToolHeadFDM::tool_change(uint8_t new_tool, bool z_compensation/*=true
   }
 
   if (new_tool != active_extruder) {
+    motion_platform_svc.sync_feedrate_percentage_to_platform(100);
     // clear current live_z_offset
     bedlevel_svc.unapply_live_z_offset(active_extruder);
 

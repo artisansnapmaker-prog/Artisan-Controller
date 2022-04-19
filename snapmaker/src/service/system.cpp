@@ -425,6 +425,8 @@ bool SystemService::allow_working() {
     break;
 
   default:
+    LOG_E("unknown toolhead!\n");
+    return false;
     break;
   }
 

@@ -1,12 +1,29 @@
 #include "linear_virt.h"
 #include "../host/sacp_hmi.h"
 #include "../service/motion_platform.h"
+#include "../service/system.h"
+#include "../common/utility.h"
+
+enum LinearException {
+  LINEAR_EXCEPTION_OFFLINE = 1,
+};
+
+#define ROUTINE_TIMEOUT   (100)
+#define OFFLINE_DEBOUNCE  (2)
+
+#define ENTER_STANDBY (HIGH)
+#define EXIT_STANDBY  (LOW)
 
 extern int16_t X_DETECT_PIN_var;
+extern int16_t X_STANDBY_PIN_var;
 extern int16_t Y_DETECT_PIN_var;
+extern int16_t Y_STANDBY_PIN_var;
 extern int16_t Y2_DETECT_PIN_var;
+extern int16_t Y2_STANDBY_PIN_var;
 extern int16_t Z_DETECT_PIN_var;
+extern int16_t Z_STANDBY_PIN_var;
 extern int16_t Z2_DETECT_PIN_var;
+extern int16_t Z2_STANDBY_PIN_var;
 
 static float voltage_threshold[3][2] = {
   {1.2, 1.9}, /* X */
@@ -18,48 +35,67 @@ LinearVirtual *LinearVirtual::objects[LINEAR_VIRTUAL_OBJECT_MAX] {NULL, NULL, NU
 uint8_t LinearVirtual::object_index = 0;
 
 err_code_t LinearVirtual::pre_init() {
-  float upper_limit, lower_limit;
   float detected_vol;
+  char axis_name[4] = {0};
+
+  offline_count = 0;
 
   switch (get_sub_index()) {
   case MODULE_LINEAR_X1:
     endstop_pin = X_MIN_PIN_var;
     detect_pin  = X_DETECT_PIN_var;
+    standby_pin = X_STANDBY_PIN_var;
     upper_limit = voltage_threshold[0][1];
     lower_limit = voltage_threshold[0][0];
     lead = 40;
+    axis_name[0] = 'X';
+    axis_name[1] = 0;
     break;
 
   case MODULE_LINEAR_Y1:
     endstop_pin = Y_MAX_PIN_var;
     detect_pin  = Y_DETECT_PIN_var;
+    standby_pin = Y_STANDBY_PIN_var;
     upper_limit = voltage_threshold[1][1];
     lower_limit = voltage_threshold[1][0];
     lead = 40;
+    axis_name[0] = 'Y';
+    axis_name[1] = 0;
     break;
 
   case MODULE_LINEAR_Z1:
     endstop_pin = Z_MAX_PIN_var;
     detect_pin  = Z_DETECT_PIN_var;
+    standby_pin = Z_STANDBY_PIN_var;
     upper_limit = voltage_threshold[2][1];
     lower_limit = voltage_threshold[2][0];
     lead = 8;
+    axis_name[0] = 'Z';
+    axis_name[1] = 0;
     break;
 
   case MODULE_LINEAR_Z2:
     endstop_pin = Z2_MAX_PIN_var;
     detect_pin  = Z2_DETECT_PIN_var;
+    standby_pin = Z2_STANDBY_PIN_var;
     upper_limit = voltage_threshold[2][1];
     lower_limit = voltage_threshold[2][0];
     lead = 8;
+    axis_name[0] = 'Z';
+    axis_name[1] = '2';
+    axis_name[2] = 0;
     break;
 
   case MODULE_LINEAR_Y2:
     endstop_pin = Y2_MAX_PIN_var;
     detect_pin  = Y2_DETECT_PIN_var;
+    standby_pin = Y2_STANDBY_PIN_var;
     upper_limit = voltage_threshold[1][1];
     lower_limit = voltage_threshold[1][0];
     lead = 40;
+    axis_name[0] = 'Y';
+    axis_name[1] = '2';
+    axis_name[2] = 0;
     break;
 
   default:
@@ -72,12 +108,24 @@ err_code_t LinearVirtual::pre_init() {
   vTaskDelay(pdMS_TO_TICKS(10));
 
   detected_vol = analogRead(detect_pin) * 3.3 / 4096;
-  LOG_I("axis[%u], vol: %.3f mV\n", get_sub_index(), detected_vol);
+
+  LOG_I("axis[%u]=%s, vol: %.3f mV\n", get_sub_index(), axis_name, detected_vol);
 
   if (detected_vol < lower_limit || detected_vol > upper_limit) {
     LOG_E("vol is out of range:[ %.3f,  %.3f]\n", lower_limit, upper_limit);
     return E_HARDWARE;
   }
+
+  pinMode(TMC_EN, OUTPUT);
+  digitalWrite(TMC_EN, TMC_EN_OFF);
+
+  digitalWrite(standby_pin, EXIT_STANDBY);
+
+  LOG_I("axis[%s] exit from standby\n", axis_name);
+
+  module_svc.register_routine((void *)this, routine);
+
+  next_ms = millis() + ROUTINE_TIMEOUT;
 
   return E_SUCCESS;
 }
@@ -152,5 +200,49 @@ err_code_t LinearVirtual::hmi_cb_set_endstop(void *obj, sacp_hmi_message_t *mess
   motion_platform_svc.set_endstop(message->data[0]);
 
   return host_hmi.send_ack(message, E_SUCCESS);
+}
+
+
+err_code_t LinearVirtual::routine(void *obj) {
+  float detected_vol;
+  LinearVirtual &linear = *(LinearVirtual *)obj;
+
+  if (time_after(linear.next_ms, millis()))
+    return E_SUCCESS;
+
+  detected_vol = analogRead(linear.detect_pin) * 3.3 / 4096;
+
+  if (detected_vol < linear.lower_limit || detected_vol > linear.upper_limit) {
+    if (linear.offline_count < OFFLINE_DEBOUNCE) {
+      LOG_E("axis[%u]: vol[%.3f] is out of range:[ %.3f,  %.3f]\n", linear.get_sub_index(),
+            detected_vol, linear.lower_limit, linear.upper_limit);
+      linear.offline_count++;
+    }
+    else {
+      if (linear.get_status() == MODULE_STATUS_NORMAL) {
+        LOG_E("linear axis[%u] offline!\n", linear.get_sub_index());
+        linear.set_status(MODULE_STATUS_OFFLINE);
+        // standby
+        digitalWrite(linear.standby_pin, ENTER_STANDBY);
+        // raise exception
+        // system_svc.raise_exception(MODULE_DEVICE_ID_A400_LINEAR,  LINEAR_EXCEPTION_OFFLINE,
+        //   EXCEP_ACT_STOP_WORKING);
+      }
+    }
+  }
+  else {
+    if (linear.offline_count > 0) {
+      linear.offline_count = 0;
+      // TODO: recover
+      LOG_I("linear axis[%u] online!\n", linear.get_sub_index());
+      // digitalWrite(TMC_EN, TMC_EN_OFF);
+      linear.set_status(MODULE_STATUS_NORMAL);
+      digitalWrite(linear.standby_pin, EXIT_STANDBY);
+      // system_svc.clear_exception(MODULE_DEVICE_ID_A400_LINEAR,  LINEAR_EXCEPTION_OFFLINE);
+    }
+  }
+
+  linear.next_ms = millis() + ROUTINE_TIMEOUT;
+  return E_SUCCESS;
 }
 

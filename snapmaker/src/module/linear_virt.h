@@ -47,6 +47,8 @@ class LinearVirtual: public ModuleBase {
     static err_code_t hmi_cb_get_info(void *obj, sacp_hmi_message_t *message);
     static err_code_t hmi_cb_set_endstop(void *obj, sacp_hmi_message_t *message);
 
+    static err_code_t routine(void *obj);
+
   // private methods
   private:
 
@@ -61,8 +63,11 @@ class LinearVirtual: public ModuleBase {
     static uint8_t object_index;
     uint32_t endstop_pin;
     uint32_t detect_pin;
+    uint32_t standby_pin;
     float lead;
-
+    float upper_limit, lower_limit;
+    uint32_t next_ms;
+    uint8_t  offline_count;
 };
 
 #endif  // #ifndef SNAPMAKER_MODULE_LINEAR_VIRTUAL_H_

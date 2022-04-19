@@ -66,6 +66,12 @@ void JobCtrl::init(void) {
   abort_resume = false;
   status_before_start = SYSTEM_STATUS_IDLE;
 
+  // initialize notify handles
+  memset(notify_handle_started, 0x00, sizeof(JobCtrlNotifyHandle) * JOB_CTRL_NOTIFY_QUEUE_SIZE);
+  memset(notify_handle_paused, 0x00, sizeof(JobCtrlNotifyHandle) * JOB_CTRL_NOTIFY_QUEUE_SIZE);
+  memset(notify_handle_resume, 0x00, sizeof(JobCtrlNotifyHandle) * JOB_CTRL_NOTIFY_QUEUE_SIZE);
+  memset(notify_handle_stopped, 0x00, sizeof(JobCtrlNotifyHandle) * JOB_CTRL_NOTIFY_QUEUE_SIZE);
+
   TaskHandle_t jobctrl_task = xTaskCreateStatic((TaskFunction_t)(job_ctrl_thread_entry), "jobctrl", SYSTEM_TASK_STACK_SIZE,
         (void *)(this), HIGHEST_TASK_PRIORITY,  stack_jobctrl_thread, &tcb_jobctrl);
   if (!jobctrl_task) {
@@ -692,10 +698,17 @@ void JobCtrl::do_start(struct JobCtrlReqInfo &jri) {
   // requst enter next status
   if( E_SUCCESS != smprinter.set_sys_status(next_status, &ret_sys_status)) {
     LOG_E("job_ctrl: Can not enter to printing mode[%u] at current status[%u]\r\n", next_status, ret_sys_status);
+    smprinter.set_sys_status(SYSTEM_STATUS_IDLE, &ret_sys_status);
     DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, ret_sys_status);
   }
   else{
     DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, next_status);
+    for (int i = 0; i < JOB_CTRL_NOTIFY_QUEUE_SIZE; i++) {
+      if (notify_handle_started[i].cb) {
+        // tell object the status we start working from
+        notify_handle_started[i].cb(notify_handle_started[i].obj, status_before_start);
+      }
+    }
   }
 }
 
@@ -796,6 +809,14 @@ void JobCtrl::do_pause(struct JobCtrlReqInfo &jri) {
     _issue_ret_rb.insert_one(SACP_JOB_PAUSE_ISSUE_RET_FILAMENT_RUNOUT);
   }
   DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, SYSTEM_STATUS_PAUSED);
+
+  // notify objects we have paused working
+  for (int i = 0; i < JOB_CTRL_NOTIFY_QUEUE_SIZE; i++) {
+    if (notify_handle_paused[i].cb) {
+      // tell objects the type of pause source
+      notify_handle_paused[i].cb(notify_handle_paused[i].obj, jri.req_data.req_pause_data.type);
+    }
+  }
 }
 
 void JobCtrl::do_resume(struct JobCtrlReqInfo &jri) {
@@ -839,6 +860,14 @@ void JobCtrl::do_resume(struct JobCtrlReqInfo &jri) {
     return;
   }
   DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, SYSTEM_STATUS_PRINTING);
+
+  // notify objects we will resume working
+  for (int i = 0; i < JOB_CTRL_NOTIFY_QUEUE_SIZE; i++) {
+    if (notify_handle_resume[i].cb) {
+      // tell objects the type of resume source
+      notify_handle_resume[i].cb(notify_handle_resume[i].obj, jri.req_data.req_resume_data.type);
+    }
+  }
 }
 
 void JobCtrl::do_stop(struct JobCtrlReqInfo &jri) {
@@ -940,6 +969,13 @@ void JobCtrl::do_stop(struct JobCtrlReqInfo &jri) {
     // reset the status
     status_before_start = SYSTEM_STATUS_IDLE;
   }
+
+  for (int i = 0; i < JOB_CTRL_NOTIFY_QUEUE_SIZE; i++) {
+    if (notify_handle_stopped[i].cb) {
+      // tell objects the type of stop source
+      notify_handle_stopped[i].cb(notify_handle_stopped[i].obj, jri.req_data.req_stop_data.type);
+    }
+  }
 }
 
 err_code_t JobCtrl::set_env(struct JobEnv &env) {
@@ -1030,4 +1066,47 @@ bool JobCtrl::gcode_file_info_check(struct GcodeFileInfo *gfi) {
   }
 
   return true;
+}
+
+err_code_t JobCtrl::register_notify_handle(JobNotifyType type, void *obj, job_req_notify_cb_t cb) {
+  JobCtrlNotifyHandle *handles = NULL;
+  int i = 0;
+
+  switch (type) {
+  case JOB_NOTIFY_TYPE_STARTED:
+    handles = notify_handle_started;
+    break;
+  
+  case JOB_NOTIFY_TYPE_PAUSED:
+    handles = notify_handle_paused;
+    break;
+  
+  case JOB_NOTIFY_TYPE_RESUME:
+    handles = notify_handle_resume;
+    break;
+  
+  case JOB_NOTIFY_TYPE_STOPPED:
+    handles = notify_handle_stopped;
+    break;
+  
+  default:
+    break;
+  }
+
+  for (; i < JOB_CTRL_NOTIFY_QUEUE_SIZE; i++) {
+    if (NULL == handles[i].cb && NULL == handles[i].obj) {
+      handles[i].obj = obj;
+      handles[i].cb  = cb;
+      break;
+    }
+  }
+
+  if (i >= JOB_CTRL_NOTIFY_QUEUE_SIZE) {
+    LOG_E("failed to register notify handle for type:[%u]\n", type);
+    return E_NO_RESRC;
+  }
+
+  LOG_I("has register notify handle for type:[%u]\n", type);
+
+  return E_SUCCESS;
 }

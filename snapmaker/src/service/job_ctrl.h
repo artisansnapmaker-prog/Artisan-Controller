@@ -71,6 +71,8 @@
 #define DO_JOB_REQ_NOTIFY_CB(cb, p, ret)                do{ if(cb) (cb)(p, ret); } while(0)
 #define GCODE_REQ_BUFFER_MIN 512
 
+#define JOB_CTRL_NOTIFY_QUEUE_SIZE  (16)
+
 enum JobPauseType {
   PAUSE_CLIENT_REQ,
   PAUSE_FILM_RUNOUT,
@@ -92,6 +94,13 @@ enum JobStopType {
   STOP_CLIENT_REQ,
   STOP_EMERGENCY,
   STOP_EXCEPTION,
+};
+
+enum JobNotifyType {
+  JOB_NOTIFY_TYPE_STARTED,
+  JOB_NOTIFY_TYPE_PAUSED,
+  JOB_NOTIFY_TYPE_RESUME,
+  JOB_NOTIFY_TYPE_STOPPED,
 };
 
 
@@ -154,6 +163,11 @@ struct JobCtrlReqInfo {
   void *param;
 };
 
+struct JobCtrlNotifyHandle {
+  void *obj;
+  job_req_notify_cb_t cb;
+};
+
 class JobCtrl {
   // public methods
   public:
@@ -200,6 +214,8 @@ class JobCtrl {
     bool consume_a_gcode(uint8_t *cmd, uint16_t max_len, uint32_t *line);
     bool gcode_file_info_check(struct GcodeFileInfo *gfi);
 
+    err_code_t register_notify_handle(JobNotifyType type, void *obj, job_req_notify_cb_t);
+
   // private methods
   private:
     void do_start(struct JobCtrlReqInfo &jri);
@@ -232,6 +248,11 @@ class JobCtrl {
     // use for get gcode
     uint32_t _get_gcode_buffer_req_min;                       /** the minimum buffer use to get gcode                                       */
     bool abort_resume;
+
+    JobCtrlNotifyHandle notify_handle_started[JOB_CTRL_NOTIFY_QUEUE_SIZE];
+    JobCtrlNotifyHandle notify_handle_paused[JOB_CTRL_NOTIFY_QUEUE_SIZE];
+    JobCtrlNotifyHandle notify_handle_resume[JOB_CTRL_NOTIFY_QUEUE_SIZE];
+    JobCtrlNotifyHandle notify_handle_stopped[JOB_CTRL_NOTIFY_QUEUE_SIZE];
 };
 
 extern JobCtrl job_ctrl_svc;

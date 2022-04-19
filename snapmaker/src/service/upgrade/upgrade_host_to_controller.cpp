@@ -121,6 +121,13 @@ err_code_t UpgradeHostToController::start_proc(sacp_hmi_message_t *msg) {
     }
   }
 
+  if (BOOT_INFO_SIZE != flash_write(module_fw_partition, (uint8_t *)pit, BOOT_INFO_SIZE)) {
+    if (BOOT_INFO_SIZE != flash_write(module_fw_partition, (uint8_t *)pit, BOOT_INFO_SIZE)) {
+      LOG_E("upgrade_module: can not write packet info\r\n");
+      return start_ack(msg, E_FAILURE);
+    }
+  }
+
   if (E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_MODULE_UPGRADE, NULL)) {
     LOG_E("upgrade_module: can not enter module upgrade status\r\n");
     reset_to_idle();

@@ -322,8 +322,9 @@ void ModuleService::init() {
   // register callback to handle module inserted
   host_mac.register_callback((void *)this, (smmac_callback)handle_module_inserted);
 
+  // Comment by 747
   // register callback to handle SSTP events from modules
-  host_can_cfg.register_callback(MODULE_EXT_CMD_TRANS_FW_ACK, (void *)this, (sacp_module_callback)handle_fw_request);
+  // host_can_cfg.register_callback(MODULE_EXT_CMD_TRANS_FW_ACK, (void *)this, (sacp_module_callback)handle_fw_request);
 
   // waiting modules to finish intialization
   vTaskDelay(pdMS_TO_TICKS(500));

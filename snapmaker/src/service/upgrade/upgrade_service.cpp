@@ -32,7 +32,7 @@ err_code_t UpdateService::init(void) {
   err_code_t ret;
 
   phase = UPGRADE_PHASE_INIT;
-  seq = 0;
+  need_controller_to_module = false;
 
   ret = E_SUCCESS;
   ret |= host_hmi.apply_cmd_set_handle(CMD_SET_UPGRADE, 3);
@@ -50,6 +50,14 @@ void UpdateService::loop(void) {
   ugr_ctrl_svc.loop();
   ugr_hc_svc.loop();
   ugr_hm_svc.loop();
+
+  if (need_controller_to_module) {
+    pack_info_t *pit = (pack_info_t *)module_fw_partition.start_addr;
+    if (!boot_info_check(pit)) {
+      need_controller_to_module = false;
+      return;
+    }
+  }
 }
 
 err_code_t UpdateService::sacp_msg_proc(void * obj, sacp_hmi_message_t *msg) {
@@ -210,7 +218,6 @@ err_code_t UpdateService::upgrade_notify(sacp_hmi_message_t *msg, err_code_t ret
   uint8_t send_buf[8];
 
   msg->attr = 0;
-  msg->seq = seq++;
   msg->cmd_id = CMD_SET_UPGRADE;
   msg->cmd_id = CMD_ID_UPGRADE_NOTIFY;
   msg->data = send_buf;
@@ -257,16 +264,16 @@ void UpdateService::print_packet_info(pack_info_t *pit) {
   LOG_I("boot data checksum: 0x%08x", pit->boot_data_checksum);
 }
 
-uint32_t UpdateService::get_seq(void) {
-  return seq++;
-}
-
 void UpdateService::set_updgrade_phase(UpgradePhase p) {
+  if (UPGRADE_PHASE_HOST_TO_CONTROLLER == phase &&
+      UPGRADE_PHASE_INIT == p) {
+    need_controller_to_module = true;
+  }
   phase = p;
 }
 
-void UpdateService::host_to_controller_loop(void) {
-
+UpgradePhase UpdateService::get_upgrade_pahse(void) {
+  return phase;
 }
 
 bool UpdateService::firmware_flash_checksum(uint32_t rx_checsum, uint32_t flash_addr, uint32_t len) {

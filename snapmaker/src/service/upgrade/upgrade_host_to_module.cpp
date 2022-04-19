@@ -21,61 +21,10 @@
 #include "upgrade_host_to_module.h"
 #include "upgrade_service.h"
 #include "../../snapmaker.h"
-#include "esp32_upgrade.h"
+#include "upgrade_module_interface.h"
+
 
 UpgradeHostToModule ugr_hm_svc;
-
-UpgradeModuleInfo upgrade_module_info_tab[] = {
-  
-  {
-    ESP32_FW,                                             /* packet type */
-    0,                                                    /* start id    */
-    0,                                                    /* end id      */
-    esp32_camera_upgrade_handle_init,
-    esp32_camera_upgrade_handle_deinit,
-    {
-      esp32_camera_upgrade_start, 
-      module_call_start_ack, 
-      module_call_trans_req, 
-      esp32_camera_upgrade_trans, 
-      esp32_camera_upgrade_end, 
-      module_call_end_ack, 
-      module_call_notify_req,
-      NULL, 
-    }
-  },
-
-  {
-    SM2_MODULE_FW,                                        /* packet type */
-    0,                                                    /* start id    */
-    13,                                                   /* end id      */
-    NULL,
-    NULL,
-    {
-      NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL
-    }
-  },
-};
-
-err_code_t module_call_start_ack(uint8_t ret) {
-  FUN_LOG();
-  return ugr_hm_svc.module_call_start_ack(ret);
-}
-
-err_code_t module_call_trans_req(uint32_t req_offset, uint32_t len) {
-  FUN_LOG();
-  return ugr_hm_svc.module_call_trans_req(req_offset, len);
-}
-
-err_code_t module_call_end_ack(uint8_t ret) {
-  FUN_LOG();
-  return ugr_hm_svc.module_call_end_ack(ret);
-}
-
-err_code_t module_call_notify_req(uint8_t ret) {
-  FUN_LOG();
-  return ugr_hm_svc.module_call_notify_req(ret);
-}
 
 err_code_t UpgradeHostToModule::init(UpdateService *s) {
   ugr_svc = s;
@@ -206,7 +155,7 @@ err_code_t UpgradeHostToModule::start_proc(sacp_hmi_message_t *msg) {
   status = UPGRADE_HM_STATUS_START;
 
   ugr_svc->set_updgrade_phase(UPGRADE_PHASE_HOST_TO_MODULE);
-  module_upgrade_info->handle.start_req(pit);
+  module_upgrade_info->handle.start_req(pit, NULL);
   last_start_req_ms = millis();
   start_req_try = 0;
 
@@ -387,24 +336,4 @@ void UpgradeHostToModule::error_notify(uint8_t ret) {
   tx_msg.length = 1;
   host_hmi.send(&tx_msg);
   LOG_I("%dms upgrade_hm: notify %d\r\n", millis(), ret);
-}
-
-UpgradeModuleInfo *UpgradeHostToModule::get_module_upgrade_handls(UpdatePackType pack_type, uint16_t id) {
-  for (uint32_t i = 0; i < TAB_SIZE(upgrade_module_info_tab, UpgradeModuleInfo); i++) {
-
-    if (pack_type != upgrade_module_info_tab[i].pack_type)
-      continue;
-
-    if (ESP32_FW == pack_type) {
-      return &(upgrade_module_info_tab[i]);
-    }
-    else if (SM2_MODULE_FW == pack_type) {
-      if (upgrade_module_info_tab[i].start_id <= id && 
-          id <= upgrade_module_info_tab[i].end_id) {
-        return &(upgrade_module_info_tab[i]);
-      }
-    }
-  }
-
-  return NULL;
 }

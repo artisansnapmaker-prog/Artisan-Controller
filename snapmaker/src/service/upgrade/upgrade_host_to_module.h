@@ -32,6 +32,7 @@
 #include "../../common/type.h"
 #include "../../host/sacp_hmi.h"
 #include "../../boot/boot.h"
+#include "upgrade_module_interface.h"
 
 
 #define UPGRADE_TRANS_BUF_SIZE                (SACP_PDU_MAX_SIZE - 64)
@@ -43,38 +44,6 @@ enum UpgradeHMStatus {
   UPGRADE_HM_STATUS_TRANS,
   UPGRADE_HM_STATUS_END,
 };
-
-typedef err_code_t (*ugr_module_start_req )(pack_info_t *);
-typedef err_code_t (*ugr_module_start_ack)(uint8_t);
-typedef err_code_t (*ugr_module_trans_req)(uint32_t req_offset, uint32_t len);
-typedef err_code_t (*ugr_module_trans_ack)(uint32_t ack_offset, uint8_t *data, uint32_t len);
-typedef err_code_t (*ugr_module_end_req)(uint8_t);
-typedef err_code_t (*ugr_module_end_ack)(uint8_t);
-typedef err_code_t (*ugr_module_notify_req)(uint8_t err_code);
-typedef err_code_t (*ugr_module_notify_ack)(uint8_t err_code);
-
-typedef struct {
-  ugr_module_start_req start_req;
-  ugr_module_start_ack start_ack;
-  ugr_module_trans_req trans_req;
-  ugr_module_trans_ack trans_ack;
-  ugr_module_end_req end_req;
-  ugr_module_end_ack end_ack;
-  ugr_module_notify_req notify_req;
-  ugr_module_notify_ack notify_ack;
-} UpgradeModuleHandle;
-
-typedef err_code_t (*moudle_handle_init)(UpgradeModuleHandle *);
-typedef void (*moudle_handle_deinit)(void);
-
-typedef struct {
-  UpdatePackType pack_type;
-  uint16_t start_id;
-  uint16_t end_id;
-  moudle_handle_init module_init;
-  moudle_handle_deinit module_deinit;
-  UpgradeModuleHandle handle;
-} UpgradeModuleInfo;
 
 err_code_t module_call_start_ack(uint8_t);
 err_code_t module_call_trans_req(uint32_t req_offset, uint32_t len);
@@ -102,8 +71,6 @@ class UpgradeHostToModule {
     err_code_t module_call_trans_req(uint32_t req_offset, uint32_t len);
     err_code_t module_call_end_ack(uint8_t);
     err_code_t module_call_notify_req(uint8_t);
-
-    UpgradeModuleInfo *get_module_upgrade_handls(UpdatePackType pack_type, uint16_t id);
 
   private:
     err_code_t start_ack(sacp_hmi_message_t *msg, uint8_t ret);

@@ -8,6 +8,7 @@
 #include "../src/service/emergency_handler.h"
 #include "../src/service/system.h"
 #include "../src/service/upgrade/esp32_upgrade.h"
+#include "../src/service/upgrade/upgrade_controller_to_module.h"
 
 #if MB_SNAPMAKER
 
@@ -31,6 +32,9 @@ void GcodeSuite::M2000() {
 
   // enclosure and bed debug options
   __unused uint8_t w = (uint8_t)parser.byteval('W', (uint8_t)0xFF);
+
+  // upgrade debug options
+  __unused uint8_t u = (uint8_t)parser.byteval('U', (uint8_t)0xFF);
 
   // common info
   __unused uint32_t p = (uint32_t)parser.ulongval('P', (uint32_t)0);
@@ -695,7 +699,7 @@ void GcodeSuite::M2000() {
     laser = (ToolHeadLaser *)module_svc.get_module(MODULE_DEVICE_ID_LASER_10W_2021, 0);
     if (laser) {
       if (w == 60)
-        esp32_camera_upgrade_start(NULL);
+        esp32_camera_upgrade_start(NULL, NULL);
       else if (w == 61) {
         uint8_t data = 0xE9;
         esp32_camera_upgrade_trans(0, &data, 1);
@@ -858,6 +862,15 @@ void GcodeSuite::M2000() {
       break;
 
     default:
+      break;
+    }
+  }
+
+  // upgrade
+  {
+    switch (u) {
+      case 1:
+        ugr_cm_svc.start();
       break;
     }
   }

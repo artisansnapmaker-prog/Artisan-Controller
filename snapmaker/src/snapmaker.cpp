@@ -17,6 +17,7 @@
 #include "service/job_ctrl.h"
 #include "common/utility.h"
 #include "service/upgrade/upgrade_service.h"
+#include "service/upgrade/sm2_upgrade.h"
 
 #include "HAL/interrupt.h"
 
@@ -356,7 +357,7 @@ static void system_thread(void *p) {
   job_ctrl_svc.init();
   ClientNode::class_init();
   upgrade_svc.init();
-
+  sm2_module_upgrade_init();
   emergency_hdl.init();
 
   host_hmi.register_callback(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_SUBSCRIPT,

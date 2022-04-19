@@ -25,6 +25,8 @@
 #include "../../common/error.h"
 #include "../../host/sacp_hmi.h"
 #include "upgrade_host_to_module.h"
+#include "upgrade_module_interface.h"
+
 
 #define ESP32_UPDATE_OPCODE_START_NOTIFY         (0x00)
 #define ESP32_UPDATE_OPCODE_TRANS_NOTIFY         (0x01)
@@ -38,7 +40,7 @@
 // esp32 upgrade API
 err_code_t esp32_camera_upgrade_handle_init(UpgradeModuleHandle *func_tab);
 void esp32_camera_upgrade_handle_deinit(void);
-err_code_t esp32_camera_upgrade_start(pack_info_t *);
+err_code_t esp32_camera_upgrade_start(pack_info_t *,  module_info_t *mit);
 err_code_t esp32_camera_upgrade_trans(uint32_t offset, uint8_t *data, uint32_t len);
 err_code_t esp32_camera_upgrade_end(uint8_t end_type);
 err_code_t esp32_camera_upgrade_start_ack_cb(void *obj, sacp_hmi_message_t *msg);

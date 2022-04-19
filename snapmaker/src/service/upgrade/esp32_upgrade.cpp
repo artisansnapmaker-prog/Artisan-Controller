@@ -20,6 +20,7 @@
  */
 #include "../../snapmaker.h"
 #include "esp32_upgrade.h"
+#include "upgrade_module_interface.h"
 
 static UpgradeModuleHandle *esp32_func_tab = NULL;
 static uint32_t send_pack_index = ESP32_FW_PACK_INDEX_INVALID;
@@ -62,7 +63,7 @@ void esp32_camera_upgrade_handle_deinit(void) {
   taskEXIT_CRITICAL();
 }
 
-err_code_t esp32_camera_upgrade_start(pack_info_t *) {
+err_code_t esp32_camera_upgrade_start(pack_info_t *pit, module_info_t *mit) {
   err_code_t ret;
   sacp_hmi_message_t msg;
 
@@ -144,7 +145,7 @@ err_code_t esp32_camera_upgrade_end(uint8_t end_type) {
   sacp_hmi_message_t msg;
 
   if (end_type) {
-    LOG_E("[%s] esp32_upgrade fail, end type: %d\n",end_type);
+    LOG_E("[%s] esp32_upgrade fail, end type: %d\n", __FUNCTION__, end_type);
     return E_FAILURE;
   }
 

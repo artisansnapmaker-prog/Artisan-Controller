@@ -78,16 +78,14 @@ class UpdateService {
     bool boot_info_flush_to_flash();
     void set_boot_info(pack_info_t *bti);
     void print_packet_info(pack_info_t *pit);
-    uint32_t get_seq(void);
     void set_updgrade_phase(UpgradePhase);
+    UpgradePhase get_upgrade_pahse(void);
     bool firmware_flash_checksum(uint32_t rx_checsum, uint32_t flash_addr, uint32_t len);
 
   private:
-    void host_to_controller_loop(void);
-
     UpgradePhase phase;
     pack_info_t boot_info;
-    uint32_t seq;
+    bool need_controller_to_module;
 };
 
 extern UpdateService upgrade_svc;

@@ -38,6 +38,7 @@
 #define BOOT_DATA_DEFAULT_START_INDEX           (0)
 #define BOOT_DATA_DEFAULT_END_INDEX             (0)
 #define BOOT_DATA_DEFAULT_END_INDEX             (0)
+#define BOOT_INFO_SIZE                          (256)
 
 enum UpdateCtrlFlag {
   UPGRADE_CTRL_FLAG_NORMAL = 0,
@@ -68,14 +69,14 @@ typedef enum {
 
 #pragma pack(1)
 typedef struct{
-  uint8_t magic_str[21];
+  uint8_t magic_str[BOOT_PACK_MAGIC_STR_LEN];
   uint8_t protocol_ver;
   uint16_t pack_type;
   uint8_t upgrade_ctrl_flag;
   uint16_t start_index;
   uint16_t end_index;
-  uint8_t fw_ver_str[32];
-  uint8_t timestamp_str[20];
+  uint8_t fw_ver_str[BOOT_PACK_FW_VER_STR_LEN];
+  uint8_t timestamp_str[BOOT_PACK_TIMESTAMP_STR_LEN];
   uint16_t upgrade_state;
   uint32_t fw_lenght;
   uint32_t fw_checksum;

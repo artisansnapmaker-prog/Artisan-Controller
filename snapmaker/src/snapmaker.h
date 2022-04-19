@@ -28,6 +28,7 @@
 struct SnapmakerSettings {
   int32_t laser_platform_hight;
   int32_t laser_4axis_center_hight;
+  float live_z_offset[EXTRUDERS];
 };
 
 // settings defination

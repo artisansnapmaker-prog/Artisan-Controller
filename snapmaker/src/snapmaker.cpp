@@ -1175,6 +1175,10 @@ void SnapmakerPrinter::reset_settings() {
   settings.laser_platform_hight     = LASER_PLATFORM_HIGHT_DEFAULT;
   settings.laser_4axis_center_hight = LASER_4AXIS_CENTER_HIGHT_DEFAULT;
 
+  // reset live_z_offset
+  settings.live_z_offset[0] = 0;
+  settings.live_z_offset[1] = 0;
+
   // reset your settings
 }
 

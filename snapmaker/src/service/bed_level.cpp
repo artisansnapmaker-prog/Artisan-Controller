@@ -17,6 +17,11 @@ static err_code_t hmi_req_callback_set_live_z_offset(void *obj, sacp_hmi_message
 static err_code_t hmi_req_callback_get_live_z_offset(void *obj, sacp_hmi_message_t *msg);
 
 void BedLevelService::init() {
+  SnapmakerSettings * smsettings = smprinter.get_settings();
+  live_z_offset[0] = smsettings->live_z_offset[0];
+  live_z_offset[1] = smsettings->live_z_offset[1];
+  LOG_I("live_z_offset: %f, %f\n", live_z_offset[0], live_z_offset[1]);
+
   // apply fdm cmd ids handle and register hmi request callback
   host_hmi.apply_cmd_set_handle(SACP_CMD_SET_CALIBRATE_FDM, BEDLEVEL_REQ_CMD_ID_SUM);
   host_hmi.register_callback(SACP_CMD_SET_CALIBRATE_FDM, BEDLEVEL_REQ_CMD_ID_SET_LEVEL_MODE, this, hmi_req_callback_set_level_mode, SACP_CB_ATTR_BLOCKED_WITHOUT_MOTION);
@@ -898,6 +903,8 @@ void BedLevelService::set_live_z_offset(uint8_t e, float offset) {
     if (smprinter.get_sys_status() == SYSTEM_STATUS_IDLE) {
       LOG_I("save live_z_offset\n");
       live_z_offset_changed = false;
+      SnapmakerSettings *smsettings = smprinter.get_settings();
+      smsettings->live_z_offset[e] = live_z_offset[e];
       motion_platform_svc.save_settings();
     }
   } else {

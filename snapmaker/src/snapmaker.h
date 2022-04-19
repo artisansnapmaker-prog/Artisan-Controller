@@ -19,19 +19,12 @@
 #define EVENT_GROUP_MODULE_READY      (0x00000001)
 #define EVENT_GROUP_WAIT_FOR_HEATING  (0X00000002)
 
-#define ACTION_BAN_NONE               (0)
-#define ACTION_BAN_NO_WORKING         (0x1)
-#define ACTION_BAN_NO_MOVING          (0x1<<1)
-#define ACTION_BAN_NO_HEATING_BED     (0x1<<2)
-#define ACTION_BAN_NO_HEATING_HOTEND  (0x1<<3)
-
-#define POWER_DOMAIN_MOTIVE_POWER (0x1)
+#define POWER_DOMAIN_MOTIVE_POWER (0x1<<0)
 #define POWER_DOMAIN_8P_TOOLHEAD  (0x1<<1)
 #define POWER_DOMAIN_8P_MOTOR     (0x1<<2)
 #define POWER_DOMAIN_4P_ADDON     (0x1<<3)
 #define POWER_DOMAIN_BED          (0x1<<4)
 #define POWER_DOMAIN_HMI          (0x1<<5)
-
 struct SnapmakerSettings {
   int32_t laser_platform_hight;
   int32_t laser_4axis_center_hight;
@@ -121,9 +114,6 @@ enum SystemStatus {
   SYSTEM_STATUS_CNC_CALIBRATING = 95,
 };
 
-extern uint8_t action_ban;
-void enable_action_ban(uint8_t ab);
-void disable_action_ban(uint8_t ab);
 
 enum SMBoardPortIndex {
   PORT_INDEX_L1,

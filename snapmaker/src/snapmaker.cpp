@@ -998,11 +998,14 @@ bool SnapmakerPrinter::can_start_work(void) {
     case SYSTEM_STATUS_LASER_CAMERA_CAPTURE:
     case SYSTEM_STATUS_LASER_DETECT_FOCAL_LENGTH:
     case SYSTEM_STATUS_LASER_DETECT_4AXIS_CENTER_POSITION:
-      return true;
+      break;
 
     default:
       return false;
   }
+
+  if (!system_svc.allow_working())
+    return false;
 }
 
 bool SnapmakerPrinter::can_resume_work(void) {
@@ -1023,6 +1026,10 @@ bool SnapmakerPrinter::can_resume_work(void) {
     if (!cnc || (cnc && !cnc->is_can_resume_work()))
       return false;
   }
+
+  if (system_svc.allow_working())
+    return false;
+
   return true;
 }
 
@@ -1099,28 +1106,60 @@ void SnapmakerPrinter::disable_power_domain(uint32_t domains) {
 }
 
 void SnapmakerPrinter::enable_power_domain(uint32_t domains) {
+  uint32_t bans = system_svc.get_bans();
+
   if (domains & POWER_DOMAIN_MOTIVE_POWER) {
-    digitalWrite(POWER_CTRL_MOTION, POWER_CTRL_ON);
+    if (bans & EXCEP_BAN_ENABLE_POWER_MOTIVE) {
+      //LOG_E("Exception: cannot ENABLE_POWER_MOTIVE!\n");
+    }
+    else {
+      digitalWrite(POWER_CTRL_MOTION, POWER_CTRL_ON);
+    }
   }
 
   if (domains & POWER_DOMAIN_8P_TOOLHEAD) {
-    digitalWrite(POWER_CTRL_8P, POWER_CTRL_ON);
+    if (bans & EXCEP_BAN_ENABLE_POWER_8P_TOOLHEAD) {
+      //LOG_E("Exception: cannot ENABLE_POWER_8P_TOOLHEAD!\n");
+    }
+    else {
+      digitalWrite(POWER_CTRL_8P, POWER_CTRL_ON);
+    }
   }
 
   if (domains & POWER_DOMAIN_8P_MOTOR) {
-    digitalWrite(POWER_CTRL_MOTOR, POWER_CTRL_ON);
+    if (bans & EXCEP_BAN_ENABLE_POWER_8P_MOTOR) {
+      //LOG_E("Exception: cannot ENABLE_POWER_8P_MOTOR!\n");
+    }
+    else {
+      digitalWrite(POWER_CTRL_MOTOR, POWER_CTRL_ON);
+    }
   }
 
   if (domains & POWER_DOMAIN_4P_ADDON) {
-    digitalWrite(POWER_CTRL_4P, POWER_CTRL_ON);
+    if (bans & EXCEP_BAN_ENABLE_POWER_4P_ADDON) {
+      //LOG_E("Exception: cannot ENABLE_POWER_4P_ADDON!\n");
+    }
+    else {
+      digitalWrite(POWER_CTRL_4P, POWER_CTRL_ON);
+    }
   }
 
   if (domains & POWER_DOMAIN_BED) {
-    digitalWrite(POWER_CTRL_BED, POWER_CTRL_ON);
+    if (bans & EXCEP_BAN_ENABLE_POWER_BED) {
+      //LOG_E("Exception: cannot ENABLE_POWER_BED!\n");
+    }
+    else {
+      digitalWrite(POWER_CTRL_BED, POWER_CTRL_ON);
+    }
   }
 
   if (domains & POWER_DOMAIN_HMI) {
-    digitalWrite(POWER_CTRL_HMI, POWER_CTRL_ON);
+    if (bans & EXCEP_BAN_ENABLE_POWER_HMI) {
+      //LOG_E("Exception: cannot ENABLE_POWER_HMI!\n");
+    }
+    else {
+      digitalWrite(POWER_CTRL_HMI, POWER_CTRL_ON);
+    }
   }
 }
 

@@ -28,29 +28,72 @@
 #include "../host/sacp_hmi.h"
 
 #define EXCEPTION_STATIC_SIZE     (64)
+#define EXCEPTION_ISR_QUEUE_SIZE  (4)
 #define EXCEPTION_OWNER_INVALID   (0xFFFF)
-struct ExceptionNode {  
+struct ExceptionNode {
   uint16_t owner;
   uint8_t  state;
   uint32_t ban;
 };
 
-#define EXCEPTION_ACTION_PAUSE_WORK
-#define EXCEPTION_ACTION_STOP_WORK
-#define EXCEPTION_ACTION_DISABLE_POWER_MOTIVE
-#define EXCEPTION_ACTION_DISABLE_POWER_8P_MOTOR
-#define EXCEPTION_ACTION_DISABLE_POWER_8P_TOOLHEAD
-#define EXCEPTION_ACTION_DISABLE_POWER_4P_ADDON
-#define EXCEPTION_ACTION_DISABLE_POWER_BED
-#define EXCEPTION_ACTION_DISABLE_POWER_HMI
+struct ExceptionNodeISR {
+  uint16_t owner;
+  uint8_t  state;
+  uint32_t ban;
+  uint32_t actions;
+};
 
-#define EXCEPTION_BAN_MOVING          (0x00000001)
-#define EXCEPTION_BAN_WORKING         (0x00000002)
-#define EXCEPTION_BAN_HEATING_HOTEND  (0x00000004)
-#define EXCEPTION_BAN_HEATING_BED     (0x00000008)
-#define EXCEPTION_BAN_TURN_ON_LASER   (0x00000010)
-#define EXCEPTION_BAN_TURN_ON_CNC     (0x00000020)
+/*
+#define POWER_DOMAIN_MOTIVE_POWER (0x1<<0)
+#define POWER_DOMAIN_8P_TOOLHEAD  (0x1<<1)
+#define POWER_DOMAIN_8P_MOTOR     (0x1<<2)
+#define POWER_DOMAIN_4P_ADDON     (0x1<<3)
+#define POWER_DOMAIN_BED          (0x1<<4)
+#define POWER_DOMAIN_HMI          (0x1<<5)
+*/
+// make the action bit be same with the power domain bits, then we can
+// disable the power using the action bits
+#define EXCEP_ACT_DISABLE_POWER_MOTIVE          (POWER_DOMAIN_MOTIVE_POWER)
+#define EXCEP_ACT_DISABLE_POWER_8P_TOOLHEAD     (POWER_DOMAIN_8P_TOOLHEAD)
+#define EXCEP_ACT_DISABLE_POWER_8P_MOTOR        (POWER_DOMAIN_8P_MOTOR)
+#define EXCEP_ACT_DISABLE_POWER_4P_ADDON        (POWER_DOMAIN_4P_ADDON)
+#define EXCEP_ACT_DISABLE_POWER_BED             (POWER_DOMAIN_BED)
+#define EXCEP_ACT_DISABLE_POWER_HMI             (POWER_DOMAIN_HMI)
+// reserve bit[7:6] for power domain
+#define EXCEP_ACT_PAUSE_WORKING                 (1<<8)
+#define EXCEP_ACT_STOP_WORKING                  (1<<9)
+#define EXCEP_ACT_STOP_WITH_RECOVERY            (1<<10)
 
+#define EXCEP_ACT_DISABLE_POWER               (EXCEP_ACT_DISABLE_POWER_MOTIVE | \
+                                                EXCEP_ACT_DISABLE_POWER_8P_TOOLHEAD | \
+                                                EXCEP_ACT_DISABLE_POWER_8P_MOTOR | \
+                                                EXCEP_ACT_DISABLE_POWER_4P_ADDON | \
+                                                EXCEP_ACT_DISABLE_POWER_BED | \
+                                                EXCEP_ACT_DISABLE_POWER_HMI)
+
+
+#define EXCEP_BAN_ENABLE_POWER_MOTIVE         (POWER_DOMAIN_MOTIVE_POWER)
+#define EXCEP_BAN_ENABLE_POWER_8P_TOOLHEAD    (POWER_DOMAIN_8P_TOOLHEAD)
+#define EXCEP_BAN_ENABLE_POWER_8P_MOTOR       (POWER_DOMAIN_8P_MOTOR)
+#define EXCEP_BAN_ENABLE_POWER_4P_ADDON       (POWER_DOMAIN_4P_ADDON)
+#define EXCEP_BAN_ENABLE_POWER_BED            (POWER_DOMAIN_BED)
+#define EXCEP_BAN_ENABLE_POWER_HMI            (POWER_DOMAIN_HMI)
+// reserve bit[7:6] for power domain
+#define EXCEP_BAN_MOVING                      (1<<8)
+#define EXCEP_BAN_WORKING                     (1<<9)
+#define EXCEP_BAN_HEATING_HOTEND              (1<<10)
+#define EXCEP_BAN_HEATING_BED                 (1<<11)
+#define EXCEP_BAN_TURN_ON_LASER               (1<<12)
+#define EXCEP_BAN_TURN_ON_CNC                 (1<<13)
+
+#define EXCEP_BAN_CANNOT_WORK                 (EXCEP_BAN_ENABLE_POWER_MOTIVE | \
+                                                    EXCEP_BAN_ENABLE_POWER_8P_TOOLHEAD | \
+                                                    EXCEP_BAN_ENABLE_POWER_8P_MOTOR | \
+                                                    EXCEP_BAN_ENABLE_POWER_4P_ADDON | \
+                                                    EXCEP_BAN_ENABLE_POWER_HMI | \
+                                                    EXCEP_BAN_ENABLE_POWER_BED | \
+                                                    EXCEP_BAN_MOVING | \
+                                                    EXCEP_BAN_WORKING)
 
 enum A400ControllerExceptionState {
   A400_CTRL_EXCEP_STA_NO_TOOLHEAD = 1,
@@ -63,47 +106,63 @@ enum A400ControllerExceptionState {
   A400_CTRL_EXCEP_STA_REPLACE_TOOLHEAD,
 };
 
-/*
-#define POWER_DOMAIN_MOTIVE_POWER (0x1)
-#define POWER_DOMAIN_8P_TOOLHEAD  (0x1<<1)
-#define POWER_DOMAIN_8P_MOTOR     (0x1<<2)
-#define POWER_DOMAIN_4P_ADDON     (0x1<<3)
-#define POWER_DOMAIN_BED          (0x1<<4)
-#define POWER_DOMAIN_HMI          (0x1<<5)
-*/
-
 class SystemService {
   // public methods
   public:
     SystemService() {}
     void init();
-    void background_thread() { return ; }
+    void background_thread();
     uint32_t millis(void);
 
+    uint32_t get_bans() { return bans; }
 
-    err_code_t raise_exception(uint16_t owner, uint8_t state, uint32_t actions, uint32_t ban = 0);
+    bool allow_working();
+
+    /* raise exception from thread env
+    *  owner   - device id
+    *  state   - exception enumeration, each owner must define itself exception
+    *  actions - actions you want to trigger, these have been define in system.h, 
+    *            the macros start with prefix 'EXCEP_ACT_'
+    *  ban     - when an exception exists, the behaviors you want to ban, 
+    *            the macros start with prefix 'EXCEP_BAN_'
+    */
+    err_code_t raise_exception(uint16_t owner, uint8_t state, uint32_t actions = 0, uint32_t ban = 0);
+
+    /* clear exception from thread env
+    *  owner   - device id
+    *  state   - exception enumeration, each owner must define itself exception
+    */
     err_code_t clear_exception(uint16_t owner, uint8_t state);
-    void raise_exception_from_isr(uint16_t owner, uint8_t state, uint32_t actions, uint32_t ban = 0);
+
+    /* raise exception from thread env */
+    void raise_exception_from_isr(uint16_t owner, uint8_t state, uint32_t actions = 0, uint32_t ban = 0);
 
     static err_code_t hmi_cb_get_exceptions(void *obj, sacp_hmi_message_t *msg);
-    
+
   // private methods
   private:
     uint32_t get_bans(uint8_t *buffer, uint32_t buff_len);
     void update_bans();
     uint32_t get_level(uint32_t ban);
+    void lock_nodes();
+    void unlock_nodes();
 
   // public properties
   public:
 
   // private properties
   private:
+    BaseType_t lock_sta = pdFAIL;
+    SemaphoreHandle_t node_lock = NULL;
     ExceptionNode nodes[EXCEPTION_STATIC_SIZE];
-    uint32_t      bans;
+    uint32_t      bans = 0;
 
     // if node above is not enough for save current exceptions
     // won't apply dynamic memory from heap for them
     ExceptionNode *dynamic_nodes;
+
+    // queue to receive exception from ISR
+    ExceptionNodeISR nodes_isr[EXCEPTION_ISR_QUEUE_SIZE];
 };
 
 

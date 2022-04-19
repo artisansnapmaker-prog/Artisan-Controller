@@ -397,21 +397,27 @@ void SnapmakerPrinter::pre_init(void) {
   digitalWrite(pins_map[PORT_INDEX_P1].step, HIGH);
 
   // enable the power to do TMC initialization in arduino setup()
-  pinMode(POWER_CTRL_MOTOR, OUTPUT);
-  digitalWrite(POWER_CTRL_MOTOR, POWER_CTRL_ON);
-  pinMode(TMC_MASTER_SWITCH, OUTPUT);
-  digitalWrite(TMC_MASTER_SWITCH, TMC_SWITCH_ON);
+  pinMode(POWER_CTRL_MOTIVE, OUTPUT);
+  digitalWrite(POWER_CTRL_MOTIVE, POWER_CTRL_ON);
+
+  pinMode(POWER_CTRL_8P_MOTOR, OUTPUT);
+  digitalWrite(POWER_CTRL_8P_MOTOR, POWER_CTRL_ON);
+
+  pinMode(TMC_EN, OUTPUT);
+  digitalWrite(TMC_EN, TMC_EN_OFF);
 
   pinMode(X_STANDBY_PIN_var, OUTPUT);
-  digitalWrite(X_STANDBY_PIN_var, LOW);
+  digitalWrite(X_STANDBY_PIN_var, HIGH);
   pinMode(Y_STANDBY_PIN_var, OUTPUT);
-  digitalWrite(Y_STANDBY_PIN_var, LOW);
+  digitalWrite(Y_STANDBY_PIN_var, HIGH);
   pinMode(Y2_STANDBY_PIN_var, OUTPUT);
-  digitalWrite(Y2_STANDBY_PIN_var, LOW);
+  digitalWrite(Y2_STANDBY_PIN_var, HIGH);
   pinMode(Z_STANDBY_PIN_var, OUTPUT);
-  digitalWrite(Z_STANDBY_PIN_var, LOW);
+  digitalWrite(Z_STANDBY_PIN_var, HIGH);
   pinMode(Z2_STANDBY_PIN_var, OUTPUT);
-  digitalWrite(Z2_STANDBY_PIN_var, LOW);
+  digitalWrite(Z2_STANDBY_PIN_var, HIGH);
+
+  digitalWrite(TMC_EN, TMC_EN_ON);
 }
 
 
@@ -430,20 +436,17 @@ void SnapmakerPrinter::post_init() {
   LOG_I("BSS, start: 0x%08x, end: 0x%08x, size: %.3f kBytes\n\n", bss_start, bss_end, (bss_end - bss_start) * 4 / 1024.0);
 
   // enable power
-  pinMode(POWER_CTRL_8P, OUTPUT);
-  digitalWrite(POWER_CTRL_8P, POWER_CTRL_ON);
+  pinMode(POWER_CTRL_8P_TOOLHEAD, OUTPUT);
+  digitalWrite(POWER_CTRL_8P_TOOLHEAD, POWER_CTRL_ON);
 
   pinMode(POWER_CTRL_BED, OUTPUT);
   digitalWrite(POWER_CTRL_BED, POWER_CTRL_ON);
 
-  pinMode(POWER_CTRL_MOTION, OUTPUT);
-  digitalWrite(POWER_CTRL_MOTION, POWER_CTRL_ON);
-
   pinMode(POWER_CTRL_HMI, OUTPUT);
   digitalWrite(POWER_CTRL_HMI, POWER_CTRL_ON);
 
-  pinMode(POWER_CTRL_4P, OUTPUT);
-  digitalWrite(POWER_CTRL_4P, POWER_CTRL_ON);
+  pinMode(POWER_CTRL_4P_ADDON, OUTPUT);
+  digitalWrite(POWER_CTRL_4P_ADDON, POWER_CTRL_ON);
 
   debug.init();
 
@@ -1085,19 +1088,19 @@ void SnapmakerPrinter::show_sys_info() {
 
 void SnapmakerPrinter::disable_power_domain(uint32_t domains) {
   if (domains & POWER_DOMAIN_MOTIVE_POWER) {
-    digitalWrite(POWER_CTRL_MOTION, POWER_CTRL_OFF);
+    digitalWrite(POWER_CTRL_MOTIVE, POWER_CTRL_OFF);
   }
 
   if (domains & POWER_DOMAIN_8P_TOOLHEAD) {
-    digitalWrite(POWER_CTRL_8P, POWER_CTRL_OFF);
+    digitalWrite(POWER_CTRL_8P_TOOLHEAD, POWER_CTRL_OFF);
   }
 
   if (domains & POWER_DOMAIN_8P_MOTOR) {
-    digitalWrite(POWER_CTRL_MOTOR, POWER_CTRL_OFF);
+    digitalWrite(POWER_CTRL_8P_MOTOR, POWER_CTRL_OFF);
   }
 
   if (domains & POWER_DOMAIN_4P_ADDON) {
-    digitalWrite(POWER_CTRL_4P, POWER_CTRL_OFF);
+    digitalWrite(POWER_CTRL_4P_ADDON, POWER_CTRL_OFF);
   }
 
   if (domains & POWER_DOMAIN_BED) {
@@ -1117,7 +1120,7 @@ void SnapmakerPrinter::enable_power_domain(uint32_t domains) {
       //LOG_E("Exception: cannot ENABLE_POWER_MOTIVE!\n");
     }
     else {
-      digitalWrite(POWER_CTRL_MOTION, POWER_CTRL_ON);
+      digitalWrite(POWER_CTRL_MOTIVE, POWER_CTRL_ON);
     }
   }
 
@@ -1126,7 +1129,7 @@ void SnapmakerPrinter::enable_power_domain(uint32_t domains) {
       //LOG_E("Exception: cannot ENABLE_POWER_8P_TOOLHEAD!\n");
     }
     else {
-      digitalWrite(POWER_CTRL_8P, POWER_CTRL_ON);
+      digitalWrite(POWER_CTRL_8P_TOOLHEAD, POWER_CTRL_ON);
     }
   }
 
@@ -1135,7 +1138,7 @@ void SnapmakerPrinter::enable_power_domain(uint32_t domains) {
       //LOG_E("Exception: cannot ENABLE_POWER_8P_MOTOR!\n");
     }
     else {
-      digitalWrite(POWER_CTRL_MOTOR, POWER_CTRL_ON);
+      digitalWrite(POWER_CTRL_8P_MOTOR, POWER_CTRL_ON);
     }
   }
 
@@ -1144,7 +1147,7 @@ void SnapmakerPrinter::enable_power_domain(uint32_t domains) {
       //LOG_E("Exception: cannot ENABLE_POWER_4P_ADDON!\n");
     }
     else {
-      digitalWrite(POWER_CTRL_4P, POWER_CTRL_ON);
+      digitalWrite(POWER_CTRL_4P_ADDON, POWER_CTRL_ON);
     }
   }
 

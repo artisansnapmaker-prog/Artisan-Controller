@@ -355,7 +355,7 @@ err_code_t ToolHeadCNC::sync_cnc_output(uint16_t value, CNCSpeedControlType type
 }
 
 void ToolHeadCNC::debug_emergency_stop() {
-  OUT_WRITE(POWER_CTRL_8P, POWER_CTRL_OFF);
+  OUT_WRITE(POWER_CTRL_8P_TOOLHEAD, POWER_CTRL_OFF);
   emergency_parser.killed_by_M112 = true;
 }
 

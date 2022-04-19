@@ -244,16 +244,16 @@ extern int16_t E1_ENABLE_PIN_var;
 #define VOL1_DETECT_PIN                     PC1
 #define VOL2_DETECT_PIN                     PC2
 
-#define TMC_MASTER_SWITCH                   PB2
-#define TMC_SWITCH_ON                       LOW
-#define TMC_SWITCH_OFF                      HIGH
+#define TMC_EN                              PB2
+#define TMC_EN_ON                           LOW
+#define TMC_EN_OFF                          HIGH
 
 #define POWER_CTRL_BED                      PE2
-#define POWER_CTRL_MOTION                   PD7
+#define POWER_CTRL_MOTIVE                   PD7
 #define POWER_CTRL_HMI                      PD11
-#define POWER_CTRL_MOTOR                    PD10
-#define POWER_CTRL_8P                       PD3
-#define POWER_CTRL_4P                       PD4
+#define POWER_CTRL_8P_MOTOR                 PD10
+#define POWER_CTRL_8P_TOOLHEAD              PD3
+#define POWER_CTRL_4P_ADDON                 PD4
 
 #define POWER_CTRL_ON                    HIGH
 #define POWER_CTRL_OFF                   LOW

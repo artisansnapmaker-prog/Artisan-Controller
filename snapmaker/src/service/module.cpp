@@ -463,6 +463,21 @@ int ModuleService::init_virtual_modules() {
     }
   }
 
+  mac = MODULE_MAKE_MAC(MODULE_DEVICE_ID_A400_EMERGENCY_STOP, MODULE_SN_INVALID);
+  module = module_factory(mac, configured_module);
+  if (!module) {
+    LOG_E("failed to create module [0x%x, %u]\n", mac, 0);
+  }
+  else {
+    if (module->pre_init() == E_SUCCESS) {
+      module->set_fw_version((char *)"v1.0.0");
+      modules[configured_module++] = module;
+    }
+    else {
+      LOG_E("failed to init Bed!\n");
+    }
+  }
+
   return 0;
 }
 

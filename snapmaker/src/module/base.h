@@ -122,6 +122,7 @@ enum ModuleDeviceID {
   MODULE_DEVICE_ID_J1_LINEAR            ,   // 514
   MODULE_DEVICE_ID_A400_BED             ,   // 515
   MODULE_DEVICE_ID_A400_LINEAR          ,   // 516
+  MODULE_DEVICE_ID_A400_EMERGENCY_STOP  ,   // 517
 
   // controller
   MODULE_DEVICE_ID_SM2_CONTROLLER = 2048,

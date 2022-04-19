@@ -11,6 +11,7 @@
 #include "rotary.h"
 #include "calibrator.h"
 #include "purifier.h"
+#include "emergency_stop_virt.h"
 
 int ModuleBase::get_function_priority(uint16_t function_id) {
   if (!function_prio_map) {
@@ -129,6 +130,9 @@ ModuleBase *module_factory(uint32_t mac, uint8_t key, uint8_t sub_index) {
   case MODULE_DEVICE_ID_SM2_BED:
     return new BedVirtual(1, mac, key, sub_index);
     break;
+
+  case MODULE_DEVICE_ID_A400_EMERGENCY_STOP:
+    return new EmergencyStopVirtual(mac, key, sub_index);
 
   default:
     break;

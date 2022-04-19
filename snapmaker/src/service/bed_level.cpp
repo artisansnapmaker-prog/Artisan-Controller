@@ -548,6 +548,9 @@ uint8_t BedLevelService::get_bedlevel_mode() {
 
 err_code_t BedLevelService::set_bedlevel_mode(uint8_t mode) {
   switch (mode) {
+    case BEDLEVEL_MODE_IDLE:
+      bedlevel_mode = BEDLEVEL_MODE_IDLE;
+      break;
     case BEDLEVEL_MODE_AUTO:
       bedlevel_mode = BEDLEVEL_MODE_AUTO;
       break;

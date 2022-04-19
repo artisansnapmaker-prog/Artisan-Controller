@@ -26,7 +26,7 @@ class EmergencyHandler {
 
     void background();
 
-    void req_stop_job();
+    err_code_t save_env_manually(uint8_t *env, uint32_t size);
 
     static err_code_t hmi_cb_check_recovery_info(void *obj, sacp_hmi_message_t *msg);
     static err_code_t hmi_cb_req_recovery_job(void *obj, sacp_hmi_message_t *msg);
@@ -37,6 +37,7 @@ class EmergencyHandler {
 
   private:
     bool check_record();
+    void req_stop_job();
 
     static sacp_hmi_message_t msg_notify_stop, msg_notify_recovery;
     uint8_t button_state;

@@ -544,3 +544,40 @@ void EmergencyHandler::background() {
     // module_svc.scan_modules();
   }
 }
+
+
+err_code_t EmergencyHandler::save_env_manually(uint8_t *new_env, uint32_t size) {
+  uint32_t *flag, *checksum_addr;
+  uint32_t checksum;
+
+  if (!new_env) {
+    LOG_E(" env to be saved is null");
+    return E_PARAM;
+  }
+
+  if (size > (EMERGENCY_ENV_SIZE - 8)) {
+    LOG_E("size[%u] of env to be saved is out of range[%u]\n", size, EMERGENCY_ENV_SIZE - 8);
+    return E_PARAM;
+  }
+
+  memcpy(env, new_env, size);
+
+  // need to check if we need save env and write flash
+  // - write flash
+  flag  = (uint32_t *)(env + ENV_VALID_FLAG_ADDR);
+  *flag = ENV_VALID_FLAG;
+
+  checksum_addr = (uint32_t *)(env + ENV_CHECKSUM_ADDR);
+  checksum = host_hmi.calculate_checksum(env, EMERGENCY_ENV_SIZE - 4);
+  *checksum_addr = checksum;
+  disable_all_interrupts();
+  size = flash_write_buffer(env, EMERGENCY_ENV_SIZE, ENV_START_IN_FLASH);
+  enable_all_interrupts();
+  
+  if (size != EMERGENCY_ENV_SIZE) {
+    LOG_E("failed to save env!\n");
+    return E_FAILURE;
+  }
+
+  return E_SUCCESS;
+}

@@ -1798,9 +1798,10 @@ void ToolHeadFDM::dual_extruder_process_after_z_homed() {
   // right extruder need to raise
   if (active_extruder == 1) {
     float current_position_z = motion_platform_svc.get_current_position(Z_AXIS);
-    motion_platform_svc.moveto_z(current_position_z - hotend_offset[Z_AXIS][1], 10);
+    LOG_I("right extruder need to raise %f when z axis homed\n", -hotend_offset[Z_AXIS][1]);
+    motion_platform_svc.moveto_z(current_position_z - hotend_offset[Z_AXIS][1], 5);
     motion_platform_svc.sm_current_position[Z_AXIS] = current_position_z;
-    motion_platform_svc.synchronize_planner();
+    motion_platform_svc.sync_plan_position_to_platform();
   }
 }
 

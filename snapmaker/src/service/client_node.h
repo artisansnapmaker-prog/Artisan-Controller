@@ -114,6 +114,7 @@
 #define SACP_JOB_PAUSE_ISSUE_RET_WRONG_EXTRUDER                 (17)
 #define SACP_JOB_PAUSE_ISSUE_RET_WRONG_NOZZLE                   (18)
 #define SACP_JOB_PAUSE_ISSUE_RET_WRONG_HOTEND_TEMP              (19)
+#define SACP_JOB_PAUSE_ISSUE_RET_EXCEPTION                      (20)
 #define SACP_JOB_PAUSE_ISSUE_RET_UNKNOW_ERR                     (255)
 
 //Types of event function callbacks
@@ -136,9 +137,11 @@ class ClientNode {
   public:
     static void class_init(void);
 
-    static ClientNode *find_client_node(uint32_t peer);
+    static ClientNode *find_client_node(uint32_t peer, uint8_t ch);
+    static ClientNode *find_client_node(uint8_t id);
     static ClientNode *malloc_client_node(uint32_t peer, uint8_t ch);
-    static err_code_t del_client_node(uint32_t peer);
+    static err_code_t del_client_node(uint32_t peer, uint8_t ch);
+    static err_code_t del_client_node(uint8_t id);
     static err_code_t del_client_node(ClientNode *cn);
     static ClientNode *touch_client(uint32_t peer, uint8_t ch);
 
@@ -170,8 +173,9 @@ class ClientNode {
     void timer_cb(void *p);
     bool sacp_get_batch_gcode(req_batch_gcode_t &req_batch_gcode, res_batch_gcode_t &res_batch_gcode);
 
-    uint32_t _peer;
-    uint8_t _ch;
+    uint32_t peer;
+    uint8_t ch;
+    uint8_t id;
 
   private:
     err_code_t sacp_handle(sacp_hmi_message_t*);
@@ -182,11 +186,5 @@ class ClientNode {
     err_code_t req_stop_job(sacp_hmi_message_t*);
     err_code_t req_set_feedrate_percentage(sacp_hmi_message_t* msg);
 };
-
-
-
-
-
-
 
 #endif  // #ifndef SNAPMAKER_CLIENT_NODE_H_

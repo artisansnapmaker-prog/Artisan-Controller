@@ -49,8 +49,6 @@ void job_ctrl_thread_entry(void *p) {
 }
 
 void JobCtrl::init(void) {
-  uint8_t *rb_buf;
-
   _lock = xSemaphoreCreateMutex();
   configASSERT(_lock);
 
@@ -261,7 +259,6 @@ err_code_t JobCtrl::req_stop_from_isr( enum JobStopType st,
                               job_req_notify_cb_t cb/* = NULL*/,
                               void *p/* = NULL*/) {
   BaseType_t need_switch_task;
-  SystemStatus s = smprinter.get_sys_status();
   if (!smprinter.can_stop_work()) {
     return E_JOB_NOT_IN_PAUSE_STATUS;
   }
@@ -348,7 +345,6 @@ err_code_t JobCtrl::save_env(void) {
 
 err_code_t JobCtrl::recover_env(void) {
   ModuleBase *cur_toolhead;
-  xyze_pos_t dest;
 
   LOG_I("job_ctrl: get current toolhead pointer in recover_env\r\n");
   if (!(cur_toolhead = smprinter.get_cur_toolhead())) {

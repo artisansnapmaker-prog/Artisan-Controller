@@ -83,7 +83,7 @@ void ClientNode::class_init(void) {
 err_code_t ClientNode::sacp_cb(void *obj, sacp_hmi_message_t *msg) {
   ClientNode *cn;
 
-  cn = find_client_node(msg->peer);
+  cn = find_client_node(msg->peer, msg->ch);
   if (cn) {
     return cn->sacp_handle(msg);
   }
@@ -99,13 +99,22 @@ err_code_t ClientNode::sacp_cb(void *obj, sacp_hmi_message_t *msg) {
   }
 }
 
-ClientNode *ClientNode::find_client_node(uint32_t peer) {
+ClientNode *ClientNode::find_client_node(uint32_t peer, uint8_t ch) {
   for(uint8_t i = 0; i < MAX_CLIENT_NODE_NUM; i++) {
-    if (client_node_tab[i] && peer == client_node_tab[i]->_peer) {
+    if (client_node_tab[i] && peer == client_node_tab[i]->peer && ch == client_node_tab[i]->ch) {
       return client_node_tab[i];
     }
   }
   return NULL;
+}
+
+ClientNode *ClientNode::find_client_node(uint8_t id) {
+  if (id >= MAX_CLIENT_NODE_NUM) {
+    LOG_E("ClientNode: invalid client id[%u]\n", id);
+    return NULL;
+  }
+
+  return client_node_tab[id];
 }
 
 ClientNode * ClientNode::malloc_client_node(uint32_t peer, uint8_t ch) {
@@ -113,9 +122,10 @@ ClientNode * ClientNode::malloc_client_node(uint32_t peer, uint8_t ch) {
 
   LOCK(_lock, 0);
   for(uint8_t i = 0; i < MAX_CLIENT_NODE_NUM; i++) {
-    if (client_node_tab[i] && IVALID_PEER == client_node_tab[i]->_peer) {
-      client_node_tab[i]->_peer = peer;
-      client_node_tab[i]->_ch = ch;
+    if (client_node_tab[i] && IVALID_PEER == client_node_tab[i]->peer) {
+      client_node_tab[i]->peer = peer;
+      client_node_tab[i]->ch = ch;
+      client_node_tab[i]->id = i;
       ret = client_node_tab[i];
     }
   }
@@ -124,8 +134,15 @@ ClientNode * ClientNode::malloc_client_node(uint32_t peer, uint8_t ch) {
   return ret;
 }
 
-err_code_t ClientNode::del_client_node(uint32_t peer) {
-  ClientNode *cn = find_client_node(peer);
+err_code_t ClientNode::del_client_node(uint32_t peer, uint8_t ch) {
+  ClientNode *cn = find_client_node(peer, ch);
+  if (!cn)
+    return E_FAILURE;
+  return del_client_node(cn);
+}
+
+err_code_t ClientNode::del_client_node(uint8_t id) {
+  ClientNode *cn = find_client_node(id);
   if (!cn)
     return E_FAILURE;
   return del_client_node(cn);
@@ -133,13 +150,13 @@ err_code_t ClientNode::del_client_node(uint32_t peer) {
 
 err_code_t ClientNode::del_client_node(ClientNode *cn) {
   // TODO: should we need to lock?
-  cn->_peer = IVALID_PEER;
-  cn->_ch = IVALID_CH;
+  cn->peer = IVALID_PEER;
+  cn->ch = IVALID_CH;
   return E_SUCCESS;
 }
 
 ClientNode *ClientNode::touch_client(uint32_t peer, uint8_t ch) {
-  ClientNode *cn = find_client_node(peer);
+  ClientNode *cn = find_client_node(peer, ch);
   if (cn) {
     return cn;
   }
@@ -177,9 +194,9 @@ uint16_t ClientNode::sys_hardtick_sub_cb(void *obj, uint8_t *buffer) {
   return 2;
 }
 
-err_code_t ClientNode::issue_client(uint8_t peer, uint8_t issue_ret) {
+err_code_t ClientNode::issue_client(uint8_t id, uint8_t issue_ret) {
   // report status change reasone
-  ClientNode *cn = find_client_node(peer);
+  ClientNode *cn = find_client_node(id);
   if (!cn) {
     return E_FAILURE;
   }
@@ -190,8 +207,8 @@ err_code_t ClientNode::issue_client(uint8_t peer, uint8_t issue_ret) {
   uint16_t rx_len = 8;
   msg.cmd_set = CMD_SET_JOB_CTRL;
   msg.cmd_id = CMD_ID_JOB_CTRL_ISSUE;
-  msg.ch = cn->_ch;
-  msg.peer = cn->_peer;
+  msg.ch = cn->ch;
+  msg.peer = cn->peer;
   msg.data = tx_buf;
   msg.length = 1;
   msg.attr = 0;
@@ -208,7 +225,7 @@ err_code_t ClientNode::issue_client(uint8_t peer, uint8_t issue_ret) {
 
   return E_SUCCESS;
 }
-ClientNode::ClientNode(uint32_t peer, uint8_t ch): _peer(peer), _ch(ch) {
+ClientNode::ClientNode(uint32_t peer, uint8_t ch): peer(peer), ch(ch) {
 
 }
 
@@ -339,8 +356,8 @@ bool ClientNode::sacp_get_batch_gcode(req_batch_gcode_t &req_batch_gcode, res_ba
     return false;
   }
 
-  s_msg.ch = _ch;
-  s_msg.peer = _peer;
+  s_msg.ch = ch;
+  s_msg.peer = peer;
   s_msg.attr = 0;
   s_msg.data = buf;
   s_msg.cmd_set = CMD_SET_JOB_CTRL;
@@ -452,7 +469,7 @@ err_code_t ClientNode::req_start_job(sacp_hmi_message_t *msg) {
   sacp_hmi_message_t *msg_cp;
   uint8_t *p;
 
-  LOG_I("client_node: client %d request start a job\r\n", _peer);
+  LOG_I("client_node: client %d request start a job\r\n", peer);
 
   p = msg->data;
   // check MD5
@@ -490,7 +507,7 @@ err_code_t ClientNode::req_start_job(sacp_hmi_message_t *msg) {
     return host_hmi.send_ack(msg, SACP_RET_NO_RESC);
   }
   *msg_cp = *msg;
-  ret = job_ctrl_svc.req_start(_peer, &gfi, type, job_req_start_cb, msg_cp);
+  ret = job_ctrl_svc.req_start(id, &gfi, type, job_req_start_cb, msg_cp);
   if (E_SUCCESS != ret) {
     free_sacp_msg_node(msg_cp);
     return host_hmi.send_ack(msg, ret);
@@ -530,7 +547,7 @@ err_code_t ClientNode::req_resume_job(sacp_hmi_message_t* msg) {
     return host_hmi.send_ack(msg, SACP_RET_NO_RESC);
   }
   *msg_cp = *msg;
-  ret = job_ctrl_svc.req_resume(_peer, job_req_resume_cb, msg_cp);
+  ret = job_ctrl_svc.req_resume(id, job_req_resume_cb, msg_cp);
   if (E_SUCCESS != ret) {
     free_sacp_msg_node(msg_cp);
     return host_hmi.send_ack(msg, ret);

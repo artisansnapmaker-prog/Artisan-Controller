@@ -189,7 +189,7 @@ uint16_t SnapmakerPrinter::hmi_cb_publish_system_status(void *obj, uint8_t *buff
 err_code_t SnapmakerPrinter::hmi_cb_request_reboot(void *obj, sacp_hmi_message_t *msg) {
   LOG_I("hmi_cb_request_reboot\n");
   host_hmi.send_ack(msg, E_SUCCESS);
-  vTaskDelay(pdMS_TO_TICKS(100));
+  vTaskDelay(pdMS_TO_TICKS(500));
   HAL_reboot();
   disable_all_interrupts();
   while(1);

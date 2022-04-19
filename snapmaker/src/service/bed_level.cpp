@@ -483,6 +483,12 @@ static err_code_t hmi_req_callback_set_live_z_offset(void *obj, sacp_hmi_message
 
   LOG_I("hmi request set live z offset, e: %d, offset: %f\n", e, offset);
 
+  if (ABS(offset) > LIVE_Z_OFFSET_LIMIT) {
+    ret = E_FAILURE;
+    LOG_I("offset exceed limit\n");
+    goto EXIT;
+  }
+
   if (bedlevel.get_bedlevel_mode() != BEDLEVEL_MODE_IDLE) {
     ret = E_FAILURE;
     LOG_I("can't set live z offset\n");
@@ -609,11 +615,6 @@ err_code_t BedLevelService::refresh_leveling_data() {
   motion_platform_svc.disable_z_probe();
   motion_platform_svc.save_settings();
   motion_platform_svc.enable_leveling();
-  return E_SUCCESS;
-}
-
-err_code_t BedLevelService::set_live_z_offset(float offset) {
-
   return E_SUCCESS;
 }
 

@@ -25,6 +25,7 @@
 #include "motion_platform.h"
 
 #define CALIBRATION_PAPER_THICKNESS   0.1
+#define LIVE_Z_OFFSET_LIMIT           0.5
 
 /*************************************************************************************************************************************
 reference links: https://snapmaker2.atlassian.net/wiki/spaces/SNAP/pages/1984824804/FDM?focusedCommentId=2010743286#comment-2010743286
@@ -76,7 +77,6 @@ class BedLevelService {
     err_code_t set_leveling_grids(uint8_t grids);
     err_code_t set_z_values(float z, uint8_t i, uint8_t j);
     err_code_t refresh_leveling_data();
-    err_code_t set_live_z_offset(float offset);
     err_code_t start_probe_test(uint8_t b, float x, float y);
     err_code_t start_manual_bed_leveling(uint8_t grids);
     err_code_t goto_leveling_point(uint8_t index);

@@ -1006,6 +1006,8 @@ bool SnapmakerPrinter::can_start_work(void) {
 
   if (!system_svc.allow_working())
     return false;
+
+  return true;
 }
 
 bool SnapmakerPrinter::can_resume_work(void) {
@@ -1027,8 +1029,10 @@ bool SnapmakerPrinter::can_resume_work(void) {
       return false;
   }
 
-  if (system_svc.allow_working())
+  if (!system_svc.allow_working()) {
+    LOG_E("cannot resume job as system exception\n");
     return false;
+  }
 
   return true;
 }

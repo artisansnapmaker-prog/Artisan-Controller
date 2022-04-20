@@ -33,6 +33,7 @@ static float voltage_threshold[3][2] = {
 
 LinearVirtual *LinearVirtual::objects[LINEAR_VIRTUAL_OBJECT_MAX] {NULL, NULL, NULL, NULL, NULL};
 uint8_t LinearVirtual::object_index = 0;
+uint8_t LinearVirtual::total_online = 0;
 
 err_code_t LinearVirtual::pre_init() {
   float detected_vol;
@@ -123,10 +124,6 @@ err_code_t LinearVirtual::pre_init() {
 
   LOG_I("axis[%s] exit from standby\n", axis_name);
 
-  module_svc.register_routine((void *)this, routine);
-
-  next_ms = millis() + ROUTINE_TIMEOUT;
-
   return E_SUCCESS;
 }
 
@@ -140,6 +137,22 @@ err_code_t LinearVirtual::post_init() {
           (void *)this, hmi_cb_set_endstop);
 
   set_status(MODULE_STATUS_NORMAL);
+
+  module_svc.register_routine((void *)this, routine);
+
+  next_ms = millis() + ROUTINE_TIMEOUT;
+
+  total_online++;
+
+  if (smprinter.get_model() == SNAPMAKER_MODEL_A400) {
+    if (total_online >= 5) {
+      LOG_I("detect all linear, will reset TMC drivers for A400\n");
+      motion_platform_svc.reset_stepper_drivers();
+    }
+    else {
+      LOG_W("didn't get all linear modules, won't configure TMC drivers for A400\n");
+    }
+  }
 
   return E_SUCCESS;
 }
@@ -222,6 +235,8 @@ err_code_t LinearVirtual::routine(void *obj) {
       if (linear.get_status() == MODULE_STATUS_NORMAL) {
         LOG_E("linear axis[%u] offline!\n", linear.get_sub_index());
         linear.set_status(MODULE_STATUS_OFFLINE);
+        if (total_online > 0)
+          total_online--;
         // standby
         digitalWrite(linear.standby_pin, ENTER_STANDBY);
         // raise exception
@@ -237,6 +252,7 @@ err_code_t LinearVirtual::routine(void *obj) {
       LOG_I("linear axis[%u] online!\n", linear.get_sub_index());
       // digitalWrite(TMC_EN, TMC_EN_OFF);
       linear.set_status(MODULE_STATUS_NORMAL);
+      total_online++;
       digitalWrite(linear.standby_pin, EXIT_STANDBY);
       // system_svc.clear_exception(MODULE_DEVICE_ID_A400_LINEAR,  LINEAR_EXCEPTION_OFFLINE);
     }

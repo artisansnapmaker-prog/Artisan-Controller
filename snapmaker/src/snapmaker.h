@@ -139,7 +139,9 @@ class SnapmakerPrinter
 
   public:
     SnapmakerPrinter() {
-      model = SNAPMAKER_MODEL_A400;
+      #if MB(SM_CONTROLLER2022_V1)
+        model = SNAPMAKER_MODEL_A400;
+      #endif
     }
 
     void pre_init();

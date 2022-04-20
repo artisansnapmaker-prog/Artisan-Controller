@@ -61,6 +61,7 @@ class LinearVirtual: public ModuleBase {
   private:
     static LinearVirtual *objects[LINEAR_VIRTUAL_OBJECT_MAX];
     static uint8_t object_index;
+    static uint8_t total_online;
     uint32_t endstop_pin;
     uint32_t detect_pin;
     uint32_t standby_pin;

@@ -232,6 +232,8 @@ class MotionPlatformService {
 
     void show_coordiantes();
 
+    void reset_stepper_drivers();
+
   private:
     MessageBufferHandle_t gcode_queue;
     xSemaphoreHandle marlin_signal;

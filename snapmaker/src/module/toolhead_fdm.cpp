@@ -65,6 +65,7 @@ static module_func_prio_t prio_map_single_extruder[] = {
 };
 
 err_code_t fdm_callback_routine(void *obj);
+void fdm_callback_start_print(void *, uint8_t status_before_start);
 static void fdm_callback_probe_state(void *obj, uint8_t *data, uint8_t length);
 static void fdm_callback_filament_state(void *obj, uint8_t *data, uint8_t length);
 static void fdm_callback_hotend_temp(void *obj, uint8_t *data, uint8_t length);
@@ -159,6 +160,8 @@ err_code_t ToolHeadFDM::single_extruder_post_init() {
 
   smprinter.register_module(get_device_id(), this);
   module_svc.register_routine((void *)this, fdm_callback_routine);
+
+  job_ctrl_svc.register_notify_handle(JOB_NOTIFY_TYPE_STARTED, (void *)this, fdm_callback_start_print);
 
   set_status(MODULE_STATUS_NORMAL);
   LOG_I("fdm single extruder ready\n");
@@ -270,6 +273,8 @@ err_code_t ToolHeadFDM::dual_extruder_post_init() {
 
   smprinter.register_module(get_device_id(), this);
   module_svc.register_routine((void *)this, fdm_callback_routine);
+
+  job_ctrl_svc.register_notify_handle(JOB_NOTIFY_TYPE_STARTED, (void *)this, fdm_callback_start_print);
 
   set_status(MODULE_STATUS_NORMAL);
   LOG_I("fdm dual extruder ready\n");
@@ -1565,6 +1570,12 @@ err_code_t fdm_callback_routine(void *obj) {
   return E_SUCCESS;
 }
 
+void fdm_callback_start_print(void *obj, uint8_t status_before_start) {
+  ToolHeadFDM &fdm = *(ToolHeadFDM *)obj;
+
+  fdm.prepare_to_start_a_new_print_job();
+}
+
 err_code_t ToolHeadFDM::save_env(uint8_t *env_buf, uint32_t &len) {
   fdm_recovery_data_t recovery_data;
 
@@ -1715,6 +1726,20 @@ err_code_t ToolHeadFDM::standby(void) {
   return E_SUCCESS;
 }
 
+// only called when start a new print job
+void ToolHeadFDM::prepare_to_start_a_new_print_job(void) {
+  extruders_feedrate_percentage[0] = 100;
+  extruders_feedrate_percentage[1] = 100;
+  motion_platform_svc.sync_feedrate_percentage_to_platform(100);
+  LOG_I("fdm start a new print job, clear feedrate\n");
+
+  extruders_flowrate_percentage[0] = 100;
+  extruders_flowrate_percentage[1] = 100;
+  motion_platform_svc.sync_flowrate_percentage_to_platform(100, active_extruder);
+  LOG_I("fdm start a new print job, clear flowrate\n");
+}
+
+// called when start a new print job or resume an old print job
 bool ToolHeadFDM::prepare_start(void) {
   LOG_I("fdm_fault_state: %d, fdm_state: %d\n", fdm_state, get_status());
   if ((fdm_state == 0) && (get_status() == MODULE_STATUS_NORMAL)) {

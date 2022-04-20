@@ -159,6 +159,7 @@ class ToolHeadFDM: public ModuleBase {
     err_code_t recover_env(uint8_t *env_buf, uint32_t &len);
     err_code_t resume_env(uint8_t *env_buf, uint32_t &len);
     err_code_t standby(void);
+    void prepare_to_start_a_new_print_job(void);
     bool prepare_start(void);
 
     err_code_t probe_state_sync();

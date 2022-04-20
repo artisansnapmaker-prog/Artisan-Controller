@@ -27,6 +27,8 @@
 
 #include "../module/toolhead_cnc.h"
 #include "../module/toolhead_laser.h"
+#include "../module/linear_virt.h"
+#include "../module/emergency_stop_virt.h"
 
 // marlin headers
 #include "src/gcode/gcode.h"
@@ -118,6 +120,9 @@ void GcodeSuite::M1006() {
     LOG_I("UNKNOWN\n");
     break;
   }
+
+  LinearVirtual::show_info();
+  EmergencyStopVirtual::show_info();
 }
 
 

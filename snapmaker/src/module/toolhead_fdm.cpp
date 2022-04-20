@@ -567,11 +567,16 @@ static err_code_t hmi_req_callback_set_hotend_offset(void *obj, sacp_hmi_message
   for (uint32_t i = 0; i < array_size; i++) {
     e = msg->data[get_data_index++];
     axis = msg->data[get_data_index++];
-    offset = (msg->data[get_data_index++]) | (msg->data[get_data_index++] << 8) | (msg->data[get_data_index++] << 16) | (msg->data[get_data_index++] << 24);
+    offset = msg->data[get_data_index++];
+    offset |= msg->data[get_data_index++] << 8;
+    offset |= msg->data[get_data_index++] << 16;
+    offset |= msg->data[get_data_index++] << 24;
     ret = fdm.set_hotend_offset((float)offset/1000, axis);
   }
 
 EXIT:
+  (void)key;
+  (void)e;
   uint16_t index = 0;
   msg->data[index++] = ret;
   msg->length = index;
@@ -700,6 +705,8 @@ static void fdm_callback_hotend_type(void *obj, uint8_t *data, uint8_t length) {
 static void fdm_callback_extruder_info(void *obj, uint8_t *data, uint8_t length) {
   ToolHeadFDM &fdm = *(ToolHeadFDM *)obj;
   // fdm.report_extruder_info(data);
+
+  (void)fdm;
 }
 
 static void fdm_callback_report_hotend_offset(void *obj, uint8_t *data, uint8_t length) {

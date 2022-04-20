@@ -39,7 +39,7 @@ void GcodeSuite::G1029() {
 
   const bool seen_d = parser.seenval('D');
   if (seen_d) {
-      float d = (float)parser.floatval('D', (float)0);
+      // float d = (float)parser.floatval('D', (float)0);
       return;
   }
 

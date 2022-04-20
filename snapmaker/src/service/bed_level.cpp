@@ -423,7 +423,7 @@ static err_code_t hmi_req_callback_probe_sensor_calibration(void *obj, sacp_hmi_
   // need go home
   if (!motion_platform_svc.is_all_axes_homed()) {
     // motion_platform_svc.run_gcode((char *)"G28", true);
-    parser.parse("G28");
+    parser.parse((char *)"G28");
     gcode.process_parsed_command();
   }
 
@@ -654,7 +654,7 @@ err_code_t BedLevelService::start_manual_bed_leveling(uint8_t grids) {
   manual_leveling_point_index_ = 25;
 
   // go home
-  parser.parse("G28");
+  parser.parse((char *)"G28");
   gcode.process_parsed_command();
 
   motion_platform_svc.disable_leveling();
@@ -711,7 +711,7 @@ err_code_t BedLevelService::start_auto_bed_leveling(uint8_t grids) {
   // save grids
 
   // motion_platform_svc.run_gcode((char *)"G28\n", true);
-  parser.parse("G28");
+  parser.parse((char *)"G28");
   gcode.process_parsed_command();
 
   smprinter.fdm->extruder_status_check_ctrl(EXTRUDER_STATUS_IDLE);
@@ -916,7 +916,7 @@ void BedLevelService::set_live_z_offset(uint8_t e, float offset) {
 void BedLevelService::auto_probe_sensor_calibration() {
   // go home if needed
   if (!motion_platform_svc.is_all_axes_homed()) {
-    motion_platform_svc.run_gcode("G28", true);
+    motion_platform_svc.run_gcode((char *)"G28", true);
   }
 
   // disable bedlevel
@@ -973,7 +973,7 @@ void BedLevelService::auto_probe_sensor_calibration() {
 void BedLevelService::auto_hotend_offset_calibration() {
   // go home if needed
   if (!motion_platform_svc.is_all_axes_homed()) {
-    motion_platform_svc.run_gcode("G28", true);
+    motion_platform_svc.run_gcode((char *)"G28", true);
   }
 
   // disable bedlevel

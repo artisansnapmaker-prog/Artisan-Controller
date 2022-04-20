@@ -1072,19 +1072,19 @@ err_code_t JobCtrl::register_notify_handle(JobNotifyType type, void *obj, job_re
   case JOB_NOTIFY_TYPE_STARTED:
     handles = notify_handle_started;
     break;
-  
+
   case JOB_NOTIFY_TYPE_PAUSED:
     handles = notify_handle_paused;
     break;
-  
+
   case JOB_NOTIFY_TYPE_RESUME:
     handles = notify_handle_resume;
     break;
-  
+
   case JOB_NOTIFY_TYPE_STOPPED:
     handles = notify_handle_stopped;
     break;
-  
+
   default:
     break;
   }

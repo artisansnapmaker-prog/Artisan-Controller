@@ -217,11 +217,11 @@ err_code_t LinearVirtual::hmi_cb_set_endstop(void *obj, sacp_hmi_message_t *mess
 
 void LinearVirtual::show_info() {
   LOG_I("endstop: \n");
-  LOG_I("X: %s\n", digitalRead(objects[MODULE_LINEAR_X1]->endstop_pin)? "Triggered" : "Open");
-  LOG_I("Y: %s\n", digitalRead(objects[MODULE_LINEAR_Y1]->endstop_pin)? "Triggered" : "Open");
-  LOG_I("Y2: %s\n", digitalRead(objects[MODULE_LINEAR_Y2]->endstop_pin)? "Triggered" : "Open");
-  LOG_I("Z: %s\n", digitalRead(objects[MODULE_LINEAR_Z1]->endstop_pin)? "Triggered" : "Open");
-  LOG_I("Z2: %s\n", digitalRead(objects[MODULE_LINEAR_Z2]->endstop_pin)? "Triggered" : "Open");
+  LOG_I("X axis: %s\n", digitalRead(objects[MODULE_LINEAR_X1]->endstop_pin)? "Triggerred" : "Open");
+  LOG_I("Y axis: %s\n", digitalRead(objects[MODULE_LINEAR_Y1]->endstop_pin)? "Triggerred" : "Open");
+  LOG_I("Y2 axis: %s\n", digitalRead(objects[MODULE_LINEAR_Y2]->endstop_pin)? "Triggerred" : "Open");
+  LOG_I("Z axis: %s\n", digitalRead(objects[MODULE_LINEAR_Z1]->endstop_pin)? "Triggerred" : "Open");
+  LOG_I("Z2 axis: %s\n", digitalRead(objects[MODULE_LINEAR_Z2]->endstop_pin)? "Triggerred" : "Open");
 }
 
 err_code_t LinearVirtual::routine(void *obj) {

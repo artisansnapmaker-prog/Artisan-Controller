@@ -118,6 +118,7 @@ typedef enum {
 typedef struct {
   uint8_t active_extruder;
   float feedrate_percentage[EXTRUDERS];
+  float flowrate_percentage[EXTRUDERS];
   float live_z_offset[EXTRUDERS];
   float live_z_offset_changed;
   uint8_t fan_speed[3];

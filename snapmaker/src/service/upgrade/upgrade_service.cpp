@@ -32,7 +32,6 @@ err_code_t UpdateService::init(void) {
   err_code_t ret;
 
   phase = UPGRADE_PHASE_INIT;
-  need_controller_to_module = false;
 
   ret = E_SUCCESS;
   ret |= host_hmi.apply_cmd_set_handle(CMD_SET_UPGRADE, 3);
@@ -52,14 +51,6 @@ void UpdateService::loop(void) {
   ugr_hc_svc.loop();
   ugr_hm_svc.loop();
   ugr_cm_svc.loop();
-
-  if (need_controller_to_module) {
-    pack_info_t *pit = (pack_info_t *)module_fw_partition.start_addr;
-    if (!boot_info_check(pit)) {
-      need_controller_to_module = false;
-      return;
-    }
-  }
 }
 
 err_code_t UpdateService::sacp_msg_proc(void * obj, sacp_hmi_message_t *msg) {
@@ -182,7 +173,9 @@ void UpdateService::print_packet_info(pack_info_t *pit) {
 void UpdateService::set_updgrade_phase(UpgradePhase p) {
   if (UPGRADE_PHASE_HOST_TO_CONTROLLER == phase &&
       UPGRADE_PHASE_INIT == p) {
-    need_controller_to_module = true;
+    if (E_SUCCESS != ugr_cm_svc.start()) {
+      phase = p;    
+    }
   }
   phase = p;
 }

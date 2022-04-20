@@ -126,6 +126,8 @@ err_code_t sm2_module_upgrade_start_req(pack_info_t *p, module_info_t *m) {
   }
   msg.length = len + 1;
 
+  fw_file_offset = 0;
+
   return host_can_cfg.send(&msg);
 }
 

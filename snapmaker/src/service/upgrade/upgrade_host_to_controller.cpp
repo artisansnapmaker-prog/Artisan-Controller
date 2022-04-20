@@ -183,7 +183,7 @@ err_code_t UpgradeHostToController::trans_proc(sacp_hmi_message_t *msg) {
   
   if (offset >= fw_lenght) {
     LOG_I("upgrade_module: RX ALL DATA\r\n");
-    if (ugr_svc->firmware_flash_checksum(checksum, module_fw_partition.start_addr, fw_lenght)) {
+    if (ugr_svc->firmware_flash_checksum(checksum, module_fw_partition.start_addr + BOOT_INFO_SIZE, fw_lenght)) {
       end_ret = E_SUCCESS;
     }
     else {

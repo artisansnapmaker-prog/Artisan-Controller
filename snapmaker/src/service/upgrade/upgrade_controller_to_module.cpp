@@ -90,7 +90,7 @@ void UpgradeControllerToModule::loop(void) {
     break;
 
     case UPGRADE_CM_STATUS_END:
-      LOG_I("upgrade_cm: finish a module, return to IDLE and restart another moduel upgrade\r\n");
+      LOG_I("upgrade_cm: finish a module, return to UPGRADE_CM_STATUS_A_MODULE_START and restart another moduel upgrade\r\n");
       status = UPGRADE_CM_STATUS_A_MODULE_START;
     break;
 
@@ -192,6 +192,7 @@ err_code_t UpgradeControllerToModule::module_call_trans_req(uint32_t req_offset,
     return E_FAILURE;
   }
 
+  LOG_I("upgrade_cm: req offset %d\r\n", req_offset);
   offset = req_offset;
   trans_len = len;
   configASSERT(module_upgrade_info);

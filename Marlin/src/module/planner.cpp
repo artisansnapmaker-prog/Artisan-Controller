@@ -2427,6 +2427,14 @@ bool Planner::_populate_block(block_t * const block, bool split_move,
     // Start with print or travel acceleration
     accel = CEIL((esteps ? settings.acceleration : settings.travel_acceleration) * steps_per_mm);
 
+    #if MB_SNAPMAKER && ENABLED(SNAPMAKER_CNC_ACCELERATION_LIMIT)
+      extern SnapmakerPrinter smprinter;
+      // Limit the maximum acceleration of the machine once the cnc module has been identified
+      if (smprinter.cnc_online_check()) {
+        NOMORE(accel, CEIL(MAX_CNC_ACCELE_EDIT_VALUES * steps_per_mm));
+      }
+    #endif
+
     #if ENABLED(LIN_ADVANCE)
 
       #define MAX_E_JERK(N) TERN(HAS_LINEAR_E_JERK, max_e_jerk[E_INDEX_N(N)], max_jerk.e)

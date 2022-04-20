@@ -974,6 +974,12 @@
 #define DEFAULT_RETRACT_ACCELERATION  2000    // E acceleration for retracts
 #define DEFAULT_TRAVEL_ACCELERATION   2000    // X, Y, Z acceleration for travel (non printing) moves
 
+// Limiting the maximum acceleration during CNC operation  
+#define SNAPMAKER_CNC_ACCELERATION_LIMIT
+#if ENABLED(SNAPMAKER_CNC_ACCELERATION_LIMIT) 
+  #define MAX_CNC_ACCELE_EDIT_VALUES  500       // mm/s
+#endif
+
 /**
  * Default Jerk limits (mm/s)
  * Override with M205 X Y Z E

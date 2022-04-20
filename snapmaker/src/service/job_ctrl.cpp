@@ -63,13 +63,7 @@ void JobCtrl::init(void) {
   _env.gfi_valid = false;
   abort_resume = false;
   status_before_start = SYSTEM_STATUS_IDLE;
-
-  // initialize notify handles
-  memset(notify_handle_started, 0x00, sizeof(JobCtrlNotifyHandle) * JOB_CTRL_NOTIFY_QUEUE_SIZE);
-  memset(notify_handle_paused, 0x00, sizeof(JobCtrlNotifyHandle) * JOB_CTRL_NOTIFY_QUEUE_SIZE);
-  memset(notify_handle_resume, 0x00, sizeof(JobCtrlNotifyHandle) * JOB_CTRL_NOTIFY_QUEUE_SIZE);
-  memset(notify_handle_stopped, 0x00, sizeof(JobCtrlNotifyHandle) * JOB_CTRL_NOTIFY_QUEUE_SIZE);
-
+  
   TaskHandle_t jobctrl_task = xTaskCreateStatic((TaskFunction_t)(job_ctrl_thread_entry), "jobctrl", SYSTEM_TASK_STACK_SIZE,
         (void *)(this), HIGHEST_TASK_PRIORITY,  stack_jobctrl_thread, &tcb_jobctrl);
   if (!jobctrl_task) {
@@ -1089,8 +1083,13 @@ err_code_t JobCtrl::register_notify_handle(JobNotifyType type, void *obj, job_re
     break;
   }
 
+  if (!handles) {
+    LOG_E("failed to register notify handle, error type:[%u]\n", type);
+    return E_PARAM;
+  }
+
   for (; i < JOB_CTRL_NOTIFY_QUEUE_SIZE; i++) {
-    if (NULL == handles[i].cb && NULL == handles[i].obj) {
+    if ((NULL == handles[i].cb && NULL == handles[i].obj) || handles[i].obj == obj) {
       handles[i].obj = obj;
       handles[i].cb  = cb;
       break;

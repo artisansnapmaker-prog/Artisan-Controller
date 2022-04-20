@@ -36,6 +36,12 @@
 #define PURIFIER_ELEC_TOO_HIGH_MASK           (1 << 4)
 #define PURIFIER_EMERGENCY_STOP_MASK          (1 << 5)
 
+#define PURIFIER_START_WORK_OPEN_DEFAULT_MASK   (1 << PURIFIER_WORK_TOOL_HEAD_LASER)
+
+#define PURIFIER_FDM_STOP_WORK_CLOSE_TIME_DELAY          (0)    // s
+#define PURIFIER_LASER_STOP_WORK_CLOSE_TIME_DELAY        (300)   // s
+#define PURIFIER_CNC_STOP_WORK_CLOSE_TIME_DELAY          (0)    // s
+
 enum PurifierFanGear {
   PURIFIER_FAN_GEAR_0,  // off
   PURIFIER_FAN_GEAR_1,
@@ -72,11 +78,30 @@ enum PurifierSacpRequestCommandId {
   SACP_CMD_ID_PURIFIER_GET_HEAD_INFO = 1,
   SACP_CMD_ID_PURIFIER_SET_FAN_GEARS,
   SACP_CMD_ID_PURIFIER_SET_FAN_ENABLE,
+  SACP_CMD_ID_PURIFIER_SET_HEAD_START_WORK_STA,
+  SACP_CMD_ID_PURIFIER_GET_HEAD_START_WORK_STA,
+  SACP_CMD_ID_PURIFIER_SET_HEAD_STOP_WORK_STA,
+  SACP_CMD_ID_PURIFIER_GET_HEAD_STOP_WORK_STA,
 
   // Fixed parameters, not modifiable
   SACP_CMD_ID_PURIFIER_END_INDEX,
   SACP_CMD_ID_PURIFIER_MAX_NUM = SACP_CMD_ID_PURIFIER_END_INDEX - 1,
 };
+
+enum PurifierWorkToolHeadIndex {
+  PURIFIER_WORK_TOOL_HEAD_FDM, 
+  PURIFIER_WORK_TOOL_HEAD_LASER,
+  PURIFIER_WORK_TOOL_HEAD_CNC,
+
+  PURIFIER_WORK_TOOL_HEAD_INVALID,
+};
+
+typedef struct {
+  uint32_t start_work_purifier_open_mask;
+  uint16_t fdm_stop_work_purifier_close_delay;
+  uint16_t laser_stop_work_purifier_close_delay;
+  uint16_t cnc_stop_work_purifier_close_delay;
+}PurifierWorkSettings;
 
 #pragma pack(1)
 
@@ -108,8 +133,11 @@ class Purifier: public ModuleBase {
     err_code_t set_fan_power(uint8_t power);
     err_code_t set_fan_gear(uint8_t gear);
     err_code_t set_light_color(uint8_t red, uint8_t green, uint8_t blue);
-    err_code_t set_fan_control(bool is_open, bool is_forced=false);
+    err_code_t set_fan_control(bool is_open, bool is_forced=false, uint16_t delay_s=0);
     void report_purifier_info(void);
+
+    friend void start_work_notify_purifier_pro(void *obj, uint8_t reason);
+    friend void stop_work_notify_purifier_pro(void *obj, uint8_t reason);
   
     friend err_code_t purifier_callback_routine(void *obj);
     friend void purifier_callback_update_info(void *obj, uint8_t *data, uint8_t length);
@@ -118,6 +146,10 @@ class Purifier: public ModuleBase {
     friend err_code_t send_purifier_info_to_hmi(void *obj, sacp_hmi_message_t *msg);
     friend err_code_t hmi_set_purifier_fan_gear(void *obj, sacp_hmi_message_t *msg);
     friend err_code_t hmi_set_purifier_fan_ctrl(void *obj, sacp_hmi_message_t *msg);
+    friend err_code_t hmi_set_purifier_start_work_ctrl(void *obj, sacp_hmi_message_t *msg);
+    friend err_code_t hmi_get_purifier_start_work_ctrl(void *obj, sacp_hmi_message_t *msg);
+    friend err_code_t hmi_set_purifier_stop_work_ctrl(void *obj, sacp_hmi_message_t *msg);
+    friend err_code_t hmi_get_purifier_stop_work_ctrl(void *obj, sacp_hmi_message_t *msg);
     friend uint16_t hmi_subscribe_purifier_func(void *obj, uint8_t *buff);
   
   private:
@@ -128,6 +160,7 @@ class Purifier: public ModuleBase {
     void purifier_offline_check(uint32_t time_out=PURIFIER_LOST_TIME_OUT);
     err_code_t get_purifier_info(PurifierReportInfoType report_type=PURIFIER_INFO_ALL, bool is_sysnc=false, uint32_t time_out=2000);
     err_code_t register_hmi_command_func(void *obj);
+    err_code_t register_notify_handle_func(void *obj);
   
   private:
     bool online = false;
@@ -145,6 +178,7 @@ class Purifier: public ModuleBase {
     uint16_t extend_power;
     uint32_t tick;
     uint32_t loop_next_time;
+    uint32_t close_delay_tick;
     SemaphoreHandle_t public_mutex = NULL;
 };
 

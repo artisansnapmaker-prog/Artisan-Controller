@@ -470,10 +470,6 @@ err_code_t ToolHeadCNC200W::post_init() {
   }
 
   motion_platform_svc.set_home_offset(0, 0, 0);
-  for (int i = 0; i < 3; i++) {
-    if (motion_platform_svc.get_machine_accel(i) > CNC_ACCEL_LIMIT)
-      motion_platform_svc.set_machine_accel(i, CNC_ACCEL_LIMIT);
-  }
   smprinter.register_module(MODULE_DEVICE_ID_CNC_200W_2021, this);
   LOG_I("HP_CNC post_init out\n");
   LOG_I("Hight power CNC ready!\n");

@@ -29,6 +29,7 @@ struct SnapmakerSettings {
   int32_t laser_platform_hight;
   int32_t laser_4axis_center_hight;
   float live_z_offset[EXTRUDERS];
+  PurifierWorkSettings purifier_settings;
 };
 
 // settings defination
@@ -393,7 +394,7 @@ class SnapmakerPrinter
     ToolHeadLaser *laser = NULL;
     ToolHeadFDM *fdm = NULL;
     DryBox *drybox = NULL;
-	Enclosure *enclosure = NULL;
+    Enclosure *enclosure = NULL;
     Purifier *purifier = NULL;
     // toolhead fdm 1e
     // toolhead laser 1.6w

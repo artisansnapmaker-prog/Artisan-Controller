@@ -171,7 +171,14 @@ struct JobCtrlNotifyHandle {
 class JobCtrl {
   // public methods
   public:
-    JobCtrl(){};
+    JobCtrl() {
+      // initialize notify handles
+      memset(notify_handle_started, 0x00, sizeof(JobCtrlNotifyHandle) * JOB_CTRL_NOTIFY_QUEUE_SIZE);
+      memset(notify_handle_paused, 0x00, sizeof(JobCtrlNotifyHandle) * JOB_CTRL_NOTIFY_QUEUE_SIZE);
+      memset(notify_handle_resume, 0x00, sizeof(JobCtrlNotifyHandle) * JOB_CTRL_NOTIFY_QUEUE_SIZE);
+      memset(notify_handle_stopped, 0x00, sizeof(JobCtrlNotifyHandle) * JOB_CTRL_NOTIFY_QUEUE_SIZE);
+    }
+    
     void init(void);
     void background_thread(void *p);                               /** main loop, to check all the event from system which will change current job status */
 

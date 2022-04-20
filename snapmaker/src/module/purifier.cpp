@@ -99,6 +99,7 @@ err_code_t Purifier::pre_init() {
     online = false;
     sysnc_get_info_flag = false;
     sys_sta = 0;
+    close_delay_tick = 0;
     set_status(MODULE_STATUS_INIT);
     public_mutex_unlock();
   }
@@ -111,6 +112,7 @@ err_code_t Purifier::pre_init() {
 }
 
 err_code_t Purifier::deinit() {
+  set_fan_control(false);
   if (public_mutex_lock()) {
     fan_cur_out   = 0;
     fan_speed = 0;
@@ -216,14 +218,22 @@ err_code_t purifier_callback_routine(void *obj) {
   if (obj) {
     if (purifier.online) {
       if (ELAPSED(xTaskGetTickCount(), purifier.loop_next_time + PURIFIER_SAMP_STATUS_INTERVAL)) {
+        bool send_close_fan = false;
         purifier.get_purifier_info(PURIFIER_INFO_ALL);
         if (purifier.public_mutex_lock()) {
           purifier.loop_next_time = xTaskGetTickCount();
+          if (purifier.close_delay_tick > 0) {
+            purifier.close_delay_tick--;
+            if (purifier.close_delay_tick == 0)
+              send_close_fan = true;
+          }
           purifier.public_mutex_unlock();
         }
         else {
           LOG_E("[%s] take mutex lock fail\n", __FUNCTION__);
         }
+        if (send_close_fan)
+          purifier.set_fan_control(false); 
       }
     }
     purifier.purifier_offline_check();
@@ -354,9 +364,10 @@ err_code_t Purifier::set_light_color(uint8_t red, uint8_t green, uint8_t blue) {
   return result;  
 }
 
-err_code_t Purifier::set_fan_control(bool is_open, bool is_forced) {
+err_code_t Purifier::set_fan_control(bool is_open, bool is_forced, uint16_t delay_close_s) {
   smcan_message_t msg;
   err_code_t result = E_FAILURE;
+  uint32_t close_delay_tick_tmp = 0;
   uint8_t buffer[3] = {0};
   msg.id = get_message_id(MODULE_FUNC_SET_PURIFIER);
   if (msg.id == MODULE_MESSAGE_ID_INVALID) {
@@ -369,14 +380,32 @@ err_code_t Purifier::set_fan_control(bool is_open, bool is_forced) {
   msg.ch     = get_channel();
   msg.data   = buffer;
   msg.length = 3;
-  result = host_can_rou.send(&msg);
-  if (result) {
-    LOG_E("[%s] send message\n",__FUNCTION__);
+
+  if (!is_open) 
+    close_delay_tick_tmp = delay_close_s * (1000 / PURIFIER_SAMP_STATUS_INTERVAL);
+  else 
+    close_delay_tick_tmp = 0;
+
+  if (public_mutex_lock()) {
+    close_delay_tick = close_delay_tick_tmp;
+    public_mutex_unlock();
+    result = E_SUCCESS;
+  }
+  else {
+    LOG_E("[%s] change close_delay_s fail\n", __FUNCTION__);
+  }
+
+  if (is_open || (!is_open && close_delay_tick_tmp == 0)) {
+    result = host_can_rou.send(&msg);
+    if (result) {
+      LOG_E("[%s] send message\n",__FUNCTION__);
+    }
   }
   return result;  
 }
 
 void Purifier::report_purifier_info(void) {
+  SnapmakerSettings *sm_settings = NULL;
   LOG_I("purifier %s\n", online ? "online" : "offline");
   LOG_I("purifier error: 0x%x sys_sta: 0x%x\n", err, sys_sta);
   LOG_I("filter lifetime: %s\n", lifetime == LIFETIME_LOW ? "LIFETIME_LOW" : lifetime == LIFETIME_MEDIUM ? \
@@ -388,6 +417,23 @@ void Purifier::report_purifier_info(void) {
   LOG_I("fan elec: %d mA\n", fan_elec);
   LOG_I("fan addon power: %d mv\n", addon_power);
   LOG_I("fan extend power: %d mv\n", extend_power);
+  sm_settings = smprinter.get_settings();
+  if (sm_settings) {
+    LOG_I("fdm start work purifier: %s,\tstop work purifier delay %ds close\n", 
+      !!(sm_settings->purifier_settings.start_work_purifier_open_mask \
+      & (1 << PURIFIER_WORK_TOOL_HEAD_FDM)) ? "auto open" : "no process",\
+      sm_settings->purifier_settings.fdm_stop_work_purifier_close_delay);
+
+    LOG_I("laser start work purifier: %s,\tstop work purifier delay %ds close\n", 
+      !!(sm_settings->purifier_settings.start_work_purifier_open_mask \
+      & (1 << PURIFIER_WORK_TOOL_HEAD_LASER)) ? "auto open" : "no process",\
+      sm_settings->purifier_settings.laser_stop_work_purifier_close_delay);
+
+    LOG_I("cnc start work purifier: %s,\tstop work purifier delay %ds close\n", 
+      !!(sm_settings->purifier_settings.start_work_purifier_open_mask \
+      & (1 << PURIFIER_WORK_TOOL_HEAD_CNC)) ? "auto open" : "no process",\
+      sm_settings->purifier_settings.cnc_stop_work_purifier_close_delay);
+  }
 }
 
 err_code_t send_purifier_info_to_hmi(void *obj, sacp_hmi_message_t *msg) {
@@ -498,6 +544,177 @@ err_code_t hmi_set_purifier_fan_ctrl(void *obj, sacp_hmi_message_t *msg) {
   return result;
 }
 
+err_code_t hmi_set_purifier_start_work_ctrl(void *obj, sacp_hmi_message_t *msg) {
+  Purifier &purifier = *(Purifier *)obj;
+  err_code_t result = E_FAILURE;
+  SnapmakerSettings *sm_settings = NULL;
+  if (!msg || !obj || msg->length != 3) {
+    LOG_E("[%s] got a invalid parameter\n",__FUNCTION__);
+    return host_hmi.send_ack(msg, E_PARAM);
+  }
+
+  if (msg->data[0] != purifier.get_key()) {
+    LOG_E("[%s] msg key is %d, obj key is %d, No processing\n",\
+      __FUNCTION__, msg->data[0], purifier.get_key());
+    return host_hmi.send_ack(msg, E_INVALID_MODULE_KEY);
+  }
+
+  LOG_I("[%s] set work type:%d auto state: %d\n", __FUNCTION__, msg->data[1], msg->data[2]);
+  if (msg->data[1] >= PURIFIER_WORK_TOOL_HEAD_INVALID) {
+    LOG_E("[%s] error work type: %d\n",__FUNCTION__, msg->data[1]);
+    return host_hmi.send_ack(msg, E_PARAM);
+  }
+
+  sm_settings = smprinter.get_settings();
+  if (!sm_settings) {
+    LOG_E("[%s] get sm_settings fail\n",__FUNCTION__);
+    return host_hmi.send_ack(msg, E_INVALID_STATE);
+  }
+
+  taskENTER_CRITICAL();
+  if (msg->data[2]) 
+    sm_settings->purifier_settings.start_work_purifier_open_mask |= (1 << msg->data[1]);
+  else
+    sm_settings->purifier_settings.start_work_purifier_open_mask &= (~(1 << msg->data[1]));
+  taskEXIT_CRITICAL();
+
+  motion_platform_svc.save_settings();
+
+  result = host_hmi.send_ack(msg, E_SUCCESS);
+  if (result != E_SUCCESS) {
+    LOG_E("[%s] send result to hmi fail\n",__FUNCTION__);
+  }
+  return result;
+}
+
+err_code_t hmi_get_purifier_start_work_ctrl(void *obj, sacp_hmi_message_t *msg) {
+  Purifier &purifier = *(Purifier *)obj;
+  err_code_t result = E_FAILURE;
+  SnapmakerSettings *sm_settings = NULL;
+  bool auto_state = false;
+
+  if (!msg || !obj || msg->length != 2) {
+    LOG_E("[%s] got a invalid parameter\n",__FUNCTION__);
+    return host_hmi.send_ack(msg, E_PARAM);
+  }
+
+  if (msg->data[0] != purifier.get_key()) {
+    LOG_E("[%s] msg key is %d, obj key is %d, No processing\n",\
+      __FUNCTION__, msg->data[0], purifier.get_key());
+    return host_hmi.send_ack(msg, E_INVALID_MODULE_KEY);
+  }
+
+  if (msg->data[1] >= PURIFIER_WORK_TOOL_HEAD_INVALID) {
+    LOG_E("[%s] error work type: %d\n",__FUNCTION__, msg->data[1]);
+    return host_hmi.send_ack(msg, E_PARAM);
+  }
+
+  sm_settings = smprinter.get_settings();
+  if (!sm_settings) {
+    LOG_E("[%s] get sm_settings fail\n",__FUNCTION__);
+    return host_hmi.send_ack(msg, E_INVALID_STATE);
+  }
+
+  auto_state = !!(sm_settings->purifier_settings.start_work_purifier_open_mask & (1 << msg->data[1]));
+  msg->data[0] = E_SUCCESS;
+  msg->data[1] = auto_state;
+
+  result = host_hmi.send_ack(msg, msg->data, 2);
+  if (result != E_SUCCESS) {
+    LOG_E("[%s] send msg fail\n",__FUNCTION__);
+  }
+  return result;
+}
+
+err_code_t hmi_set_purifier_stop_work_ctrl(void *obj, sacp_hmi_message_t *msg) {
+  Purifier &purifier = *(Purifier *)obj;
+  err_code_t result = E_FAILURE;
+  SnapmakerSettings *sm_settings = NULL;
+  if (!msg || !obj || msg->length != 4) {
+    LOG_E("[%s] got a invalid parameter\n",__FUNCTION__);
+    return host_hmi.send_ack(msg, E_PARAM);
+  }
+
+  if (msg->data[0] != purifier.get_key()) {
+    LOG_E("[%s] msg key is %d, obj key is %d, No processing\n",\
+      __FUNCTION__, msg->data[0], purifier.get_key());
+    return host_hmi.send_ack(msg, E_INVALID_MODULE_KEY);
+  }
+
+  LOG_I("[%s] set work type:%d delay time: %d\n", __FUNCTION__, msg->data[1], *((uint16_t*)(msg->data+2)));
+  if (msg->data[1] >= PURIFIER_WORK_TOOL_HEAD_INVALID) {
+    LOG_E("[%s] error work type: %d\n",__FUNCTION__, msg->data[1]);
+    return host_hmi.send_ack(msg, E_PARAM);
+  }
+
+  sm_settings = smprinter.get_settings();
+  if (!sm_settings) {
+    LOG_E("[%s] get sm_settings fail\n",__FUNCTION__);
+    return host_hmi.send_ack(msg, E_INVALID_STATE);
+  }
+
+  taskENTER_CRITICAL();    
+  if (msg->data[1] == PURIFIER_WORK_TOOL_HEAD_FDM)
+    sm_settings->purifier_settings.fdm_stop_work_purifier_close_delay = *((uint16_t*)(msg->data+2));
+  else if (msg->data[1] == PURIFIER_WORK_TOOL_HEAD_LASER)
+    sm_settings->purifier_settings.laser_stop_work_purifier_close_delay = *((uint16_t*)(msg->data+2)); 
+  else if (msg->data[1] == PURIFIER_WORK_TOOL_HEAD_CNC)
+    sm_settings->purifier_settings.cnc_stop_work_purifier_close_delay = *((uint16_t*)(msg->data+2));  
+  taskEXIT_CRITICAL();
+
+  motion_platform_svc.save_settings();
+
+  result = host_hmi.send_ack(msg, E_SUCCESS);
+  if (result != E_SUCCESS) {
+    LOG_E("[%s] send result to hmi fail\n",__FUNCTION__);
+  }
+  return result;
+}
+
+err_code_t hmi_get_purifier_stop_work_ctrl(void *obj, sacp_hmi_message_t *msg) {
+  Purifier &purifier = *(Purifier *)obj;
+  err_code_t result = E_FAILURE;
+  SnapmakerSettings *sm_settings = NULL;
+  uint16_t delay_times = 0;
+  if (!msg || !obj || msg->length != 2) {
+    LOG_E("[%s] got a invalid parameter\n",__FUNCTION__);
+    return host_hmi.send_ack(msg, E_PARAM);
+  }
+
+  if (msg->data[0] != purifier.get_key()) {
+    LOG_E("[%s] msg key is %d, obj key is %d, No processing\n",\
+      __FUNCTION__, msg->data[0], purifier.get_key());
+    return host_hmi.send_ack(msg, E_INVALID_MODULE_KEY);
+  }
+
+  if (msg->data[1] >= PURIFIER_WORK_TOOL_HEAD_INVALID) {
+    LOG_E("[%s] error work type: %d\n",__FUNCTION__, msg->data[1]);
+    return host_hmi.send_ack(msg, E_PARAM);
+  }
+
+  sm_settings = smprinter.get_settings();
+  if (!sm_settings) {
+    LOG_E("[%s] get sm_settings fail\n",__FUNCTION__);
+    return host_hmi.send_ack(msg, E_INVALID_STATE);
+  }
+
+  if (msg->data[1] == PURIFIER_WORK_TOOL_HEAD_FDM)
+    delay_times = sm_settings->purifier_settings.fdm_stop_work_purifier_close_delay;
+  else if (msg->data[1] == PURIFIER_WORK_TOOL_HEAD_LASER)
+    delay_times = sm_settings->purifier_settings.laser_stop_work_purifier_close_delay; 
+  else if (msg->data[1] == PURIFIER_WORK_TOOL_HEAD_CNC)
+    delay_times = sm_settings->purifier_settings.cnc_stop_work_purifier_close_delay;
+
+  msg->data[0] = E_SUCCESS;
+  *((uint16_t *)(msg->data+1)) = delay_times;
+
+  result = host_hmi.send_ack(msg, msg->data, 3);
+  if (result != E_SUCCESS) {
+    LOG_E("[%s] send result to hmi fail\n",__FUNCTION__);
+  }
+  return result;
+}
+
 uint16_t hmi_subscribe_purifier_func(void *obj, uint8_t *buff) {
   PurifierHeadInfo *tmp_info;
   Purifier &purifier = *(Purifier *)obj;
@@ -537,12 +754,110 @@ err_code_t Purifier::register_hmi_command_func(void *obj) {
 
   if (host_hmi.register_callback(SACP_CMD_SET_AIR_PURIFIER, \
       SACP_CMD_ID_PURIFIER_SET_FAN_ENABLE, obj, hmi_set_purifier_fan_ctrl))
+    return E_FAILURE;  
+    
+  if (host_hmi.register_callback(SACP_CMD_SET_AIR_PURIFIER, \
+      SACP_CMD_ID_PURIFIER_SET_HEAD_START_WORK_STA, obj, hmi_set_purifier_start_work_ctrl))
+    return E_FAILURE;
+
+  if (host_hmi.register_callback(SACP_CMD_SET_AIR_PURIFIER, \
+      SACP_CMD_ID_PURIFIER_GET_HEAD_START_WORK_STA, obj, hmi_get_purifier_start_work_ctrl))
+    return E_FAILURE;
+
+  if (host_hmi.register_callback(SACP_CMD_SET_AIR_PURIFIER, \
+      SACP_CMD_ID_PURIFIER_SET_HEAD_STOP_WORK_STA, obj, hmi_set_purifier_stop_work_ctrl))
+    return E_FAILURE;
+
+  if (host_hmi.register_callback(SACP_CMD_SET_AIR_PURIFIER, \
+      SACP_CMD_ID_PURIFIER_GET_HEAD_STOP_WORK_STA, obj, hmi_get_purifier_stop_work_ctrl))
     return E_FAILURE;
 
   if (host_hmi.register_subscription(SACP_CMD_SET_AIR_PURIFIER, SACP_PURIFIER_SUBSCRIBE_COMMANDID, obj, \
       hmi_subscribe_purifier_func))
     return E_FAILURE;
 
+  return E_SUCCESS;
+}
+
+void stop_work_notify_purifier_pro(void *obj, uint8_t reason) {
+  Purifier &purifier = *(Purifier *)obj;
+  SnapmakerSettings *sm_settings = smprinter.get_settings();
+  uint16_t delay_s = 0;
+  toolHeadType work_type;
+
+  if (!obj) {
+    LOG_E("[%s] obj pointer is null\n", __FUNCTION__);
+    return;
+  }
+
+  if (purifier.check_online()) {
+    if (sm_settings) {
+      work_type = smprinter.get_toolhead_type();
+      if (work_type == TH_TYPE_3DP) {
+        delay_s = sm_settings->purifier_settings.fdm_stop_work_purifier_close_delay;
+      }
+      else if (work_type == TH_TYPE_LASER) {
+        delay_s = sm_settings->purifier_settings.laser_stop_work_purifier_close_delay;
+      }
+      else if (work_type == TH_TYPE_CNC) {
+        delay_s = sm_settings->purifier_settings.cnc_stop_work_purifier_close_delay;
+      }
+    }
+    else {
+      LOG_E("[%s] get purifier settings fail\n", __FUNCTION__);
+    }
+
+    LOG_I("[%s] purifier close delay_s: %d\n", __FUNCTION__, delay_s);
+    purifier.set_fan_control(false, false, delay_s);
+    
+  }
+}
+
+void start_work_notify_purifier_pro(void *obj, uint8_t reason) {
+  bool is_open = false;
+  Purifier &purifier = *(Purifier *)obj;
+
+  if (!obj) {
+    LOG_E("[%s] obj pointer is null\n", __FUNCTION__);
+    return;
+  }
+
+  if (purifier.check_online()) {
+    uint32_t mask = 0;   
+    toolHeadType work_type;
+    SnapmakerSettings *sm_settings = smprinter.get_settings();
+    if (sm_settings) {
+      mask = sm_settings->purifier_settings.start_work_purifier_open_mask;
+      work_type = smprinter.get_toolhead_type();
+      if (work_type == TH_TYPE_3DP) {
+        is_open = !!(mask & (1 << PURIFIER_WORK_TOOL_HEAD_FDM));
+      }
+      else if (work_type == TH_TYPE_LASER) {
+        is_open = !!(mask & (1 << PURIFIER_WORK_TOOL_HEAD_LASER));
+      }
+      else if (work_type == TH_TYPE_CNC) {
+        is_open = !!(mask & (1 << PURIFIER_WORK_TOOL_HEAD_CNC));            
+      }
+
+      if (is_open)
+        purifier.set_fan_control(true);
+    }
+  }
+  LOG_I("[%s] purifier is_open: %d  online: %d\n", __FUNCTION__, is_open, purifier.check_online());
+}
+
+err_code_t Purifier::register_notify_handle_func(void *obj) {
+  if (job_ctrl_svc.register_notify_handle(JOB_NOTIFY_TYPE_STARTED, obj, start_work_notify_purifier_pro))
+    return E_FAILURE;
+
+  if (job_ctrl_svc.register_notify_handle(JOB_NOTIFY_TYPE_RESUME, obj, start_work_notify_purifier_pro))
+    return E_FAILURE;
+
+  if (job_ctrl_svc.register_notify_handle(JOB_NOTIFY_TYPE_PAUSED, obj, stop_work_notify_purifier_pro))
+    return E_FAILURE;
+
+  if (job_ctrl_svc.register_notify_handle(JOB_NOTIFY_TYPE_STOPPED, obj, stop_work_notify_purifier_pro))
+    return E_FAILURE;
   return E_SUCCESS;
 }
 
@@ -570,6 +885,11 @@ err_code_t Purifier::post_init() {
   if (register_hmi_command_func(this)) {
     LOG_E("[%s] Purifier register hmi command func fail\n", __FUNCTION__);
     return E_FAILURE;
+  }
+
+  if (register_notify_handle_func(this)) {
+    LOG_E("[%s] Purifier register notify handle func fail\n", __FUNCTION__);
+    return E_FAILURE;    
   }
 
   if (public_mutex_lock()) {

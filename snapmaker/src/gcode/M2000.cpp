@@ -705,6 +705,7 @@ void GcodeSuite::M2000() {
   case 41:
   case 42:
   case 43:
+  case 44:
     Purifier *purifier;
     purifier = (Purifier *)module_svc.get_module(MODULE_DEVICE_ID_PURIFIER_2021, 0);
     if (purifier) {
@@ -719,6 +720,9 @@ void GcodeSuite::M2000() {
       }
       else if (w == 43) {
         purifier->report_purifier_info();
+      }
+      else if (w == 44) {
+        purifier->set_fan_control(!!parser.byteval('P', 0), false, parser.ushortval('Q', 0));
       }
     }
   break;

@@ -229,6 +229,10 @@ void GcodeSuite::M204_report(const bool forReplay/*=true*/) {
       PSTR("  M204 P"), LINEAR_UNIT(planner.settings.acceleration)
     , PSTR(" R"), LINEAR_UNIT(planner.settings.retract_acceleration)
     , SP_T_STR, LINEAR_UNIT(planner.settings.travel_acceleration)
+    #if MB_SNAPMAKER && ENABLED(SNAPMAKER_CNC_ACCELERATION_LIMIT)
+    , PSTR("\nNote: Maximum acceleration in CNC mode is limited to ")
+    , LINEAR_UNIT(MAX_CNC_ACCELE_EDIT_VALUES)
+    #endif
   );
 }
 

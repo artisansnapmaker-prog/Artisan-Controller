@@ -1137,53 +1137,6 @@ err_code_t MotionPlatformService::resume_marlin() {
   return E_SUCCESS;
 }
 
-/**
- *    M204 acceleration API
- *    0  Printing moves
- *    1  Retract only (no X, Y, Z) moves
- *    2  Travel (non printing) moves
- */
-float MotionPlatformService::get_machine_accel(uint8_t type) {
-  float accel = 0;
-  switch (type) {
-    case 0:
-      accel = planner.settings.acceleration;
-    break;
-
-    case 1:
-      accel = planner.settings.retract_acceleration;
-    break;
-
-    case 2:
-      accel = planner.settings.travel_acceleration;
-    break;
-
-    default:
-    break;
-  }
-  return accel;
-}
-
-void MotionPlatformService::set_machine_accel(uint8_t type, float accel) {
-  switch (type) {
-    case 0:
-      planner.settings.acceleration = accel;
-    break;
-
-    case 1:
-      planner.settings.retract_acceleration = accel;
-    break;
-
-    case 2:
-      planner.settings.travel_acceleration = accel;
-    break;
-
-    default:
-    break;
-  }
-}
-
-
 void MotionPlatformService::reset_linear_drivers() {
   reset_stepper_drivers();
 }

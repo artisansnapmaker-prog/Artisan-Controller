@@ -1183,6 +1183,12 @@ void SnapmakerPrinter::reset_settings() {
   settings.live_z_offset[1] = 0;
 
   // reset your settings
+
+  // reset purifier
+  settings.purifier_settings.start_work_purifier_open_mask = PURIFIER_START_WORK_OPEN_DEFAULT_MASK;
+  settings.purifier_settings.fdm_stop_work_purifier_close_delay = PURIFIER_FDM_STOP_WORK_CLOSE_TIME_DELAY;
+  settings.purifier_settings.laser_stop_work_purifier_close_delay = PURIFIER_LASER_STOP_WORK_CLOSE_TIME_DELAY;
+  settings.purifier_settings.cnc_stop_work_purifier_close_delay = PURIFIER_CNC_STOP_WORK_CLOSE_TIME_DELAY;
 }
 
 extern "C" {

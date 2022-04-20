@@ -232,7 +232,7 @@ class MotionPlatformService {
 
     void show_coordiantes();
 
-    void reset_stepper_drivers();
+    void reset_linear_drivers();
 
   private:
     MessageBufferHandle_t gcode_queue;

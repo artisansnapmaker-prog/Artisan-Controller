@@ -1184,6 +1184,6 @@ void MotionPlatformService::set_machine_accel(uint8_t type, float accel) {
 }
 
 
-void MotionPlatformService::reset_stepper_drivers() {
+void MotionPlatformService::reset_linear_drivers() {
   reset_stepper_drivers();
 }

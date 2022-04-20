@@ -42,6 +42,7 @@ err_code_t UpdateService::init(void) {
 
   ret |= ugr_ctrl_svc.init(this);
   ret |= ugr_hc_svc.init(this);
+  ret |= ugr_cm_svc.init(this);
 
   return ret;
 }
@@ -50,6 +51,7 @@ void UpdateService::loop(void) {
   ugr_ctrl_svc.loop();
   ugr_hc_svc.loop();
   ugr_hm_svc.loop();
+  ugr_cm_svc.loop();
 
   if (need_controller_to_module) {
     pack_info_t *pit = (pack_info_t *)module_fw_partition.start_addr;
@@ -101,93 +103,6 @@ err_code_t UpdateService::sacp_msg_proc(void * obj, sacp_hmi_message_t *msg) {
   }
 
   return E_SUCCESS;
-}
-
-err_code_t UpdateService::sacp_upgrade_start(void *obj, sacp_hmi_message_t *msg) {
-  
-  LOG_I("sacp_upgrade_start\r\n");
-  UpdateService &upgrade = *(UpdateService *)obj;
-  pack_info_t *bti = (pack_info_t *)msg->data;
-
-  if (UPGRADE_PHASE_INIT != upgrade.phase) {
-    LOG_E("ugr_svc: can not start a upgrade as not in INIT phase\r\n");
-    return upgrade.upgrade_start_ack(msg, E_FAILURE);
-  }
-
-  if (!boot_info_check(bti)) {
-    LOG_E("boot info checksum failure\r\n");
-    return upgrade.upgrade_start_ack(msg, E_FAILURE);
-  }
-  
-  #if 0
-  if (A400_CONTROLLER_FW == bti->pack_type) {
-    return upgrade.ctrl_ugr->start_proc(bti, msg);
-  }
-  else if (SM2_MODULE_FW == bti->pack_type ||
-            ESP32_FW == bti->pack_type
-  ){
-    return upgrade.module_ugr->start_proc(bti, msg);
-  }
-  else {
-    LOG_E("upgrade_service: unsupported packet type\r\n");
-    return upgrade.upgrade_start_ack(msg, E_FAILURE);
-  }
-
-  switch (bti->pack_type)
-  {
-  case A400_CONTROLLER_FW:
-    break;
-  
-  case SM2_MODULE_FW:
-    if (E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_MODULE_UPGRADE, NULL)) {
-      LOG_E("upgrade: can not enter upgrade status\r\n");
-      return upgrade.upgrade_start_ack(msg, E_FAILURE);  
-    }
-    break;
-
-  case ESP32_FW:
-    LOG_I("upgrade: TODO: \r\n");
-    break;
-
-  case SM2_CONTROLLER_FW:
-  case J1_CONTROLLER_FW:
-  default:
-    LOG_E("upgrade: unsupported packet type\r\n");
-    return upgrade.upgrade_start_ack(msg, E_FAILURE);
-    break;
-  }
-
-  if (SM2_MODULE_FW == bti->pack_type) {
-    LOG_I("do module upgrade\r\n");
-    if (E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_MODULE_UPGRADE, NULL)) {
-      LOG_E("upgrade: can not enter upgrade status\r\n");
-      return upgrade.upgrade_start_ack(msg, E_FAILURE);  
-    }
-    
-    return upgrade.upgrade_start_ack(msg, E_SUCCESS);
-  }
-
-  if (A400_CONTROLLER_FW != bti->pack_type) {
-    LOG_E("not a400 controller pack\r\n");
-    return upgrade.upgrade_start_ack(msg, E_FAILURE);
-  }
-  #endif
-}
-
-err_code_t UpdateService::sacp_upgrade_trans(void *obj, sacp_hmi_message_t *msg) {
-  LOG_I("sacp_upgrade_trans\r\n");
-
-  // Always module upgrade
-  // UpdateService &upgrade = *(UpdateService *)obj;
-  // return upgrade.module_ugr->trans_proc(&(upgrade.boot_info), msg);
-}
-
-err_code_t UpdateService::sacp_upgrade_end(void *obj, sacp_hmi_message_t *msg) {
-  LOG_I("sacp_upgrade_end\r\n");
-
-  // Always module upgrade
-  // UpdateService &upgrade = *(UpdateService *)obj;
-  // return upgrade.module_ugr->end_proc(&(upgrade.boot_info), msg);
 }
 
 UpgradePhase UpdateService::upgrade_phase(pack_info_t *pit) {

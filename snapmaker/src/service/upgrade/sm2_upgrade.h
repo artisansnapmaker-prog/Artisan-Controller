@@ -24,7 +24,6 @@
 
 #include "../../common/error.h"
 #include "../../host/sacp_module.h"
-#include "upgrade_host_to_module.h"
 #include "upgrade_module_interface.h"
 
 
@@ -38,7 +37,7 @@ err_code_t sm2_module_upgrade_start_req(pack_info_t *, module_info_t *m);
 err_code_t sm2_module_upgrade_start_ack_cb(void *obj, sacp_module_message_t *msg);
 
 err_code_t sm2_module_upgrade_ready_req(void);
-err_code_t sm2_module_upgrade_ready_ack(void);
+err_code_t sm2_module_upgrade_ready_ack(void *obj, sacp_module_message_t *msg);
 err_code_t sm2_module_upgrade_start_trans(void);
 
 err_code_t sm2_module_upgrade_trans_req(void *obj, sacp_module_message_t *msg);

@@ -35,6 +35,7 @@
 #include "upgrade_controller.h"
 #include "upgrade_host_to_controller.h"
 #include "upgrade_host_to_module.h"
+#include "upgrade_controller_to_module.h"
 
 
 #define CMD_SET_UPGRADE                       (0xAD)
@@ -67,9 +68,6 @@ class UpdateService {
     void loop(void);
 
     static err_code_t sacp_msg_proc(void * obj, sacp_hmi_message_t *msg);
-    static err_code_t sacp_upgrade_start(void *obj, sacp_hmi_message_t *);
-    static err_code_t sacp_upgrade_trans(void *obj, sacp_hmi_message_t *);
-    static err_code_t sacp_upgrade_end(void *obj, sacp_hmi_message_t *);
 
     UpgradePhase upgrade_phase(pack_info_t *pit);
     err_code_t upgrade_start_ack(sacp_hmi_message_t *msg, err_code_t ret);

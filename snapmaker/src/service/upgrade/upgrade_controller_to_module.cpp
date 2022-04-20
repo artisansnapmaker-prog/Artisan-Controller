@@ -27,6 +27,7 @@ UpgradeControllerToModule ugr_cm_svc;
 
 err_code_t UpgradeControllerToModule::init(UpdateService *s) {
   ugr_svc = s;
+  module_index = MODULE_ACCESSIBLE_MAX;
   status = UPGRADE_CM_STATUS_IDLE;
   return E_SUCCESS;
 }
@@ -35,14 +36,15 @@ void UpgradeControllerToModule::loop(void) {
 
   switch(status) {
     case UPGRADE_CM_STATUS_IDLE:
+    break;
+
+    case UPGRADE_CM_STATUS_A_MODULE_START:
       module = get_next_module();
-      if (!module) {
-        reset_to_idle();
+      if (module) {
+        start_a_module_upgrade();
       }
       else {
-        if (E_SUCCESS != start_a_module_upgrade()) {
-          reset_to_idle();
-        }
+        reset_to_idle();
       }
     break;
 
@@ -64,6 +66,8 @@ void UpgradeControllerToModule::loop(void) {
         if (action_req_try < 20) {
           action_req_try++;
           last_action_ms = millis();
+          if (0 == action_req_try%5)
+            ready_req();
         }
         else {
           LOG_E("upgrade_cm: upgrade start request timeout, return to upgrade init\r\n");
@@ -86,7 +90,8 @@ void UpgradeControllerToModule::loop(void) {
     break;
 
     case UPGRADE_CM_STATUS_END:
-      status = UPGRADE_CM_STATUS_IDLE;
+      LOG_I("upgrade_cm: finish a module, return to IDLE and restart another moduel upgrade\r\n");
+      status = UPGRADE_CM_STATUS_A_MODULE_START;
     break;
 
     default:
@@ -100,8 +105,8 @@ void UpgradeControllerToModule::reset_to_idle(void) {
     module_upgrade_info->module_deinit();
   }
   status = UPGRADE_CM_STATUS_IDLE;
-  // ugr_svc->set_updgrade_phase(UPGRADE_PHASE_INIT);
-  // smprinter.set_sys_status(SYSTEM_STATUS_IDLE, NULL);
+  ugr_svc->set_updgrade_phase(UPGRADE_PHASE_INIT);
+  smprinter.set_sys_status(SYSTEM_STATUS_IDLE, NULL);
 }
 
 err_code_t UpgradeControllerToModule::start(void) {
@@ -111,29 +116,15 @@ err_code_t UpgradeControllerToModule::start(void) {
     LOG_E("upgrade_cm: packet info checksum failure\r\n");
     return E_FAILURE;
   }
-
-  // for debug
-  // module_index = 0;
-  // do {
-  //   module = get_next_module();
-  //   if (module) {
-  //     LOG_I("get module 0x%04x\r\n", module->get_device_id());
-  //   }
-  // } while(module);
-  // return E_FAILURE;
   
   module_index = 0;
   module = get_next_module();
-  if (!module) {
-    reset_to_idle();
+  if (module) {
+    return start_a_module_upgrade();
   }
   else {
-    if (E_SUCCESS != start_a_module_upgrade()) {
-      reset_to_idle();
-    }
+    return E_FAILURE;
   }
-
-  return E_SUCCESS;
 }
 
 ModuleBase *UpgradeControllerToModule::get_next_module(void) {
@@ -158,12 +149,17 @@ ModuleBase *UpgradeControllerToModule::get_next_module(void) {
 }
 
 err_code_t UpgradeControllerToModule::module_call_start_ack(uint8_t ret) {
+  FUN_LOG();
   if (!module_upgrade_info) {
     return E_FAILURE;
   }
 
   if (ret == E_SUCCESS) {
+    LOG_I("upgrade_cm: change to UPGRADE_CM_STATUS_WAIT_FOR_READY\r\n");
     status = UPGRADE_CM_STATUS_WAIT_FOR_READY;
+    action_req_try = 0;
+    last_action_ms = millis();
+    ready_req();
   }
   else {
     reset_to_idle();
@@ -178,6 +174,9 @@ err_code_t UpgradeControllerToModule::module_call_ready_ack(uint8_t ret) {
   }
 
   if (ret == E_SUCCESS) {
+    LOG_I("upgrade_cm: start trans\r\n");
+    action_req_try = 0;
+    last_action_ms = millis();
     start_trans();
     status = UPGRADE_CM_STATUS_TRANS;
   }
@@ -201,21 +200,17 @@ err_code_t UpgradeControllerToModule::module_call_trans_req(uint32_t req_offset,
                                                         UPGRADE_CM_TRANS_BUF_SIZE)) {
     offset += UPGRADE_CM_TRANS_BUF_SIZE;
   }
+  action_req_try = 0;
+  last_action_ms = millis();
 
   if (offset >= fw_lenght) {
     LOG_I("upgrade_cm: TX all the data\r\n");
     configASSERT(module_upgrade_info);
     end_ret = E_SUCCESS;
-    last_action_ms = millis();
-    action_req_try = 0;
     module_upgrade_info->handle.end_req(end_ret);
     status = UPGRADE_CM_STATUS_END;
   }
-  else {
-    action_req_try = 0;
-    last_action_ms = millis();
-    trans_data_req(offset, UPGRADE_CM_TRANS_BUF_SIZE);
-  }
+
   return E_SUCCESS;
 }
 
@@ -254,19 +249,21 @@ err_code_t UpgradeControllerToModule::start_a_module_upgrade(void) {
     return E_FAILURE;
   }
 
-  fw_flash_addr = module_fw_partition.start_addr;
+  fw_flash_addr = module_fw_partition.start_addr + BOOT_INFO_SIZE;
   fw_lenght = pit->fw_lenght;
   fw_checksum = pit->fw_checksum;
   fw_id = module->get_device_id();
   offset = 0;
-  module_info.id = module->get_device_id();
+  module_info.mac = module->get_mac();
   module_info.ch = module->get_channel();
 
+  LOG_I("upgrade_cm: module %d:%d start upgraed\r\n", module->get_device_id(), module->get_mac());
   status = UPGRADE_CM_STATUS_START;
   ugr_svc->set_updgrade_phase(UPGRADE_PHASE_CONTROLLER_TO_MODULE);
-  module_upgrade_info->handle.start_req(pit, &module_info);
+
   last_action_ms = millis();
   action_req_try = 0;
+  module_upgrade_info->handle.start_req(pit, &module_info);
 
   return E_SUCCESS;
 }
@@ -274,8 +271,6 @@ err_code_t UpgradeControllerToModule::start_a_module_upgrade(void) {
 void UpgradeControllerToModule::ready_req(void) {
   configASSERT(module_upgrade_info);
   module_upgrade_info->handle.ready_req();
-  last_action_ms = millis();
-  action_req_try++;
 }
 
 void UpgradeControllerToModule::start_trans(void) {

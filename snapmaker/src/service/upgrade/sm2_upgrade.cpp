@@ -42,19 +42,19 @@ static uint16_t send_pack_index;
 static uint32_t fw_file_offset;
 
 
-err_code_t sm2_module_sacp_callback(void *obj, sacp_module_message_t *msg) {
-
+static err_code_t sm2_module_sacp_callback(void *obj, sacp_module_message_t *msg) {
+  FUN_LOG();
   switch (msg->cmd_id) {
     case MODULE_EXT_CMD_START_UPGRADE_ACK:
-    return sm2_module_upgrade_start_ack_cb(obj, msg);
+      return sm2_module_upgrade_start_ack_cb(obj, msg);
     break;
 
-    case MODULE_EXT_CMD_TRANS_FW_REQ:
-    return sm2_module_upgrade_trans_req(obj, msg);
+    case MODULE_EXT_CMD_TRANS_FW_ACK:
+      return sm2_module_upgrade_trans_req(obj, msg);
     break;
 
     case MODULE_EXT_CMD_GET_UPGRADE_STATUS_ACK:
-    return sm2_module_upgrade_ready_ack(obj, msg);
+      return sm2_module_upgrade_ready_ack(obj, msg);
     break;
   }
 
@@ -67,18 +67,19 @@ err_code_t sm2_module_upgrade_init(void) {
   ret = E_SUCCESS;
   ret |= host_can_cfg.register_callback( MODULE_EXT_CMD_START_UPGRADE_ACK, 
                                         (void *)NULL, 
-                                        (sacp_module_callback)sm2_module_sacp_callback);
-  ret |= host_can_cfg.register_callback( MODULE_EXT_CMD_TRANS_FW_REQ, 
+                                        sm2_module_sacp_callback);
+  ret |= host_can_cfg.register_callback( MODULE_EXT_CMD_TRANS_FW_ACK, 
                                         (void *)NULL, 
-                                        (sacp_module_callback)sm2_module_sacp_callback);
+                                        sm2_module_sacp_callback);
   ret |= host_can_cfg.register_callback(MODULE_EXT_CMD_GET_UPGRADE_STATUS_ACK, 
                                         (void *)NULL, 
-                                        (sacp_module_callback)sm2_module_sacp_callback);
+                                        sm2_module_sacp_callback);
   
   return ret;                          
 }
 
 err_code_t sm2_module_upgrade_handle_init(UpgradeModuleHandle *func_tab) {
+  FUN_LOG();
   if (!func_tab) {
     LOG_E("[%s] func_tab is null\n", __FUNCTION__);
     return E_PARAM;
@@ -99,23 +100,23 @@ err_code_t sm2_module_upgrade_handle_init(UpgradeModuleHandle *func_tab) {
 }
 
 void sm2_module_upgrade_handle_deinit(void) {
-  LOG_I("%s\n",__FUNCTION__);
+  FUN_LOG();
   taskENTER_CRITICAL();
   sm2_func_tab = NULL;
   taskEXIT_CRITICAL();
 }
 
 err_code_t sm2_module_upgrade_start_req(pack_info_t *p, module_info_t *m) {
+  FUN_LOG();
   uint8_t buffer[BOOT_PACK_FW_VER_STR_LEN + 8];
   sacp_module_message_t msg;
 
   mit = m;
-  msg.peer   = mit->id;
+  msg.peer   = mit->mac;
   msg.ch     = mit->ch;
-  msg.cmd_id = MODULE_EXT_CMD_SET_MESG_ID_REQ;
+  msg.cmd_id = MODULE_EXT_CMD_START_UPGRADE_REQ;
   msg.data   = buffer;
-  msg.data[0] = UPGRADE_SM2_MODULE_START_REQ;
-  msg.data[1] = p->upgrade_ctrl_flag;
+  msg.data[0] = p->upgrade_ctrl_flag;
   uint32_t len = 0;
   while(len < BOOT_PACK_FW_VER_STR_LEN) {
     msg.data[2 + len] = p->fw_ver_str[len];
@@ -123,12 +124,13 @@ err_code_t sm2_module_upgrade_start_req(pack_info_t *p, module_info_t *m) {
     if('\0' == p->fw_ver_str[len])
       break;
   }
-  msg.length = len + 2;
+  msg.length = len + 1;
 
   return host_can_cfg.send(&msg);
 }
 
 err_code_t sm2_module_upgrade_start_ack_cb(void *obj, sacp_module_message_t *msg) {
+  FUN_LOG();
   err_code_t ret = E_FAILURE;
 
   if (!msg || msg->length < 1){
@@ -145,9 +147,10 @@ err_code_t sm2_module_upgrade_start_ack_cb(void *obj, sacp_module_message_t *msg
 }
 
 err_code_t sm2_module_upgrade_ready_req(void) {
+  FUN_LOG();
   sacp_module_message_t msg;
 
-  msg.peer   = mit->id;
+  msg.peer   = mit->mac;
   msg.ch     = mit->ch;
   msg.cmd_id = MODULE_EXT_CMD_GET_UPGRADE_STATUS_REQ;
   msg.data   = NULL;
@@ -157,6 +160,7 @@ err_code_t sm2_module_upgrade_ready_req(void) {
 }
 
 err_code_t sm2_module_upgrade_ready_ack(void *obj, sacp_module_message_t *msg) {
+  FUN_LOG();
   err_code_t ret = E_FAILURE;
 
   if (!msg || msg->length < 1){
@@ -172,9 +176,10 @@ err_code_t sm2_module_upgrade_ready_ack(void *obj, sacp_module_message_t *msg) {
 }
 
 err_code_t sm2_module_upgrade_start_trans(void) {
+  FUN_LOG();
   sacp_module_message_t msg;
 
-  msg.peer   = mit->id;
+  msg.peer   = mit->mac;
   msg.ch     = mit->ch;
   msg.cmd_id = MODULE_EXT_CMD_INFORM_UPGRADE_START;
   msg.data   = NULL;
@@ -183,11 +188,13 @@ err_code_t sm2_module_upgrade_start_trans(void) {
   return host_can_cfg.send(&msg);  
 }
 
-err_code_t sm2_module_upgrade_trans_req(void *obj, sacp_hmi_message_t *msg) {
-  err_code_t ret = E_FAILURE;
+err_code_t sm2_module_upgrade_trans_req(void *obj, sacp_module_message_t *msg) {
+  FUN_LOG();
+  err_code_t ret;
   uint16_t get_pack_index;
 
-  if (!msg || msg->length != 2) {
+  ret = E_FAILURE;
+  if (!msg || msg->length < 3) {
     LOG_E("[%s] got a invalid parameter\n", __FUNCTION__);
     return E_PARAM;
   }
@@ -195,10 +202,10 @@ err_code_t sm2_module_upgrade_trans_req(void *obj, sacp_hmi_message_t *msg) {
   get_pack_index = msg->data[1] << 8 | msg->data[2];
   LOG_I("[%s] get_pack_index: %d\n", __FUNCTION__, get_pack_index);
 
-  if (get_pack_index != send_pack_index + 1) {
-    LOG_E("[%s] mismatched package index, get_pack_index:%d send_pack_index:%d\n",\
-             __FUNCTION__, get_pack_index, send_pack_index);
-  }
+  // if (get_pack_index != send_pack_index) {
+  //   LOG_E("[%s] mismatched package index, get_pack_index:%d send_pack_index:%d\n",
+  //         __FUNCTION__, get_pack_index, send_pack_index);
+  // }
 
   taskENTER_CRITICAL();
   send_pack_index = get_pack_index;
@@ -216,6 +223,7 @@ err_code_t sm2_module_upgrade_trans_req(void *obj, sacp_hmi_message_t *msg) {
 }
 
 err_code_t sm2_module_upgrade_trans_ack(uint32_t offset, uint8_t *data, uint32_t len) {
+  FUN_LOG();
   uint8_t buffer[UPGRADE_CM_TRANS_BUF_SIZE + 1];
   sacp_module_message_t msg;
 
@@ -223,7 +231,7 @@ err_code_t sm2_module_upgrade_trans_ack(uint32_t offset, uint8_t *data, uint32_t
     return E_FAILURE;
   }
 
-  msg.peer    = mit->id;
+  msg.peer    = mit->mac;
   msg.ch      = mit->ch;
   msg.cmd_id  = MODULE_EXT_CMD_TRANS_FW_REQ;
   msg.data    = buffer;
@@ -239,10 +247,11 @@ err_code_t sm2_module_upgrade_trans_ack(uint32_t offset, uint8_t *data, uint32_t
 }
 
 err_code_t sm2_module_upgrade_end_req(uint8_t ret) {
+  FUN_LOG();
   uint8_t buffer[8];
   sacp_module_message_t msg;
 
-  msg.peer    = mit->id;
+  msg.peer    = mit->mac;
   msg.ch      = mit->ch;
   msg.cmd_id  = MODULE_EXT_CMD_END_UPGRADE_REQ;
   msg.data    = buffer;

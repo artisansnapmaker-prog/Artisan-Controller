@@ -5,7 +5,11 @@ HostSACPModuleCAN host_can_cfg(link_can_cfg, SACP_VER_0);
 
 
 err_code_t HostSACPModule::register_callback(uint8_t cmd_id, void *obj, sacp_module_callback cb) {
-  if (!obj || !cb)
+  // if (!obj || !cb)
+  //   return E_PARAM;
+
+  // Change by 747
+  if (!cb)
     return E_PARAM;
 
   int i = 0;
@@ -17,14 +21,20 @@ err_code_t HostSACPModule::register_callback(uint8_t cmd_id, void *obj, sacp_mod
       return E_SUCCESS;
     }
 
-    if (!handles[i].obj) {
-      handles[i].obj = obj;
-      handles[i].cb = cb;
-      handles_max++;
+    // change by 747
+    // if (!handles[i].obj) {
+    if (!handles[i].cb) {
+      // handles[i].cmd_id = cmd_id;
+      // handles[i].obj = obj;
+      // handles[i].cb = cb;
+      // handles_max++;
+      break;
     }
   }
 
   if (i < SACP_MODULE_HANDLE_MAX) {
+    LOG_I("register cb for cmd: 0x%x\n", cmd_id);
+    handles[i].cmd_id = cmd_id;
     handles[i].obj = obj;
     handles[i].cb = cb;
     handles_max++;
@@ -224,6 +234,9 @@ void HostSACPModule::handle_receive() {
         LOG_V("module sacp [%x] to waiting\n", command_id);
         xMessageBufferSend(tmp_queue, parser_buffer + parser_head + SACP_V0_FRAME_INDEX_EVENT_ID, pdu_length, 0);
       }
+      xMessageBufferSend(tmp_queue, parser_buffer + parser_head + SACP_V0_FRAME_INDEX_EVENT_ID, pdu_length, 0);
+      // Add by 747
+      xTaskNotify(event_task, NOTIFY_EVENT_CAN_CFG, eSetBits);
     }
 
     parser_head += (SACP_V0_NON_PAYPLOAD_SIZE + pdu_length);
@@ -251,17 +264,27 @@ void HostSACPModule::handle_events() {
   for (;;) {
     len = xMessageBufferReceive(event_queue, buffer, SACP_MODULE_EVENT_QUEUE_SIZE, 0);
 
-    if (len < SACP_V0_MODULE_MIN_SIZE) {
-      LOG_W("got module event which size is abnormal: %u\n", len);
+    // if (len < SACP_V0_MODULE_MIN_SIZE) {
+    //   // LOG_W("got module event which size is abnormal: %u\n", len);
+    //   continue;
+    // }
+
+    if (len <= 0) {
+      // LOG_W("got module event which size is abnormal: %u\n", len);
       continue;
     }
 
-    message.cmd_id = buffer[SACP_V0_FRAME_INDEX_EVENT_ID];
-    message.data   = buffer + SACP_V0_FRAME_INDEX_OPCODE;
-    message.length = len - SACP_V0_FRAME_INDEX_OPCODE;
+    // message.cmd_id = buffer[SACP_V0_FRAME_INDEX_EVENT_ID];
+    // message.data   = buffer + SACP_V0_FRAME_INDEX_OPCODE;
+    // message.length = len - SACP_V0_FRAME_INDEX_OPCODE;
+
+    message.cmd_id = buffer[0];
+    message.data   = buffer + 1;
+    message.length = len - 1;
 
     for (int i = 0; i < SACP_MODULE_HANDLE_MAX; i++) {
-      if (handles[i].cmd_id == buffer[SACP_V0_FRAME_INDEX_EVENT_ID]) {
+      // if (handles[i].cmd_id == buffer[SACP_V0_FRAME_INDEX_EVENT_ID]) {
+      if (handles[i].cmd_id == message.cmd_id) {
         handles[i].cb(handles[i].obj, &message);
       }
     }

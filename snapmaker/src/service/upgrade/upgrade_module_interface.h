@@ -35,7 +35,7 @@
 
 
 typedef struct {
-  uint32_t id;
+  uint32_t mac;
   uint32_t ch;
 } module_info_t;
 

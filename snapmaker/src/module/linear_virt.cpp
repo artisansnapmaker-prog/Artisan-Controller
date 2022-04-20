@@ -31,7 +31,7 @@ static float voltage_threshold[3][2] = {
   {2.3, 2.5}, /* Z */
 };
 
-LinearVirtual *LinearVirtual::objects[LINEAR_VIRTUAL_OBJECT_MAX] {NULL, NULL, NULL, NULL, NULL};
+LinearVirtual *LinearVirtual::objects[LINEAR_VIRTUAL_OBJECT_MAX] {NULL, NULL, NULL, NULL, NULL, NULL};
 uint8_t LinearVirtual::object_index = 0;
 uint8_t LinearVirtual::total_online = 0;
 
@@ -147,7 +147,7 @@ err_code_t LinearVirtual::post_init() {
   if (smprinter.get_model() == SNAPMAKER_MODEL_A400) {
     if (total_online >= 5) {
       LOG_I("detect all linear, will reset TMC drivers for A400\n");
-      motion_platform_svc.reset_stepper_drivers();
+      motion_platform_svc.reset_linear_drivers();
     }
     else {
       LOG_W("didn't get all linear modules, won't configure TMC drivers for A400\n");
@@ -165,11 +165,11 @@ struct __packed LinearModuleInfo {
   int32_t lead;
 };
 err_code_t LinearVirtual::hmi_cb_get_info(void *obj, sacp_hmi_message_t *message) {
-  LinearVirtual *linear = (LinearVirtual *)obj;
+  LinearVirtual *linear = NULL;
   LinearModuleInfo *info = NULL;
 
-  for (int i = 0; i < object_index; i++) {
-    if (objects[i]->get_key() == message->data[0]) {
+  for (int i = 0; i < LINEAR_VIRTUAL_OBJECT_MAX; i++) {
+    if (objects[i] && objects[i]->get_key() == message->data[0]) {
       linear = objects[i];
       break;
     }
@@ -215,15 +215,25 @@ err_code_t LinearVirtual::hmi_cb_set_endstop(void *obj, sacp_hmi_message_t *mess
   return host_hmi.send_ack(message, E_SUCCESS);
 }
 
+void LinearVirtual::show_info() {
+  LOG_I("endstop: \n");
+  LOG_I("X: %s\n", digitalRead(objects[MODULE_LINEAR_X1]->endstop_pin)? "Triggered" : "Open");
+  LOG_I("Y: %s\n", digitalRead(objects[MODULE_LINEAR_Y1]->endstop_pin)? "Triggered" : "Open");
+  LOG_I("Y2: %s\n", digitalRead(objects[MODULE_LINEAR_Y2]->endstop_pin)? "Triggered" : "Open");
+  LOG_I("Z: %s\n", digitalRead(objects[MODULE_LINEAR_Z1]->endstop_pin)? "Triggered" : "Open");
+  LOG_I("Z2: %s\n", digitalRead(objects[MODULE_LINEAR_Z2]->endstop_pin)? "Triggered" : "Open");
+}
 
 err_code_t LinearVirtual::routine(void *obj) {
   float detected_vol;
+  uint32_t raw_adc;
   LinearVirtual &linear = *(LinearVirtual *)obj;
 
   if (time_after(linear.next_ms, millis()))
     return E_SUCCESS;
 
-  detected_vol = analogRead(linear.detect_pin) * 3.3 / 4096;
+  raw_adc = analogRead(linear.detect_pin);
+  detected_vol = raw_adc * 3.3 / 4096;
 
   if (detected_vol < linear.lower_limit || detected_vol > linear.upper_limit) {
     if (linear.offline_count < OFFLINE_DEBOUNCE) {

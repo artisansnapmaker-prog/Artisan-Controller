@@ -30,19 +30,24 @@ enum LinearSACPCommandId {
   SACP_CMD_ID_LINEAR_MAX = SACP_CMD_ID_LINEAR_SET_ENDSTOP
 };
 
+// for X X2 Y Y2 Z Z2
 #define LINEAR_VIRTUAL_OBJECT_MAX (6)
 
 class LinearVirtual: public ModuleBase {
   // public methods
   public:
     LinearVirtual(uint32_t mac, uint8_t key, uint8_t sub_index): ModuleBase(mac, key, sub_index) {
-      if (object_index < LINEAR_VIRTUAL_OBJECT_MAX)
-        objects[object_index++] = this;
+      if (sub_index < LINEAR_VIRTUAL_OBJECT_MAX) {
+        objects[sub_index] = this;
+        object_index++;
+      }
     }
     bool check_online() { return true; }
     err_code_t pre_init();
     err_code_t post_init();
     err_code_t deinit() { return E_SUCCESS; }
+
+    static void show_info();
 
     static err_code_t hmi_cb_get_info(void *obj, sacp_hmi_message_t *message);
     static err_code_t hmi_cb_set_endstop(void *obj, sacp_hmi_message_t *message);

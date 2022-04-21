@@ -79,18 +79,9 @@ void GcodeSuite::M2000() {
 
   case 5:
     { // set pc protocol
-      sacp_hmi_message_t msg;
-      uint8_t buffer[256];
-      msg.peer = SACP_HOST_ID_SCREEN;
-      msg.ch = SACP_HMI_CH_SCREEN;
-      msg.attr = 0;
-      msg.seq = 0;
-      msg.cmd_set = SACP_CMD_SET_GLOBAL_REQ;
-      msg.data = buffer;
-      msg.cmd_id = SACP_CMD_ID_GLOABL_REQ_SET_PC_PROTOCOL;
-      msg.length = 1;
+      uint8_t buffer[4];
       buffer[0] = (uint8_t)p;
-      smprinter.hmi_cb_set_protocol_for_PC(&smprinter, &msg);
+      host_hmi.test_interface(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_SET_PC_PROTOCOL, buffer, 1);
     }
     break;
 
@@ -173,49 +164,19 @@ void GcodeSuite::M2000() {
 
   case 6:
     { // get module info
-      sacp_hmi_message_t msg;
-      uint8_t buffer[256];
-      msg.peer = SACP_HOST_ID_SCREEN;
-      msg.ch = SACP_HMI_CH_SCREEN;
-      msg.attr = 0;
-      msg.seq = 0;
-      msg.cmd_set = SACP_CMD_SET_GLOBAL_REQ;
-      msg.data = buffer;
-      msg.cmd_id = SACP_CMD_ID_GLOABL_REQ_GET_MODULE_INFO;
-      msg.length = 0;
-      module_svc.report_module_info(&module_svc, &msg);
+      host_hmi.test_interface(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_GET_MODULE_INFO, NULL, 0);
     }
     break;
 
   case 7:
     { // get machine info
-      sacp_hmi_message_t msg;
-      uint8_t buffer[256];
-      msg.peer = SACP_HOST_ID_SCREEN;
-      msg.ch = SACP_HMI_CH_SCREEN;
-      msg.attr = 0;
-      msg.seq = 0;
-      msg.cmd_set = SACP_CMD_SET_GLOBAL_REQ;
-      msg.data = buffer;
-      msg.cmd_id = SACP_CMD_ID_GLOABL_REQ_GET_MACHINE_INFO;
-      msg.length = 0;
-      smprinter.hmi_cb_get_machine_info(&smprinter, &msg);
+      host_hmi.test_interface(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_GET_MACHINE_INFO, NULL, 0);
     }
     break;
 
   case 8:
     { // get machine size
-      sacp_hmi_message_t msg;
-      uint8_t buffer[256];
-      msg.peer = SACP_HOST_ID_SCREEN;
-      msg.ch = SACP_HMI_CH_SCREEN;
-      msg.attr = 0;
-      msg.seq = 0;
-      msg.cmd_set = SACP_CMD_SET_GLOBAL_REQ;
-      msg.data = buffer;
-      msg.cmd_id = SACP_CMD_ID_GLOABL_REQ_GET_MACHINE_SIZE;
-      msg.length = 0;
-      smprinter.hmi_cb_get_machine_size(&smprinter, &msg);
+      host_hmi.test_interface(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_GET_MACHINE_SIZE, NULL, 0);
     }
     break;
 

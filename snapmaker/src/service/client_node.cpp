@@ -640,6 +640,7 @@ err_code_t ClientNode::req_get_feedrate_percentage(sacp_hmi_message_t* msg) {
   index = 0;
   msg->data[index++] = ret;
   msg->data[index++] = key;
+  msg->data[index++] = 2;
   msg->data[index++] = extruder0_feedrate_percentage & 0xff;
   msg->data[index++] = (extruder0_feedrate_percentage >> 8) & 0xff;
   msg->data[index++] = extruder1_feedrate_percentage & 0xff;
@@ -699,6 +700,7 @@ err_code_t ClientNode::req_get_flowrate_percentage(sacp_hmi_message_t* msg) {
   index = 0;
   msg->data[index++] = ret;
   msg->data[index++] = key;
+  msg->data[index++] = 2;
   msg->data[index++] = extruder0_flowrate_percentage & 0xff;
   msg->data[index++] = (extruder0_flowrate_percentage >> 8) & 0xff;
   msg->data[index++] = extruder1_flowrate_percentage & 0xff;

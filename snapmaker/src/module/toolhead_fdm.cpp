@@ -157,7 +157,7 @@ err_code_t ToolHeadFDM::single_extruder_post_init() {
   motion_platform_svc.set_hotend_maxtemp(0, 275);
   motion_platform_svc.pins_post_init();
   extruders_feedrate_percentage[0] = motion_platform_svc.get_feedrate_percentage();
-
+  extruders_flowrate_percentage[0] = motion_platform_svc.get_flowrate_percentage(0);
   smprinter.register_module(get_device_id(), this);
   module_svc.register_routine((void *)this, fdm_callback_routine);
 
@@ -270,6 +270,8 @@ err_code_t ToolHeadFDM::dual_extruder_post_init() {
   bedlevel_svc.update_soft_endstop_max_z();
   extruders_feedrate_percentage[0] = motion_platform_svc.get_feedrate_percentage();
   extruders_feedrate_percentage[1] = motion_platform_svc.get_feedrate_percentage();
+  extruders_flowrate_percentage[0] = motion_platform_svc.get_flowrate_percentage(0);
+  extruders_flowrate_percentage[1] = motion_platform_svc.get_flowrate_percentage(1);
 
   smprinter.register_module(get_device_id(), this);
   module_svc.register_routine((void *)this, fdm_callback_routine);

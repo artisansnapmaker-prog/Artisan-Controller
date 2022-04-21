@@ -109,6 +109,7 @@ class MotionPlatformService {
     void set_endstop(bool status);
     void sync_feedrate_percentage_to_platform(int16_t percentage) { feedrate_percentage = percentage; }
     void sync_flowrate_percentage_to_platform(int16_t percentage, uint8_t e) { planner.set_flow(e, percentage); }
+    int16_t get_flowrate_percentage(uint8_t e) { return planner.flow_percentage[e]; }
     void set_steps_per_unit(float steps_per_unit, uint8_t axis);
 
     // emergency_handle will call this API in ISR to stop motion platform

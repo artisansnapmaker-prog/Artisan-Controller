@@ -123,7 +123,7 @@ UpgradePhase UpdateService::upgrade_phase(pack_info_t *pit) {
       return UPGRADE_PHASE_HOST_TO_CONTROLLER;
   }
   else {
-    UPGRADE_PHASE_INIT;
+    return UPGRADE_PHASE_INIT;
   }
 }
 

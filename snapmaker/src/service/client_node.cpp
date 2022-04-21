@@ -212,7 +212,7 @@ err_code_t ClientNode::del_client_node(ClientNode *cn) {
 ClientNode *ClientNode::touch_client(uint32_t peer, uint8_t ch) {
   ClientNode *cn = find_client_node(peer, ch);
   if (cn) {
-    cn->_ch = ch;
+    cn->ch = ch;
     return cn;
   }
   else {

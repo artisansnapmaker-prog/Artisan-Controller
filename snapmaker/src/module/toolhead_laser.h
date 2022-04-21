@@ -36,8 +36,6 @@
 #define ESP32_UPDATE_OPCODE_END_NOTIFY           (0x02)
 #define ESP32_UPDATE_OPCODE_FAIL_NOTIFY          (0xFF)
 
-#define ESP32_FW_PACK_INDEX_INVALID             (0xFFFF) 
-#define ESP32_FW_PACK_MAX_LEN                   (SACP_PDU_MAX_SIZE - SACP_V1_PDU_MIN_SIZE)
 
 enum LaserSACPCommandId {
   SACP_CMD_ID_LASER_GET_INFO = 1,

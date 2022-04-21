@@ -63,6 +63,7 @@ void JobCtrl::init(void) {
   _env.gfi_valid = false;
   abort_resume = false;
   status_before_start = SYSTEM_STATUS_IDLE;
+  got_last_gcode_packet = false;
   
   TaskHandle_t jobctrl_task = xTaskCreateStatic((TaskFunction_t)(job_ctrl_thread_entry), "jobctrl", SYSTEM_TASK_STACK_SIZE,
         (void *)(this), HIGHEST_TASK_PRIORITY,  stack_jobctrl_thread, &tcb_jobctrl);
@@ -122,7 +123,8 @@ void JobCtrl::background_thread(void *p) {
   }
 
   // TODO: check other event such as temperature protetion, stall protection
-  if (got_last_gcode_packet && _gcode_rb.is_empty() ){
+  if ( got_last_gcode_packet && _gcode_rb.is_empty() )
+  {
     got_last_gcode_packet = false;
     LOG_I("push all gcodes to marlin or other 3D printer\r\n");
     req_stop(STOP_NORMAL, E_JOB_ISSUE_RET_FINISH);
@@ -225,7 +227,6 @@ err_code_t JobCtrl::req_stop( enum JobStopType st,
                               uint8_t reason,
                               job_req_notify_cb_t cb/* = NULL*/,
                               void *p/* = NULL*/) {
-  SystemStatus s = smprinter.get_sys_status();
   if (!smprinter.can_stop_work()) {
     LOG_E("job_ctrl: Can not stop a job as current status is no working or paused\r\n");
     return E_JOB_NOT_IN_PAUSE_STATUS;

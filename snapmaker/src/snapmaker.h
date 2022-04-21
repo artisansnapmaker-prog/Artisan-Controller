@@ -36,12 +36,12 @@ struct SnapmakerSettings {
 #define SNAPMAKER_SETTINGS_STRUCT     SnapmakerSettings smsettings;
 
 #define SNAPMAKER_SETTINGS_WRITE()    uint8_t *smsettings = (uint8_t *)smprinter.get_settings();  \
-                                      for (int i = 0; i < sizeof(SnapmakerSettings); i++) { \
+                                      for (uint32_t i = 0; i < sizeof(SnapmakerSettings); i++) { \
                                         EEPROM_WRITE(smsettings[i]);  \
                                       }
 
 #define SNAPMAKER_SETTINGS_READ()     uint8_t *smsettings = (uint8_t *)smprinter.get_settings();  \
-                                      for (int i = 0; i < sizeof(SnapmakerSettings); i++) { \
+                                      for (uint32_t i = 0; i < sizeof(SnapmakerSettings); i++) { \
                                         EEPROM_READ(smsettings[i]);  \
                                       }
 

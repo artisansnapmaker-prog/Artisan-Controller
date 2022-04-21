@@ -785,7 +785,6 @@ void ToolHeadLaser::set_power_limit(float limit) {
 err_code_t ToolHeadLaser::update_output(uint16_t new_power_pwm) {
   if (get_status() != MODULE_STATUS_NORMAL)
     return E_INVALID_STATE;
-
   check_fan(new_power_pwm);
   check_master_switch(new_power_pwm);
 #if USE_MARLIN_PWM
@@ -967,8 +966,6 @@ err_code_t ToolHeadLaser::post_init() {
 
   module_svc.register_routine( (void *)this, laser_routine);
 
-  setup_camera_port(PORT_INDEX_P1);
-
   if (pwm_normal) {
     #if USE_MARLIN_PWM
     pinMode(output_pin, OUTPUT);
@@ -978,14 +975,17 @@ err_code_t ToolHeadLaser::post_init() {
     pwm_index = pwm_controller.init_pin(output_pin, 0, 255, true);
     pwm_controller.set_frequency(pwm_index, 250);
     #endif
-    set_output(0);
-    // for now default value is normal
+    // must set status to MODULE_STATUS_NORMAL before set output
     set_status(MODULE_STATUS_NORMAL);
+    set_output(0);
   }
   else {
     set_status(MODULE_STATUS_LASER_CHECKING_PWM);
   }
 
+  setup_camera_port(PORT_INDEX_P1);
+
+  // wait for camrea to boot up
   vTaskDelay(pdMS_TO_TICKS(3000));
 
   get_bt_mac();

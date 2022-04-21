@@ -392,9 +392,9 @@ void SnapmakerPrinter::pre_init(void) {
   pinMode(pins_map[PORT_INDEX_P1].step, OUTPUT);
   digitalWrite(pins_map[PORT_INDEX_P1].step, HIGH);
   pinMode(pins_map[PORT_INDEX_P2].step, OUTPUT);
-  digitalWrite(pins_map[PORT_INDEX_P1].step, HIGH);
+  digitalWrite(pins_map[PORT_INDEX_P2].step, HIGH);
   pinMode(pins_map[PORT_INDEX_P2].step, OUTPUT);
-  digitalWrite(pins_map[PORT_INDEX_P1].step, HIGH);
+  digitalWrite(pins_map[PORT_INDEX_P3].step, HIGH);
 
   // enable the power to do TMC initialization in arduino setup()
   pinMode(POWER_CTRL_MOTIVE, OUTPUT);

@@ -111,11 +111,12 @@ enum ToolHeadLaserTubeStatus {
 
 enum LaserSafetyState: uint8_t {
   LASER_SAFETY_STATE_NORMAL,
+  LASER_SAFETY_STATE_IMU_EXCEPTION,
   LASER_SAFETY_STATE_TUBE_TEMP_TOO_HIGH,
+  LASER_SAFETY_STATE_ABNORMAL_ATTITUDE,
   LASER_SAFETY_STATE_TUBE_TEMP_TOO_LOW,
-  LASER_SAFETY_STATE_ROLL_ABNORMAL,
-  LASER_SAFETY_STATE_PITCH_ABNORMAL,
-  LASER_SAFETY_STATE_IMU_TEMP_TOO_HIGH,
+
+  LASER_SAFETY_STATE_IMU_TEMP_TOO_HIGH = 9,
 
   LASER_SAFETY_STATE_MAX
 };
@@ -267,7 +268,7 @@ class ToolHeadLaser: public ModuleBase {
     uint8_t safety_state = 0;
     int16_t roll;
     int16_t pitch;
-    int8_t  laser_temp;
+    int8_t  tube_temp;
     int8_t  imu_temp;
     bool pwm_normal;
 

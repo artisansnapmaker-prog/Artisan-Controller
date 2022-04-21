@@ -19,6 +19,13 @@
 
 #define USE_MARLIN_PWM 0
 
+#define LASER_PCBA_OVERTEMP   (65)
+
+#define MODULE_EXCEP_BIT_IMU_CONNECTION       (1<<0)
+#define MODULE_EXCEP_BIT_TUBE_OVERTEMP        (1<<1)
+#define MODULE_EXCEP_BIT_ATTITUDE             (1<<2)
+#define MODULE_EXCEP_BIT_TUBE_THERMISTOR      (1<<3)
+
 // P1/2/3 step timer channel in GD32F407
 // P1 step, PE14: T0 CH3
 // P2 step, PA15: T1 CH0
@@ -49,6 +56,7 @@ static module_func_prio_t prio_map[] = {
 enum ToolHeadLaserPrivateStatus {
   MODULE_STATUS_LASER_LOCKED = MODULE_STATUS_COMMON_LIMIT,
   MODULE_STATUS_LASER_CHECKING_PWM,
+  MODULE_STATUS_LASER_EXCEPTION
 };
 
 
@@ -79,15 +87,6 @@ static __attribute__((section(".data"))) uint8_t power_table_10w[]= {
 
 
 // HMI subscription callbacks
-
-struct __packed LaserSafetyInfo {
-  uint8_t key;
-  uint8_t state;
-  int32_t laser_tmp;
-  int32_t roll;
-  int32_t pitch;
-};
-
 void ToolHeadLaser::read_safety_state() {
   err_code_t ret = E_SUCCESS;
   smcan_message_t msg;
@@ -107,24 +106,52 @@ void ToolHeadLaser::read_safety_state() {
 
 uint16_t ToolHeadLaser::hmi_cb_publish_safety_state(void *obj, uint8_t *buffer) {
   ToolHeadLaser &laser = *(ToolHeadLaser *)obj;
-  LaserSafetyInfo *info = (LaserSafetyInfo *)(buffer + 1);
+  uint16_t i = 0;
+  int32_t *pi32_tmp;
 
   if (!obj || !buffer)
     return 0;
 
-  buffer[0] = E_SUCCESS;
+  buffer[i++] = E_SUCCESS;
 
-  info->key       = laser.get_key();
-  info->state     = laser.safety_state;
-  info->laser_tmp = laser.laser_temp * 1000;
-  info->pitch     = laser.pitch * 1000;
-  info->roll      = laser.roll * 1000;
+  buffer[i++] = laser.get_key();
+  buffer[i++] = 0;
+
+  for (int j = 0; j < 8; j++) {
+    if (laser.safety_state & (1<<j)) {
+      buffer[i++] = j + 1;
+    }
+  }
+
+  if (laser.tube_temp < 0 && !(laser.safety_state & MODULE_EXCEP_BIT_TUBE_THERMISTOR)) {
+    // TODO: raise exceptions
+    buffer[i++] = LASER_SAFETY_STATE_TUBE_TEMP_TOO_LOW;
+  }
+
+  if (laser.imu_temp > LASER_PCBA_OVERTEMP) {
+    // TODO: raise exceptions
+    buffer[i++] = LASER_SAFETY_STATE_IMU_TEMP_TOO_HIGH;
+  }
+  buffer[2] = i - 2;
+  LOG_I("laser exception length: [%u]\n", buffer[2]);
+
+  pi32_tmp = (int32_t *)&buffer[i];
+  *pi32_tmp = laser.tube_temp * 1000;
+  i += 4;
+
+  pi32_tmp = (int32_t *)&buffer[i];
+  *pi32_tmp = laser.pitch * 1000;
+  i += 4;
+
+  pi32_tmp = (int32_t *)&buffer[i];
+  *pi32_tmp = laser.roll * 1000;
+  i += 4;
 
   laser.read_safety_state();
 
-  LOG_V("safety state: len[%u]\n", sizeof(LaserSafetyInfo) + 1);
+  LOG_I("safety state: len[%u]\n", i);
 
-  return sizeof(LaserSafetyInfo) + 1;
+  return i;
 }
 
 uint16_t ToolHeadLaser::hmi_cb_publish_power(void *obj, uint8_t *buffer) {
@@ -752,12 +779,12 @@ void ToolHeadLaser::can_cb_handle_security_status(void *obj, uint8_t *data, uint
   }
   laser.pitch = data[1]<<8 | data[2];
   laser.roll  = data[3]<<8 | data[4];
-  laser.laser_temp = data[5];
+  laser.tube_temp = data[5];
   laser.imu_temp   = data[6];
 
   if (data[0] != 0) {
     LOG_E("laser err: sta[%u], pitch[%d], roll[%d], tube temp[%d], imu temp[%d]\n", laser.safety_state,
-          laser.pitch, laser.roll, laser.laser_temp, laser.imu_temp);
+          laser.pitch, laser.roll, laser.tube_temp, laser.imu_temp);
   }
 }
 
@@ -1480,7 +1507,7 @@ void ToolHeadLaser::show_status() {
   LOG_I("safety state: %u\n", safety_state);
   LOG_I("pitch: %d\n", pitch);
   LOG_I("roll: %d\n", roll);
-  LOG_I("tube temp: %d\n", laser_temp);
+  LOG_I("tube temp: %d\n", tube_temp);
   LOG_I("imu temp: %d\n", imu_temp);
   LOG_I("platform hight: %d\n", smsettings->laser_platform_hight);
   LOG_I("4axis center hight: %d\n", smsettings->laser_4axis_center_hight);

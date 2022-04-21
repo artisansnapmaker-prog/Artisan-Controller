@@ -26,6 +26,10 @@
 #include "../common/utility.h"
 #include "../common/flash.h"
 
+#define BOOT_VERSION                            "v1.0.0-boot"
+#define MACHINE_TYPE                            (3) // A400
+
+
 #define BOOT_DELAY_SECODE                       (6)
 #define BOOT_PACK_MAGIC_STR_LEN                 (21)
 #define BOOT_PACK_FW_VER_STR_LEN                (32)

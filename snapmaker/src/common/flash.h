@@ -38,10 +38,10 @@
 #define FLASH_BOOT_DATA_SIZE                    (128 * 1024)
 
 // marlin settings partition
-#define FLASH_MARLIN_SETTINGS_START_SECTOR      (2)
-#define FLASH_MARLIN_SETTINGS_SECTOR_NUM        (1)
-#define FLASH_MARLIN_SETTINGS_ADDR              (32 * 1024 + FLASH_BASE)
-#define FLASH_MARLIN_SETTINGS_SIZE              (16 * 1024)
+// #define FLASH_MARLIN_SETTINGS_START_SECTOR      (2)
+// #define FLASH_MARLIN_SETTINGS_SECTOR_NUM        (1)
+// #define FLASH_MARLIN_SETTINGS_ADDR              (32 * 1024 + FLASH_BASE)
+// #define FLASH_MARLIN_SETTINGS_SIZE              (16 * 1024)
 
 // app partition
 #define FLASH_APP_FW_ADDR                       (64 * 1024 + FLASH_BASE)

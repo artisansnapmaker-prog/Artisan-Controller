@@ -65,6 +65,7 @@ class UpdateService {
   public:
     UpdateService(){};
     err_code_t init(void);
+    void update_flash_mark(void);
     void loop(void);
 
     static err_code_t sacp_msg_proc(void * obj, sacp_hmi_message_t *msg);

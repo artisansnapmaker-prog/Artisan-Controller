@@ -15,6 +15,9 @@
 #define CMD_ID_UPGRADE_END         (0x03)
 #define CMD_ID_UPGRADE_ERR         (0X10)
 
+#define CMD_SET_SYSTEM             (0x01)
+#define CMD_ID_MACHIN_INFO         (0x21)
+
 #define CMD_START_MIN_LEN         (256)
 #define CMD_TRANS_MIN_LEN         (7)
 #define CMD_END_MIN_LEN           (1)
@@ -37,6 +40,8 @@ uint8_t end_ret;
 // LOCAL VAR
 /********************************************************************************/
 cmd_pf_t find_executor(uint8_t cmd_set, uint8_t cmd_id);
+void cmd_upgrade_notify();
+void cmd_get_sys_info(uint8_t *pl, uint32_t len, uint8_t *out, uint32_t &out_len);
 void cmd_upgrade_start(uint8_t *pl, uint32_t len, uint8_t *out, uint32_t &out_len);
 void cmd_upgrade_trans(uint8_t *pl, uint32_t len, uint8_t *out, uint32_t &out_len);
 void cmd_upgrade_end(uint8_t *pl, uint32_t len, uint8_t *out, uint32_t &out_len);
@@ -47,9 +52,12 @@ bool upgrade_app_fw_checksum(void);
 upgrade_info_t upgrade_info;
 
 const cmd_fun_item_t cmd_tab[] = {
+  
+  {CMD_SET_SYSTEM,     CMD_ID_MACHIN_INFO,    cmd_get_sys_info},
   {CMD_SET_UPGRADE,    CMD_ID_UPGRADE_START,  cmd_upgrade_start},
   {CMD_SET_UPGRADE,    CMD_ID_UPGRADE_TRANS,  cmd_upgrade_trans},
   {CMD_SET_UPGRADE,    CMD_ID_UPGRADE_END,    cmd_upgrade_end},
+
 };
 
 
@@ -74,6 +82,7 @@ void upgrade_loop(void) {
   switch(upgrade_info.boot_info->upgrade_state) {
 
     case UPGRADE_STATE_WAIT:
+
     break;
 
     case UPGRADE_STATE_START:
@@ -142,6 +151,25 @@ cmd_pf_t find_executor(uint8_t cmd_set, uint8_t cmd_id) {
         }
   }
   return NULL;
+}
+
+void cmd_get_sys_info(uint8_t *pl, uint32_t len, uint8_t *out, uint32_t &out_len) {
+  Serial.println("cmd_get_sys_info");
+
+  uint16_t ver_str_len = strlen((char *)BOOT_VERSION);
+  out[0] = CMD_SET_SYSTEM;
+  out[1] = CMD_ID_MACHIN_INFO;
+  out[2] = MACHINE_TYPE;
+  out[3] = 0;
+  out[4] = 0;
+  out[5] = 0;
+  out[6] = 0;
+  out[7] = 0;
+  out[8] = ver_str_len & 0xFF;
+  out[9] = (ver_str_len>>8) & 0xFF;
+  memcpy(out + 10, BOOT_VERSION, ver_str_len);
+  out_len = 10 + ver_str_len;
+
 }
 
 void cmd_upgrade_start(uint8_t *pl, uint32_t len, uint8_t *out, uint32_t &out_len) {

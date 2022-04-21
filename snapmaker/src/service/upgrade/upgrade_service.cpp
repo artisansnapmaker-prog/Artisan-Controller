@@ -31,6 +31,7 @@ UpdateService upgrade_svc;
 err_code_t UpdateService::init(void) {
   err_code_t ret;
 
+  update_flash_mark();
   phase = UPGRADE_PHASE_INIT;
 
   ret = E_SUCCESS;
@@ -44,6 +45,13 @@ err_code_t UpdateService::init(void) {
   ret |= ugr_cm_svc.init(this);
 
   return ret;
+}
+
+void UpdateService::update_flash_mark(void) {
+  memcpy(&boot_info, (void *)FLASH_BOOT_DATA_ADDR, sizeof(boot_info));
+  boot_info.upgrade_state = UPGRADE_STATE_JUMP_SUCCESS;
+  boot_info_flush_to_flash();
+  LOG_I("ugr_svc: mark boot data as UPGRADE_STATE_JUMP_SUCCESS\r\n");
 }
 
 void UpdateService::loop(void) {
@@ -76,6 +84,7 @@ err_code_t UpdateService::sacp_msg_proc(void * obj, sacp_hmi_message_t *msg) {
     break;
 
     case UPGRADE_PAHSE_APP_START:
+      pit = (pack_info_t *)msg->data;
       ugr_ctrl_svc.start_proc(pit, msg);
     break;
 
@@ -137,13 +146,18 @@ err_code_t UpdateService::upgrade_notify(sacp_hmi_message_t *msg, err_code_t ret
 bool UpdateService::boot_info_flush_to_flash() {
   boot_info.boot_data_checksum = calculate_checksum((uint8_t *)&boot_info, sizeof(pack_info_t) - 4);
   if (!flash_erase(boot_data_partition)) {
-    LOG_E("boot data erase error\r\n");
-    return false;
+    if (!flash_erase(boot_data_partition)) {
+      LOG_E("boot data erase error\r\n");
+      return false;
+    }
   }
 
   if (sizeof(pack_info_t) != flash_write(boot_data_partition, (uint8_t *)&boot_info, sizeof(pack_info_t))) {
-    LOG_E("boot data write error\r\n");
-    return false;
+    boot_data_partition.write_addr = boot_data_partition.start_addr;
+    if (sizeof(pack_info_t) != flash_write(boot_data_partition, (uint8_t *)&boot_info, sizeof(pack_info_t))) {
+      LOG_E("boot data write error\r\n");
+      return false; 
+    }
   }
 
   return true;

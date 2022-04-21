@@ -234,9 +234,6 @@ void HostSACPModule::handle_receive() {
         LOG_V("module sacp [%x] to waiting\n", command_id);
         xMessageBufferSend(tmp_queue, parser_buffer + parser_head + SACP_V0_FRAME_INDEX_EVENT_ID, pdu_length, 0);
       }
-      xMessageBufferSend(tmp_queue, parser_buffer + parser_head + SACP_V0_FRAME_INDEX_EVENT_ID, pdu_length, 0);
-      // Add by 747
-      xTaskNotify(event_task, NOTIFY_EVENT_CAN_CFG, eSetBits);
     }
 
     parser_head += (SACP_V0_NON_PAYPLOAD_SIZE + pdu_length);

@@ -76,6 +76,18 @@ err_code_t HostSACPHMI::init(TaskHandle_t event_task, SemaphoreHandle_t recv_sig
   events_with_motion = xMessageBufferCreateStatic(SACP_PDU_MAX_SIZE, queue_buffer_to_marlin, &queue_strcut_to_marlin);
   configASSERT(events_with_motion);
 
+  for (int i = 0; i < SACP_ROUTE_TABLE_DYNAMIC_MAX; i++) {
+    rt_dynamic[i].peer = SACP_HOST_INVALID;
+    rt_dynamic[i].ch   = SACP_HMI_CH_MAX;
+    rt_dynamic[i].ver  = SACP_VER_INVALID;
+    rt_dynamic[i].status = SACP_ROUTE_STA_INVALID;
+  }
+
+  for (int i = 0; i < SACP_ROUTE_TABLE_HANDLE_MAX; i++) {
+    new_route_handle[i].cb  = NULL;
+    new_route_handle[i].obj = NULL;
+  }
+
   return E_SUCCESS;
 }
 
@@ -711,6 +723,50 @@ MessageBufferHandle_t HostSACPHMI::get_event_queue_by_cmd(uint8_t *buffer, uint8
   }
 }
 
+void HostSACPHMI::record_new_route(uint32_t peer, uint8_t ch, uint8_t ver) {
+  bool notify = false;
+  int i = 0;
+  
+  for (; i < SACP_ROUTE_TABLE_DYNAMIC_MAX; i++) {
+    if (rt_dynamic[i].peer != SACP_HOST_INVALID) {
+      if (rt_dynamic[i].peer == peer &&
+          rt_dynamic[i].ch == ch &&
+          rt_dynamic[i].ver == ver) {
+        // has recored this route already
+        if (rt_dynamic[i].status != SACP_ROUTE_STA_ONLINE) {
+          // if route is not online, set it to online
+          rt_dynamic[i].status = SACP_ROUTE_STA_ONLINE;
+          notify = true;
+        }
+        // jump out
+        break;
+      }
+      else {
+        // not same one, check next one
+        continue;
+      }
+    }
+    else {
+      // nobody is same with new one, record it
+      rt_dynamic[i].peer = peer;
+      rt_dynamic[i].ch = ch;
+      rt_dynamic[i].ver= ver;
+      rt_dynamic[i].status = SACP_ROUTE_STA_ONLINE;
+      notify = true;
+      break;
+    }
+  }
+
+  if (notify) {
+    LOG_I("new route id:%u, ch:%u, ver:%u online!\n", peer, ch, ver);
+    for (int j = 0; j < SACP_ROUTE_TABLE_HANDLE_MAX; j++) {
+      if (new_route_handle[j].cb) {
+        new_route_handle[j].cb(new_route_handle[j].obj, &rt_dynamic[i]);
+      }
+    }
+  }
+}
+
 void HostSACPHMI::handle_receive() {
   MessageBufferHandle_t tmp_queue = NULL;
   MessageBufferHandle_t event_queue = NULL;
@@ -738,6 +794,9 @@ void HostSACPHMI::handle_receive() {
 
     tmp_queue   = NULL;
     if (version == SACP_VER_1) {
+      // check if this message is received from new route
+      record_new_route(parser_buff[SACP_V1_FRAME_INDEX_SENDER_ID], i, SACP_VER_1);
+
       seq = parser_buff[SACP_V1_FRAME_INDEX_SEQ_H]<<8 | parser_buff[SACP_V1_FRAME_INDEX_SEQ_L];
       if (xSemaphoreTake(waiting_lock, 0) == pdPASS) {
         for (int j = 0; j < SACP_HMI_WAITING_NODE_MAX; j++) {
@@ -757,6 +816,8 @@ void HostSACPHMI::handle_receive() {
       }
     }
     else {
+      // check if this message is received from new route
+      record_new_route(0, i, SACP_VER_0);
       if (xSemaphoreTake(waiting_lock, 0) == pdPASS) {
         for (int j = 0; j < SACP_HMI_WAITING_NODE_MAX; j++) {
           if (waiting_nodes[j].status == SACP_WAITING_NODE_STA_INUSE_V0) {
@@ -1195,4 +1256,23 @@ err_code_t HostSACPHMI::handle_unsubscript(void *obj, sacp_hmi_message_t *msg) {
 
 out_unsubscript:
   return host_hmi.send_ack(msg, ret);
+}
+
+
+err_code_t HostSACPHMI::register_new_route_handle(void *obj, sacp_hmi_notify_new_route_cb cb) {
+  int i = 0;
+
+  for (; i < SACP_ROUTE_TABLE_HANDLE_MAX; i++) {
+    if (new_route_handle[i].cb == NULL) {
+      new_route_handle[i].cb  = cb;
+      new_route_handle[i].obj = obj;
+      break;
+    }
+  }
+
+  if (i >= SACP_ROUTE_TABLE_HANDLE_MAX) {
+    return E_NO_RESRC;
+  }
+
+  return E_SUCCESS;
 }

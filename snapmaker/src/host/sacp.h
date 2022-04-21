@@ -39,6 +39,8 @@
 #define SACP_FRONT_HEADER_MIN_SIZE  (7)
 #define SACP_FRAME_INDEX_VER        (5)
 
+#define SACP_HOST_INVALID     (0xFFFFFFFF)
+
 // for attributions
 // bit[7:0] is on the packet defination
 #define SACP_MESSAGE_ATTR_ACK        (0x00000001)
@@ -201,7 +203,7 @@ typedef struct {
 #define SACP_V1_FRONT_HEADER_SIZE (7)
 #define SACP_V1_REAR_HEADER_SIZE  (6)
 
-#define SACP_V1_HOST_INVALID    (0xFFFFFFFF)
+#define SACP_V1_HOST_INVALID    (SACP_HOST_INVALID)
 #define SACP_V1_SEQ_INVALID     (0xFFFFFFFF)
 #define SACP_V1_CMD_SET_INVALID (0xFFFF)
 #define SACP_V1_CMD_ID_INVALID  (0xFFFF)
@@ -235,6 +237,18 @@ enum SACPWaitingNodeStatus {
   SACP_WAITING_NODE_STA_INVALID
 };
 
+enum SACPRouteStatus {
+  SACP_ROUTE_STA_OFFLINE,
+  SACP_ROUTE_STA_ONLINE,
+
+  SACP_ROUTE_STA_INVALID
+};
+typedef struct {
+  uint32_t peer;
+  uint8_t  ch;
+  uint8_t  ver;
+  SACPRouteStatus status;  // online or offline
+} sacp_route_table_t;
 
 class HostSACP: public HostBase {
   // public methods

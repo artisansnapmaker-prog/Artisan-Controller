@@ -32,6 +32,8 @@ typedef err_code_t (*sacp_hmi_callback)(void *obj, sacp_hmi_message_t *msg);
 
 typedef uint16_t (*sacp_hmi_subscribe_callback)(void *obj, uint8_t *buffer);
 
+typedef void (*sacp_hmi_notify_new_route_cb)(void *obj, sacp_route_table_t *rt);
+
 typedef struct {
   void *obj;
   uint16_t cmd_id;
@@ -39,6 +41,11 @@ typedef struct {
   sacp_hmi_callback ack_cb;
   uint32_t cb_attr;
 } sacp_hmi_handle_t;
+
+typedef struct {
+  void *obj;
+  sacp_hmi_notify_new_route_cb cb;
+} sacp_hmi_new_route_handle_t;
 
 typedef struct {
   uint8_t  status;
@@ -61,6 +68,9 @@ enum SACPHMIChannel {
 
   SACP_HMI_CH_MAX
 };
+
+#define SACP_ROUTE_TABLE_DYNAMIC_MAX      (8)
+#define SACP_ROUTE_TABLE_HANDLE_MAX       (4)
 
 // defination for subscription
 #define SACP_SUBSCRIPTION_HANDLE_MAX      (32)
@@ -165,6 +175,9 @@ class HostSACPHMI: public HostSACP {
     static err_code_t handle_subscript(void *obj, sacp_hmi_message_t *msg);
     static err_code_t handle_unsubscript(void *obj, sacp_hmi_message_t *msg);
 
+    sacp_route_table_t *get_routetable() { return rt_dynamic; }
+    err_code_t register_new_route_handle(void *obj, sacp_hmi_notify_new_route_cb cb);
+
   // private methods
   private:
     err_code_t parse_packets(sacp_channel_t &channel);
@@ -173,6 +186,8 @@ class HostSACPHMI: public HostSACP {
 
     MessageBufferHandle_t get_event_queue_by_cmd(uint8_t *parser_buff, uint8_t channel);
     MessageBufferHandle_t get_event_queue_by_thread();
+
+    void record_new_route(uint32_t peer, uint8_t ch, uint8_t ver);
 
   // private properties
   private:
@@ -197,6 +212,9 @@ class HostSACPHMI: public HostSACP {
     sacp_subscription_node_t   subscription_nodes[SACP_SUBSCRIPTION_NODE_MAX];
     sacp_subscription_client_t subscription_clients[SACP_SUBSCRIPTION_CLIENT_MAX];
     xSemaphoreHandle           subscription_lock;
+
+    sacp_route_table_t  rt_dynamic[SACP_ROUTE_TABLE_DYNAMIC_MAX];
+    sacp_hmi_new_route_handle_t new_route_handle[SACP_ROUTE_TABLE_HANDLE_MAX];
 };
 
 // initalized in system thread

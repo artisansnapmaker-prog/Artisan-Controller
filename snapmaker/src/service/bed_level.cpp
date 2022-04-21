@@ -335,6 +335,7 @@ static err_code_t hmi_req_callback_bed_position_detection(void *obj, sacp_hmi_me
   y_index = GRID_MAX_POINTS_Y / 2;
   x = _GET_MESH_X(x_index);
   y = _GET_MESH_Y(y_index);
+  SnapmakerSettings *smsettings = smprinter.get_settings();
 
   LOG_I("hmi request bed position detection\n");
 
@@ -347,7 +348,13 @@ static err_code_t hmi_req_callback_bed_position_detection(void *obj, sacp_hmi_me
 
   if (bedlevel.get_bedlevel_mode() == BEDLEVEL_MODE_AUTO_BED_DETECTION) {
     if (extruder_index == 0) {
-      // need go home
+      // clear live_z_offset
+      bedlevel.live_z_offset[0] = 0;
+      bedlevel.live_z_offset[1] = 1;
+      smsettings->live_z_offset[0] = 0;
+      smsettings->live_z_offset[1] = 0;
+      motion_platform_svc.save_settings();
+
       motion_platform_svc.run_gcode((char *)"G28", true);
       motion_platform_svc.disable_leveling();
       motion_platform_svc.moveto_xy(x, y, 60);
@@ -372,6 +379,13 @@ static err_code_t hmi_req_callback_bed_position_detection(void *obj, sacp_hmi_me
   } else if (bedlevel.get_bedlevel_mode() == BEDLEVEL_MODE_MANUAL_BED_DETECTION) {
     if (extruder_index == 0) {
       // need go home
+      // clear live_z_offset
+      bedlevel.live_z_offset[0] = 0;
+      bedlevel.live_z_offset[1] = 1;
+      smsettings->live_z_offset[0] = 0;
+      smsettings->live_z_offset[1] = 0;
+      motion_platform_svc.save_settings();
+
       motion_platform_svc.run_gcode((char *)"G28", true);
       motion_platform_svc.disable_leveling();
       motion_platform_svc.moveto_xy(x, y, 60);
@@ -402,6 +416,7 @@ static err_code_t hmi_req_callback_probe_sensor_calibration(void *obj, sacp_hmi_
   uint8_t action = msg->data[0];
   float x, y;
   uint8_t x_index, y_index;
+  SnapmakerSettings *smsettings = smprinter.get_settings();
 
   if (GRID_MAX_POINTS_X == 0 || GRID_MAX_POINTS_Y == 0 || bilinear_grid_spacing.x == 0 || bilinear_grid_spacing.y == 0) {
     motion_platform_svc.set_leveling_grids(3);
@@ -420,12 +435,16 @@ static err_code_t hmi_req_callback_probe_sensor_calibration(void *obj, sacp_hmi_
 
   bedlevel.set_end_leveling_process_status(false);
 
-  // need go home
-  if (!motion_platform_svc.is_all_axes_homed()) {
-    // motion_platform_svc.run_gcode((char *)"G28", true);
-    parser.parse((char *)"G28");
-    gcode.process_parsed_command();
-  }
+  // clear live_z_offset
+  bedlevel.live_z_offset[0] = 0;
+  bedlevel.live_z_offset[1] = 1;
+  smsettings->live_z_offset[0] = 0;
+  smsettings->live_z_offset[1] = 0;
+  motion_platform_svc.save_settings();
+
+  motion_platform_svc.run_gcode((char *)"G28", true);
+
+
 
   smprinter.fdm->extruder_status_check_ctrl(EXTRUDER_STATUS_IDLE);
 
@@ -527,13 +546,13 @@ static err_code_t hmi_req_callback_get_live_z_offset(void *obj, sacp_hmi_message
   uint8_t extruders = smprinter.fdm->get_extruders_count();
   msg->data[index++] = extruders;
 
-  for (uint32_t i = 0; i < extruders; ) {
+  for (uint32_t i = 0; i < extruders; i++) {
     msg->data[index++] = i;
-    float offset = bedlevel.live_z_offset[i] * 1000;
-    msg->data[index++] = ((uint8_t *)(&offset))[0];
-    msg->data[index++] = ((uint8_t *)(&offset))[1];
-    msg->data[index++] = ((uint8_t *)(&offset))[2];
-    msg->data[index++] = ((uint8_t *)(&offset))[3];
+    int32_t offset = (int32_t)(bedlevel.live_z_offset[i] * 1000);
+    msg->data[index++] = offset & 0xff;
+    msg->data[index++] = offset >> 8;
+    msg->data[index++] = offset >> 16;
+    msg->data[index++] = offset >> 24;
   }
 
   msg->length = index;
@@ -653,9 +672,16 @@ err_code_t BedLevelService::start_manual_bed_leveling(uint8_t grids) {
   motion_platform_svc.set_leveling_grids(grids);
   manual_leveling_point_index_ = 25;
 
+  // clear live_z_offset
+  live_z_offset[0] = 0;
+  live_z_offset[1] = 1;
+  SnapmakerSettings *smsettings = smprinter.get_settings();
+  smsettings->live_z_offset[0] = 0;
+  smsettings->live_z_offset[1] = 0;
+  motion_platform_svc.save_settings();
+
   // go home
-  parser.parse((char *)"G28");
-  gcode.process_parsed_command();
+  motion_platform_svc.run_gcode((char *)"G28", true);
 
   motion_platform_svc.disable_leveling();
   if (smprinter.fdm->get_device_id() == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
@@ -710,9 +736,15 @@ err_code_t BedLevelService::start_auto_bed_leveling(uint8_t grids) {
   LOG_I("GRID_MAX_POINTS_X: %d, GRID_MAX_POINTS_Y: %d\n", GRID_MAX_POINTS_X, GRID_MAX_POINTS_Y);
   // save grids
 
-  // motion_platform_svc.run_gcode((char *)"G28\n", true);
-  parser.parse((char *)"G28");
-  gcode.process_parsed_command();
+  // clear live_z_offset
+  live_z_offset[0] = 0;
+  live_z_offset[1] = 1;
+  SnapmakerSettings *smsettings = smprinter.get_settings();
+  smsettings->live_z_offset[0] = 0;
+  smsettings->live_z_offset[1] = 0;
+  motion_platform_svc.save_settings();
+
+  motion_platform_svc.run_gcode((char *)"G28", true);
 
   smprinter.fdm->extruder_status_check_ctrl(EXTRUDER_STATUS_IDLE);
 

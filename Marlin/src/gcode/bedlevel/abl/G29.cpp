@@ -292,8 +292,10 @@ G29_TYPE GcodeSuite::G29() {
 
         if (!isnan(rx) && !isnan(ry)) {
           // Get nearest i / j from rx / ry
+          #if !MB_SNAPMAKER
           i = (rx - bilinear_start.x + 0.5 * abl.gridSpacing.x) / abl.gridSpacing.x;
           j = (ry - bilinear_start.y + 0.5 * abl.gridSpacing.y) / abl.gridSpacing.y;
+          #endif
           LIMIT(i, 0, (GRID_MAX_POINTS_X) - 1);
           LIMIT(j, 0, (GRID_MAX_POINTS_Y) - 1);
         }

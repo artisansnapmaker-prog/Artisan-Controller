@@ -273,7 +273,7 @@ err_code_t MotionPlatformService::hmi_cb_request_home(void *obj, sacp_hmi_messag
   if (ret != E_SUCCESS) {
     ret = 1;
     msg->data = &ret;
-    goto ack_hmi; 
+    goto ack_hmi;
   }
 
   switch (home_axis) {
@@ -366,16 +366,16 @@ void MotionPlatformService::init() {
             (void *)this, hmi_cb_get_coordinate_info);
 
   host_hmi.register_callback(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_SET_ACTIVE_COORDINATE,
-            (void *)this, hmi_cb_set_active_coordinate_system);
+            (void *)this, hmi_cb_set_active_coordinate_system, SACP_CB_ATTR_BLOCKED_WITH_MOTION);
 
   host_hmi.register_callback(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_SET_ORIGIN,
-            (void *)this, hmi_cb_set_origin);
+            (void *)this, hmi_cb_set_origin, SACP_CB_ATTR_BLOCKED_WITH_MOTION);
 
   host_hmi.register_callback(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_MOVE_ABSOLUTELY,
-            (void *)this, hmi_cb_move_absoluty);
+            (void *)this, hmi_cb_move_absoluty, SACP_CB_ATTR_BLOCKED_WITH_MOTION);
 
   host_hmi.register_callback(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_HOME,
-            (void *)this, hmi_cb_request_home);
+            (void *)this, hmi_cb_request_home, SACP_CB_ATTR_BLOCKED_WITH_MOTION);
 
   LOG_I("Creating marlin task...");
   thandle_marlin = xTaskCreateStatic((TaskFunction_t)motion_background, "marlin", MOTION_TASK_STACK_SIZE, (void *)this,
@@ -390,6 +390,11 @@ void MotionPlatformService::init() {
 
   marlin_signal = xSemaphoreCreateCounting(65536, 0);
   configASSERT(marlin_signal);
+  motion_owner_lock = xSemaphoreCreateMutex();
+  configASSERT(motion_owner_lock);
+  motion_owner = NULL;
+  paused_nested = 0;
+
   quickstop_in_stepper_binary_sem = xSemaphoreCreateBinary();
   configASSERT(quickstop_in_stepper_binary_sem);
   quickstop_binary_sem = xSemaphoreCreateBinary();
@@ -760,10 +765,8 @@ err_code_t MotionPlatformService::run_gcode(char *gcode_cmd, bool blocked /* = f
 #endif
   err_code_t ret = E_SUCCESS;
 
-  if (xTaskGetCurrentTaskHandle() != thandle_marlin) {
-    if (pause_marlin() != E_SUCCESS)
-      return E_FAILURE;
-  }
+  if (pause_marlin() != E_SUCCESS)
+    return E_FAILURE;
 
   LOG_I("submitted gocde: %s\n", gcode_cmd);
 
@@ -788,9 +791,7 @@ err_code_t MotionPlatformService::run_gcode(char *gcode_cmd, bool blocked /* = f
     }
   }
 
-  if (xTaskGetCurrentTaskHandle() != thandle_marlin) {
-    resume_marlin();
-  }
+  resume_marlin();
 
   return ret;
 }
@@ -822,10 +823,8 @@ bool MotionPlatformService::is_original_position_offset() {
 
 
 void MotionPlatformService::moveto(xyze_pos_t target, float feedrate, bool blocked) {
-  if (xTaskGetCurrentTaskHandle() != thandle_marlin) {
-    if (pause_marlin() != E_SUCCESS)
-      return;
-  }
+  if (pause_marlin() != E_SUCCESS)
+    return;
 
 // LINEAR_AXIS_ARGS(const float), const_feedRate_t fr_mm_s/*=0.0f*/
 
@@ -886,9 +885,7 @@ void MotionPlatformService::moveto(xyze_pos_t target, float feedrate, bool block
     }
   }
 
-  if (xTaskGetCurrentTaskHandle() != thandle_marlin) {
-    resume_marlin();
-  }
+  resume_marlin();
 
   return;
 }
@@ -950,9 +947,8 @@ float MotionPlatformService::get_current_position(uint8_t axis) {
 
 void MotionPlatformService::sync_plan_position_to_platform() {
   err_code_t ret = E_FAILURE;
-  if (xTaskGetCurrentTaskHandle() != thandle_marlin) {
-    ret = pause_marlin();
-  }
+
+  ret = pause_marlin();
 
   current_position = sm_current_position;
   sync_plan_position();
@@ -1096,14 +1092,26 @@ void MotionPlatformService::show_coordiantes() {
 }
 
 
-err_code_t MotionPlatformService::pause_marlin(uint32_t timeout) {
+err_code_t MotionPlatformService::pause_marlin(uint32_t timeout/* = 600 * 1000*/) {
+
+  if (xTaskGetCurrentTaskHandle() == thandle_marlin) {
+    return E_SUCCESS;
+  }
+
+  if (motion_owner == xTaskGetCurrentTaskHandle()) {
+    xSemaphoreTake(motion_owner_lock, portMAX_DELAY);
+    paused_nested++;
+    xSemaphoreGive(motion_owner_lock);
+    return E_SUCCESS;
+  }
+
   while (uxSemaphoreGetCount(marlin_signal) > 0) {
     vTaskDelay(pdMS_TO_TICKS(10));
     if (timeout > 10) {
       timeout -= 10;
     }
     else {
-      LOG_I("timeout to wait another thread release marlin\n");
+      LOG_E("timeout to wait another thread release marlin\n");
       return E_TIMEOUT;
     }
   }
@@ -1125,14 +1133,38 @@ err_code_t MotionPlatformService::pause_marlin(uint32_t timeout) {
     }
   }
 
+  xSemaphoreTake(motion_owner_lock, portMAX_DELAY);
+  motion_owner = xTaskGetCurrentTaskHandle();
+  xSemaphoreGive(motion_owner_lock);
+
   return E_SUCCESS;
 }
 
 err_code_t MotionPlatformService::resume_marlin() {
+  if (xTaskGetCurrentTaskHandle() == thandle_marlin) {
+    return E_SUCCESS;
+  }
+
+  if (motion_owner != xTaskGetCurrentTaskHandle()) {
+    LOG_E("can only release marlin with owner!\n");
+    return E_FAILURE;
+  }
+
+  if (paused_nested > 0) {
+    xSemaphoreTake(motion_owner_lock, portMAX_DELAY);
+    paused_nested--;
+    xSemaphoreGive(motion_owner_lock);
+    return E_SUCCESS;
+  }
+
   if (xSemaphoreTake(marlin_signal, 0) != pdPASS) {
     LOG_I("failed to take signal for pausing marlin\n");
     return E_FAILURE;
   }
+
+  xSemaphoreTake(motion_owner_lock, portMAX_DELAY);
+  motion_owner = NULL;
+  xSemaphoreGive(motion_owner_lock);
 
   return E_SUCCESS;
 }

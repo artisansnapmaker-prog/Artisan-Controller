@@ -85,7 +85,7 @@ class MotionPlatformService {
     MotionPlatformService() {}
     void init();
     void pins_post_init();
-    err_code_t pause_marlin(uint32_t timeout = 180 * 1000);
+    err_code_t pause_marlin(uint32_t timeout = 600 * 1000);
     err_code_t resume_marlin();
 
     // time API
@@ -231,8 +231,12 @@ class MotionPlatformService {
 
   private:
     MessageBufferHandle_t gcode_queue;
-    xSemaphoreHandle marlin_signal;
-    bool marlin_paused;
+    xSemaphoreHandle  marlin_signal;
+    TaskHandle_t      motion_owner;
+    xSemaphoreHandle  motion_owner_lock;
+    uint32_t          paused_nested;
+    bool              marlin_paused;
+
     SemaphoreHandle_t quickstop_in_stepper_binary_sem;
     SemaphoreHandle_t quickstop_binary_sem;
 };

@@ -1138,7 +1138,7 @@ void GcodeSuite::process_next_command() {
   parser.parse(command.buffer);
   process_parsed_command();
   #if MB_SNAPMAKER
-  smprinter.gcode_file_pass_line_number = command.lines;
+  smprinter.update_gcode_file_pass_line_number(command.lines);
   #endif
 }
 

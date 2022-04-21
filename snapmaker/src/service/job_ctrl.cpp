@@ -622,6 +622,12 @@ void JobCtrl::stepper_quickstop_cb(void) {
   cur_toolhead->quickstop();
 }
 
+void JobCtrl::update_gcode_file_pass_line_number(uint32_t l) {
+  if (l >= (_env.req_line_num - 1)) {
+    last_gcode_execute_by_platform = true;
+  }
+}
+
 void JobCtrl::do_start(struct JobCtrlReqInfo &jri) {
   enum SystemStatus ret_sys_status;
   enum SystemStatus next_status;
@@ -886,10 +892,10 @@ void JobCtrl::do_stop(struct JobCtrlReqInfo &jri) {
   switch(jri.req_data.req_stop_data.type) {
     case STOP_NORMAL:
     {
-      uint32_t cnt = 300;
-      while(motion_platform_svc.planner_busy() || smprinter.gcode_file_pass_line_number != _env.req_line_num - 1) {
-        vTaskDelay(1);
-        if (0 == cnt % 300)
+      uint32_t cnt = 30;
+      while (motion_platform_svc.planner_busy() || !last_gcode_execute_by_platform) {
+        vTaskDelay(10);
+        if (0 == cnt % 30)
           LOG_I("gcode_file_pass_line_number %d\r\n", smprinter.gcode_file_pass_line_number);
         cnt++;
       }
@@ -1010,6 +1016,7 @@ bool JobCtrl::consume_a_gcode(uint8_t *cmd, uint16_t max_len, uint32_t *line) {
       *line = _env.cur_line_num++;
       cmd[cmd_len] = 0;
       // LOG_I("job_ctrl: marlin consume a gcode: %s\r\n", cmd);
+      last_gcode_execute_by_platform = false;
       ret = true;
 
       if (_paused){

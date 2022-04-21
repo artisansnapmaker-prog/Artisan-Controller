@@ -16,6 +16,7 @@
 #include "module/rotary.h"
 #include "module/purifier.h"
 
+
 #define EVENT_GROUP_MODULE_READY      (0x00000001)
 #define EVENT_GROUP_WAIT_FOR_HEATING  (0X00000002)
 
@@ -137,6 +138,7 @@ class SnapmakerPrinter
     */
     uint32_t gcode_file_position;
     uint32_t gcode_file_pass_line_number;
+    void update_gcode_file_pass_line_number(uint32_t l);
 
   public:
     SnapmakerPrinter() {

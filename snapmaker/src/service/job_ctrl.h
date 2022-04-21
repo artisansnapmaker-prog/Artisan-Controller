@@ -216,6 +216,7 @@ class JobCtrl {
     void statistics_log_set(uint32_t interval_ms) { _statistics_log_interval_ms = interval_ms; };
     void statistics_output(void);
     void stepper_quickstop_cb(void);
+    void update_gcode_file_pass_line_number(uint32_t l);
 
     // gcode
     bool consume_a_gcode(uint8_t *cmd, uint16_t max_len, uint32_t *line);
@@ -246,6 +247,7 @@ class JobCtrl {
     bool _paused;
     SystemStatus status_before_start;
     bool got_last_gcode_packet;
+    bool last_gcode_execute_by_platform;
 
     // use for state of self-inspection
     uint32_t _err_get_batch_gcode_cnt;

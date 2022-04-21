@@ -466,6 +466,11 @@ void SnapmakerPrinter::post_init() {
   vTaskStartScheduler();
 }
 
+void SnapmakerPrinter::update_gcode_file_pass_line_number(uint32_t l) { 
+  gcode_file_pass_line_number = l;
+  job_ctrl_svc.update_gcode_file_pass_line_number(l); 
+};
+
 
 void SnapmakerPrinter::register_module(uint16_t type, ModuleBase *module) {
   switch (type) {

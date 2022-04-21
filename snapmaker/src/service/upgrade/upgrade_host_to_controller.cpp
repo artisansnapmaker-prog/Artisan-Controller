@@ -37,29 +37,59 @@ void UpgradeHostToController::loop(void) {
     break;
 
     case UPGRADE_HC_STATUS_START:
+      last_action_ms = millis();
+      action_retry++;
       trans_data_req(offset, UPGRADE_TRANS_BUF_SIZE);
       status = UPGRADE_HC_STATUS_TRANS;
     break;
 
     case UPGRADE_HC_STATUS_TRANS:
-      if (!trans_req_try || time_after(millis(), last_trans_req_ms + 500)) {
-        if (trans_req_try < 10) {
+      if (time_after(millis(), last_action_ms + 500)) {
+        if (action_retry < 10) {
+          last_action_ms = millis();
+          action_retry++;
           trans_data_req(offset, UPGRADE_TRANS_BUF_SIZE);
         }
         else {
-          LOG_E("upgrade_module: upgrade trans timeout, return to upgrade init\r\n");
+          LOG_E("upgrade_hc: upgrade trans timeout, return to upgrade init\r\n");
           reset_to_idle();
         }
       }
     break;
 
+    case UPGRADE_HC_STATUS_START_CM:
+      if (E_SUCCESS != ugr_cm_svc.start()) {
+        LOG_E("upgrade_hc: start CONTROLLER to MODULE failure\r\n");
+        end_ret = E_FAILURE;
+        status = UPGRADE_HC_STATUS_END;
+        last_action_ms = millis();
+        action_retry++;
+        end_req(end_ret);
+      }
+      else {
+        status = UPGRADE_HC_STATUS_DO_CM;
+      }
+    break;
+
+    case UPGRADE_HC_STATUS_DO_CM:
+      if (UPGRADE_CM_STATUS_IDLE == ugr_cm_svc.get_status()) {
+        end_ret = E_SUCCESS;
+        status = UPGRADE_HC_STATUS_END;
+        last_action_ms = millis();
+        action_retry++;
+        end_req(end_ret);
+      }
+    break;
+
     case UPGRADE_HC_STATUS_END:
-      if (time_after(millis(), last_end_req_ms + 500)) {
-        if (end_req_try < 10) {
+      if (time_after(millis(), last_action_ms + 500)) {
+        if (action_retry < 10) {
+          last_action_ms = millis();
+          action_retry++;
           end_req(end_ret);
         }
         else {
-          LOG_E("upgrade_module: upgrade end error, return to upgrade init\r\n");
+          LOG_E("upgrade_hc: upgrade end error, return to upgrade init\r\n");
           reset_to_idle();
         }
       }
@@ -110,7 +140,7 @@ err_code_t UpgradeHostToController::start_proc(sacp_hmi_message_t *msg) {
   }
 
   if (UPGRADE_HC_STATUS_IDLE != status) {
-    LOG_E("upgrade_module: can not start a upgrade as current is not in IDLE status\r\n");
+    LOG_E("upgrade_hc: can not start a upgrade as current is not in IDLE status\r\n");
     return start_ack(msg, E_FAILURE);
   }
 
@@ -130,7 +160,6 @@ err_code_t UpgradeHostToController::start_proc(sacp_hmi_message_t *msg) {
 
   if (E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_MODULE_UPGRADE, NULL)) {
     LOG_E("upgrade_module: can not enter module upgrade status\r\n");
-    reset_to_idle();
     return start_ack(msg, E_FAILURE);
   }
   ugr_svc->print_packet_info(pit);
@@ -178,19 +207,27 @@ err_code_t UpgradeHostToController::trans_proc(sacp_hmi_message_t *msg) {
 
   offset += flash_write(module_fw_partition, msg->data + 7, rx_pack_len);
   if (rx_pack_len) {
-    trans_req_try = 0;
+    action_retry = 0;
   }
-  
+  last_action_ms = millis();
+  action_retry++;
+
   if (offset >= fw_lenght) {
     LOG_I("upgrade_module: RX ALL DATA\r\n");
     if (ugr_svc->firmware_flash_checksum(checksum, module_fw_partition.start_addr + BOOT_INFO_SIZE, fw_lenght)) {
       end_ret = E_SUCCESS;
+      status = UPGRADE_HC_STATUS_START_CM;
     }
     else {
       end_ret = E_FAILURE;
+      status = UPGRADE_HC_STATUS_END;
+      last_action_ms = millis();
+      action_retry++;
       LOG_E("upgrade_moduel: module firmware checksum failure in flash\r\n");
     }
-    status = UPGRADE_HC_STATUS_END;
+  }
+  else {
+    trans_data_req(offset, UPGRADE_TRANS_BUF_SIZE);
   }
 
   return E_SUCCESS;
@@ -234,9 +271,6 @@ void UpgradeHostToController::trans_data_req(uint32_t offset, uint16_t len) {
   tx_msg.length = index;
   LOG_I("%dms upgrade_module: trans_req offset %d, buffer %d\r\n", millis(), offset, len);
   host_hmi.send(&tx_msg);
-
-  last_trans_req_ms = millis();
-  trans_req_try++;
 }
 
 void UpgradeHostToController::end_req(uint8_t ret) {
@@ -254,9 +288,6 @@ void UpgradeHostToController::end_req(uint8_t ret) {
   tx_msg.length = 1;
   host_hmi.send(&tx_msg);
   LOG_I("%dms upgrade_module: end_req, ret %d\r\n", millis(), ret);
-
-  last_end_req_ms = millis();
-  end_req_try++;
 }
 
 void UpgradeHostToController::error_notify(uint8_t ret) {

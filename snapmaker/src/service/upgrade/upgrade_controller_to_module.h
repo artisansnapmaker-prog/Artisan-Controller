@@ -32,9 +32,10 @@
 #include "../../common/type.h"
 #include "../../host/sacp_hmi.h"
 #include "../../boot/boot.h"
-#include "upgrade_module_interface.h"
 #include "../module.h"
 #include "../../module/base.h"
+#include "upgrade_module_interface.h"
+#include "upgrade_service.h"
 
 
 #define UPGRADE_CM_TRANS_BUF_SIZE   (128)
@@ -45,6 +46,7 @@ enum ModuleCMStatus {
   UPGRADE_CM_STATUS_A_MODULE_START,
   UPGRADE_CM_STATUS_START,
   UPGRADE_CM_STATUS_WAIT_FOR_READY,
+  UPGRADE_CM_STATUS_START_TRANS,
   UPGRADE_CM_STATUS_TRANS,
   UPGRADE_CM_STATUS_END,
 };
@@ -70,11 +72,13 @@ class UpgradeControllerToModule {
     err_code_t module_call_end_ack(uint8_t);
     err_code_t module_call_notify_req(uint8_t);
 
+    ModuleCMStatus get_status(void) {return status;};
+    err_code_t get_last_action_result(void) {return end_ret;}; 
+
   private:
     err_code_t start_a_module_upgrade(void);
     void ready_req(void);
     void start_trans(void);
-    void trans_data_req(uint32_t offset, uint16_t len);
     void end_req(uint8_t ret);
     void error_notify(uint8_t ret);
 
@@ -91,10 +95,9 @@ class UpgradeControllerToModule {
     uint32_t fw_checksum;
     uint16_t fw_id;
     uint32_t offset;
-    uint32_t trans_len;
 
     uint32_t last_action_ms;
-    uint32_t action_req_try;
+    uint32_t action_retry;
 
     uint8_t end_ret;
 

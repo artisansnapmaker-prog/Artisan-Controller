@@ -1001,7 +1001,9 @@ err_code_t SnapmakerPrinter::set_sys_status(enum SystemStatus req_status, enum S
   /*********************************************************************************/
   case SYSTEM_STATUS_APP_UPGRADE:
   case SYSTEM_STATUS_MODULE_UPGRADE:
-    if (sys_status == SYSTEM_STATUS_IDLE) {
+    if (sys_status == SYSTEM_STATUS_IDLE || 
+        sys_status == SYSTEM_STATUS_MODULE_UPGRADE ||
+        sys_status == SYSTEM_STATUS_APP_UPGRADE) {
       sys_status = req_status;
       ret = E_SUCCESS;
     } else {

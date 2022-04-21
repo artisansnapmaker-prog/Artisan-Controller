@@ -41,6 +41,8 @@ enum UpgradeHCStatus {
   UPGRADE_HC_STATUS_IDLE = 0,
   UPGRADE_HC_STATUS_START,
   UPGRADE_HC_STATUS_TRANS,
+  UPGRADE_HC_STATUS_START_CM,
+  UPGRADE_HC_STATUS_DO_CM,
   UPGRADE_HC_STATUS_END,
 };
 
@@ -77,11 +79,9 @@ class UpgradeHostToController {
     uint32_t fw_lenght;
     uint32_t checksum;
 
-    uint32_t last_trans_req_ms;
-    uint32_t trans_req_try;
-
-    uint32_t last_end_req_ms;
-    uint32_t end_req_try;
+    uint32_t last_action_ms;
+    uint32_t action_retry;
+    
     uint8_t end_ret;
 };
 

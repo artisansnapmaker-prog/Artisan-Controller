@@ -76,9 +76,7 @@ err_code_t UpdateService::sacp_msg_proc(void * obj, sacp_hmi_message_t *msg) {
     break;
 
     case UPGRADE_PAHSE_APP_START:
-    break;
-
-    case UPGRADE_PHASE_CONTROLLER_TO_MODULE:
+      ugr_ctrl_svc.start_proc(pit, msg);
     break;
 
     case UPGRADE_PHASE_HOST_TO_CONTROLLER:
@@ -89,7 +87,11 @@ err_code_t UpdateService::sacp_msg_proc(void * obj, sacp_hmi_message_t *msg) {
       ugr_hm_svc.sacp_msg_proc(msg);
     break;
 
+    case UPGRADE_PHASE_CONTROLLER_TO_MODULE:
+    break;
+
     default:
+      upgrade.phase = UPGRADE_PHASE_INIT;
     break;  
   }
 
@@ -170,14 +172,10 @@ void UpdateService::print_packet_info(pack_info_t *pit) {
   LOG_I("boot data checksum: 0x%08x", pit->boot_data_checksum);
 }
 
-void UpdateService::set_updgrade_phase(UpgradePhase p) {
-  if (UPGRADE_PHASE_HOST_TO_CONTROLLER == phase &&
-      UPGRADE_PHASE_INIT == p) {
-    if (E_SUCCESS != ugr_cm_svc.start()) {
-      phase = p;    
-    }
-  }
+UpgradePhase UpdateService::set_updgrade_phase(UpgradePhase p) {
+  UpgradePhase lp = phase;
   phase = p;
+  return lp;
 }
 
 UpgradePhase UpdateService::get_upgrade_pahse(void) {

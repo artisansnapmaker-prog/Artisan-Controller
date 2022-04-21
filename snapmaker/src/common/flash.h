@@ -28,8 +28,8 @@
 // bootloader partition
 #define FLASH_BOOT_FW_START_SECTOR              (0)
 #define FLASH_BOOT_FW_SECTOR_NUM                (2)
-#define FLASH_BOOT_FW_DATA_ADDR                 (FLASH_BASE)
-#define FLASH_BOOT_FW_DATA_SIZE                 (32 * 1024)
+#define FLASH_BOOT_FW_ADDR                      (FLASH_BASE)
+#define FLASH_BOOT_FW_SIZE                      (32 * 1024)
 
 // bootloader data partition
 #define FLASH_BOOT_DATA_START_SECTOR            (11)
@@ -44,7 +44,7 @@
 #define FLASH_MARLIN_SETTINGS_SIZE              (16 * 1024)
 
 // app partition
-#define FLASH_APP_FW_ADDR                       (48 * 1024 + FLASH_BASE)
+#define FLASH_APP_FW_ADDR                       (64 * 1024 + FLASH_BASE)
 #define FLASH_APP_FW_SIZE                       (592 * 1024)
 
 // module firmware partition

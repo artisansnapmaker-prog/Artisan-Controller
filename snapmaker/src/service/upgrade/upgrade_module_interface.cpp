@@ -122,7 +122,7 @@ UpgradeModuleInfo *get_module_upgrade_handls(UpdatePackType pack_type, uint16_t 
 }
 
 err_code_t module_call_start_ack(uint8_t ret) {
-  FUN_LOG();
+  // FUN_LOG();
   if (UPGRADE_PHASE_HOST_TO_MODULE == upgrade_svc.get_upgrade_pahse()){
     return ugr_hm_svc.module_call_start_ack(ret);
   }
@@ -135,7 +135,7 @@ err_code_t module_call_start_ack(uint8_t ret) {
 }
 
 err_code_t module_call_ready_ack(uint8_t ret) {
-  FUN_LOG();
+  // FUN_LOG();
   if (UPGRADE_PHASE_HOST_TO_MODULE == upgrade_svc.get_upgrade_pahse()){
     return E_SUCCESS;
   }
@@ -148,7 +148,7 @@ err_code_t module_call_ready_ack(uint8_t ret) {
 }
 
 err_code_t module_call_trans_req(uint32_t req_offset, uint32_t len) {
-  FUN_LOG();
+  // FUN_LOG();
   if (UPGRADE_PHASE_HOST_TO_MODULE == upgrade_svc.get_upgrade_pahse()) {
     return ugr_hm_svc.module_call_trans_req(req_offset, len);
   }
@@ -161,7 +161,7 @@ err_code_t module_call_trans_req(uint32_t req_offset, uint32_t len) {
 }
 
 err_code_t module_call_end_ack(uint8_t ret) {
-  FUN_LOG();
+  // FUN_LOG();
   if (UPGRADE_PHASE_HOST_TO_MODULE == upgrade_svc.get_upgrade_pahse()){
     return ugr_hm_svc.module_call_end_ack(ret);
   }
@@ -174,7 +174,7 @@ err_code_t module_call_end_ack(uint8_t ret) {
 }
 
 err_code_t module_call_notify_req(uint8_t ret) {
-  FUN_LOG();
+  // FUN_LOG();
   if (UPGRADE_PHASE_HOST_TO_MODULE == upgrade_svc.get_upgrade_pahse()){
     return ugr_hm_svc.module_call_notify_req(ret);
   }

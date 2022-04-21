@@ -52,9 +52,9 @@
 enum UpgradePhase {
   UPGRADE_PHASE_INIT = 0,
   UPGRADE_PAHSE_APP_START,
-  UPGRADE_PHASE_CONTROLLER_TO_MODULE,
   UPGRADE_PHASE_HOST_TO_CONTROLLER,
   UPGRADE_PHASE_HOST_TO_MODULE,
+  UPGRADE_PHASE_CONTROLLER_TO_MODULE,
 };
 
 class UpgradeCtrlService;
@@ -76,7 +76,7 @@ class UpdateService {
     bool boot_info_flush_to_flash();
     void set_boot_info(pack_info_t *bti);
     void print_packet_info(pack_info_t *pit);
-    void set_updgrade_phase(UpgradePhase);
+    UpgradePhase set_updgrade_phase(UpgradePhase);
     UpgradePhase get_upgrade_pahse(void);
     bool firmware_flash_checksum(uint32_t rx_checsum, uint32_t flash_addr, uint32_t len);
 

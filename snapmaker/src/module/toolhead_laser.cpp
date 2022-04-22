@@ -616,6 +616,10 @@ err_code_t ToolHeadLaser::hmi_cb_set_safety_lock(void *obj, sacp_hmi_message_t *
   }
 
   if (message->data[1] == UNLOCK_LASER) {
+    if (laser.get_status() == MODULE_STATUS_NORMAL) {
+      host_hmi.send_ack(message, E_SUCCESS);
+    }
+
     if (laser.get_status() != MODULE_STATUS_LASER_LOCKED) {
       LOG_E("cannot unlock laser in state[&u]\n", laser.get_status());
       return host_hmi.send_ack(message, E_INVALID_STATE);
@@ -623,7 +627,11 @@ err_code_t ToolHeadLaser::hmi_cb_set_safety_lock(void *obj, sacp_hmi_message_t *
 
     laser.set_status(MODULE_STATUS_NORMAL);
   }
-  else {
+  else { 
+    if (laser.get_status() == MODULE_STATUS_LASER_LOCKED) {
+      return host_hmi.send_ack(message, E_SUCCESS);
+    }
+
     if (laser.get_status() != MODULE_STATUS_NORMAL) {
       LOG_E("cannot lock laser in state[&u]\n", laser.get_status());
       return host_hmi.send_ack(message, E_INVALID_STATE);
@@ -955,6 +963,8 @@ err_code_t ToolHeadLaser::post_init() {
     hmi_cb_set_output);
   host_hmi.register_callback(SACP_CMD_SET_LASER, SACP_CMD_ID_LASER_SET_FOCAL_LENGTH, (void *)this,
     hmi_cb_set_focal_length);
+  host_hmi.register_callback(SACP_CMD_SET_LASER, SACP_CMD_ID_LASER_SET_SAFETY_LOCK, (void *)this,
+    hmi_cb_set_safety_lock);
 
   // publish power
   host_hmi.register_subscription(SACP_CMD_SET_LASER, SACP_CMD_ID_LASER_SUBSCRIBE_POWER, (void *)this,

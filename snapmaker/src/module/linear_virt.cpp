@@ -8,8 +8,8 @@ enum LinearException {
   LINEAR_EXCEPTION_OFFLINE = 1,
 };
 
-#define ROUTINE_TIMEOUT   (100)
-#define OFFLINE_DEBOUNCE  (2)
+#define ROUTINE_TIMEOUT   (200)
+#define OFFLINE_DEBOUNCE  (5)
 
 #define ENTER_STANDBY (HIGH)
 #define EXIT_STANDBY  (LOW)
@@ -232,7 +232,9 @@ err_code_t LinearVirtual::routine(void *obj) {
   if (time_after(linear.next_ms, millis()))
     return E_SUCCESS;
 
+  taskENTER_CRITICAL();
   raw_adc = analogRead(linear.detect_pin);
+  taskEXIT_CRITICAL();
   detected_vol = raw_adc * 3.3 / 4096;
 
   if (detected_vol < linear.lower_limit || detected_vol > linear.upper_limit) {

@@ -367,6 +367,10 @@ err_code_t JobCtrl::resume_env(JobResumeType rt) {
   ModuleBase *cur_toolhead;
   xyze_pos_t dest;
 
+  if (rt == RESUME_TYPE_LIVE_Z_OFFSET) {
+    goto __pos_resume;
+  }
+  
   LOG_I("job_ctrl: get current toolhead pointer\r\n");
   if (!(cur_toolhead = smprinter.get_cur_toolhead())) {
     LOG_E("job_ctrl: can not get toolhead\r\n");
@@ -394,12 +398,12 @@ err_code_t JobCtrl::resume_env(JobResumeType rt) {
   }
   abort_resume = false;
 
+__pos_resume:
   _env.req_line_num = _env.cur_line_num;
-
   // wait for all movement done
   motion_platform_svc.synchronize_planner();
   motion_platform_svc.update_position_from_platform();
-  
+
   dest   = motion_platform_svc.sm_current_position;
   dest.x = _env.current_pos.x;
   dest.y = _env.current_pos.y;

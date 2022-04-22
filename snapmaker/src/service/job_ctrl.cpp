@@ -682,6 +682,7 @@ void JobCtrl::do_start(struct JobCtrlReqInfo &jri) {
   _get_gcode_buffer_req_min = 0;
   got_last_gcode_packet = false;
   _paused = false;
+  motion_platform_svc.stepper_total_offset = 0;
 
   // get next status we should enter
   switch (status_before_start) {
@@ -849,6 +850,7 @@ void JobCtrl::do_resume(struct JobCtrlReqInfo &jri) {
   _gcode_rb.reset();
   UNLOCK(_lock);
   got_last_gcode_packet = false;
+  motion_platform_svc.stepper_total_offset = 0;
 
   if (E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_PRINTING, NULL)) {
     LOG_E("job ctrl: can not enter SYS_PRINTING status");

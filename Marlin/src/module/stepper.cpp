@@ -1657,11 +1657,12 @@ void Stepper::pulse_phase_isr() {
   if (abort_current_block) {
     abort_current_block = false;
 
-    #if MB_SNAPMAKER
-    motion_platform_svc.add_stepper_offset(current_block->e_stepper_offset * step_events_completed / step_event_count);
-    #endif
-
-    if (current_block) discard_current_block();
+    if (current_block){
+      #if MB_SNAPMAKER
+      motion_platform_svc.add_stepper_offset(current_block->e_stepper_offset * step_events_completed / step_event_count);
+      #endif
+      discard_current_block();
+    } 
     #if MB_SNAPMAKER
     // motion_platform_svc.stepper_quickstop_finish();
     // motion_platform_svc.stepper_quickstop_cb();
@@ -1981,6 +1982,7 @@ uint32_t Stepper::block_phase_isr() {
 
       #if MB_SNAPMAKER
       motion_platform_svc.add_stepper_offset(current_block->e_stepper_offset);
+      motion_platform_svc.update_stepper_actual_pos(current_block->e_actual_stepps_counter);
       #endif
 
       discard_current_block();

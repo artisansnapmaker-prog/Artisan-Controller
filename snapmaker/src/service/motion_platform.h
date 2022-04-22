@@ -126,7 +126,9 @@ class MotionPlatformService {
     void stepper_quickstop_wait(void);
     void stepper_quickstop_cb(void);
     long stepper_total_offset;
+    long stepper_actual_pos;
     void add_stepper_offset(int stepper_offset_counter);
+    void update_stepper_actual_pos(long block_run_counter ) { stepper_actual_pos += block_run_counter; };
 
     // home API
     bool is_all_axes_homed() {return all_axes_homed();}

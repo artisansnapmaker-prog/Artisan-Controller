@@ -1653,6 +1653,18 @@ err_code_t ToolHeadFDM::recover_env(uint8_t *env_buf, uint32_t &len) {
   LOG_I("reover env, active_extruder: %d\n", active_extruder);
   tool_change(active_extruder);
 
+  // feedrate percentage
+  extruders_feedrate_percentage[0] = recovery_data.feedrate_percentage[0];
+  extruders_feedrate_percentage[1] = recovery_data.feedrate_percentage[1];
+  LOG_I("resume env, feedrate_percentage: %d, %d\n", recovery_data.feedrate_percentage[0], recovery_data.feedrate_percentage[1]);
+  motion_platform_svc.sync_feedrate_percentage_to_platform(extruders_feedrate_percentage[active_extruder]);
+
+  // flowrate percentage
+  extruders_flowrate_percentage[0] = recovery_data.flowrate_percentage[0];
+  extruders_flowrate_percentage[1] = recovery_data.flowrate_percentage[1];
+  LOG_I("resume env, flowrate_perventage: %d, %d\n", extruders_flowrate_percentage[0], extruders_flowrate_percentage[1]);
+  motion_platform_svc.sync_flowrate_percentage_to_platform(extruders_flowrate_percentage[active_extruder], active_extruder);
+
   return E_SUCCESS;
 }
 
@@ -1688,18 +1700,6 @@ err_code_t ToolHeadFDM::resume_env(uint8_t *env_buf, uint32_t &len) {
     snprintf(buf, 32, "M104 T1 S%d", recovery_data.target_temp[1]);
     motion_platform_svc.run_gcode(buf);
   }
-
-  // feedrate percentage
-  extruders_feedrate_percentage[0] = recovery_data.feedrate_percentage[0];
-  extruders_feedrate_percentage[1] = recovery_data.feedrate_percentage[1];
-  LOG_I("resume env, feedrate_percentage: %f, %f\n", recovery_data.feedrate_percentage[0], recovery_data.feedrate_percentage[1]);
-  motion_platform_svc.sync_feedrate_percentage_to_platform(extruders_feedrate_percentage[active_extruder]);
-
-  // flowrate percentage
-  extruders_flowrate_percentage[0] = recovery_data.flowrate_percentage[0];
-  extruders_flowrate_percentage[1] = recovery_data.flowrate_percentage[1];
-  LOG_I("resume env, flowrate_perventage: %f, %f\n", extruders_flowrate_percentage[0], extruders_flowrate_percentage[1]);
-  motion_platform_svc.sync_flowrate_percentage_to_platform(extruders_flowrate_percentage[active_extruder], active_extruder);
 
   return E_SUCCESS;
 }

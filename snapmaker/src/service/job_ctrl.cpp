@@ -363,7 +363,7 @@ err_code_t JobCtrl::recover_env(void) {
   return E_SUCCESS;
 }
 
-err_code_t JobCtrl::resume_env(void) {
+err_code_t JobCtrl::resume_env(JobResumeType rt) {
   ModuleBase *cur_toolhead;
   xyze_pos_t dest;
 
@@ -384,7 +384,7 @@ err_code_t JobCtrl::resume_env(void) {
     return E_JOB_RESUME_ENV_FAILURE;
   }
 
-  if (TH_TYPE_3DP == _env.type) {
+  if (TH_TYPE_3DP == _env.type && rt != RESUME_TYPE_LIVE_Z_OFFSET) {
     while(!abort_resume &&
           (!motion_platform_svc.bed_heatup_to_target() ||
           !motion_platform_svc.hotends_heatup_to_target())) {

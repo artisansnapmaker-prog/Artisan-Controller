@@ -233,7 +233,7 @@ class JobCtrl {
     void do_resume(struct JobCtrlReqInfo &jri);
     void do_stop(struct JobCtrlReqInfo &jri);
     err_code_t save_env(void);                                  /** save current job enviroment                                           */
-    err_code_t resume_env(void);                                /** resume saved enviroment to job                                        */
+    err_code_t resume_env(JobResumeType rt);                    /** resume saved enviroment to job                                        */
     err_code_t recover_env(void);                                /** resume saved enviroment to job                                        */
     err_code_t machine_standby(void);                           /** set the machine in standby status                                     */
     void issue_nodify(uint8_t issue_ret);

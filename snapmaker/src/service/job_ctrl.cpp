@@ -363,7 +363,7 @@ err_code_t JobCtrl::recover_env(void) {
   return E_SUCCESS;
 }
 
-err_code_t JobCtrl::resume_env(JobResumeType rt) {
+err_code_t JobCtrl::resume_env(void) {
   ModuleBase *cur_toolhead;
   xyze_pos_t dest;
 
@@ -384,7 +384,7 @@ err_code_t JobCtrl::resume_env(JobResumeType rt) {
     return E_JOB_RESUME_ENV_FAILURE;
   }
 
-  if (TH_TYPE_3DP == _env.type && rt != RESUME_TYPE_LIVE_Z_OFFSET) {
+  if (TH_TYPE_3DP == _env.type) {
     while(!abort_resume &&
           (!motion_platform_svc.bed_heatup_to_target() ||
           !motion_platform_svc.hotends_heatup_to_target())) {
@@ -828,7 +828,7 @@ void JobCtrl::do_resume(struct JobCtrlReqInfo &jri) {
     }
   }
 
-  if (RESUME_TYPE_LIVE_Z_OFFSET == jri.req_data.req_resume_data.type && E_SUCCESS != resume_env()) {
+  if (RESUME_TYPE_LIVE_Z_OFFSET != jri.req_data.req_resume_data.type && E_SUCCESS != resume_env()) {
     LOG_E("job ctrl: resume failed\r\n");
     smprinter.set_sys_status(SYSTEM_STATUS_IDLE, &ret_sys_status);
     DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, SYSTEM_STATUS_IDLE);

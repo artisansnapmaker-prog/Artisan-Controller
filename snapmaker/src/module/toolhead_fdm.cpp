@@ -1477,6 +1477,8 @@ err_code_t ToolHeadFDM::filament_detect_ctrl(uint8_t state, uint8_t e) {
     motion_platform_svc.disable_filament_runout();
   }
 
+  motion_platform_svc.save_settings();
+
   return E_SUCCESS;
 }
 

@@ -1774,7 +1774,7 @@ float Planner::get_axis_position_mm(const AxisEnum axis) {
     #if MB_SNAPMAKER
       if (axis == E_AXIS) {
         axis_steps = stepper.position(axis) - motion_platform_svc.stepper_total_offset;
-        LOG_I("motion_platform_svc.stepper_total_offset: %d\r\n", motion_platform_svc.stepper_total_offset);
+        // LOG_I("motion_platform_svc.stepper_total_offset: %d\r\n", motion_platform_svc.stepper_total_offset);
         motion_platform_svc.stepper_total_offset = 0;
         // axis_steps = motion_platform_svc.stepper_actual_pos;
       } else {
@@ -1999,7 +1999,7 @@ bool Planner::_populate_block(block_t * const block, bool split_move,
     const uint32_t actual_esteps = ABS(de) + 0.5f;
     block->e_stepper_offset = (esteps - actual_esteps) * ((de < 0)?-1:1);
     block->e_actual_stepps_counter = actual_esteps * ((de < 0)?-1:1);
-    LOG_I("block->e_stepper_offset: %d, total: %d\r\n", block->e_stepper_offset, motion_platform_svc.stepper_total_offset);
+    // LOG_I("block->e_stepper_offset: %d, total: %d\r\n", block->e_stepper_offset, motion_platform_svc.stepper_total_offset);
     #endif
   #else
     constexpr uint32_t esteps = 0;

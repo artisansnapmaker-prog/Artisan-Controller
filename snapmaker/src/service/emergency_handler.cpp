@@ -466,7 +466,7 @@ err_code_t EmergencyHandler::hmi_cb_req_recovery_job(void *obj, sacp_hmi_message
   memcpy(&msg_notify_recovery, msg, sizeof(sacp_hmi_message_t));
 
   // resume job
-  job_ctrl_svc.req_resume(msg->peer, job_cb_notify_recovery, &msg_notify_recovery, RESUME_TYPE_RECOVERY);
+  job_ctrl_svc.req_resume(client->id, job_cb_notify_recovery, &msg_notify_recovery, RESUME_TYPE_RECOVERY);
 
   return E_SUCCESS;
 }

@@ -2,6 +2,7 @@
 #include "bed_level.h"
 #include "Arduino.h"
 #include "../snapmaker.h"
+#include "job_ctrl.h"
 
 BedLevelService bedlevel_svc;
 
@@ -931,11 +932,15 @@ void BedLevelService::set_live_z_offset(uint8_t e, float offset) {
     live_z_offset_changed = true;
     LOG_I("z cur height changed: %f\n", offset - live_z_offset[e]);
     if (e == smprinter.fdm->get_active_extruder()) {
-      motion_platform_svc.synchronize_planner();
+      job_ctrl_svc.req_pause(PUASE_LIVE_Z_OFFSET, NULL, NULL);
+      while(smprinter.get_sys_status() != SYSTEM_STATUS_PAUSED) {
+        motion_platform_svc.synchronize_planner();
+      }
       float cur_z = motion_platform_svc.get_current_position(Z_AXIS);
       motion_platform_svc.moveto_z(cur_z + (offset - live_z_offset[e]), 5);
       motion_platform_svc.sm_current_position[Z_AXIS] = cur_z;
       motion_platform_svc.sync_plan_position_to_platform();
+      job_ctrl_svc.req_resume(0, NULL, NULL, RESUME_TYPE_LIVE_Z_OFFSET);
     }
     live_z_offset[e] = offset;
     if (smprinter.get_sys_status() == SYSTEM_STATUS_IDLE) {

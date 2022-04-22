@@ -741,7 +741,7 @@ void JobCtrl::do_pause(struct JobCtrlReqInfo &jri) {
     break;
 
     case PUASE_LIVE_Z_OFFSET:
-      motion_platform_svc.req_quickstop();
+      motion_platform_svc.req_live_Z_offset_quickstop();
       need_standby = false;
     break;
 

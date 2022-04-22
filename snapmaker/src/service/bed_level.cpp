@@ -434,26 +434,19 @@ static err_code_t hmi_req_callback_probe_sensor_calibration(void *obj, sacp_hmi_
     goto EXIT;
   }
 
-  bedlevel.set_end_leveling_process_status(false);
-
-  // clear live_z_offset
-  bedlevel.live_z_offset[0] = 0;
-  bedlevel.live_z_offset[1] = 0;
-  smsettings->live_z_offset[0] = 0;
-  smsettings->live_z_offset[1] = 0;
-  motion_platform_svc.save_settings();
-
-  motion_platform_svc.run_gcode((char *)"G28", true);
-
-
-
-  smprinter.fdm->extruder_status_check_ctrl(EXTRUDER_STATUS_IDLE);
-
-  motion_platform_svc.disable_leveling();
-
   switch (action) {
     case 0:
       LOG_I("probe sensor calibration left extruder auto detect\n");
+      // clear live_z_offset
+      bedlevel.live_z_offset[0] = 0;
+      bedlevel.live_z_offset[1] = 0;
+      smsettings->live_z_offset[0] = 0;
+      smsettings->live_z_offset[1] = 0;
+      motion_platform_svc.save_settings();
+      motion_platform_svc.run_gcode((char *)"G28", true);
+      bedlevel.set_end_leveling_process_status(false);
+      smprinter.fdm->extruder_status_check_ctrl(EXTRUDER_STATUS_IDLE);
+      motion_platform_svc.disable_leveling();
       motion_platform_svc.moveto_xy(x, y, 60);
       smprinter.fdm->tool_change(0, false);
       motion_platform_svc.moveto_z(20, 30);

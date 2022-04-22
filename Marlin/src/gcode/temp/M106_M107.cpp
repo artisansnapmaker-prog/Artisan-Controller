@@ -73,8 +73,7 @@ void GcodeSuite::M106() {
       if (extruders == 1) {
         thermalManager.set_fan_speed(0, s);
       } else if (extruders == 2) {
-        thermalManager.set_fan_speed(0, s);
-        thermalManager.set_fan_speed(1, s);
+        thermalManager.set_fan_speed(active_extruder, s);
       }
     }
   #else
@@ -132,8 +131,7 @@ void GcodeSuite::M107() {
       if (extruders == 1) {
         thermalManager.set_fan_speed(0, 0);
       } else if (extruders == 2) {
-        thermalManager.set_fan_speed(0, 0);
-        thermalManager.set_fan_speed(1, 0);
+        thermalManager.set_fan_speed(active_extruder, 0);
       }
     }
   #else

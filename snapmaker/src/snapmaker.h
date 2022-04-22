@@ -31,6 +31,7 @@ struct SnapmakerSettings {
   int32_t laser_4axis_center_hight;
   float live_z_offset[EXTRUDERS];
   PurifierWorkSettings purifier_settings;
+  EnclosureSettings enclosure_settings;
 };
 
 // settings defination

@@ -82,8 +82,7 @@ err_code_t Enclosure::pre_init() {
     return E_FAILURE;
 
   if (public_mutex_lock()) {
-    online = false;
-    check_switch = true;
+    // check_switch = true;
     enclosure_sta = ENCLOSURE_INITIAL_STATE;
     light_level = 0;
     fan_speed = 0;
@@ -127,6 +126,7 @@ void Enclosure::enclosure_offline_check(uint32_t time_out) {
         online = false;
         set_status(MODULE_STATUS_OFFLINE);
         public_mutex_unlock();
+        LOG_E("enclosure offline!!!");
       }
     }
   }
@@ -166,14 +166,14 @@ void enclosure_callback_update_status(void *obj, uint8_t *data, uint8_t length) 
   if (door_change) {
     if (enclosure.enclosure_sta & ENCLOSURE_DOOR_STATUS_MASK) {
       LOG_I("Enclosure door open\n");
-      if (enclosure.check_switch) {
+      if (enclosure.get_enclosure_check_switch_sta()) {
         // TODO: door open process
         smprinter.pause_trigger(PAUSE_DOOR_OPEN);
       }
     }
     else {
       LOG_I("Enclosure door close\n");
-      if (enclosure.check_switch) {
+      if (enclosure.get_enclosure_check_switch_sta()) {
         // TODO: door close process
       }
     }
@@ -183,8 +183,9 @@ void enclosure_callback_update_status(void *obj, uint8_t *data, uint8_t length) 
 
 uint8_t Enclosure::get_door_check(void) {
   uint8_t ret = 0;
-  // TODO: do you also need restrictions when offline 
-  if (/*online &&*/ check_switch) {
+  bool check_switch_ = get_enclosure_check_switch_sta();
+
+  if (check_switch_) {
     if (!online || (enclosure_sta & ENCLOSURE_DOOR_STATUS_MASK))
       ret = 1;
   }
@@ -193,6 +194,39 @@ uint8_t Enclosure::get_door_check(void) {
 
 bool Enclosure::status_is_change(uint8_t cur_sta, uint8_t old_sta, uint8_t mask) {
   return (cur_sta & mask) ^ (old_sta & mask);
+}
+
+uint32_t Enclosure::get_enclosure_check_mask(void) {
+  SnapmakerSettings *sm_settings = NULL;
+  uint32_t mask = ENCLOSURE_CHECK_ENABLE_DEFAULT_MASK;
+  sm_settings = smprinter.get_settings();
+  if (sm_settings)
+    mask = sm_settings->enclosure_settings.enclosure_check_enable_mask;
+  return mask;
+}
+
+bool Enclosure::get_enclosure_check_switch_sta(void) {
+  bool check_switch_on = false;
+  uint32_t mask = get_enclosure_check_mask();
+  toolHeadType toolhead = smprinter.get_toolhead_type();
+
+  switch (toolhead) {
+    case TH_TYPE_3DP:
+      check_switch_on = !!(mask & (1 << ENCLOSURE_WORK_TYPE_FDM));
+    break;
+
+    case TH_TYPE_LASER:
+      check_switch_on = !!(mask & (1 << ENCLOSURE_WORK_TYPE_LASER));
+    break;
+
+    case TH_TYPE_CNC:
+      check_switch_on = !!(mask & (1 << ENCLOSURE_WORK_TYPE_CNC));
+    break;
+
+    default:
+    break;
+  }
+  return check_switch_on;
 }
 
 err_code_t enclosure_callback_routine(void *obj) {
@@ -304,37 +338,43 @@ err_code_t Enclosure::set_fan_speed(uint8_t speed) {
   return set_enclosure_dev_func(1, speed);
 }
 
-err_code_t Enclosure::enable_enclosure_check() {
-  LOG_I("enable enclosure check\n");
-  if (public_mutex_lock()) {
-     check_switch = true;
-     public_mutex_unlock();
-  }
-  else {
-    LOG_E("[%s] Enclosure take public_mutex_lock fail",__FUNCTION__);
-    return E_FAILURE;
-  }
-  // TODO: enable process
-  return E_SUCCESS;
-}
+// err_code_t Enclosure::enable_enclosure_check() {
+//   LOG_I("enable enclosure check\n");
+//   if (public_mutex_lock()) {
+//      check_switch = true;
+//      public_mutex_unlock();
+//   }
+//   else {
+//     LOG_E("[%s] Enclosure take public_mutex_lock fail",__FUNCTION__);
+//     return E_FAILURE;
+//   }
+//   // TODO: enable process
+//   return E_SUCCESS;
+// }
 
-err_code_t Enclosure::disable_enclosure_check() {
-  LOG_I("disable enclosure check\n");
-  if (public_mutex_lock()) {
-     check_switch = false;
-     public_mutex_unlock();
-  }
-  else {
-    LOG_E("[%s] Enclosure take public_mutex_lock fail",__FUNCTION__);
-    return E_FAILURE;
-  }
-  // TODO: disable process
-  return E_SUCCESS;
-}
+// err_code_t Enclosure::disable_enclosure_check() {
+//   LOG_I("disable enclosure check\n");
+//   if (public_mutex_lock()) {
+//      check_switch = false;
+//      public_mutex_unlock();
+//   }
+//   else {
+//     LOG_E("[%s] Enclosure take public_mutex_lock fail",__FUNCTION__);
+//     return E_FAILURE;
+//   }
+//   // TODO: disable process
+//   return E_SUCCESS;
+// }
 
 void Enclosure::report_enclosure_status() {
   if (online) {
-    LOG_I("enclosure check_switch %s\n", check_switch ? "enable" : "disable");
+    LOG_I("enclosure check_switch %s\n", get_enclosure_check_switch_sta() ? "enable" : "disable");
+    LOG_I("fdm mode check_switch %s\n",(get_enclosure_check_mask() & \
+                        (1 << ENCLOSURE_WORK_TYPE_FDM)) ? "enable" : "disable");
+    LOG_I("laser mode check_switch %s\n",(get_enclosure_check_mask() & \
+                        (1 << ENCLOSURE_WORK_TYPE_LASER)) ? "enable" : "disable");
+    LOG_I("cnc mode check_switch %s\n",(get_enclosure_check_mask() & \
+                        (1 << ENCLOSURE_WORK_TYPE_CNC)) ? "enable" : "disable");
     LOG_I("enclosure door is %s\n", enclosure_sta & ENCLOSURE_DOOR_STATUS_MASK ? "open" : "close");
     LOG_I("enclosure light bar light_level: %d\n", light_level);
     LOG_I("enclosure light fan speed: %d\n", fan_speed);
@@ -409,8 +449,9 @@ err_code_t Enclosure::post_init() {
 // 0x15  0x01
 err_code_t send_enclosure_info_to_hmi(void *obj, sacp_hmi_message_t *msg) {
   Enclosure &enclosure = *(Enclosure *)obj;
-  EnclosureInfo *tmp_info = NULL;
   err_code_t result = E_FAILURE;
+  uint16_t i = 0;
+  uint32_t mask = 0;
 
   if (!msg || !obj || msg->length != 1) {
     LOG_E("[%s] got a invalid parameter\n",__FUNCTION__);
@@ -427,15 +468,22 @@ err_code_t send_enclosure_info_to_hmi(void *obj, sacp_hmi_message_t *msg) {
     return host_hmi.send_ack(msg, E_INVALID_STATE);
   }
 
-  msg->data[0] = E_SUCCESS;   // default success
-  tmp_info = (EnclosureInfo *)(msg->data+1);
-  tmp_info->key = enclosure.get_key();
-  tmp_info->head_status = enclosure.get_status();;    
-  tmp_info->light_level = enclosure.light_level;
-  tmp_info->check_switch = enclosure.check_switch;
-  tmp_info->door_sta = !!(enclosure.enclosure_sta & ENCLOSURE_DOOR_STATUS_MASK);
-  tmp_info->fan_speed = enclosure.fan_speed;
-  result = host_hmi.send_ack(msg, msg->data, sizeof(EnclosureInfo) + 1);
+  mask = enclosure.get_enclosure_check_mask(); 
+
+  msg->data[i++] = E_SUCCESS;   // default success
+  msg->data[i++] = enclosure.get_key();
+  msg->data[i++] = enclosure.get_status();;    
+  msg->data[i++] = enclosure.light_level;
+  
+  msg->data[i++] =  ENCLOSURE_WORK_TYPE_LIMIT;
+  for (uint8_t k = 0; k < ENCLOSURE_WORK_TYPE_LIMIT; k++) {
+    msg->data[i++] = k;
+    msg->data[i++] = !!(mask & (1 << k));
+  }
+  msg->data[i++] = !!(enclosure.enclosure_sta & ENCLOSURE_DOOR_STATUS_MASK);
+  msg->data[i++] = enclosure.fan_speed;
+
+  result = host_hmi.send_ack(msg, msg->data, i); 
   if (result != E_SUCCESS) {
     LOG_E("[%s] send msg fail\n",__FUNCTION__);
   }
@@ -481,8 +529,9 @@ err_code_t hmi_set_enclosure_light(void *obj, sacp_hmi_message_t *msg) {
 err_code_t hmi_set_enclosure_check(void *obj, sacp_hmi_message_t *msg) {
   Enclosure &enclosure = *(Enclosure *)obj;
   err_code_t result = E_FAILURE;
+  SnapmakerSettings *sm_settings = NULL;
 
-  if (!msg || !obj || msg->length != 2) {
+  if (!msg || !obj || msg->length != 3) {
     LOG_E("[%s] got a invalid parameter\n",__FUNCTION__);
     return host_hmi.send_ack(msg, E_PARAM);
   }
@@ -493,20 +542,30 @@ err_code_t hmi_set_enclosure_check(void *obj, sacp_hmi_message_t *msg) {
     return host_hmi.send_ack(msg, E_INVALID_MODULE_KEY);
   }
 
-  // if (enclosure.get_status() != MODULE_STATUS_NORMAL) {
-  //   return host_hmi.send_ack(msg, E_INVALID_STATE);
-  // }
+  LOG_I("[%s] work type:%d enable: %d\n", __FUNCTION__, msg->data[1], msg->data[2]);
 
-  if (msg->data[1])
-    result = enclosure.enable_enclosure_check();
-  else 
-    result = enclosure.disable_enclosure_check();
-  
-  if (result != E_SUCCESS) {
-    LOG_E("[%s] set enclosure check fail\n",__FUNCTION__);
+  if (msg->data[1] >= ENCLOSURE_WORK_TYPE_LIMIT) {
+    LOG_E("[%s] error work type: %d\n",__FUNCTION__, msg->data[1]);
+    return host_hmi.send_ack(msg, E_PARAM);
   }
 
-  msg->data[0] = result == E_SUCCESS ? E_SUCCESS : E_FAILURE;   // set fail
+  sm_settings = smprinter.get_settings();
+  if (!sm_settings) {
+    LOG_E("[%s] get sm_settings fail\n",__FUNCTION__);
+    return host_hmi.send_ack(msg, E_INVALID_STATE);
+  }
+
+  taskENTER_CRITICAL();    
+  if (msg->data[2])  {
+    sm_settings->enclosure_settings.enclosure_check_enable_mask |= (1 << msg->data[1]);
+  }
+  else 
+    sm_settings->enclosure_settings.enclosure_check_enable_mask &= (~(1 << msg->data[1]));
+  taskEXIT_CRITICAL();  
+
+  motion_platform_svc.save_settings();
+  
+  msg->data[0] = E_SUCCESS;   
   result = host_hmi.send_ack(msg, msg->data[0]);
 
   if (result != E_SUCCESS) {
@@ -554,28 +613,34 @@ err_code_t hmi_set_enclosure_fan(void *obj, sacp_hmi_message_t *msg) {
 
 // 0x15  0xa0
 uint16_t hmi_subscribe_enclosure_func(void *obj, uint8_t *buffer) {
-  EnclosureInfo *tmp_info;
   Enclosure &enclosure = *(Enclosure *)obj;
+  uint16_t i = 0;
+  uint32_t mask = 0;
+
   if (!obj || !buffer) {
     LOG_E("[%s] obj or buffer pointer is null\n",__FUNCTION__);
     return 0;
   }
 
-  buffer[0] = E_SUCCESS;
-  tmp_info = (EnclosureInfo *)(buffer + 1);
-  tmp_info->key = enclosure.get_key();
-  tmp_info->head_status = enclosure.get_status();
-  tmp_info->light_level = enclosure.light_level;
-  tmp_info->check_switch = enclosure.check_switch;
-  tmp_info->door_sta = !!(enclosure.enclosure_sta & ENCLOSURE_DOOR_STATUS_MASK);
-  tmp_info->fan_speed = enclosure.fan_speed;
+  mask = enclosure.get_enclosure_check_mask();
 
-  return sizeof(EnclosureInfo) + 1;
+  buffer[i++] = E_SUCCESS;
+  buffer[i++] = enclosure.get_key();
+  buffer[i++] = enclosure.get_status();
+  buffer[i++] = enclosure.light_level;
+  buffer[i++] =  ENCLOSURE_WORK_TYPE_LIMIT;
+  for (uint8_t k = 0; k < ENCLOSURE_WORK_TYPE_LIMIT; k++) {
+    buffer[i++] = k;
+    buffer[i++] = !!(mask & (1 << k));
+  }
+  buffer[i++] = !!(enclosure.enclosure_sta & ENCLOSURE_DOOR_STATUS_MASK);
+  buffer[i++] = enclosure.fan_speed;
+
+  return i;
 }
 
 void Enclosure::enclosure_hmi_self_test_interface(uint8_t test_type, uint32_t param) {
   sacp_hmi_message_t msg;
-  EnclosureInfo *tmp_info = NULL;
   uint8_t buff[50];
   switch(test_type) {
     case 0:
@@ -585,12 +650,13 @@ void Enclosure::enclosure_hmi_self_test_interface(uint8_t test_type, uint32_t pa
       msg.data = buff;
       send_enclosure_info_to_hmi(this, &msg);
       if (msg.length > 1) {
-        tmp_info = (EnclosureInfo *)(msg.data+1);
         LOG_I("send msg len: %d result: %d\n",msg.length, msg.data[0]);
-        LOG_I("Enclosure key: %d head_status: %d\n",  tmp_info->key, tmp_info->head_status);
-        LOG_I("Enclosure light level: %d  speed: %d\n",  tmp_info->light_level, tmp_info->fan_speed);
-        LOG_I("Enclosure check_switch: %s\n",  tmp_info->check_switch ? "enable" : "disable");
-        LOG_I("Enclosure door_sta: %s\n",  tmp_info->door_sta ? "open" : "close");
+        LOG_I("Enclosure key: %d head_status: %d\n",  msg.data[1], msg.data[2]);
+        for (uint8_t index = 0; index < msg.data[4]; index++) {
+          LOG_I("Enclosure work type: %d  enable: %d\n",  msg.data[5+index*2], msg.data[6+index*2]);
+        }
+        LOG_I("Enclosure light level: %d  speed: %d\n",  msg.data[3], msg.data[msg.data[4] * 2 + 6]);
+        LOG_I("Enclosure door_sta: %s\n",  msg.data[msg.data[4] * 2 + 5] ? "open" : "close");
       }
     break;
 
@@ -623,12 +689,13 @@ void Enclosure::enclosure_hmi_self_test_interface(uint8_t test_type, uint32_t pa
 
     case 4:
       if (hmi_subscribe_enclosure_func(this, buff)) {
-        tmp_info = (EnclosureInfo *)(buff + 1);
-        LOG_I("send msg len: %d result: %d\n",msg.length, buff[0]);
-        LOG_I("Enclosure key: %d head_status: %d\n",  tmp_info->key, tmp_info->head_status);
-        LOG_I("Enclosure light level: %d  speed: %d\n",  tmp_info->light_level, tmp_info->fan_speed);
-        LOG_I("Enclosure check_switch: %s\n",  tmp_info->check_switch ? "enable" : "disable");
-        LOG_I("Enclosure door_sta: %s\n",  tmp_info->door_sta ? "open" : "close");
+        LOG_I("result: %d\n", buff[0]);
+        LOG_I("key: %d head_status: %d\n",  buff[1], buff[2]);
+        for (uint8_t index = 0; index < buff[4]; index++) {
+          LOG_I("Enclosure work type: %d  enable: %d\n",  buff[5+index*2], buff[6+index*2]);
+        }
+        LOG_I("Enclosure light level: %d  speed: %d\n",  buff[3], buff[buff[4] * 2 + 6]);
+        LOG_I("Enclosure door_sta: %s\n",  buff[buff[4] * 2 + 5] ? "open" : "close");
       }
     break;
 

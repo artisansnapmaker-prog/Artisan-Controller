@@ -47,8 +47,7 @@ err_code_t EnclosureA400::pre_init() {
     return E_FAILURE;
   
   if (public_mutex_lock()) {
-    online = false;
-    check_switch = true;
+    // check_switch = true;
     enclosure_sta = ENCLOSURE_INITIAL_STATE;
     light_level = 0;
     fan_speed = 0;
@@ -78,7 +77,13 @@ err_code_t EnclosureA400::set_fan_speed(uint8_t speed) {
 
 void EnclosureA400::report_enclosure_status() {
   if (online) {
-    LOG_I("enclosure check %s\n", check_switch ? "enable" : "disable");
+    LOG_I("enclosure check %s\n", get_enclosure_check_switch_sta() ? "enable" : "disable");
+    LOG_I("fdm mode check_switch %s\n",(get_enclosure_check_mask() & \
+                        (1 << ENCLOSURE_WORK_TYPE_FDM)) ? "enable" : "disable");
+    LOG_I("laser mode check_switch %s\n",(get_enclosure_check_mask() & \
+                        (1 << ENCLOSURE_WORK_TYPE_LASER)) ? "enable" : "disable");
+    LOG_I("cnc mode check_switch %s\n",(get_enclosure_check_mask() & \
+                        (1 << ENCLOSURE_WORK_TYPE_CNC)) ? "enable" : "disable");
     LOG_I("enclosure sta: 0x%x\n", enclosure_sta);
     LOG_I("enclosure door is %s\n", enclosure_sta & ENCLOSURE_DOOR_STATUS_MASK ? "open" : "close");
     LOG_I("enclosure light bar light_level: %d\n", light_level);
@@ -172,17 +177,16 @@ void enclosure_a400_callback_update_status(void *obj, uint8_t *data, uint8_t len
   
   if (door_change) {
     if (cur_sta & ENCLOSURE_DOOR_STATUS_MASK) {
-      if (enclosure.check_switch) {
-        LOG_I("Enclosure door open\n");
-        if (enclosure.check_switch) {
-          // TODO: door open process
-          smprinter.pause_trigger(PAUSE_DOOR_OPEN);
-        }
+      LOG_I("Enclosure door open\n");
+      if (enclosure.get_enclosure_check_switch_sta()) {
+        // TODO: door open process
+        LOG_I("Enclosure door open process\n");
+        smprinter.pause_trigger(PAUSE_DOOR_OPEN);
       }
     }
     else {
       LOG_I("Enclosure door close\n");
-      if (enclosure.check_switch) {
+      if (enclosure.get_enclosure_check_switch_sta()) {
         // TODO: door open process
       }
     }
@@ -232,14 +236,14 @@ void enclosure_a400_callback_update_status(void *obj, uint8_t *data, uint8_t len
     if (cur_sta & ENCLOSURE_LIGHT_LIMIT_STATUS_MASK) {
       LOG_I("Enclosure light bar limit enable\n");
       // TODO: light bar limit enable process
-      if (enclosure.check_switch) {
+      if (enclosure.get_enclosure_check_switch_sta()) {
         LOG_I("Enclosure light bar limit enable process\n");
       }
     }
     else {
       LOG_I("Enclosure light bar limit disable\n");
       //  TODO: light bar limit disable process
-      if (enclosure.check_switch) {
+      if (enclosure.get_enclosure_check_switch_sta()) {
         LOG_I("Enclosure light bar limit disable process\n");
       }
     }

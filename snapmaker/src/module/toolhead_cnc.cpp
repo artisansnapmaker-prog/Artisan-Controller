@@ -199,6 +199,7 @@ void ToolHeadCNC::lost_counter_routine(uint32_t time_out) {
         online = false;
         set_status(MODULE_STATUS_OFFLINE);
         public_mutex_unlock();
+        LOG_E("enclosure offline!!!");
       }
     }
   }

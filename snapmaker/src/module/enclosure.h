@@ -40,6 +40,11 @@
 #define ENCLOSURE_HALL_1_STATUS_MASK            (1 << 2)
 #define ENCLOSURE_HALL_2_STATUS_MASK            (1 << 3)
 
+#define SACP_ENCLOSURE_SUBSCRIBE_COMMANDID      0xa0
+
+// default laser enable enclosure detection
+#define ENCLOSURE_CHECK_ENABLE_DEFAULT_MASK     (1 << ENCLOSURE_WORK_TYPE_LASER) 
+
 enum EnclosureSacpRequestCommandId {
   SACP_CMD_ID_ENCLOSURE_GET_HEAD_INFO= 1,
   SACP_CMD_ID_ENCLOSURE_SET_LIGHT_LEVEL,
@@ -51,20 +56,31 @@ enum EnclosureSacpRequestCommandId {
   SACP_CMD_ID_ENCLOSURE_MAX_NUM = SACP_CMD_ID_ENCLOSURE_END_INDEX - 1,
 };
 
-#define SACP_ENCLOSURE_SUBSCRIBE_COMMANDID              0xa0
-
-#pragma pack(1)
-
 typedef struct {
-  uint8_t key;
-  uint8_t head_status; 
-  uint8_t light_level; 
-  bool check_switch;
-  bool door_sta;   
-  uint8_t fan_speed;
-}EnclosureInfo;
+  uint32_t enclosure_check_enable_mask;
+}EnclosureSettings;
 
-#pragma pack()
+enum EnclosureWorkType {
+  ENCLOSURE_WORK_TYPE_FDM, 
+  ENCLOSURE_WORK_TYPE_LASER,
+  ENCLOSURE_WORK_TYPE_CNC,
+ 
+  ENCLOSURE_WORK_TYPE_LIMIT,
+};
+
+
+// #pragma pack(1)
+// 
+// typedef struct {
+//   uint8_t key;
+//   uint8_t head_status; 
+//   uint8_t light_level; 
+//   bool check_switch;
+//   bool door_sta;   
+//   uint8_t fan_speed;
+// }EnclosureInfo;
+// 
+// #pragma pack()
 
 
 class Enclosure: public ModuleBase {
@@ -81,14 +97,17 @@ class Enclosure: public ModuleBase {
     uint8_t get_enclosure_sta() { return enclosure_sta; }
     
     uint8_t get_door_check(void);
+    uint32_t get_enclosure_check_mask(void);
     virtual err_code_t set_light_bar(uint8_t level);
     virtual err_code_t set_fan_speed(uint8_t speed);
 
     virtual void report_enclosure_status(); 
     virtual err_code_t get_enclosure_status();
 
-    virtual err_code_t enable_enclosure_check();
-    virtual err_code_t disable_enclosure_check();  
+    // virtual err_code_t enable_enclosure_check();
+    // virtual err_code_t disable_enclosure_check();  
+
+    virtual bool get_enclosure_check_switch_sta(void);
 
     virtual void enclosure_hmi_self_test_interface(uint8_t test_type, uint32_t param);  
 
@@ -115,7 +134,7 @@ class Enclosure: public ModuleBase {
 
   protected:
     bool  online = false;
-    bool  check_switch = true;
+    // bool  check_switch = true;
     uint8_t enclosure_sta;
     uint8_t light_limit = 0;
     uint8_t light_level = 0;

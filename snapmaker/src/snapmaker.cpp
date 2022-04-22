@@ -679,8 +679,6 @@ void SnapmakerPrinter::security_check() {
 }
 // API for puase
 void SnapmakerPrinter::pause_trigger(uint8_t pause_reason) {
-  if (PAUSE_DOOR_OPEN == pause_reason && TH_TYPE_LASER != get_toolhead_type())
-    return;
   job_ctrl_svc.req_pause((enum JobPauseType)pause_reason, NULL, NULL);
 }
 
@@ -1015,6 +1013,12 @@ bool SnapmakerPrinter::can_start_work(void) {
   if (!system_svc.allow_working())
     return false;
 
+  // TODO: Subsequent use of the allow_working function intercepts such scenarios
+  if (smprinter.get_enclosure_door_status()) {
+    LOG_E("can not start job as door left open, or enclosure offline\r\n");
+    return false;
+  }
+
   return true;
 }
 
@@ -1032,13 +1036,14 @@ bool SnapmakerPrinter::can_resume_work(void) {
     return false;
   }
 
-  if (TH_TYPE_CNC == get_toolhead_type()) {
-    if (!cnc || (cnc && !cnc->is_can_resume_work()))
-      return false;
-  }
-
   if (!system_svc.allow_working()) {
     LOG_E("cannot resume job as system exception\n");
+    return false;
+  }
+
+  // TODO: Subsequent use of the allow_working function intercepts such scenarios
+  if (smprinter.get_enclosure_door_status()) {
+    LOG_E("can not resume job as door left open, or enclosure offline\r\n");
     return false;
   }
 
@@ -1189,11 +1194,14 @@ void SnapmakerPrinter::reset_settings() {
 
   // reset your settings
 
-  // reset purifier
+  // reset purifier settings
   settings.purifier_settings.start_work_purifier_open_mask = PURIFIER_START_WORK_OPEN_DEFAULT_MASK;
   settings.purifier_settings.fdm_stop_work_purifier_close_delay = PURIFIER_FDM_STOP_WORK_CLOSE_TIME_DELAY;
   settings.purifier_settings.laser_stop_work_purifier_close_delay = PURIFIER_LASER_STOP_WORK_CLOSE_TIME_DELAY;
   settings.purifier_settings.cnc_stop_work_purifier_close_delay = PURIFIER_CNC_STOP_WORK_CLOSE_TIME_DELAY;
+
+  // reset enclosure settings
+  settings.enclosure_settings.enclosure_check_enable_mask = ENCLOSURE_CHECK_ENABLE_DEFAULT_MASK;
 }
 
 extern "C" {

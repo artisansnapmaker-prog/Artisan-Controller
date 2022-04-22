@@ -69,6 +69,7 @@ void ClientNode::class_init(void) {
   ret |= host_hmi.register_callback(CMD_SET_JOB_CTRL, CMD_ID_JOB_GET_FEEDRATE_PERCENTAGE, NULL, sacp_cb);
   ret |= host_hmi.register_callback(CMD_SET_JOB_CTRL, CMD_ID_JOB_SET_FLOWRATE_PERCENTAGE, NULL, sacp_cb);
   ret |= host_hmi.register_callback(CMD_SET_JOB_CTRL, CMD_ID_JOB_GET_FLOWRATE_PERCENTAGE, NULL, sacp_cb);
+  
   // register subscibtion
   LOG_I("Client node: register SACP subscription callback\r\n");
   ret |= host_hmi.register_subscription(  CMD_SET_JOB_CTRL,
@@ -76,9 +77,32 @@ void ClientNode::class_init(void) {
                                           (void *)job_ctrl_linenum_sub_cb,
                                           job_ctrl_linenum_sub_cb);
 
+  ret |= host_hmi.register_new_route_handle(NULL, on_new_client_node);
+
   if (E_SUCCESS != ret) {
     LOG_E("Client node: can not register sacp callback\r\n");
     while(1);
+  }
+}
+
+void ClientNode::on_new_client_node(void *obj, sacp_route_table_t *rt) {
+  ClientNode *cn;
+
+  for (int i = 0; i < SACP_ROUTE_TABLE_DYNAMIC_MAX; i++) {
+    if (SACP_ROUTE_STA_ONLINE == rt[i].status) {
+      if (cn = find_client_node(rt[i].peer, rt[i].ch)) {
+
+      }
+      else {
+        cn = malloc_client_node(rt[i].peer, rt[i].ch);
+        if (cn) {
+
+        }
+        else {
+          LOG_E("client_node: can not malloc client node for peer %d ch %d\r\n", rt[i].peer, rt[i].ch);
+        }
+      }
+    }
   }
 }
 
@@ -228,6 +252,7 @@ err_code_t ClientNode::issue_client(uint8_t id, uint8_t issue_ret) {
 
   return E_SUCCESS;
 }
+
 ClientNode::ClientNode(uint32_t peer, uint8_t ch): peer(peer), ch(ch) {
 
 }

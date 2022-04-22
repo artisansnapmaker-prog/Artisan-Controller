@@ -31,11 +31,12 @@
 #include "../common/error.h"
 #include "../common/ring_buffer.h"
 #include "../common/type.h"
+#include "../host/sacp.h"
 #include "../host/sacp_hmi.h"
 #include "job_ctrl.h"
 
 
-#define MAX_CLIENT_NODE_NUM                           4
+#define MAX_CLIENT_NODE_NUM                           SACP_ROUTE_TABLE_DYNAMIC_MAX
 #define MAX_SACP_MSG_COPY                             2
 #define SEND_BUF_SIZE                                 (512 + 16)
 // TODO: this should define in the SACP
@@ -139,6 +140,9 @@ class ClientNode {
   // Class define
   public:
     static void class_init(void);
+
+    static void on_new_client_node(void *obj, sacp_route_table_t *rt);
+    static void subscription_client_node_hardtick(ClientNode *cn);
 
     static ClientNode *find_client_node(uint32_t peer, uint8_t ch);
     static ClientNode *find_client_node(uint8_t id);

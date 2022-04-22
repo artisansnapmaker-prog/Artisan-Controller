@@ -483,10 +483,22 @@ void MotionPlatformService::req_quickstop(void) {
   // quickstop_stepper();
   // planner.quick_stop();
   // while (planner.has_blocks_queued())
+  planner_clean_cnt = TEMP_TIMER_FREQUENCY;
   emergency_parser.quickstop_by_M410 = true;
 
   // wait for the current request finish
   // LOG_I("wait for the quickstop finish\r\n");
+  take_quickstop_sem(0xffffffff);
+}
+
+void MotionPlatformService::req_live_Z_offset_quickstop(void) {
+
+  while(req_motion_platform_quickstop) vTaskDelay(pdMS_TO_TICKS(5));
+  req_motion_platform_quickstop = true;
+
+  planner_clean_cnt = 0;
+  emergency_parser.quickstop_by_M410 = true;
+
   take_quickstop_sem(0xffffffff);
 }
 

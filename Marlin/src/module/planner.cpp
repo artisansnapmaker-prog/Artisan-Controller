@@ -107,6 +107,10 @@
   #include "../feature/spindle_laser.h"
 #endif
 
+#if MB_SNAPMAKER
+  #include "../../src/service/motion_platform.h"
+#endif
+
 // Delay for delivery of first block to the stepper ISR, if the queue contains 2 or
 // fewer movements. The delay is measured in milliseconds, and must be less than 250ms
 #define BLOCK_DELAY_FOR_1ST_MOVE 100
@@ -1675,7 +1679,11 @@ void Planner::quick_stop() {
   #endif
 
   // Make sure to drop any attempt of queuing moves for 1 second
+  #if MB_SNAPMAKER
+  cleaning_buffer_counter = motion_platform_svc.planner_clean_cnt;
+  #else
   cleaning_buffer_counter = TEMP_TIMER_FREQUENCY;
+  #endif
 
   // Change by snapmaker: set abort_current_block to true before resume stepper
   // Make sure the stepper will NOT output the nest pulse.

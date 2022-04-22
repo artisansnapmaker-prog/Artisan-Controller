@@ -113,8 +113,10 @@ class MotionPlatformService {
     void set_steps_per_unit(float steps_per_unit, uint8_t axis);
 
     // emergency_handle will call this API in ISR to stop motion platform
+    uint32_t planner_clean_cnt;
     void req_emergency_stop();
     void req_quickstop(void);
+    void req_live_Z_offset_quickstop(void);
     bool planner_busy(void);
     // This api use for wait planner quickstop
     err_code_t take_quickstop_sem(uint32_t wait_time);

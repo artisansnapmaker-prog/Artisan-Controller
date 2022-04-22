@@ -1772,21 +1772,15 @@ float Planner::get_axis_position_mm(const AxisEnum axis) {
 
   #else
     #if MB_SNAPMAKER
-      // if (axis == E_AXIS) {
-      //   if (e_factor[active_extruder] != 0) {
-      //     axis_steps = stepper.position(axis) / e_factor[active_extruder];
-      //   } else {
-      //     axis_steps = stepper.position(axis);
-      //   }
-
-      // } else {
-      //   axis_steps = stepper.position(axis);
-      // }
-      axis_steps = stepper.position(axis);
+      if (axis == E_AXIS) {
+        axis_steps = stepper.position(axis) - motion_platform_svc.stepper_total_offset;
+        motion_platform_svc.stepper_total_offset = 0;
+      } else {
+        axis_steps = stepper.position(axis);
+      }
     #else
       axis_steps = stepper.position(axis);
     #endif
-
   #endif
 
   return axis_steps * mm_per_step[axis];
@@ -1999,6 +1993,10 @@ bool Planner::_populate_block(block_t * const block, bool split_move,
     if (de < 0) SBI(dm, E_AXIS);
     const float esteps_float = de * e_factor[extruder];
     const uint32_t esteps = ABS(esteps_float) + 0.5f;
+    #if MB_SNAPMAKER
+    const uint32_t actrul_esteps = ABS(de) + 0.5f;
+    block->e_stepper_offset += (esteps - actrul_esteps);
+    #endif
   #else
     constexpr uint32_t esteps = 0;
   #endif
@@ -3198,8 +3196,12 @@ void Planner::set_position_mm(const xyze_pos_t &xyze) {
 
     if (has_blocks_queued())
       buffer_sync_block();
-    else
+    else {
       stepper.set_axis_position(E_AXIS, position.e);
+      #if MB_SNAPMAKER
+      motion_platform_svc.stepper_total_offset = 0;
+      #endif
+    }
   }
 
 #endif

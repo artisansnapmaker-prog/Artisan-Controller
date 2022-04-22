@@ -346,6 +346,7 @@ void MotionPlatformService::motion_background(void *p) {
 void MotionPlatformService::init() {
   load_settings();
 
+  motion_platform_svc.stepper_total_offset = 0;
   set_axis_to_homed(I_AXIS);
   set_axis_to_homed(J_AXIS);
 
@@ -531,6 +532,10 @@ void MotionPlatformService::stepper_quickstop_wait(void) {
 void MotionPlatformService::stepper_quickstop_cb(void) {
   // Call from stepper ISR
   job_ctrl_svc.stepper_quickstop_cb();
+}
+
+void MotionPlatformService::add_stepper_offset(int stepper_offset_counter) {
+  stepper_total_offset += stepper_offset_counter;
 }
 
 void MotionPlatformService::set_home_offset(float x, float y, float z, float i/*=0*/, float j/*=8*/) {

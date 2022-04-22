@@ -254,6 +254,7 @@ typedef struct block_t {
   #if MB_SNAPMAKER
   // position of gcode of this block in the file
   uint32_t file_position;
+  int e_stepper_offset;
   #endif
 } block_t;
 

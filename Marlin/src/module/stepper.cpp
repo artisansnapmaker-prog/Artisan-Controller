@@ -1656,6 +1656,11 @@ void Stepper::pulse_phase_isr() {
   // If we must abort the current block, do so!
   if (abort_current_block) {
     abort_current_block = false;
+
+    #if MB_SNAPMAKER
+    motion_platform_svc.add_stepper_offset(current_block->e_stepper_offset * step_events_completed / step_event_count);
+    #endif
+
     if (current_block) discard_current_block();
     #if MB_SNAPMAKER
     // motion_platform_svc.stepper_quickstop_finish();
@@ -1973,6 +1978,11 @@ uint32_t Stepper::block_phase_isr() {
         }
       #endif
       TERN_(HAS_FILAMENT_RUNOUT_DISTANCE, runout.block_completed(current_block));
+
+      #if MB_SNAPMAKER
+      motion_platform_svc.add_stepper_offset(current_block->e_stepper_offset);
+      #endif
+
       discard_current_block();
     }
     else {

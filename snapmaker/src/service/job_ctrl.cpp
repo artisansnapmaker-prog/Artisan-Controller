@@ -427,8 +427,7 @@ __pos_resume:
   motion_platform_svc.sm_current_position.j = _env.current_pos.j;
   motion_platform_svc.sync_plan_position_to_platform();
 
-  motion_platform_svc.set_stepper_count(E_AXIS, _env.E_stepper_count);
-
+  // motion_platform_svc.set_stepper_count(E_AXIS, _env.E_stepper_count);
   // LOG_I("job_ctrl: resume cur_line_num %d\r\n", _env.cur_line_num);
   // LOG_I("job_ctrl: ========================= resume =========================\r\n");
   // LOG_I("job_ctrl: resume active coordinate_system %d\r\n", motion_platform_svc.get_active_coordinate_system());

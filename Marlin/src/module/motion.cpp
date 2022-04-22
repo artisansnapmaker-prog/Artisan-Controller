@@ -401,7 +401,14 @@ void set_current_from_steppers_for_axis(const AxisEnum axis) {
   get_cartesian_from_steppers();
   xyze_pos_t pos = cartes;
 
-  TERN_(HAS_EXTRUDERS, pos.e = planner.get_axis_position_mm(E_AXIS));
+  #if MB_SNAPMAKER
+    TERN_(HAS_EXTRUDERS, pos.e = planner.get_axis_position_mm(E_AXIS));
+    if (planner.e_factor[active_extruder] != 0) {
+      pos.e = pos.e / planner.e_factor[active_extruder];
+    }
+  #else
+    TERN_(HAS_EXTRUDERS, pos.e = planner.get_axis_position_mm(E_AXIS));
+  #endif
 
   TERN_(HAS_POSITION_MODIFIERS, planner.unapply_modifiers(pos, true));
 

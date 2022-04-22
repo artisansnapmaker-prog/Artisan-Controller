@@ -1707,7 +1707,11 @@ err_code_t ToolHeadFDM::resume_env(uint8_t *env_buf, uint32_t &len) {
 err_code_t ToolHeadFDM::standby(void) {
   if (bedlevel_svc.live_z_offset_changed) {
     bedlevel_svc.live_z_offset_changed = false;
+    SnapmakerSettings *smsettings = smprinter.get_settings();
+    smsettings->live_z_offset[0] = bedlevel_svc.live_z_offset[0];
+    smsettings->live_z_offset[1] = bedlevel_svc.live_z_offset[1];
     motion_platform_svc.save_settings();
+    LOG_I("fdm standby, save live_z_offet: %f, %f\n", bedlevel_svc.live_z_offset[0], bedlevel_svc.live_z_offset[1]);
   }
 
   enum SystemStatus status = smprinter.get_sys_status();

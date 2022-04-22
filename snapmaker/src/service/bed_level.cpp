@@ -350,7 +350,7 @@ static err_code_t hmi_req_callback_bed_position_detection(void *obj, sacp_hmi_me
     if (extruder_index == 0) {
       // clear live_z_offset
       bedlevel.live_z_offset[0] = 0;
-      bedlevel.live_z_offset[1] = 1;
+      bedlevel.live_z_offset[1] = 0;
       smsettings->live_z_offset[0] = 0;
       smsettings->live_z_offset[1] = 0;
       motion_platform_svc.save_settings();
@@ -381,7 +381,7 @@ static err_code_t hmi_req_callback_bed_position_detection(void *obj, sacp_hmi_me
       // need go home
       // clear live_z_offset
       bedlevel.live_z_offset[0] = 0;
-      bedlevel.live_z_offset[1] = 1;
+      bedlevel.live_z_offset[1] = 0;
       smsettings->live_z_offset[0] = 0;
       smsettings->live_z_offset[1] = 0;
       motion_platform_svc.save_settings();
@@ -437,7 +437,7 @@ static err_code_t hmi_req_callback_probe_sensor_calibration(void *obj, sacp_hmi_
 
   // clear live_z_offset
   bedlevel.live_z_offset[0] = 0;
-  bedlevel.live_z_offset[1] = 1;
+  bedlevel.live_z_offset[1] = 0;
   smsettings->live_z_offset[0] = 0;
   smsettings->live_z_offset[1] = 0;
   motion_platform_svc.save_settings();
@@ -498,6 +498,7 @@ static err_code_t hmi_req_callback_set_live_z_offset(void *obj, sacp_hmi_message
   err_code_t ret = E_SUCCESS;
   uint8_t e = msg->data[1];
   float offset;
+  uint8_t index = 0;
   offset = (float)(msg->data[2] | (msg->data[3] << 8) | (msg->data[4] << 16) | (msg->data[5] << 24)) / 1000;
 
   LOG_I("hmi request set live z offset, e: %d, offset: %f\n", e, offset);
@@ -519,10 +520,15 @@ static err_code_t hmi_req_callback_set_live_z_offset(void *obj, sacp_hmi_message
     goto EXIT;
   }
 
+  index = 0;
+  msg->data[index++] = ret;
+  msg->length = index;
+  host_hmi.send_ack(msg);
   bedlevel.set_live_z_offset(e, offset);
+  return ret;
 
 EXIT:
-  uint8_t index = 0;
+  index = 0;
   msg->data[index++] = ret;
   msg->length = index;
   host_hmi.send_ack(msg);
@@ -533,8 +539,6 @@ static err_code_t hmi_req_callback_get_live_z_offset(void *obj, sacp_hmi_message
   BedLevelService &bedlevel = *(BedLevelService *)obj;
   uint16_t index = 0;
   uint8_t key = msg->data[0];
-
-  LOG_I("hmi reqeust get live z offset\n");
 
   // result
   msg->data[index++] = E_SUCCESS;
@@ -553,6 +557,7 @@ static err_code_t hmi_req_callback_get_live_z_offset(void *obj, sacp_hmi_message
     msg->data[index++] = offset >> 8;
     msg->data[index++] = offset >> 16;
     msg->data[index++] = offset >> 24;
+    LOG_I("hmi reqeust get live z offset, extruder: %d, offset: %f\n", i, bedlevel.live_z_offset[i]);
   }
 
   msg->length = index;
@@ -674,7 +679,7 @@ err_code_t BedLevelService::start_manual_bed_leveling(uint8_t grids) {
 
   // clear live_z_offset
   live_z_offset[0] = 0;
-  live_z_offset[1] = 1;
+  live_z_offset[1] = 0;
   SnapmakerSettings *smsettings = smprinter.get_settings();
   smsettings->live_z_offset[0] = 0;
   smsettings->live_z_offset[1] = 0;
@@ -738,7 +743,7 @@ err_code_t BedLevelService::start_auto_bed_leveling(uint8_t grids) {
 
   // clear live_z_offset
   live_z_offset[0] = 0;
-  live_z_offset[1] = 1;
+  live_z_offset[1] = 0;
   SnapmakerSettings *smsettings = smprinter.get_settings();
   smsettings->live_z_offset[0] = 0;
   smsettings->live_z_offset[1] = 0;

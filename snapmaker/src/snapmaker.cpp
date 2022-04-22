@@ -198,7 +198,7 @@ err_code_t SnapmakerPrinter::hmi_cb_request_reboot(void *obj, sacp_hmi_message_t
 
 err_code_t SnapmakerPrinter::hmi_cb_get_machine_info(void *obj, sacp_hmi_message_t *msg) {
   SnapmakerPrinter *printer = (SnapmakerPrinter *)obj;
-  char ver[] = "A400_V0.0.1";
+  char ver[] = SHORT_BUILD_VERSION;
   int i = 0;
 
   machine_info_t *info = (machine_info_t *)(msg->data + 1);

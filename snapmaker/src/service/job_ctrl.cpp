@@ -714,6 +714,7 @@ void JobCtrl::do_start(struct JobCtrlReqInfo &jri) {
 void JobCtrl::do_pause(struct JobCtrlReqInfo &jri) {
   enum SystemStatus ret_sys_status;
   uint32_t start_millis, end_millis;
+  bool need_standby = false;
 
   if (E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_PAUSING, &ret_sys_status)) {
     LOG_E("job ctrl: can not to enter SYS_PAUSEING status\r\n");
@@ -724,36 +725,24 @@ void JobCtrl::do_pause(struct JobCtrlReqInfo &jri) {
 
   start_millis = millis();
   switch (jri.req_data.req_pause_data.type) {
-    case PAUSE_CLIENT_REQ:
-      motion_platform_svc.req_quickstop();
-    break;
-
-    case PAUSE_FILM_RUNOUT:
-      motion_platform_svc.req_quickstop();
-    break;
 
     case PAUSE_POWER_LOSE:
-      LOG_I("TODO: quickstop\r\n");
     break;
 
+    case PAUSE_CLIENT_REQ:
+    case PAUSE_FILM_RUNOUT:
     case PAUSE_DOOR_OPEN:
-      motion_platform_svc.req_quickstop();
-    break;
-
     case PAUSE_EXCEPTION:
-      motion_platform_svc.req_quickstop();
-    break;
-
     case PAUSE_WRONG_EXTRUDER:
-      motion_platform_svc.req_quickstop();
-    break;
-
     case PAUSE_WRONG_NOZZLE:
-      motion_platform_svc.req_quickstop();
-    break;
-
     case PAUSE_NOZZLE_TEMP:
       motion_platform_svc.req_quickstop();
+      need_standby = true;
+    break;
+
+    case PUASE_LIVE_Z_OFFSET:
+      motion_platform_svc.req_quickstop();
+      need_standby = false;
     break;
 
     default:
@@ -764,7 +753,6 @@ void JobCtrl::do_pause(struct JobCtrlReqInfo &jri) {
       return;
     break;
   }
-  // LOG_I("%d after quickstop\r\n", millis());
 
   if (E_SUCCESS != save_env()) {
     smprinter.set_sys_status(SYSTEM_STATUS_IDLE, &ret_sys_status);
@@ -772,13 +760,14 @@ void JobCtrl::do_pause(struct JobCtrlReqInfo &jri) {
     _issue_ret_rb.insert_one(SACP_JOB_PAUSE_ISSUE_RET_SAVE_ENV_FAILURE);
     return;
   }
+
   end_millis = millis();
   LOG_I("quick stop to standby take %d milliseconds\r\n",
       end_millis >= start_millis?
       end_millis - start_millis :
       ((int)end_millis - (int)start_millis));
 
-  if (E_SUCCESS != machine_standby()) {
+  if (need_standby && E_SUCCESS != machine_standby()) {
     smprinter.set_sys_status(SYSTEM_STATUS_IDLE, &ret_sys_status);
     DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, ret_sys_status);
     _issue_ret_rb.insert_one(SACP_JOB_PAUSE_ISSUE_RET_STOP_FAILURE);
@@ -839,13 +828,17 @@ void JobCtrl::do_resume(struct JobCtrlReqInfo &jri) {
     }
   }
 
-  if (E_SUCCESS != resume_env()) {
+  if (RESUME_TYPE_LIVE_Z_OFFSET == jri.req_data.req_resume_data.type && E_SUCCESS != resume_env()) {
     LOG_E("job ctrl: resume failed\r\n");
     smprinter.set_sys_status(SYSTEM_STATUS_IDLE, &ret_sys_status);
     DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, SYSTEM_STATUS_IDLE);
     return;
   }
-  _client_id = jri.req_data.req_resume_data.client_id;
+
+  if (RESUME_TYPE_LIVE_Z_OFFSET != jri.req_data.req_resume_data.type) {
+    _client_id = jri.req_data.req_resume_data.client_id;
+  }
+
   LOCK(_lock, JOB_LOCK_WAIT_TICK);
   _gcode_rb.reset();
   UNLOCK(_lock);

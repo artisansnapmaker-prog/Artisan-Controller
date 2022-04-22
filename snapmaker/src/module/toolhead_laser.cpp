@@ -77,7 +77,7 @@ static __attribute__((section(".data"))) uint8_t power_table_10w[]= {
 
 struct __packed LaserSafetyInfo {
   uint8_t key;
-  LaserSafetyState state;
+  uint8_t state;
   int32_t laser_tmp;
   int32_t roll;
   int32_t pitch;
@@ -712,7 +712,11 @@ void ToolHeadLaser::can_cb_handle_security_status(void *obj, uint8_t *data, uint
 
   ToolHeadLaser &laser = *(ToolHeadLaser *)obj;
 
-  laser.safety_state = (LaserSafetyState)data[0];
+  laser.safety_state = data[0];
+  if (laser.safety_state > 0) {
+    // when exception appear, turn off laser
+    laser.set_output(0);
+  }
   laser.pitch = data[1]<<8 | data[2];
   laser.roll  = data[3]<<8 | data[4];
   laser.laser_temp = data[5];

@@ -1771,8 +1771,20 @@ float Planner::get_axis_position_mm(const AxisEnum axis) {
       axis_steps = stepper.position(axis);
 
   #else
+    #if MB_SNAPMAKER
+      if (axis == E_AXIS) {
+        if (e_factor[active_extruder] != 0) {
+          axis_steps = stepper.position(axis) / e_factor[active_extruder];
+        } else {
+          axis_steps = stepper.position(axis);
+        }
 
-    axis_steps = stepper.position(axis);
+      } else {
+        axis_steps = stepper.position(axis);
+      }
+    #else
+      axis_steps = stepper.position(axis);
+    #endif
 
   #endif
 

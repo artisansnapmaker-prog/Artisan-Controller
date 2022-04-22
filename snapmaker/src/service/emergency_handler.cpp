@@ -151,6 +151,7 @@ uint8_t EmergencyHandler::read_button() {
 
 void EmergencyHandler::prepare_flash() {
   LOG_I("EmergencyHandler::prepare_flash\n");
+  err_code_t ret = E_SUCCESS;
 
   if ((*(uint32_t *)(ENV_START_IN_FLASH) == 0xFFFFFFFF) &&
   (*(uint32_t *)(ENV_VALID_FLAG_ADDR_FLASH) == 0xFFFFFFFF)) {
@@ -165,8 +166,12 @@ void EmergencyHandler::prepare_flash() {
   int timeout = 10;
   do {
     disable_all_interrupts();
-    flash_erase_sector(RECORD_FLASH_SECTOR);
+    ret = flash_erase_sector(RECORD_FLASH_SECTOR);
     enable_all_interrupts();
+
+    if (ret != E_SUCCESS) {
+      LOG_E("failed to erase flash: ret=%u\n", ret);
+    }
 
     vTaskDelay(pdMS_TO_TICKS(500));
 

@@ -25,7 +25,7 @@ err_code_t flash_erase_sector(int sector_num) {
 
   ret = HAL_FLASHEx_Erase(&erase_cfg, &sector_error);
   if (ret == HAL_OK) {
-    LOG_E("failed to erase flash sector[%d]\n", sector_num);
+    //LOG_E("failed to erase flash sector[%d]\n", sector_num);
   }
 
   __HAL_FLASH_CLEAR_FLAG(FLASH_FLAG_OPERR | FLASH_FLAG_WRPERR | FLASH_FLAG_PGAERR | FLASH_FLAG_PGPERR | FLASH_FLAG_PGSERR);

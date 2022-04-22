@@ -334,6 +334,7 @@ err_code_t JobCtrl::save_env(void) {
   _env.g0g1_relative_mode = motion_platform_svc.get_relative_mode();
   motion_platform_svc.update_position_from_platform();
   _env.current_pos = motion_platform_svc.sm_current_position;
+  _env.E_stepper_count = motion_platform_svc.get_stepper_count(E_AXIS);
 
   // LOG_I("job_ctrl: save cur_line_num %d\r\n", _env.cur_line_num);
   // print_job_env(&_env);
@@ -425,6 +426,8 @@ __pos_resume:
   motion_platform_svc.sm_current_position.i = _env.current_pos.i;
   motion_platform_svc.sm_current_position.j = _env.current_pos.j;
   motion_platform_svc.sync_plan_position_to_platform();
+
+  motion_platform_svc.set_stepper_count(E_AXIS, _env.E_stepper_count);
 
   // LOG_I("job_ctrl: resume cur_line_num %d\r\n", _env.cur_line_num);
   // LOG_I("job_ctrl: ========================= resume =========================\r\n");

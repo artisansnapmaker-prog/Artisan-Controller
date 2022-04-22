@@ -162,6 +162,8 @@ class MotionPlatformService {
     void update_soft_endstops(uint8_t axis, uint8_t minmax, float val);
     float get_soft_endstop_min(uint8_t axis);
     float get_soft_endstop_max(uint8_t axis);
+    uint32_t get_stepper_count(const AxisEnum axis);
+    void set_stepper_count(const AxisEnum axis, uint32_t count_pos);
 
     // bed leveling API for internal app
     bool leveling_active() { return planner.leveling_active; }

@@ -114,6 +114,7 @@ struct JobEnv {
   uint32_t cur_line_num;                                      /** current linenumber, use with gcode file to save the job point         */
   uint32_t time_elape;                                        /** time elaps from the job starting, in second                           */
   xyze_pos_t current_pos;
+  uint32_t E_stepper_count;
   float print_feadrate;
   float travel_feadrate;
   bool g0g1_relative_mode;

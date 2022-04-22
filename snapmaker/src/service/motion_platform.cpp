@@ -1077,6 +1077,14 @@ float MotionPlatformService::get_soft_endstop_max(uint8_t axis) {
   return 0;
 }
 
+uint32_t MotionPlatformService::get_stepper_count(const AxisEnum axis) {
+  return stepper.position(axis);
+}
+
+void MotionPlatformService::set_stepper_count(const AxisEnum axis, uint32_t count_pos) {
+  stepper.set_axis_position(axis, count_pos);
+}
+
 void MotionPlatformService::show_coordiantes() {
   LOG_I("active coordinate: %d\n\n", gcode.active_coordinate_system);
 

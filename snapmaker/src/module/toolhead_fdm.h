@@ -43,6 +43,13 @@
 #define DUAL_EXTRUDER_SAFE_SPACE_MAX_Z          6
 #define TOOL_CHANGE_RAISE_SPACE                 1
 
+#define DEFAULT_HOTEND_OFFSET_X                 24
+#define DEFAULT_HOTEND_OFFSET_Y                 0
+#define DEFAULT_HOTEND_OFFSET_Z                 -1.5
+#define BIAS_HOTEND_OFFSET_X                    1.2
+#define BIAS_HOTEND_OFFSET_Y                    1.2
+#define BIAS_HOTEND_OFFSET_Z                    1.2
+
 
 /****************************************************************************************
 reference links: https://snapmaker2.atlassian.net/wiki/spaces/SNAP/pages/1984987369/FDM

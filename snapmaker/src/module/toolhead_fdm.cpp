@@ -578,6 +578,29 @@ static err_code_t hmi_req_callback_set_hotend_offset(void *obj, sacp_hmi_message
     offset |= msg->data[get_data_index++] << 8;
     offset |= msg->data[get_data_index++] << 16;
     offset |= msg->data[get_data_index++] << 24;
+    switch(axis) {
+      case X_AXIS:
+        if (((float)offset/1000 < DEFAULT_HOTEND_OFFSET_X - BIAS_HOTEND_OFFSET_X) || ((float)offset/1000 > DEFAULT_HOTEND_OFFSET_X + BIAS_HOTEND_OFFSET_X)) {
+          LOG_E("set x hotend offset error: %f\n", offset);
+          ret = E_PARAM;
+          goto EXIT;
+        }
+        break;
+      case Y_AXIS:
+        if (((float)offset/1000 < DEFAULT_HOTEND_OFFSET_Y - BIAS_HOTEND_OFFSET_Y) || ((float)offset/1000 > DEFAULT_HOTEND_OFFSET_Y + BIAS_HOTEND_OFFSET_Y)) {
+          LOG_E("set y hotend offset error: %f\n", offset);
+          ret = E_PARAM;
+          goto EXIT;
+        }
+        break;
+      case Z_AXIS:
+        if (((float)offset/1000 < DEFAULT_HOTEND_OFFSET_Z - BIAS_HOTEND_OFFSET_Z) || ((float)offset/1000 > DEFAULT_HOTEND_OFFSET_Z + BIAS_HOTEND_OFFSET_Z)) {
+          LOG_E("set z hotend offset error: %f\n", offset);
+          ret = E_PARAM;
+          goto EXIT;
+        }
+        break;
+    }
     ret = fdm.set_hotend_offset((float)offset/1000, axis);
   }
 
@@ -729,17 +752,37 @@ static void fdm_callback_report_hotend_offset(void *obj, uint8_t *data, uint8_t 
   if (isnan(offset)) {
     switch (axis) {
       case X_AXIS:
-        fdm.hotend_offset[X_AXIS][1] = 24;
+        fdm.hotend_offset[X_AXIS][1] = DEFAULT_HOTEND_OFFSET_X;
         break;
       case Y_AXIS:
-        fdm.hotend_offset[Y_AXIS][1] = 0;
+        fdm.hotend_offset[Y_AXIS][1] = DEFAULT_HOTEND_OFFSET_Y;
         break;
       case Z_AXIS:
-        fdm.hotend_offset[Z_AXIS][1] = -1.5;
+        fdm.hotend_offset[Z_AXIS][1] = DEFAULT_HOTEND_OFFSET_Z;
         break;
     }
   } else {
     fdm.hotend_offset[axis][1] = offset;
+    switch(axis) {
+      case X_AXIS:
+        if ((fdm.hotend_offset[axis][1] < DEFAULT_HOTEND_OFFSET_X - BIAS_HOTEND_OFFSET_X) || (fdm.hotend_offset[axis][1] > DEFAULT_HOTEND_OFFSET_X + BIAS_HOTEND_OFFSET_X)) {
+          fdm.hotend_offset[axis][1] = DEFAULT_HOTEND_OFFSET_X;
+          LOG_E("report x hotend offset error: %f\n", offset);
+        }
+        break;
+      case Y_AXIS:
+        if ((fdm.hotend_offset[axis][1] < DEFAULT_HOTEND_OFFSET_Y - BIAS_HOTEND_OFFSET_Y) || (fdm.hotend_offset[axis][1] > DEFAULT_HOTEND_OFFSET_Y + BIAS_HOTEND_OFFSET_Y)) {
+          fdm.hotend_offset[axis][1] = DEFAULT_HOTEND_OFFSET_Y;
+          LOG_E("report y hotend offset error: %f\n", offset);
+        }
+        break;
+      case Z_AXIS:
+        if ((fdm.hotend_offset[axis][1] < DEFAULT_HOTEND_OFFSET_Z - BIAS_HOTEND_OFFSET_Z) || (fdm.hotend_offset[axis][1] > DEFAULT_HOTEND_OFFSET_Z + BIAS_HOTEND_OFFSET_Z)) {
+          fdm.hotend_offset[axis][1] = DEFAULT_HOTEND_OFFSET_Z;
+          LOG_E("report z hotend offset error: %f\n", offset);
+        }
+        break;
+    }
   }
 
   motion_platform_svc.sync_hotend_offset_to_platform(fdm.hotend_offset[X_AXIS][1], fdm.hotend_offset[Y_AXIS][1], fdm.hotend_offset[Z_AXIS][1]);

@@ -30,6 +30,7 @@
 
 SemaphoreHandle_t ClientNode::_lock;
 ClientNode* ClientNode::client_node_tab[MAX_CLIENT_NODE_NUM];
+client_node_onoffline_cb ClientNode::client_node_onoffline_cb_tab[CLIENT_NODE_ONFFLINE_NOTIFY_CB_MAX];
 
 SemaphoreHandle_t ClientNode::sacp_msg_copy_lock;
 sacp_hmi_message_t ClientNode::sacp_msg_copy[MAX_SACP_MSG_COPY];
@@ -40,11 +41,16 @@ void ClientNode::class_init(void) {
   err_code_t ret;
 
   LOG_I("Client node: client node class int\r\n");
+
   for (uint8_t i = 0; i < MAX_CLIENT_NODE_NUM; i++) {
     ClientNode *new_cn = new ClientNode(IVALID_PEER, IVALID_CH);
     configASSERT(new_cn);
     new_cn->init();
     client_node_tab[i] = new_cn;
+  }
+
+  for (uint32_t i = 0; i < CLIENT_NODE_ONFFLINE_NOTIFY_CB_MAX; i++) {
+    client_node_onoffline_cb_tab[i] = NULL;
   }
 
   _lock = xSemaphoreCreateMutex();
@@ -86,20 +92,31 @@ void ClientNode::class_init(void) {
 }
 
 void ClientNode::on_new_client_node(void *obj, sacp_route_table_t *rt) {
+  bool notify;
   ClientNode *cn;
 
   for (int i = 0; i < SACP_ROUTE_TABLE_DYNAMIC_MAX; i++) {
+    notify = false;
     if (SACP_ROUTE_STA_ONLINE == rt[i].status) {
       if (cn = find_client_node(rt[i].peer, rt[i].ch)) {
-
+        notify = true;
       }
       else {
         cn = malloc_client_node(rt[i].peer, rt[i].ch);
         if (cn) {
-
+          notify = true;
         }
         else {
           LOG_E("client_node: can not malloc client node for peer %d ch %d\r\n", rt[i].peer, rt[i].ch);
+        }
+      }
+    }
+
+    if (notify) {
+      LOG_I("client_node: [%u:%u] status change %u\r\n", rt[i].peer, rt[i].ch, rt[i].status);
+      for (uint32_t idx = 0; idx < CLIENT_NODE_ONFFLINE_NOTIFY_CB_MAX; idx++) {
+        if (client_node_onoffline_cb_tab[idx] != NULL) {
+          client_node_onoffline_cb_tab[idx](i, rt[i].status);
         }
       }
     }
@@ -141,6 +158,16 @@ ClientNode *ClientNode::find_client_node(uint8_t id) {
   }
 
   return client_node_tab[id];
+}
+
+uint8_t ClientNode::client_id(uint32_t peer, uint8_t ch) {
+  for(uint8_t i = 0; i < MAX_CLIENT_NODE_NUM; i++) {
+    if (client_node_tab[i] && peer == client_node_tab[i]->peer && ch == client_node_tab[i]->ch) {
+      return i;
+    }
+  }
+
+  return IVALID_CLIENT_ID;
 }
 
 ClientNode * ClientNode::malloc_client_node(uint32_t peer, uint8_t ch) {
@@ -190,7 +217,20 @@ ClientNode *ClientNode::touch_client(uint32_t peer, uint8_t ch) {
   else {
     return malloc_client_node(peer, ch);
   }
+}
 
+err_code_t ClientNode::register_on_client_node_online(client_node_onoffline_cb cb) {
+  if (!cb)
+    return E_FAILURE;
+
+  for (uint32_t i = 0; i < CLIENT_NODE_ONFFLINE_NOTIFY_CB_MAX; i++) {
+    if (client_node_onoffline_cb_tab[i] == NULL) {
+      client_node_onoffline_cb_tab[i] = cb;
+      return E_SUCCESS;
+    }
+  }
+
+  return E_FAILURE;
 }
 
 bool ClientNode::get_batch_gcode(uint8_t client_id, req_batch_gcode_t &req_batch_gcode, res_batch_gcode_t &res_batch_gcode) {

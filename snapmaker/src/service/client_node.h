@@ -42,6 +42,7 @@
 // TODO: this should define in the SACP
 #define IVALID_PEER                                   0xFFFFFFFF
 #define IVALID_CH                                     0xFF
+#define IVALID_CLIENT_ID                              (0xFF)
 
 #define CMD_SET_JOB_CTRL                              (0xAC)
 #define CMD_ID_JOB_GET_GCODE_FILE_INFO                (0x00)
@@ -121,6 +122,8 @@
 #define SACP_JOB_PAUSE_ISSUE_RET_EXCEPTION                      (20)
 #define SACP_JOB_PAUSE_ISSUE_RET_UNKNOW_ERR                     (255)
 
+#define CLIENT_NODE_ONFFLINE_NOTIFY_CB_MAX                      (32)
+
 //Types of event function callbacks
 typedef std::function<err_code_t(sacp_hmi_message_t&)> evevnt_cb_f;
 
@@ -136,6 +139,9 @@ typedef struct {
   uint8_t *gcode_str;
 } res_batch_gcode_t;
 
+typedef void (*client_node_onoffline_cb)(uint8_t id, SACPRouteStatus status);
+
+
 class ClientNode {
   // Class define
   public:
@@ -146,11 +152,13 @@ class ClientNode {
 
     static ClientNode *find_client_node(uint32_t peer, uint8_t ch);
     static ClientNode *find_client_node(uint8_t id);
+    static uint8_t client_id(uint32_t peer, uint8_t ch);
     static ClientNode *malloc_client_node(uint32_t peer, uint8_t ch);
     static err_code_t del_client_node(uint32_t peer, uint8_t ch);
     static err_code_t del_client_node(uint8_t id);
     static err_code_t del_client_node(ClientNode *cn);
     static ClientNode *touch_client(uint32_t peer, uint8_t ch);
+    static err_code_t register_on_client_node_online(client_node_onoffline_cb cb);
 
     static err_code_t sacp_cb(void *obj, sacp_hmi_message_t *);
     static bool get_batch_gcode(uint8_t client_id, req_batch_gcode_t &req_batch_gcode, res_batch_gcode_t &res_batch_gcode);
@@ -172,6 +180,7 @@ class ClientNode {
   private:
     static SemaphoreHandle_t _lock;
     static ClientNode* client_node_tab[MAX_CLIENT_NODE_NUM];
+    static client_node_onoffline_cb client_node_onoffline_cb_tab[CLIENT_NODE_ONFFLINE_NOTIFY_CB_MAX];
 
   // Instance define
   public:

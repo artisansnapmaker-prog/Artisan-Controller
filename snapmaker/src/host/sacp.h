@@ -243,6 +243,7 @@ enum SACPRouteStatus {
 
   SACP_ROUTE_STA_INVALID
 };
+
 typedef struct {
   uint32_t peer;
   uint8_t  ch;

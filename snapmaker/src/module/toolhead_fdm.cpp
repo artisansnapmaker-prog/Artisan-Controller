@@ -1645,26 +1645,25 @@ err_code_t ToolHeadFDM::recover_env(uint8_t *env_buf, uint32_t &len) {
 
   bedlevel_svc.live_z_offset[0] = recovery_data.live_z_offset[0];
   bedlevel_svc.live_z_offset[1] = recovery_data.live_z_offset[1];
-  LOG_I("recover env, live_z_offset0: %f, live_z_offset1: %f\n", recovery_data.live_z_offset[0], recovery_data.live_z_offset[1]);
+  // LOG_I("recover env, live_z_offset0: %f, live_z_offset1: %f\n", recovery_data.live_z_offset[0], recovery_data.live_z_offset[1]);
   bedlevel_svc.live_z_offset_changed = recovery_data.live_z_offset_changed;
-  LOG_I("recover env, live_z_offset_changed: %d\n", recovery_data.live_z_offset_changed);
+  // LOG_I("recover env, live_z_offset_changed: %d\n", recovery_data.live_z_offset_changed);
 
   motion_platform_svc.run_gcode((char *)"G28");
 
-  active_extruder = recovery_data.active_extruder;
-  LOG_I("reover env, active_extruder: %d\n", active_extruder);
-  tool_change(active_extruder);
+  // LOG_I("reover env, active_extruder: %d\n", recovery_data.active_extruder);
+  tool_change(recovery_data.active_extruder);
 
   // feedrate percentage
   extruders_feedrate_percentage[0] = recovery_data.feedrate_percentage[0];
   extruders_feedrate_percentage[1] = recovery_data.feedrate_percentage[1];
-  LOG_I("resume env, feedrate_percentage: %d, %d\n", recovery_data.feedrate_percentage[0], recovery_data.feedrate_percentage[1]);
+  // LOG_I("resume env, feedrate_percentage: %d, %d\n", recovery_data.feedrate_percentage[0], recovery_data.feedrate_percentage[1]);
   motion_platform_svc.sync_feedrate_percentage_to_platform(extruders_feedrate_percentage[active_extruder]);
 
   // flowrate percentage
   extruders_flowrate_percentage[0] = recovery_data.flowrate_percentage[0];
   extruders_flowrate_percentage[1] = recovery_data.flowrate_percentage[1];
-  LOG_I("resume env, flowrate_perventage: %d, %d\n", extruders_flowrate_percentage[0], extruders_flowrate_percentage[1]);
+  // LOG_I("resume env, flowrate_perventage: %d, %d\n", extruders_flowrate_percentage[0], extruders_flowrate_percentage[1]);
   motion_platform_svc.sync_flowrate_percentage_to_platform(extruders_flowrate_percentage[active_extruder], active_extruder);
 
   return E_SUCCESS;
@@ -1693,9 +1692,9 @@ err_code_t ToolHeadFDM::resume_env(uint8_t *env_buf, uint32_t &len) {
     set_fan_speed(0, recovery_data.fan_speed[0]);
     set_fan_speed(1, recovery_data.fan_speed[1]);
     set_fan_speed(2, recovery_data.fan_speed[2]);
-    LOG_I("resume env, fan speed: %u, %u, %u\n", recovery_data.fan_speed[0], recovery_data.fan_speed[1], recovery_data.fan_speed[2]);
+    // LOG_I("resume env, fan speed: %u, %u, %u\n", recovery_data.fan_speed[0], recovery_data.fan_speed[1], recovery_data.fan_speed[2]);
     // hotend temp
-    LOG_I("resume env, target_temp: %u, %u", recovery_data.target_temp[0], recovery_data.target_temp[1]);
+    // LOG_I("resume env, target_temp: %u, %u", recovery_data.target_temp[0], recovery_data.target_temp[1]);
     char buf[32];
     snprintf(buf, 32, "M104 T0 S%d", recovery_data.target_temp[0]);
     motion_platform_svc.run_gcode(buf);
@@ -1713,7 +1712,7 @@ err_code_t ToolHeadFDM::standby(void) {
     smsettings->live_z_offset[0] = bedlevel_svc.live_z_offset[0];
     smsettings->live_z_offset[1] = bedlevel_svc.live_z_offset[1];
     motion_platform_svc.save_settings();
-    LOG_I("fdm standby, save live_z_offet: %f, %f\n", bedlevel_svc.live_z_offset[0], bedlevel_svc.live_z_offset[1]);
+    // LOG_I("fdm standby, save live_z_offet: %f, %f\n", bedlevel_svc.live_z_offset[0], bedlevel_svc.live_z_offset[1]);
   }
 
   enum SystemStatus status = smprinter.get_sys_status();

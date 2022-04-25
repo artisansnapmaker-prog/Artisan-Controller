@@ -27,6 +27,10 @@ void GcodeSuite::M2000() {
 
   // bedlevel debug options
   __unused uint8_t b = (uint8_t)parser.byteval('B', (uint8_t)0xFF);
+
+  // drybox debug options
+  __unused uint8_t d = (uint8_t)parser.byteval('D', (uint8_t)0xFF);
+
   // motion platform debug options
   __unused uint8_t m = (uint8_t)parser.byteval('M', (uint8_t)0xFF);
 
@@ -794,6 +798,43 @@ void GcodeSuite::M2000() {
         }
         break;
       default:
+        break;
+    }
+  }
+
+  {
+    uint8_t buffer[100];
+    uint8_t index = 0;
+    switch (d) {
+      case 0:
+        {
+          int16_t temp = (int16_t)parser.intval('T', (int16_t)2);
+          buffer[index++] = 0;
+          buffer[index++] = temp & 0xff;
+          buffer[index++] = (temp >> 8) & 0xff;
+          host_hmi.test_interface(SACP_CMD_SET_DRY_BOX, DRYBOX_REQ_CMD_ID_SET_TEMP, buffer, index);
+        }
+        break;
+
+      case 1:
+        {
+          uint8_t p = (uint8_t)parser.byteval('P', (uint8_t)2);
+          buffer[index++] = 0;
+          buffer[index++] = p;
+          host_hmi.test_interface(SACP_CMD_SET_DRY_BOX, DRYBOX_REQ_CMD_ID_HEATING_CTRL, buffer, index);
+        }
+        break;
+
+      case 2:
+        {
+          uint32_t t = (uint32_t)parser.ulongval('T', (uint32_t)0);
+          buffer[index++] = 0;
+          buffer[index++] = t & 0xff;
+          buffer[index++] = (t >> 8) & 0xff;
+          buffer[index++] = (t >> 16) & 0xff;
+          buffer[index++] = (t >> 24) & 0xff;
+          host_hmi.test_interface(SACP_CMD_SET_DRY_BOX, DRYBOX_REQ_CMD_ID_SET_HEATING_TIME, buffer, index);
+        }
         break;
     }
   }

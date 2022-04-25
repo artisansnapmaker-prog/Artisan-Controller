@@ -1017,7 +1017,9 @@ inline void loud_kill(FSTR_P const lcd_msg, const heater_id_t heater_id) {
 
 void Temperature::_temp_error(const heater_id_t heater_id, FSTR_P const serial_msg, FSTR_P const lcd_msg) {
 
-  static uint8_t killed = 0;
+  #if !MB_SNAPMAKER
+    static uint8_t killed = 0;
+  #endif
 
   if (IsRunning() && TERN1(BOGUS_TEMPERATURE_GRACE_PERIOD, killed == 2)) {
     SERIAL_ERROR_START();

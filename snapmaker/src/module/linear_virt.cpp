@@ -26,9 +26,9 @@ extern int16_t Z2_DETECT_PIN_var;
 extern int16_t Z2_STANDBY_PIN_var;
 
 static float voltage_threshold[3][2] = {
-  {1.2, 1.9}, /* X */
-  {1.2, 1.9}, /* Y */
-  {2.3, 2.5}, /* Z */
+  {1.1, 2.1}, /* X */
+  {1.1, 2.1}, /* Y */
+  {2.15, 2.65}, /* Z */
 };
 
 LinearVirtual *LinearVirtual::objects[LINEAR_VIRTUAL_OBJECT_MAX] {NULL, NULL, NULL, NULL, NULL, NULL};
@@ -105,10 +105,15 @@ err_code_t LinearVirtual::pre_init() {
     break;
   }
 
+  taskENTER_CRITICAL();
   pinMode(detect_pin, INPUT_ANALOG);
-  vTaskDelay(pdMS_TO_TICKS(10));
+  taskEXIT_CRITICAL();
 
+  vTaskDelay(pdMS_TO_TICKS(100));
+
+  taskENTER_CRITICAL();
   detected_vol = analogRead(detect_pin) * 3.3 / 4096;
+  taskEXIT_CRITICAL();
 
   LOG_I("axis[%u]=%s, vol: %.3f mV\n", get_sub_index(), axis_name, detected_vol);
 
@@ -117,10 +122,12 @@ err_code_t LinearVirtual::pre_init() {
     return E_HARDWARE;
   }
 
+  taskENTER_CRITICAL();
   pinMode(TMC_EN, OUTPUT);
   digitalWrite(TMC_EN, TMC_EN_OFF);
 
   digitalWrite(standby_pin, EXIT_STANDBY);
+  taskEXIT_CRITICAL();
 
   LOG_I("axis[%s] exit from standby\n", axis_name);
 
@@ -235,6 +242,7 @@ err_code_t LinearVirtual::routine(void *obj) {
   taskENTER_CRITICAL();
   raw_adc = analogRead(linear.detect_pin);
   taskEXIT_CRITICAL();
+
   detected_vol = raw_adc * 3.3 / 4096;
 
   if (detected_vol < linear.lower_limit || detected_vol > linear.upper_limit) {
@@ -259,13 +267,15 @@ err_code_t LinearVirtual::routine(void *obj) {
   }
   else {
     if (linear.offline_count > 0) {
-      linear.offline_count = 0;
+      linear.offline_count--;
       // TODO: recover
       LOG_I("linear axis[%u] online!\n", linear.get_sub_index());
-      // digitalWrite(TMC_EN, TMC_EN_OFF);
+      digitalWrite(TMC_EN, TMC_EN_OFF);
       linear.set_status(MODULE_STATUS_NORMAL);
       total_online++;
       digitalWrite(linear.standby_pin, EXIT_STANDBY);
+      vTaskDelay(pdMS_TO_TICKS(5));
+      digitalWrite(TMC_EN, TMC_EN_ON);
       // system_svc.clear_exception(MODULE_DEVICE_ID_A400_LINEAR,  LINEAR_EXCEPTION_OFFLINE);
     }
   }

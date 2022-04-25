@@ -73,7 +73,7 @@ class LinearVirtual: public ModuleBase {
     float lead;
     float upper_limit, lower_limit;
     uint32_t next_ms;
-    uint8_t  offline_count;
+    int32_t  offline_count;
 };
 
 #endif  // #ifndef SNAPMAKER_MODULE_LINEAR_VIRTUAL_H_

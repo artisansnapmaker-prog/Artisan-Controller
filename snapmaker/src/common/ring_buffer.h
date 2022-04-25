@@ -112,6 +112,9 @@ class RingBuffer {
       if (free() < to_insert)
         return 0;
 
+      if (!to_insert)
+        return 0;
+
       for (int32_t i = 0; i < to_insert; i++) {
         data[tail] = buffer[i];
         if (++tail >= size)

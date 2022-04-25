@@ -268,15 +268,19 @@ err_code_t LinearVirtual::routine(void *obj) {
   else {
     if (linear.offline_count > 0) {
       linear.offline_count--;
-      // TODO: recover
-      LOG_I("linear axis[%u] online!\n", linear.get_sub_index());
-      digitalWrite(TMC_EN, TMC_EN_OFF);
-      linear.set_status(MODULE_STATUS_NORMAL);
-      total_online++;
-      digitalWrite(linear.standby_pin, EXIT_STANDBY);
-      vTaskDelay(pdMS_TO_TICKS(5));
-      digitalWrite(TMC_EN, TMC_EN_ON);
-      // system_svc.clear_exception(MODULE_DEVICE_ID_A400_LINEAR,  LINEAR_EXCEPTION_OFFLINE);
+    }
+    else {
+      if (linear.get_status() == MODULE_STATUS_OFFLINE) {
+        // TODO: recover
+        LOG_I("linear axis[%u] online!\n", linear.get_sub_index());
+        digitalWrite(TMC_EN, TMC_EN_OFF);
+        linear.set_status(MODULE_STATUS_NORMAL);
+        total_online++;
+        digitalWrite(linear.standby_pin, EXIT_STANDBY);
+        vTaskDelay(pdMS_TO_TICKS(5));
+        digitalWrite(TMC_EN, TMC_EN_ON);
+        // system_svc.clear_exception(MODULE_DEVICE_ID_A400_LINEAR,  LINEAR_EXCEPTION_OFFLINE);
+      }
     }
   }
 

@@ -565,7 +565,6 @@ void JobCtrl::get_gcodes_from_client(void) {
 
         // gcode ringbuffer guarantee to hold all the gcode string.
         _gcode_rb.insert_multi(res_batch_gcode.gcode_str, p - res_batch_gcode.gcode_str);
-        LOG_I("gcode_rb.inser %u\r\n", (uint32_t)(p - res_batch_gcode.gcode_str));
         _env.req_line_num += rx_line_num;
         _err_get_batch_gcode_cnt = 0;
 

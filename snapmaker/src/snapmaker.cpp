@@ -118,16 +118,7 @@ int16_t J_DIR_PIN_var = PC12;
 int16_t J_ENABLE_PIN_var = PD2;
 
 
-typedef struct {
-  int16_t step;
-  int16_t dir;
-  int16_t enable;
-  int16_t endstop;
-  int16_t sw_uart;
-} motor_pins_t;
-
-
-motor_pins_t pins_map[] = {
+motor_pins_t pins_map[PORT_INDEX_MAX] = {
   {PB4, PB3, PB5, PE7, PD12}, // L1
   {PB7, PB6, PE3, PE8, PD13}, // L2
   {PE6, PE5, PE4, PE9, PD14}, // L3

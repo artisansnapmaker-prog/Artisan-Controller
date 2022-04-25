@@ -140,3 +140,59 @@ ModuleBase *module_factory(uint32_t mac, uint8_t key, uint8_t sub_index) {
 
   return NULL;
 }
+
+uint32_t ModuleBase::get_port_index() {
+  err_code_t ret = E_SUCCESS;
+  int i = 0;
+  int32_t pin;
+  sacp_module_message_t msg;
+  uint8_t buffer[4];
+  uint8_t recv_buff[8];
+  uint16_t recv_len = 8;
+
+  msg.cmd_id = MODULE_EXT_CMD_CONFIG_REQ;
+  msg.data   = buffer;
+  msg.length = 1;
+  msg.peer   = mac;
+  msg.ch     = channel;
+
+  buffer[0] = 0;
+
+  taskENTER_CRITICAL();
+  pinMode(pins_map[PORT_INDEX_P1].dir, OUTPUT);
+  pinMode(pins_map[PORT_INDEX_P2].dir, OUTPUT);
+  pinMode(pins_map[PORT_INDEX_P3].dir, OUTPUT);
+  digitalWrite(pins_map[PORT_INDEX_P1].dir, LOW);
+  digitalWrite(pins_map[PORT_INDEX_P2].dir, LOW);
+  digitalWrite(pins_map[PORT_INDEX_P3].dir, LOW);
+  taskEXIT_CRITICAL();
+
+  for (; i < 3; i++) {
+    pin = pins_map[PORT_INDEX_P1 + i].dir;
+    taskENTER_CRITICAL();
+    digitalWrite(pin, HIGH);
+    taskEXIT_CRITICAL();
+
+    recv_len  = sizeof(recv_buff);
+    ret = host_can_cfg.send_sync(&msg, recv_buff, &recv_len, 500);
+
+    taskENTER_CRITICAL();
+    digitalWrite(pin, LOW);
+    taskEXIT_CRITICAL();
+
+    if (ret != E_SUCCESS) {
+      continue;
+    }
+    else {
+      if (recv_len == 0 || recv_buff[0] != 1)
+        continue;
+      else
+        break;
+    }
+  }
+
+  if (i >= 3)
+    return PORT_INDEX_MAX;
+  else
+    return i + PORT_INDEX_P1;
+}

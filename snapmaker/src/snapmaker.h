@@ -127,8 +127,20 @@ enum SMBoardPortIndex {
   PORT_INDEX_L5,
   PORT_INDEX_P1,
   PORT_INDEX_P2,
-  PORT_INDEX_P3
+  PORT_INDEX_P3,
+  PORT_INDEX_MAX
 };
+
+typedef struct {
+  int16_t step;
+  int16_t dir;
+  int16_t enable;
+  int16_t endstop;
+  int16_t sw_uart;
+} motor_pins_t;
+
+extern motor_pins_t pins_map[PORT_INDEX_MAX];
+
 
 // ================= exception actions defination =================
 // make the action bit be same with the power domain bits, then we can

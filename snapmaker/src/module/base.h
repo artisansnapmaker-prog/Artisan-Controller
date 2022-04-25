@@ -375,6 +375,8 @@ class ModuleBase {
 
     uint32_t get_sn() { return MODULE_GET_SN(mac); }
 
+    uint32_t get_port_index();
+
   // private methods
   protected:
     // search message id by function id

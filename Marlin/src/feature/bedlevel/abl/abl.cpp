@@ -370,8 +370,8 @@ float bilinear_z_offset(const xy_pos_t &raw) {
    */
   void bilinear_line_to_destination(const_feedRate_t scaled_fr_mm_s, uint16_t x_splits, uint16_t y_splits) {
     // Get current and destination cells for this line
-    xy_int_t c1 { CELL_INDEX(x, current_position.x), CELL_INDEX(y, current_position.y) },
-             c2 { CELL_INDEX(x, destination.x), CELL_INDEX(y, destination.y) };
+    xy_int_t c1 { (short int)CELL_INDEX(x, current_position.x), (short int)CELL_INDEX(y, current_position.y) },
+             c2 { (short int)CELL_INDEX(x, destination.x), (short int)CELL_INDEX(y, destination.y) };
     LIMIT(c1.x, 0, ABL_BG_POINTS_X - 2);
     LIMIT(c1.y, 0, ABL_BG_POINTS_Y - 2);
     LIMIT(c2.x, 0, ABL_BG_POINTS_X - 2);
@@ -388,7 +388,7 @@ float bilinear_z_offset(const xy_pos_t &raw) {
 
     float normalized_dist;
     xyze_pos_t end;
-    const xy_int8_t gc { _MAX(c1.x, c2.x), _MAX(c1.y, c2.y) };
+    const xy_int8_t gc { (signed char)_MAX(c1.x, c2.x), (signed char)_MAX(c1.y, c2.y) };
 
     // Crosses on the X and not already split on this X?
     // The x_splits flags are insurance against rounding errors.

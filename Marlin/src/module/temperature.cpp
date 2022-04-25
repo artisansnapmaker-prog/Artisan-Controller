@@ -1068,7 +1068,12 @@ void Temperature::_temp_error(const heater_id_t heater_id, FSTR_P const serial_m
   #elif defined(BOGUS_TEMPERATURE_GRACE_PERIOD)
     UNUSED(killed);
   #else
+    #if MB_SNAPMAKER
+    // if (!killed) { killed = 1; loud_kill(lcd_msg, heater_id); }
+    LOG_I("TODO: _temp_error\r\n");
+    #else
     if (!killed) { killed = 1; loud_kill(lcd_msg, heater_id); }
+    #endif
   #endif
 }
 

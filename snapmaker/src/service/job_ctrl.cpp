@@ -122,7 +122,6 @@ void JobCtrl::background_thread(void *p) {
     }
   }
 
-  // TODO: check other event such as temperature protetion, stall protection
   if ( got_last_gcode_packet && _gcode_rb.is_empty() )
   {
     got_last_gcode_packet = false;
@@ -301,14 +300,11 @@ err_code_t JobCtrl::save_env(void) {
     return E_JOB_SAVE_ENV_FAILURE;
   }
 
-  // if (TH_TYPE_3DP != smprinter.get_toolhead_type()) {
-    // TODO: no do save_env for 3dp toolhead as 3dp toolhead save_env has bugs.
-    _env.toolhead_env_buf_size = MODULE_ENV_MAX_SIZE;
-    if (E_SUCCESS != cur_toolhead->save_env(_env.toolhead_env_buf, _env.toolhead_env_buf_size)) {
-      LOG_E("Toolhead save env error\r\n");
-      return E_JOB_SAVE_ENV_FAILURE;
-    }
-  //}
+  _env.toolhead_env_buf_size = MODULE_ENV_MAX_SIZE;
+  if (E_SUCCESS != cur_toolhead->save_env(_env.toolhead_env_buf, _env.toolhead_env_buf_size)) {
+    LOG_E("Toolhead save env error\r\n");
+    return E_JOB_SAVE_ENV_FAILURE;
+  }
 
   if (TH_TYPE_3DP == _env.type){
     ModuleBase *bed;
@@ -566,9 +562,10 @@ void JobCtrl::get_gcodes_from_client(void) {
           _err_get_batch_gcode_cnt++;
           break;
         }
+
         // gcode ringbuffer guarantee to hold all the gcode string.
         _gcode_rb.insert_multi(res_batch_gcode.gcode_str, p - res_batch_gcode.gcode_str);
-        _env.req_line_num = res_batch_gcode.end_line_num + 1;
+        _env.req_line_num += rx_line_num;
         _err_get_batch_gcode_cnt = 0;
 
         if (E_JOB_LAST_GCODE_PACK == res_batch_gcode.result) {
@@ -1016,7 +1013,7 @@ bool JobCtrl::consume_a_gcode(uint8_t *cmd, uint16_t max_len, uint32_t *line) {
     if('\n' == c) {
       *line = _env.cur_line_num++;
       cmd[cmd_len] = 0;
-      // LOG_I("job_ctrl: marlin consume a gcode: %s\r\n", cmd);
+      // LOG_I("job_ctrl: marlin consume a gcode %d: %s\r\n", *line, cmd);
       last_gcode_execute_by_platform = false;
       ret = true;
 

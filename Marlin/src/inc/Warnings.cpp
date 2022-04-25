@@ -36,8 +36,10 @@
 #endif
 
 // Safety Features
+#if !MB_SNAPMAKER
 #if DISABLED(USE_WATCHDOG)
   #warning "Safety Alert! Enable USE_WATCHDOG for the final build!"
+#endif
 #endif
 #if HAS_HOTEND && DISABLED(THERMAL_PROTECTION_HOTENDS)
   #warning "Safety Alert! Enable THERMAL_PROTECTION_HOTENDS for the final build!"

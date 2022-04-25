@@ -43,26 +43,7 @@ struct ExceptionNodeISR {
   uint32_t actions;
 };
 
-/*
-#define POWER_DOMAIN_MOTIVE_POWER (0x1<<0)
-#define POWER_DOMAIN_8P_TOOLHEAD  (0x1<<1)
-#define POWER_DOMAIN_8P_MOTOR     (0x1<<2)
-#define POWER_DOMAIN_4P_ADDON     (0x1<<3)
-#define POWER_DOMAIN_BED          (0x1<<4)
-#define POWER_DOMAIN_HMI          (0x1<<5)
-*/
-// make the action bit be same with the power domain bits, then we can
-// disable the power using the action bits
-#define EXCEP_ACT_DISABLE_POWER_MOTIVE          (POWER_DOMAIN_MOTIVE_POWER)
-#define EXCEP_ACT_DISABLE_POWER_8P_TOOLHEAD     (POWER_DOMAIN_8P_TOOLHEAD)
-#define EXCEP_ACT_DISABLE_POWER_8P_MOTOR        (POWER_DOMAIN_8P_MOTOR)
-#define EXCEP_ACT_DISABLE_POWER_4P_ADDON        (POWER_DOMAIN_4P_ADDON)
-#define EXCEP_ACT_DISABLE_POWER_BED             (POWER_DOMAIN_BED)
-#define EXCEP_ACT_DISABLE_POWER_HMI             (POWER_DOMAIN_HMI)
-// reserve bit[7:6] for power domain
-#define EXCEP_ACT_PAUSE_WORKING                 (1<<8)
-#define EXCEP_ACT_STOP_WORKING                  (1<<9)
-#define EXCEP_ACT_STOP_WITH_RECOVERY            (1<<10)
+
 
 #define EXCEP_ACT_DISABLE_POWER               (EXCEP_ACT_DISABLE_POWER_MOTIVE | \
                                                 EXCEP_ACT_DISABLE_POWER_8P_TOOLHEAD | \
@@ -72,20 +53,6 @@ struct ExceptionNodeISR {
                                                 EXCEP_ACT_DISABLE_POWER_HMI)
 
 
-#define EXCEP_BAN_ENABLE_POWER_MOTIVE         (POWER_DOMAIN_MOTIVE_POWER)
-#define EXCEP_BAN_ENABLE_POWER_8P_TOOLHEAD    (POWER_DOMAIN_8P_TOOLHEAD)
-#define EXCEP_BAN_ENABLE_POWER_8P_MOTOR       (POWER_DOMAIN_8P_MOTOR)
-#define EXCEP_BAN_ENABLE_POWER_4P_ADDON       (POWER_DOMAIN_4P_ADDON)
-#define EXCEP_BAN_ENABLE_POWER_BED            (POWER_DOMAIN_BED)
-#define EXCEP_BAN_ENABLE_POWER_HMI            (POWER_DOMAIN_HMI)
-// reserve bit[7:6] for power domain
-#define EXCEP_BAN_MOVING                      (1<<8)
-#define EXCEP_BAN_WORKING                     (1<<9)
-#define EXCEP_BAN_HEATING_HOTEND              (1<<10)
-#define EXCEP_BAN_HEATING_BED                 (1<<11)
-#define EXCEP_BAN_TURN_ON_LASER               (1<<12)
-#define EXCEP_BAN_TURN_ON_CNC                 (1<<13)
-
 #define EXCEP_BAN_CANNOT_WORK                 (EXCEP_BAN_ENABLE_POWER_MOTIVE | \
                                                     EXCEP_BAN_ENABLE_POWER_8P_TOOLHEAD | \
                                                     EXCEP_BAN_ENABLE_POWER_8P_MOTOR | \
@@ -94,17 +61,6 @@ struct ExceptionNodeISR {
                                                     EXCEP_BAN_ENABLE_POWER_BED | \
                                                     EXCEP_BAN_MOVING | \
                                                     EXCEP_BAN_WORKING)
-
-enum A400ControllerExceptionState {
-  A400_CTRL_EXCEP_STA_NO_TOOLHEAD = 1,
-  A400_CTRL_EXCEP_STA_NO_BED,
-  A400_CTRL_EXCEP_STA_NO_LINEAR,
-  A400_CTRL_EXCEP_STA_MISS_LINEAR,
-  A400_CTRL_EXCEP_STA_OVERTEMP,
-  A400_CTRL_EXCEP_STA_MISS_SETTINGS,
-  A400_CTRL_EXCEP_STA_HOME_FAILED,
-  A400_CTRL_EXCEP_STA_REPLACE_TOOLHEAD,
-};
 
 class SystemService {
   // public methods

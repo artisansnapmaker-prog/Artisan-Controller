@@ -130,6 +130,58 @@ enum SMBoardPortIndex {
   PORT_INDEX_P3
 };
 
+// ================= exception actions defination =================
+// make the action bit be same with the power domain bits, then we can
+// disable the power using the action bits
+#define EXCEP_ACT_DISABLE_POWER_MOTIVE          (POWER_DOMAIN_MOTIVE_POWER)
+#define EXCEP_ACT_DISABLE_POWER_8P_TOOLHEAD     (POWER_DOMAIN_8P_TOOLHEAD)
+#define EXCEP_ACT_DISABLE_POWER_8P_MOTOR        (POWER_DOMAIN_8P_MOTOR)
+#define EXCEP_ACT_DISABLE_POWER_4P_ADDON        (POWER_DOMAIN_4P_ADDON)
+#define EXCEP_ACT_DISABLE_POWER_BED             (POWER_DOMAIN_BED)
+#define EXCEP_ACT_DISABLE_POWER_HMI             (POWER_DOMAIN_HMI)
+// reserve bit[7:6] for power domain
+#define EXCEP_ACT_PAUSE_WORKING                 (1<<8)
+#define EXCEP_ACT_STOP_WORKING                  (1<<9)
+#define EXCEP_ACT_STOP_WITH_RECOVERY            (1<<10)
+
+// ================= exception ban defination =================
+#define EXCEP_BAN_ENABLE_POWER_MOTIVE         (POWER_DOMAIN_MOTIVE_POWER)
+#define EXCEP_BAN_ENABLE_POWER_8P_TOOLHEAD    (POWER_DOMAIN_8P_TOOLHEAD)
+#define EXCEP_BAN_ENABLE_POWER_8P_MOTOR       (POWER_DOMAIN_8P_MOTOR)
+#define EXCEP_BAN_ENABLE_POWER_4P_ADDON       (POWER_DOMAIN_4P_ADDON)
+#define EXCEP_BAN_ENABLE_POWER_BED            (POWER_DOMAIN_BED)
+#define EXCEP_BAN_ENABLE_POWER_HMI            (POWER_DOMAIN_HMI)
+// reserve bit[7:6] for power domain
+#define EXCEP_BAN_MOVING                      (1<<8)
+#define EXCEP_BAN_WORKING                     (1<<9)
+#define EXCEP_BAN_HEATING_HOTEND              (1<<10)
+#define EXCEP_BAN_HEATING_BED                 (1<<11)
+#define EXCEP_BAN_TURN_ON_LASER               (1<<12)
+#define EXCEP_BAN_TURN_ON_CNC                 (1<<13)
+
+enum SMExceptionOwner {
+  SM_EXCEP_OWNER_SYSTEM,
+  SM_EXCEP_OWNER_TOOLHEAD,
+  SM_EXCEP_OWNER_BED,
+  SM_EXCEP_OWNER_LINEAR_X,
+  SM_EXCEP_OWNER_LINEAR_Y,
+  SM_EXCEP_OWNER_LINEAR_Z,
+  SM_EXCEP_OWNER_LINEAR_Y2,
+  SM_EXCEP_OWNER_LINEAR_Z2,
+};
+
+enum SMControllerExceptionState {
+  CONTROLLER_EXCEP_STA_NO_TOOLHEAD = 1,
+  CONTROLLER_EXCEP_STA_NO_BED,
+  CONTROLLER_EXCEP_STA_NO_LINEAR,
+  CONTROLLER_EXCEP_STA_MISS_LINEAR,
+  CONTROLLER_EXCEP_STA_OVERTEMP,
+  CONTROLLER_EXCEP_STA_MISS_SETTINGS,
+  CONTROLLER_EXCEP_STA_HOME_FAILED,
+  CONTROLLER_EXCEP_STA_REPLACE_TOOLHEAD,
+};
+
+
 // wrapper of snapmaker for marlin
 class SnapmakerPrinter
 {
@@ -377,6 +429,8 @@ class SnapmakerPrinter
 
     void reset_settings();
     SnapmakerSettings *get_settings() { return &settings; }
+
+    void raise_exception(SMExceptionOwner owner, uint8_t state, uint32_t actions = 0, uint32_t ban = 0);
 
   private:
     enum SystemStatus sys_status;

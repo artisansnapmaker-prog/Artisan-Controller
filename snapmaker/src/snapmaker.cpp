@@ -1204,6 +1204,92 @@ void SnapmakerPrinter::reset_settings() {
   settings.enclosure_settings.enclosure_check_enable_mask = ENCLOSURE_CHECK_ENABLE_DEFAULT_MASK;
 }
 
+
+void SnapmakerPrinter::raise_exception(SMExceptionOwner owner, uint8_t state,
+                                        uint32_t actions/* = 0*/, uint32_t ban/* = 0*/) {
+  ModuleBase *m;
+  switch (owner) {
+  case SM_EXCEP_OWNER_SYSTEM:
+    system_svc.raise_exception(MODULE_DEVICE_ID_A400_CONTROLLER, state, actions, ban);
+    break;
+
+  case SM_EXCEP_OWNER_TOOLHEAD:
+    m = get_cur_toolhead();
+    if (!m) {
+      LOG_E("toolhead offline, cannot raise exception with SM_EXCEP_OWNER_TOOLHEAD!!!\n");
+      system_svc.raise_exception(MODULE_DEVICE_ID_INVALID, state, actions, ban);
+      break;
+    }
+    system_svc.raise_exception(m->get_device_id(), state, actions, ban);
+    break;
+
+  case SM_EXCEP_OWNER_BED:
+    m = module_svc.get_module(MODULE_DEVICE_ID_A400_BED, 0);
+    if (!m) {
+      LOG_E("Bed offline, cannot raise exception with MODULE_DEVICE_ID_A400_BED!!!\n");
+      system_svc.raise_exception(MODULE_DEVICE_ID_INVALID, state, actions, ban);
+      break;
+    }
+    system_svc.raise_exception(m->get_device_id(), state, actions, ban);
+    break;
+
+  case SM_EXCEP_OWNER_LINEAR_X:
+    m = module_svc.get_module(MODULE_DEVICE_ID_A400_LINEAR, MODULE_LINEAR_X1);
+    if (!m) {
+      LOG_E("Axis offline, cannot raise exception with SM_EXCEP_OWNER_LINEAR_X!!!\n");
+      system_svc.raise_exception(MODULE_DEVICE_ID_INVALID, state, actions, ban);
+      break;
+    }
+    system_svc.raise_exception(m->get_device_id(), state, actions, ban);
+    break;
+
+  case SM_EXCEP_OWNER_LINEAR_Y:
+    m = module_svc.get_module(MODULE_DEVICE_ID_A400_LINEAR, MODULE_LINEAR_Y1);
+    if (!m) {
+      LOG_E("Axis offline, cannot raise exception with MODULE_LINEAR_Y1!!!\n");
+      system_svc.raise_exception(MODULE_DEVICE_ID_INVALID, state, actions, ban);
+      break;
+    }
+    system_svc.raise_exception(m->get_device_id(), state, actions, ban);
+    break;
+
+  case SM_EXCEP_OWNER_LINEAR_Z:
+    m = module_svc.get_module(MODULE_DEVICE_ID_A400_LINEAR, MODULE_LINEAR_Z1);
+    if (!m) {
+      LOG_E("Axis offline, cannot raise exception with MODULE_LINEAR_Z1!!!\n");
+      system_svc.raise_exception(MODULE_DEVICE_ID_INVALID, state, actions, ban);
+      break;
+    }
+    system_svc.raise_exception(m->get_device_id(), state, actions, ban);
+    break;
+
+  case SM_EXCEP_OWNER_LINEAR_Y2:
+    m = module_svc.get_module(MODULE_DEVICE_ID_A400_LINEAR, MODULE_LINEAR_Y2);
+    if (!m) {
+      LOG_E("Axis offline, cannot raise exception with MODULE_LINEAR_Y2!!!\n");
+      system_svc.raise_exception(MODULE_DEVICE_ID_INVALID, state, actions, ban);
+      break;
+    }
+    system_svc.raise_exception(m->get_device_id(), state, actions, ban);
+    break;
+
+  case SM_EXCEP_OWNER_LINEAR_Z2:
+    m = module_svc.get_module(MODULE_DEVICE_ID_A400_LINEAR, MODULE_LINEAR_Z2);
+    if (!m) {
+      LOG_E("Axis offline, cannot raise exception with MODULE_LINEAR_Z2!!!\n");
+      system_svc.raise_exception(MODULE_DEVICE_ID_INVALID, state, actions, ban);
+      break;
+    }
+    system_svc.raise_exception(m->get_device_id(), state, actions, ban);
+    break;
+
+  default:
+    LOG_E("invlaid exception owner[%u]!!!\n", owner);
+    break;
+  }
+}
+
+
 extern "C" {
   // hook for failing to apply memory in freeRTOS
   void vApplicationMallocFailedHook( void ) {

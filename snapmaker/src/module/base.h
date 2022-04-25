@@ -331,6 +331,9 @@ class ModuleBase {
     // quickstop call from stepper ISR, do it quickly as possible.
     virtual err_code_t quickstop(void) { return E_SUCCESS; }
 
+    virtual err_code_t set_feedrate_percentage(uint8_t *data, uint16_t length) { return E_SUCCESS; }
+    virtual uint16_t get_feedrate_percentage(uint8_t *buffer) { return 0; }
+
     virtual bool check_online() = 0;
 
     int get_function_priority(uint16_t function_id);

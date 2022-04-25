@@ -98,7 +98,7 @@ void ClientNode::on_new_client_node(void *obj, sacp_route_table_t *rt) {
   for (int i = 0; i < SACP_ROUTE_TABLE_DYNAMIC_MAX; i++) {
     notify = false;
     if (SACP_ROUTE_STA_ONLINE == rt[i].status) {
-      if (cn = find_client_node(rt[i].peer, rt[i].ch)) {
+      if ((cn = find_client_node(rt[i].peer, rt[i].ch))) {
         notify = true;
       }
       else {

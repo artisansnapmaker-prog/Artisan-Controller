@@ -906,10 +906,7 @@ void kill(FSTR_P const lcd_error/*=nullptr*/, FSTR_P const lcd_component/*=nullp
   TERN_(HAS_TFT_LVGL_UI, lv_draw_error_message(lcd_error));
 
   // "Error:Printer halted. kill() called!"
-  #if MB_SNAPMAKER
-  // SERIAL_ERROR_MSG(STR_ERR_KILLED);
-  // TODO: raise exception
-  #endif
+  SERIAL_ERROR_MSG(STR_ERR_KILLED);
 
   #ifdef ACTION_ON_KILL
     hostui.kill();

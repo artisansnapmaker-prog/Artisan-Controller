@@ -256,9 +256,10 @@ err_code_t SnapmakerPrinter::hmi_cb_get_machine_size(void *obj, sacp_hmi_message
 
 err_code_t SnapmakerPrinter::hmi_cb_set_protocol_for_PC(void *obj, sacp_hmi_message_t *msg) {
   SnapmakerPrinter *printer = (SnapmakerPrinter *)obj;
+  err_code_t ret = E_SUCCESS;
 
-  if (printer->get_sys_status() != SYSTEM_STATUS_IDLE) {
-    LOG_E("Can change protocol in only idle status\n");
+  if (printer->on_working()) {
+    LOG_E("Cannot change protocol when working\n");
     return host_hmi.send_ack(msg, E_INVALID_STATE);
   }
 
@@ -275,18 +276,26 @@ err_code_t SnapmakerPrinter::hmi_cb_set_protocol_for_PC(void *obj, sacp_hmi_mess
   if (msg->data[0] == PC_PORT_PROTOCOL_GCODE) {
     if (ch->link->get_active_ch() != MARLIN_SERIAL_CHANNEL_ORIGINAL) {
       // send ack firstly
-      host_hmi.send_ack(msg, E_SUCCESS);
+      ret = host_hmi.send_ack(msg, E_SUCCESS);
+      if (msg->ch == SACP_HMI_CH_PC) {
+        // waiting the message to be sent out
+        vTaskDelay(pdMS_TO_TICKS(100));
+      }
       // then change the protocol of PC to Gcode
       ch->link->set_active_channel(MARLIN_SERIAL_CHANNEL_ORIGINAL);
+    }
+    else {
+      ret = host_hmi.send_ack(msg, E_SUCCESS);
     }
   }
   else {
     if (ch->link->get_active_ch() != MARLIN_SERIAL_CHANNEL_SECOND) {
       ch->link->set_active_channel(MARLIN_SERIAL_CHANNEL_SECOND);
     }
+    ret = host_hmi.send_ack(msg, E_SUCCESS);
   }
 
-  return E_SUCCESS;
+  return ret;
 }
 
 

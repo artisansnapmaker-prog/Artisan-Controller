@@ -290,6 +290,11 @@ err_code_t HostSACPHMI::send_sync(sacp_hmi_message_t *message, uint8_t *out, uin
     return E_FAILURE;
   }
 
+  if (message->ch > SACP_HMI_CH_MAX || !channels[message->ch].link) {
+    LOG_E("invalid sacp hmi channel[%u]\n", message->ch);
+    return E_PARAM;
+  }
+
   sacp_channel_t &channel = channels[message->ch];
 
   // won't update sequence when it is ACK or USERs want to set sequence by themself

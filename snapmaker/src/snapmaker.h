@@ -470,6 +470,12 @@ class SnapmakerPrinter
     SnapmakerSettings *get_settings() { return &settings; }
 
     void raise_exception(SMExceptionOwner owner, uint8_t state, uint32_t actions = 0, uint32_t ban = 0);
+    bool allow_moving();
+    bool allow_heating_bed();
+    bool allow_heating_hotend();
+    bool allow_leveling();
+    bool allow_turn_on_laser();
+    bool allow_turn_on_cnc();
 
   private:
     enum SystemStatus sys_status;

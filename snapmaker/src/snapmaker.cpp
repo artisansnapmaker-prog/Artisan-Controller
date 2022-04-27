@@ -466,9 +466,9 @@ void SnapmakerPrinter::post_init() {
   vTaskStartScheduler();
 }
 
-void SnapmakerPrinter::update_gcode_file_pass_line_number(uint32_t l) { 
+void SnapmakerPrinter::update_gcode_file_pass_line_number(uint32_t l) {
   gcode_file_pass_line_number = l;
-  job_ctrl_svc.update_gcode_file_pass_line_number(l); 
+  job_ctrl_svc.update_gcode_file_pass_line_number(l);
 };
 
 
@@ -1287,6 +1287,30 @@ void SnapmakerPrinter::raise_exception(SMExceptionOwner owner, uint8_t state,
     LOG_E("invlaid exception owner[%u]!!!\n", owner);
     break;
   }
+}
+
+bool SnapmakerPrinter::allow_moving() {
+  return system_svc.allow_moving();
+}
+
+bool SnapmakerPrinter::allow_heating_bed() {
+  return system_svc.allow_heating_bed();
+}
+
+bool SnapmakerPrinter::allow_heating_hotend()  {
+  return system_svc.allow_heating_hotend();
+}
+
+bool SnapmakerPrinter::allow_leveling()  {
+  return system_svc.allow_leveling();
+}
+
+bool SnapmakerPrinter::allow_turn_on_laser()  {
+  return system_svc.allow_turn_on_laser();
+}
+
+bool SnapmakerPrinter::allow_turn_on_cnc()  {
+  return system_svc.allow_turn_on_cnc();
 }
 
 

@@ -6,6 +6,7 @@
 #include "../snapmaker.h"
 #include "../service/module.h"
 #include "../service/motion_platform.h"
+#include "../service/system.h"
 #include "../HAL/pwm.h"
 #include "Arduino.h"
 
@@ -261,6 +262,11 @@ err_code_t ToolHeadLaser::hmi_cb_set_output(void *obj, sacp_hmi_message_t *messa
 
   LOG_I("set laser power[%d]\n", *power);
 
+  if (!system_svc.allow_turn_on_laser() && *power > 0) {
+    LOG_E("cannot turn on laser as bans[0x%x]\n", system_svc.get_bans());
+    return host_hmi.send_ack(message, E_EXCEPTION);
+  }
+
   laser.set_output((float)(*power / 1000.0));
 
   return host_hmi.send_ack(message, E_SUCCESS);
@@ -378,6 +384,11 @@ err_code_t ToolHeadLaser::hmi_cb_set_4axis_center_hight(void *obj, sacp_hmi_mess
 err_code_t ToolHeadLaser::hmi_cb_do_manual_focusing(void *obj, sacp_hmi_message_t *message) {
   ToolHeadLaser &laser = *(ToolHeadLaser *)obj;
 
+  if (!system_svc.allow_moving()) {
+    LOG_E("cannot do laser calibration mode as exception [0x%x]\n", system_svc.get_bans());
+    return host_hmi.send_ack(message, E_EXCEPTION);
+  }
+
   if (message->length < 12) {
     return host_hmi.send_ack(message, E_PARAM);
   }
@@ -439,6 +450,11 @@ err_code_t ToolHeadLaser::hmi_cb_do_manual_focusing(void *obj, sacp_hmi_message_
 
 err_code_t ToolHeadLaser::hmi_cb_do_auto_focusing(void *obj, sacp_hmi_message_t *message) {
   ToolHeadLaser &laser = *(ToolHeadLaser *)obj;
+
+  if (!system_svc.allow_moving() || !system_svc.allow_turn_on_laser()) {
+    LOG_E("cannot do laser calibration mode as exception [0x%x]\n", system_svc.get_bans());
+    return host_hmi.send_ack(message, E_EXCEPTION);
+  }
 
   if (message->length < 4) {
     return host_hmi.send_ack(message, E_PARAM);
@@ -550,6 +566,11 @@ err_code_t ToolHeadLaser::hmi_cb_do_auto_focusing(void *obj, sacp_hmi_message_t 
 
 err_code_t ToolHeadLaser::hmi_cb_set_cali_mode(void *obj, sacp_hmi_message_t *message) {
   ToolHeadLaser &laser = *(ToolHeadLaser *)obj;
+
+  if (!system_svc.allow_moving()) {
+    LOG_E("cannot enter calibration mode as exception [0x%x]\n", system_svc.get_bans());
+    return host_hmi.send_ack(message, E_EXCEPTION);
+  }
 
   if (laser.get_status() != MODULE_STATUS_NORMAL) {
     LOG_E("invalid module state[%u] in calibration\n", laser.get_status());
@@ -747,6 +768,34 @@ err_code_t ToolHeadLaser::pre_init() {
   digitalWrite(output_pin, HIGH);
 
   return E_SUCCESS;
+}
+
+
+err_code_t ToolHeadLaser::turn_on() {
+  if (get_status() != MODULE_STATUS_NORMAL)
+    return E_INVALID_STATE;
+  return update_output(power_pwm);
+}
+
+err_code_t ToolHeadLaser::turn_off() {
+  if (get_status() != MODULE_STATUS_NORMAL)
+    return E_INVALID_STATE;
+  return update_output(0);
+}
+
+err_code_t ToolHeadLaser::set_output(float power) {
+  if (get_status() != MODULE_STATUS_NORMAL)
+    return E_INVALID_STATE;
+
+  if (!system_svc.allow_turn_on_laser() && power > 0) {
+    LOG_I("cannot open laser as exception!\n");
+    return E_EXCEPTION;
+  }
+
+  if (power > LASER_POWER_MAX)
+    power = LASER_POWER_MAX;
+  update_power(power);
+  return update_output(power_pwm);
 }
 
 

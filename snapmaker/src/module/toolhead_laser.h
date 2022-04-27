@@ -154,26 +154,10 @@ class ToolHeadLaser: public ModuleBase {
 
     bool check_online() { return true; }
 
-    err_code_t turn_on() {
-      if (get_status() != MODULE_STATUS_NORMAL)
-        return E_INVALID_STATE;
-      return update_output(power_pwm);
-    }
+    err_code_t turn_on();
+    err_code_t turn_off();
 
-    err_code_t turn_off() {
-      if (get_status() != MODULE_STATUS_NORMAL)
-        return E_INVALID_STATE;
-      return update_output(0);
-    }
-
-    err_code_t set_output(float power) {
-      if (get_status() != MODULE_STATUS_NORMAL)
-        return E_INVALID_STATE;
-      if (power > LASER_POWER_MAX)
-        power = LASER_POWER_MAX;
-      update_power(power);
-      return update_output(power_pwm);
-    }
+    err_code_t set_output(float power);
 
     void set_power_limit(float limit);
     float get_power_limit(void) { return power_limit; }

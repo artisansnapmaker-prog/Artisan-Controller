@@ -336,7 +336,7 @@ err_code_t SystemService::clear_exception(uint16_t owner, uint8_t state) {
 /* raise exception from ISR env
  *  owner   - device id
  *  state   - exception enumeration, each owner must define itself exception
- *  actions - actions you want to trigger, these have been define in system.h, 
+ *  actions - actions you want to trigger, these have been define in system.h,
  *            the macros start with prefix 'EXCEP_ACT_'
  *  ban     - when an exception exists, the behaviors you want to ban
  */
@@ -401,8 +401,7 @@ bool SystemService::allow_working() {
     return false;
   }
 
-  switch (smprinter.get_toolhead_type())
-  {
+  switch (smprinter.get_toolhead_type()) {
   case TH_TYPE_3DP:
     if (bans & (EXCEP_BAN_HEATING_HOTEND | EXCEP_BAN_HEATING_BED)) {
       LOG_E("cannot start working, cannot heat hotend or bed!\n");
@@ -434,22 +433,89 @@ bool SystemService::allow_working() {
 }
 
 
+bool SystemService::allow_moving() {
+  if (bans & (EXCEP_BAN_ENABLE_POWER_MOTIVE |
+              EXCEP_BAN_ENABLE_POWER_8P_MOTOR |
+              EXCEP_BAN_MOVING)) {
+    return false;
+  }
+
+  return true;
+}
+
+
+bool SystemService::allow_heating_bed() {
+  if (bans & (EXCEP_BAN_ENABLE_POWER_MOTIVE |
+              EXCEP_BAN_ENABLE_POWER_BED |
+              EXCEP_BAN_HEATING_BED)) {
+    return false;
+  }
+
+  return true;
+}
+
+
+bool SystemService::allow_heating_hotend() {
+  if (bans & (EXCEP_BAN_ENABLE_POWER_MOTIVE |
+              EXCEP_BAN_ENABLE_POWER_8P_TOOLHEAD |
+              EXCEP_BAN_HEATING_HOTEND)) {
+    return false;
+  }
+
+  return true;
+}
+
+
+bool SystemService::allow_leveling() {
+  if (bans & (EXCEP_BAN_ENABLE_POWER_MOTIVE |
+              EXCEP_BAN_ENABLE_POWER_8P_TOOLHEAD |
+              EXCEP_BAN_ENABLE_POWER_8P_MOTOR |
+              EXCEP_BAN_MOVING |
+              EXCEP_BAN_ENABLE_POWER_HMI)) {
+    return false;
+  }
+
+  return true;
+}
+
+
+bool SystemService::allow_turn_on_laser() {
+  if (bans & (EXCEP_BAN_ENABLE_POWER_MOTIVE |
+              EXCEP_BAN_ENABLE_POWER_8P_TOOLHEAD |
+              EXCEP_BAN_TURN_ON_LASER)) {
+    return false;
+  }
+
+  return true;
+}
+
+
+bool SystemService::allow_turn_on_cnc() {
+  if (bans & (EXCEP_BAN_ENABLE_POWER_MOTIVE |
+              EXCEP_BAN_ENABLE_POWER_8P_TOOLHEAD |
+              EXCEP_BAN_TURN_ON_CNC)) {
+    return false;
+  }
+
+  return true;
+}
+
+
 void SystemService::background_thread() {
   ExceptionNodeISR node = { EXCEPTION_OWNER_INVALID };
-  disable_all_interrupts();
   for (int i = 0; i < EXCEPTION_ISR_QUEUE_SIZE; i++) {
-    if (nodes_isr[i].owner != EXCEPTION_OWNER_INVALID) {
-      node.owner = nodes_isr[i].owner;
-      node.state = nodes_isr[i].state;
-      node.ban   = nodes_isr[i].ban;
-      node.actions = nodes_isr[i].actions;
-      // release the node
-      nodes_isr[i].owner = EXCEPTION_OWNER_INVALID;
+    disable_all_interrupts();
+    node = nodes_isr[i];
+    enable_all_interrupts();
 
+    if (node.owner != EXCEPTION_OWNER_INVALID) {
+      // release the node
+      disable_all_interrupts();
+      nodes_isr[i].owner = EXCEPTION_OWNER_INVALID;
+      enable_all_interrupts();
       break;
     }
   }
-  enable_all_interrupts();
 
   if (node.owner != EXCEPTION_OWNER_INVALID) {
     LOG_W("got exception from ISR! excep[o:%u, s:%u, a:0x%x, b: 0x%x]\n",

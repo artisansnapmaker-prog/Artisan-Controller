@@ -73,7 +73,12 @@ class SystemService {
     uint32_t get_bans() { return bans; }
 
     bool allow_working();
-
+    bool allow_moving();
+    bool allow_heating_bed();
+    bool allow_heating_hotend();
+    bool allow_leveling();
+    bool allow_turn_on_laser();
+    bool allow_turn_on_cnc();
     /* raise exception from thread env
     *  owner   - device id
     *  state   - exception enumeration, each owner must define itself exception

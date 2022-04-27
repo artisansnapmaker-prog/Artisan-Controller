@@ -225,10 +225,10 @@ bool protocol_proc(HardwareSerial &ser, fsm_info_t &fsm) {
 
     sacp_msg.payload_len = SACP_FRAME_MAX_SIZE - FRAME_MIN_LEN;
     cmd_proc(fsm.payload, fsm.payload_len, sacp_msg.payload, sacp_msg.payload_len);
-    ret = true;
     boot_info.peer = fsm.sender;
 
     if (sacp_msg.payload_len) {
+      ret = true;
       sacp_msg.ver = VERSION;
       sacp_msg.attr = ATTR_ACK;
       sacp_msg.peer = fsm.sender;

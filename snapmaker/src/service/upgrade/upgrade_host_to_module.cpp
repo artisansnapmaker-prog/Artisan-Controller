@@ -42,6 +42,7 @@ void UpgradeHostToModule::loop(void) {
       if (time_after(millis(), last_start_req_ms + 500)) {
         if (start_req_try < 10) {
           start_req_try++;
+          trans_req_try = 0;
           last_start_req_ms = millis();
         }
         else {
@@ -250,8 +251,10 @@ err_code_t UpgradeHostToModule::module_call_trans_req(uint32_t req_offset, uint3
     status = UPGRADE_HM_STATUS_TRANS;
   }
 
-  trans_req_try = 0;
-  trans_data_req(req_offset, len);
+  if (UPGRADE_HM_STATUS_TRANS == status) {
+    trans_req_try = 0;
+    trans_data_req(req_offset, len);
+  }
   return E_SUCCESS;
 }
 
@@ -296,9 +299,6 @@ void UpgradeHostToModule::trans_data_req(uint32_t offset, uint16_t len) {
   tx_msg.length = index;
   LOG_I("%dms upgrade_hm: trans_req offset %d, buffer %d\r\n", millis(), offset, len);
   host_hmi.send(&tx_msg);
-
-  last_trans_req_ms = millis();
-  trans_req_try++;
 }
 
 void UpgradeHostToModule::end_req(uint8_t ret) {

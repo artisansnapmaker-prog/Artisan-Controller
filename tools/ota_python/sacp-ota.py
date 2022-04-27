@@ -91,6 +91,15 @@ def _4_byte_xor(data):
     ret[3] ^= cutoff[3]
   return ret    
 
+def reset_target(ser):
+  pl = bytearray()
+  pl.append(0x01)
+  pl.append(0x03)
+  frame = sf.build_frame(pl, PEER_ID)
+  frame_str = " ".join(["{:02x}".format(x) for x in frame])
+  print("TX: " + frame_str)
+  ser.write(frame)
+
 def ota_start(ser, bin_data):
   pl = bytearray()
   pl.append(CMD_OTA_CMD_SET)
@@ -173,23 +182,66 @@ def ota(ser, bin_data):
   else:
     return False
 
-f = open(bin_file, 'rb')
-bin_data = f.read()
+app_file = "A400_8010000_pack.bin"
+esp32_file = "ESP32_PACK.bin"
+sm2_file = "SM2_PACK.bin"
+
+f = open(app_file, 'rb')
+app_bin_data = f.read()
+
+f = open(esp32_file, 'rb')
+esp32_bin_data = f.read()
+
+f = open(sm2_file, 'rb')
+sm2_bin_data = f.read()
+
 success_cnt = 0
 failed_cnt = 0
+
 while True:
-  if ota(ser, bin_data):
-    print("ota seccussful!")
+
+  # in boot upgrade app
+  if ota(ser, app_file):
+    print("boot upgrade application seccussful!")
     success_cnt += 1
   else:
-    print("ota failed")
+    print("boot upgrade application failed")
     failed_cnt += 1
+  time.sleep(10)
+  
+  # in app upgrade app
+  if ota(ser, app_file):
+    print("app upgrade application seccussful!")
+    success_cnt += 1
+  else:
+    print("app upgrade application failed")
+    failed_cnt += 1
+  time.sleep(10)
 
+  # in app upgrade esp32
+  if ota(ser, app_file):
+    print("app upgrade esp32 seccussful!")
+    success_cnt += 1
+  else:
+    print("app upgrade esp32 failed")
+    failed_cnt += 1
+  reset_target()
+  time.sleep(10)
+
+  # in app upgrade sm2
+  if ota(ser, sm2_file):
+    print("app upgrade sm2 seccussful!")
+    success_cnt += 1
+  else:
+    print("app upgrade sm2 failed")
+    failed_cnt += 1
+  reset_target()
+  time.sleep(10)
+  
   if success_cnt + failed_cnt > 100:
     print("success %d, failed %d" % (success_cnt, failed_cnt))
     while True: 
       time.sleep(2)
 
-  clear_ser(ser)
   time.sleep(10)
   

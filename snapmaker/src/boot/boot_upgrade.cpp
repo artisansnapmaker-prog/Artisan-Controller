@@ -23,6 +23,10 @@
 #define CMD_END_MIN_LEN             (1)
 #define RET_OK                      (0)
 #define RET_ERROR                   (1)
+#define RET_INVALID_LEN             (2)
+#define RET_NOT_IN_IDLE_STATE       (3)
+#define RET_PACK_HEAD_CHECK_FAILED  (4)
+#define RET_PACK_HEAD_CHECK_FAILED  (4)
 #define UPGRADE_TRANS_PACK_SIZE     (2000)
 
 
@@ -182,7 +186,7 @@ void cmd_upgrade_start(uint8_t *pl, uint32_t len, uint8_t *out, uint32_t &out_le
     Serial.print(len);
     out[0] = CMD_SET_UPGRADE;
     out[1] = CMD_ID_UPGRADE_START;
-    out[2] = RET_ERROR;
+    out[2] = RET_INVALID_LEN;
     out_len = 3;
     return;
   }
@@ -193,7 +197,7 @@ void cmd_upgrade_start(uint8_t *pl, uint32_t len, uint8_t *out, uint32_t &out_le
     Serial.println("can not start upgrade as current is not in init state");
     out[0] = CMD_SET_UPGRADE;
     out[1] = CMD_ID_UPGRADE_START;
-    out[2] = RET_ERROR;
+    out[2] = RET_NOT_IN_IDLE_STATE;
     out_len = 3;
     return;
   }
@@ -204,7 +208,7 @@ void cmd_upgrade_start(uint8_t *pl, uint32_t len, uint8_t *out, uint32_t &out_le
     Serial.println("boot info checksum failure");
     out[0] = CMD_SET_UPGRADE;
     out[1] = CMD_ID_UPGRADE_START;
-    out[2] = RET_ERROR;
+    out[2] = RET_PACK_HEAD_CHECK_FAILED;
     out_len = 3;
     return;
   }

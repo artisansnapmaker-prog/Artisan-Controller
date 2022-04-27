@@ -5,6 +5,44 @@
 __author__ = '747'
 
 from enum import Enum
+import argparse
+import time
+import ntpath
+
+
+def crc32(data):
+  checksum = 0
+  l = len(data)
+
+  for j in range(0, (int)(l / 2) * 2, 2):
+    checksum += ((data[j]<<8) | data[j+1])
+
+  if (l % 2):
+    checksum += data[l - 1]
+
+  checksum = checksum & 0xFFFFFFFF
+  checksum = ~checksum
+  checksum = checksum & 0xFFFFFFFF
+  return checksum
+
+def crc16(data):
+  checksum = 0
+  l = len(data)
+
+  for j in range(0, (int)(l / 2) * 2, 2):
+    checksum += ((data[j]<<8) | data[j+1])
+
+  if (l % 2):
+    checksum += data[l - 1]
+
+  while checksum > 0xFFFF:
+    checksum = ((checksum >> 16) & 0xFFFF) + (checksum & 0xFFFF)
+
+  checksum = checksum & 0xFFFF;
+  checksum = ~checksum
+  checksum = checksum & 0xFFFF;
+
+  return checksum
 
 class packet_type(Enum):
   SM2_CTRL_FW = 0x0001
@@ -26,62 +64,116 @@ class ugr_status(Enum):
   UGR_STATUS_FIRST_JUMP_APP = 0xAA05
 
 class packet:
-  def __init__(self):
+  def __init__(self, bin, p_type, ctrl_flag, ver, radr):
     self.magic_string = "snapmaker update.bin"
     self.protocol_ver = 0x01
-    self.pack_type = None
-    self.ugr_ctrl_flag = ugr_ctrl_flag.UGR_NORMAL
+    self.pack_type = p_type
+    self.ugr_ctrl_flag = ctrl_flag
     self.start_index = 0
     self.end_index = 0
-    self.fw_version = None
-    self.timestamp = None
-    self.ugr_status = None
-    self.fw_lenght = 0
-    self.fw_checksum = 0
-    self.fw_runaddr = 0
+    self.fw_version = ver
+    self.timestamp = "2022.04.28:18:03:01"
+    self.ugr_status = 0xAA00
+    self.fw_lenght = len(bin)
+    self.fw_checksum = crc32(bin)
+    print("%x" % self.fw_checksum)
+    self.fw_runaddr = radr
     self.channel = 0
     self.peer = 0
     self.packet_checksum = 0
+    self.bin = bin
 
-  def pack(self):
+  def gen(self):
     payload = bytearray(0)
     payload.extend(bytes(self.magic_string, encoding="utf-8"))
-    # frame_str = " ".join(["{:02x}".format(x) for x in payload])
-    # print(frame_str)
+    payload.append(0x00)
     payload.append(self.protocol_ver & 0xFF)
-    payload.append((self.pack_type>>8) & 0xFF)
-    payload.append(self.pack_type & 0xFF)
+    payload.extend(self.pack_type.to_bytes(2, 'little'))
     payload.append(self.ugr_ctrl_flag & 0xFF)
-    payload.append((self.start_index>>8) & 0xFF)
-    payload.append(self.start_index & 0xFF)
-    payload.append((self.end_index>>8) & 0xFF)
-    payload.append(self.end_index & 0xFF)
+    payload.extend(self.start_index.to_bytes(2, 'little'))
+    payload.extend(self.end_index.to_bytes(2, 'little'))
     
     b = bytearray(self.fw_version, encoding="utf-8")
+    print(b)
     l = len(b)
     for i in range(l, 32):
       b.append(0)
     payload.extend(b)
+    print(b)
 
     b = bytearray(self.timestamp, encoding="utf-8")
+    print(b)
     l = len(b)
     for i in range(l, 20):
       b.append(0)
     payload.extend(b)
+    print(b)
 
-    payload.append((self.ugr_status>>8) & 0xFF)
-    payload.append(self.ugr_status & 0xFF)
-
-    payload.append((self.fw_lenght>>24) & 0xFF)
-    payload.append((self.fw_lenght>>16) & 0xFF)
-    payload.append((self.fw_lenght>>8) & 0xFF)
-    payload.append(self.fw_lenght & 0xFF)
-
-    payload.append((self.fw_checksum>>24) & 0xFF)
-    payload.append((self.fw_checksum>>16) & 0xFF)
-    payload.append((self.fw_checksum>>8) & 0xFF)
-    payload.append(self.fw_checksum & 0xFF)
+    payload.extend(self.ugr_status.to_bytes(2, 'little'))
+    payload.extend(self.fw_lenght.to_bytes(4, 'little'))
+    if self.fw_checksum < 0:
+      payload.extend(self.fw_checksum.to_bytes(4, 'little', signed=True))
+    else:
+      payload.extend(self.fw_checksum.to_bytes(4, 'little'))
+    payload.extend(self.fw_runaddr.to_bytes(4, 'little'))
+    payload.append(self.channel & 0xFF)
+    payload.append(self.peer & 0xFF)
+    self.packet_checksum = crc32(payload)
+    payload.extend(self.packet_checksum.to_bytes(4, 'little'))
     
+    l = len(payload)
+    b = bytearray(0)
+    for i in range(l, 256):
+      b.append(0)
+    payload.extend(b)
+    
+    return payload
+
+
+parser = argparse.ArgumentParser(description="SACP upgrade packet tools")
+parser.add_argument('--file', '-f', help='bin file name')
+parser.add_argument('--type', '-t', help='packet type, 1: SM2 CONTROLER, 2: A400 CONTROLER, 3: J1 CONTROLER, 4: SM2 MODUEL, 5: ESP32 MODUEL')
+parser.add_argument('--ver',  '-v', help='version')
+parser.add_argument('--flag', '-c', help='upgrade control flag, 0 for normal, 1 for force')
+parser.add_argument('--radr', '-a', help='firmware run address')
+args = parser.parse_args()
+
+try: 
+  FILE = args.file
+  TYPE = int(args.type)
+  VER = args.ver
+  FLAG = int(args.flag)
+except:
+  print("unsupported param")
+  while True:
+    time.sleep(1)
+
+try: 
+  RUNADDR = int(args.radr)
+except:
+  RUNADDR = 0x08010000
+
+print("======== INFORMATION ======")
+print("flie: " + FILE)
+print("type: %d" % TYPE)
+print("ver: " + VER)
+print("flag %d: " % FLAG)
+
+# _(self, bin, p_type, ctrl_flag, ver, radr):
+f = open(FILE, 'rb')
+bin = f.read()
+print("file lenght %d" % len(bin))
+
+pt = packet(bin, TYPE, FLAG, VER, RUNADDR)
+head = pt.gen()
+
+hex_str = " ".join(["{:02x}".format(x) for x in head])
+print(hex_str)
+
+of = ntpath.basename(FILE) + ".pack"
+f = open(of, 'wb')
+f.write(head)
+f.write(bin)
   
 if __name__=='__main__':
     pass

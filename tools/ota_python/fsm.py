@@ -4,12 +4,15 @@
 ' fms '
 __author__ = '747'
 
+import argparse
 from enum import Enum
+
 
 PROTOCOL_VER = 0x01
 PROTOCOL_MASK = 0x03
 RX_ID = 0x02
 TX_ID = 0x01
+
 
 def crc8(data):
   crc = 0

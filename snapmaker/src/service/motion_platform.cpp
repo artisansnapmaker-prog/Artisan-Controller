@@ -1248,3 +1248,8 @@ void MotionPlatformService::stop() {
   LOG_E("stop motion platform!!!\n");
   marlin_state = MF_STOPPED;
 }
+
+void MotionPlatformService::run() {
+  LOG_I("running motion platform!!!\n");
+  marlin_state = MF_RUNNING;
+}

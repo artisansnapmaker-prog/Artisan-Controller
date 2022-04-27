@@ -236,6 +236,7 @@ class MotionPlatformService {
     void reset_linear_drivers();
 
     void stop();
+    void run();
 
   private:
     MessageBufferHandle_t gcode_queue;

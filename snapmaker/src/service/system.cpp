@@ -328,6 +328,10 @@ err_code_t SystemService::clear_exception(uint16_t owner, uint8_t state) {
   // update bans:
   update_bans();
 
+  if (!(bans&EXCEP_BAN_MOVING)) {
+    motion_platform_svc.run();
+  }
+
   info = (ExceptionInfo *)buffer;
   info->owner = owner;
   info->state = state;

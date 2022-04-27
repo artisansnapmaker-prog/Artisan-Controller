@@ -58,6 +58,8 @@ typedef uint8_t err_code_t;
 
 #define E_INVALID_STATE         (COMMON_ERR_BASE + 13)     /* state is invalid for current operation */
 
+#define E_EXCEPTION             (COMMON_ERR_BASE + 14)     /* prevent action as system exceptions */
+
 
 // for legacy use
 #define E_INVALID_CMD   E_INVALID_CMD_ID

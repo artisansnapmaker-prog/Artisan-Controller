@@ -184,6 +184,20 @@ err_code_t SystemService::raise_exception(uint16_t owner, uint8_t state, uint32_
   }
 
 ack_hmi:
+  if (ban & EXCEP_BAN_MOVING) {
+    motion_platform_svc.stop();
+  }
+
+  if (actions & EXCEP_ACT_DISABLE_HEATING_BED) {
+    motion_platform_svc.set_bed_temp(0, BED_ZONE_MAX);
+  }
+
+  if (actions & EXCEP_ACT_DISABLE_HEATING_HOTEND) {
+    for (int i = 0; i < EXTRUDERS; i++) {
+      motion_platform_svc.set_hotend_temp(0 , (uint8_t)i);
+    }
+  }
+
   // actions to job ctrl
   if (actions & EXCEP_ACT_STOP_WORKING) {
     if (smprinter.on_working()) {

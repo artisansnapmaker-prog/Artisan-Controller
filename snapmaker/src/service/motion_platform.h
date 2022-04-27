@@ -200,8 +200,9 @@ class MotionPlatformService {
     void update_active_extruder_to_platform(uint8_t e) { active_extruder = e; }
 
     // temperature API
-    int16_t get_bet_temp(int zone_index);
-    void set_bet_temp(int16_t temp, int zone_index);
+    void set_hotend_temp(int16_t temp, int e);
+    int16_t get_bed_temp(int zone_index);
+    void set_bed_temp(int16_t temp, int zone_index);
     bool bed_heatup_to_target(void);
     bool hotends_heatup_to_target(void);
     void set_hotend_maxtemp(uint8_t e, int16_t temp);
@@ -233,6 +234,8 @@ class MotionPlatformService {
     void show_coordiantes();
 
     void reset_linear_drivers();
+
+    void stop();
 
   private:
     MessageBufferHandle_t gcode_queue;

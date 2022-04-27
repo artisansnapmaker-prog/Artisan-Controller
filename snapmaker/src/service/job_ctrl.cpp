@@ -333,7 +333,7 @@ err_code_t JobCtrl::save_env(void) {
   _env.E_stepper_count = motion_platform_svc.get_stepper_count(E_AXIS);
 
   for (int i = 0; i < BED_ZONE_MAX; i++) {
-    _env.bed_temp[i] = motion_platform_svc.get_bet_temp(i);
+    _env.bed_temp[i] = motion_platform_svc.get_bed_temp(i);
   }
 
   // LOG_I("job_ctrl: save cur_line_num %d\r\n", _env.cur_line_num);
@@ -359,7 +359,7 @@ err_code_t JobCtrl::recover_env(void) {
   if (smprinter.get_toolhead_type() == TH_TYPE_3DP) {
     for (int i = 0; i < BED_ZONE_MAX; i++) {
       LOG_I("job_ctrl: recover zone[%d] temp to %d\r\n", i, _env.bed_temp[i]);
-      motion_platform_svc.set_bet_temp(_env.bed_temp[i], i);
+      motion_platform_svc.set_bed_temp(_env.bed_temp[i], i);
     }
   }
 

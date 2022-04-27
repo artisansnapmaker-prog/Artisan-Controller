@@ -595,7 +595,11 @@ void MotionPlatformService::set_relative_mode(bool rm) {
   relative_mode = rm;
 }
 
-int16_t MotionPlatformService::get_bet_temp(int zone_index) {
+void MotionPlatformService::set_hotend_temp(int16_t temp, int e) {
+  thermalManager.setTargetHotend(temp, e);
+}
+
+int16_t MotionPlatformService::get_bed_temp(int zone_index) {
   switch (zone_index) {
   case 0:
     return thermalManager.degTargetBed();
@@ -608,7 +612,7 @@ int16_t MotionPlatformService::get_bet_temp(int zone_index) {
   }
 }
 
-void MotionPlatformService::set_bet_temp(int16_t temp, int zone_index) {
+void MotionPlatformService::set_bed_temp(int16_t temp, int zone_index) {
   switch (zone_index) {
   case 0:
     thermalManager.setTargetBed(temp);
@@ -751,6 +755,8 @@ void MotionPlatformService::set_hotend_maxtemp(uint8_t e, int16_t temp) {
       break;
   }
 }
+
+
 
 void MotionPlatformService::load_settings() {
   sync_z_values_from_platform();
@@ -1236,4 +1242,9 @@ err_code_t MotionPlatformService::resume_marlin() {
 
 void MotionPlatformService::reset_linear_drivers() {
   reset_stepper_drivers();
+}
+
+void MotionPlatformService::stop() {
+  LOG_E("stop motion platform!!!\n");
+  marlin_state = MF_STOPPED;
 }

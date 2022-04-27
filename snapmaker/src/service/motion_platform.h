@@ -200,12 +200,8 @@ class MotionPlatformService {
     void update_active_extruder_to_platform(uint8_t e) { active_extruder = e; }
 
     // temperature API
-    float current_hotend_temp(uint8_t heater_id = 0) { return 0.0; }
-    int16_t target_hotend_temp(uint8_t heater_id = 0) { return 0.0; }
-    float current_bed_temp(uint8_t area_id = 0);
-    int16_t target_bed_temp(uint8_t area_id = 0);
-    uint16_t get_bet_temp(void);
-    bool set_bet_temp(uint16_t);
+    int16_t get_bet_temp(int zone_index);
+    void set_bet_temp(int16_t temp, int zone_index);
     bool bed_heatup_to_target(void);
     bool hotends_heatup_to_target(void);
     void set_hotend_maxtemp(uint8_t e, int16_t temp);

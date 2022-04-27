@@ -118,7 +118,7 @@ struct JobEnv {
   float print_feadrate;
   float travel_feadrate;
   bool g0g1_relative_mode;
-  uint16_t bed_temp;
+  int16_t bed_temp[BED_ZONE_MAX];
   int8_t active_coordinate;
   uint32_t toolhead_env_buf_size;
   uint8_t toolhead_env_buf[MODULE_ENV_MAX_SIZE];
@@ -181,7 +181,7 @@ class JobCtrl {
       memset(notify_handle_resume, 0x00, sizeof(JobCtrlNotifyHandle) * JOB_CTRL_NOTIFY_QUEUE_SIZE);
       memset(notify_handle_stopped, 0x00, sizeof(JobCtrlNotifyHandle) * JOB_CTRL_NOTIFY_QUEUE_SIZE);
     }
-    
+
     void init(void);
     void background_thread(void *p);                               /** main loop, to check all the event from system which will change current job status */
 

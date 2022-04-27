@@ -10,7 +10,7 @@
 #include "../Marlin/src/module/stepper.h"
 #include "job_ctrl.h"
 #include "../../Marlin/src/feature/runout.h"
-
+#include "system.h"
 
 MotionPlatformService motion_platform_svc;
 
@@ -151,6 +151,16 @@ err_code_t MotionPlatformService::hmi_cb_move_absoluty(void *obj, sacp_hmi_messa
   uint8_t number = msg->data[0];
   coordinate_info_t *move_cmd = (coordinate_info_t *)(msg->data + 1);
 
+  if (number == 0 || number > AXIS_KEY_B1) {
+    LOG_E("length of move array is out of range[%u]\n", number);
+    return host_hmi.send_ack(msg, E_PARAM);
+  }
+
+  if (!system_svc.allow_moving()) {
+    LOG_E("cannot moving as exception[0x%x]\n", system_svc.get_bans());
+    return host_hmi.send_ack(msg, E_HARDWARE);
+  }
+
   motion->update_position_from_platform();
 
   xyze_float_t dest = motion->sm_current_position;
@@ -221,6 +231,11 @@ err_code_t MotionPlatformService::hmi_cb_request_home(void *obj, sacp_hmi_messag
   LOG_I("hmi_cb_request_home[%u]\n", msg->data[0]);
 
   home_axis = msg->data[0];
+
+  if (!system_svc.allow_moving()) {
+    LOG_E("cannot moving as exception[0x%x]\n", system_svc.get_bans());
+    return host_hmi.send_ack(msg, E_HARDWARE);
+  }
 
   if (home_axis <= SACP_HOME_Z) {
     host_hmi.send_ack(msg, E_SUCCESS);
@@ -538,8 +553,8 @@ void MotionPlatformService::stepper_quickstop_cb(void) {
 
 
 
-void MotionPlatformService::add_stepper_offset(int stepper_offset_counter) {   
-  stepper_total_offset += stepper_offset_counter; 
+void MotionPlatformService::add_stepper_offset(int stepper_offset_counter) {
+  stepper_total_offset += stepper_offset_counter;
 }
 
 void MotionPlatformService::set_home_offset(float x, float y, float z, float i/*=0*/, float j/*=8*/) {
@@ -580,13 +595,34 @@ void MotionPlatformService::set_relative_mode(bool rm) {
   relative_mode = rm;
 }
 
-uint16_t MotionPlatformService::get_bet_temp(void) {
-  return thermalManager.degTargetBed();
+int16_t MotionPlatformService::get_bet_temp(int zone_index) {
+  switch (zone_index) {
+  case 0:
+    return thermalManager.degTargetBed();
+
+  case 1:
+    return thermalManager.degChamber();
+
+  default:
+    return 0;
+  }
 }
 
- bool MotionPlatformService::set_bet_temp(uint16_t t) {
-  thermalManager.setTargetBed(t);
-  return thermalManager.wait_for_bed();
+void MotionPlatformService::set_bet_temp(int16_t temp, int zone_index) {
+  switch (zone_index) {
+  case 0:
+    thermalManager.setTargetBed(temp);
+    break;
+
+  case 1:
+    thermalManager.setTargetChamber(temp);
+    break;
+
+  default:
+    thermalManager.setTargetBed(temp);
+    thermalManager.setTargetChamber(temp);
+    break;
+  }
 }
 
 bool MotionPlatformService::bed_heatup_to_target(void) {

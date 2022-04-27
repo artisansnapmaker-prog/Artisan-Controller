@@ -64,7 +64,7 @@ void JobCtrl::init(void) {
   abort_resume = false;
   status_before_start = SYSTEM_STATUS_IDLE;
   got_last_gcode_packet = false;
-  
+
   TaskHandle_t jobctrl_task = xTaskCreateStatic((TaskFunction_t)(job_ctrl_thread_entry), "jobctrl", SYSTEM_TASK_STACK_SIZE,
         (void *)(this), HIGHEST_TASK_PRIORITY,  stack_jobctrl_thread, &tcb_jobctrl);
   if (!jobctrl_task) {
@@ -180,7 +180,7 @@ err_code_t JobCtrl::req_start(  uint8_t client_id,
 err_code_t JobCtrl::req_pause( enum JobPauseType pt,
                                       job_req_notify_cb_t cb/* = NULL*/, void *p/* = NULL*/) {
   if (  SYSTEM_STATUS_PRINTING != smprinter.get_sys_status() &&
-        SYSTEM_STATUS_XY_CALIBRATING_PRINTING != smprinter.get_sys_status() && 
+        SYSTEM_STATUS_XY_CALIBRATING_PRINTING != smprinter.get_sys_status() &&
         SYSTEM_STATUS_RESUMING != smprinter.get_sys_status()) {
     LOG_E("job client: can not pause a job as current status is no printing\r\n");
     return E_JOB_NOT_IN_WORKING_STATUS;
@@ -332,6 +332,10 @@ err_code_t JobCtrl::save_env(void) {
   _env.current_pos = motion_platform_svc.sm_current_position;
   _env.E_stepper_count = motion_platform_svc.get_stepper_count(E_AXIS);
 
+  for (int i = 0; i < BED_ZONE_MAX; i++) {
+    _env.bed_temp[i] = motion_platform_svc.get_bet_temp(i);
+  }
+
   // LOG_I("job_ctrl: save cur_line_num %d\r\n", _env.cur_line_num);
   // print_job_env(&_env);
   return E_SUCCESS;
@@ -352,6 +356,13 @@ err_code_t JobCtrl::recover_env(void) {
     return E_JOB_UNSUPPORT_PARAM;
   }
 
+  if (smprinter.get_toolhead_type() == TH_TYPE_3DP) {
+    for (int i = 0; i < BED_ZONE_MAX; i++) {
+      LOG_I("job_ctrl: recover zone[%d] temp to %d\r\n", i, _env.bed_temp[i]);
+      motion_platform_svc.set_bet_temp(_env.bed_temp[i], i);
+    }
+  }
+
   if (E_SUCCESS != cur_toolhead->recover_env(_env.toolhead_env_buf, _env.toolhead_env_buf_size)) {
     LOG_E("job_ctrl: can not resume toolhead in recover_env\r\n");
     return E_JOB_RESUME_ENV_FAILURE;
@@ -367,7 +378,7 @@ err_code_t JobCtrl::resume_env(JobResumeType rt) {
   if (rt == RESUME_TYPE_LIVE_Z_OFFSET) {
     goto __pos_resume;
   }
-  
+
   LOG_I("job_ctrl: get current toolhead pointer\r\n");
   if (!(cur_toolhead = smprinter.get_cur_toolhead())) {
     LOG_E("job_ctrl: can not get toolhead\r\n");

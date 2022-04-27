@@ -215,6 +215,13 @@ void GcodeSuite::G28() {
   DEBUG_SECTION(log_G28, "G28", DEBUGGING(LEVELING));
   if (DEBUGGING(LEVELING)) log_machine_info();
 
+  #if MB_SNAPMAKER
+    if (IsStopped()) {
+      SERIAL_ECHOLNPGM(STR_ERR_STOPPED);
+      return;
+    }
+  #endif
+
   TERN_(LASER_MOVE_G28_OFF, cutter.set_inline_enabled(false));  // turn off laser
 
   TERN_(FULL_REPORT_TO_HOST_FEATURE, set_and_report_grblstate(M_HOMING));

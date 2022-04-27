@@ -262,7 +262,7 @@ err_code_t ToolHeadFDM::dual_extruder_post_init() {
   hotend_offset_sync();
   z_compensation_sync();
 
-  motion_platform_svc.set_steps_per_unit(119.84, E_AXIS);
+  motion_platform_svc.set_steps_per_unit(137, E_AXIS);
   motion_platform_svc.set_home_offset(-17.5, -6, 0);
   motion_platform_svc.set_hotend_maxtemp(0, 315);
   motion_platform_svc.set_hotend_maxtemp(1, 315);

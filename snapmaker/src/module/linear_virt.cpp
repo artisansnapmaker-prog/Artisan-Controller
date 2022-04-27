@@ -260,8 +260,8 @@ err_code_t LinearVirtual::routine(void *obj) {
         // standby
         digitalWrite(linear.standby_pin, ENTER_STANDBY);
         // raise exception
-        // system_svc.raise_exception(MODULE_DEVICE_ID_A400_LINEAR,  LINEAR_EXCEPTION_OFFLINE,
-        //   EXCEP_ACT_STOP_WORKING);
+        system_svc.raise_exception(MODULE_DEVICE_ID_A400_LINEAR,  LINEAR_EXCEPTION_OFFLINE,
+          EXCEP_ACT_PAUSE_WORKING, EXCEP_BAN_MOVING);
       }
     }
   }
@@ -279,7 +279,7 @@ err_code_t LinearVirtual::routine(void *obj) {
         digitalWrite(linear.standby_pin, EXIT_STANDBY);
         vTaskDelay(pdMS_TO_TICKS(5));
         digitalWrite(TMC_EN, TMC_EN_ON);
-        // system_svc.clear_exception(MODULE_DEVICE_ID_A400_LINEAR,  LINEAR_EXCEPTION_OFFLINE);
+        system_svc.clear_exception(MODULE_DEVICE_ID_A400_LINEAR,  LINEAR_EXCEPTION_OFFLINE);
       }
     }
   }

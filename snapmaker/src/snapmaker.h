@@ -155,6 +155,8 @@ extern motor_pins_t pins_map[PORT_INDEX_MAX];
 #define EXCEP_ACT_PAUSE_WORKING                 (1<<8)
 #define EXCEP_ACT_STOP_WORKING                  (1<<9)
 #define EXCEP_ACT_STOP_WITH_RECOVERY            (1<<10)
+#define EXCEP_ACT_DISABLE_HEATING_BED           (1<<11)
+#define EXCEP_ACT_DISABLE_HEATING_HOTEND        (1<<12)
 
 // ================= exception ban defination =================
 #define EXCEP_BAN_ENABLE_POWER_MOTIVE         (POWER_DOMAIN_MOTIVE_POWER)

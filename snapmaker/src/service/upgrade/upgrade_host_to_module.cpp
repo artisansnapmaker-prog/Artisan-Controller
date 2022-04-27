@@ -118,7 +118,7 @@ err_code_t UpgradeHostToModule::sacp_msg_proc(sacp_hmi_message_t *msg) {
 err_code_t UpgradeHostToModule::start_proc(sacp_hmi_message_t *msg) {
   pack_info_t *pit;
 
-  pit = (pack_info_t *)msg->data;
+  pit = (pack_info_t *)(msg->data+2);
   if (!boot_info_check(pit)) {
     LOG_E("upgrade_hm: packet info checksum failure\r\n");
     return start_ack(msg, E_FAILURE);

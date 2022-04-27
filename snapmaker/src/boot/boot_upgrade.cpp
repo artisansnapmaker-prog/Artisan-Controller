@@ -18,12 +18,12 @@
 #define CMD_SET_SYSTEM             (0x01)
 #define CMD_ID_MACHIN_INFO         (0x21)
 
-#define CMD_START_MIN_LEN         (256)
-#define CMD_TRANS_MIN_LEN         (7)
-#define CMD_END_MIN_LEN           (1)
-#define RET_OK                    (0)
-#define RET_ERROR                 (1)
-#define UPGRADE_TRANS_PACK_SIZE    (2000)
+#define CMD_START_MIN_LEN           (256 + 2)
+#define CMD_TRANS_MIN_LEN           (7)
+#define CMD_END_MIN_LEN             (1)
+#define RET_OK                      (0)
+#define RET_ERROR                   (1)
+#define UPGRADE_TRANS_PACK_SIZE     (2000)
 
 
 /********************************************************************************/
@@ -94,7 +94,7 @@ void upgrade_loop(void) {
 
     case UPGRADE_STATE_TRANS:
       if (time_after(millis(), last_trans_req_ms + 1000)) {
-        if (trans_req_try < 3) {
+        if (trans_req_try < 10) {
           if (upgrade_info.offset >= upgrade_info.boot_info->fw_lenght) {
             upgrade_end_req();
           }
@@ -198,7 +198,8 @@ void cmd_upgrade_start(uint8_t *pl, uint32_t len, uint8_t *out, uint32_t &out_le
     return;
   }
 
-  memcpy(upgrade_info.boot_info, pl, sizeof(pack_info_t));
+  memcpy(upgrade_info.boot_info, pl + 2, sizeof(pack_info_t));
+  print_boot_info(upgrade_info.boot_info);
   if (!boot_info_check(upgrade_info.boot_info)) {
     Serial.println("boot info checksum failure");
     out[0] = CMD_SET_UPGRADE;
@@ -372,6 +373,9 @@ void upgrade_end_req(void) {
   
   protocol_build_pack(sacp_msg, send_frame, frame_len);
   send((link_ch_e)upgrade_info.boot_info->link_ch, send_frame, frame_len);
+
+  last_trans_req_ms = millis();
+  trans_req_try++;
 }
 
 bool upgrade_app_fw_checksum(void) {

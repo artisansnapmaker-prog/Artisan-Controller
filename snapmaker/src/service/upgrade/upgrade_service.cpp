@@ -72,7 +72,7 @@ err_code_t UpdateService::sacp_msg_proc(void * obj, sacp_hmi_message_t *msg) {
         break;
       }
 
-      pit = (pack_info_t *)msg->data;
+      pit = (pack_info_t *)(msg->data + 2);
       if (!boot_info_check(pit)) {
         LOG_E("upgrade_service: packet info checksum failure\r\n");
         break;
@@ -84,7 +84,7 @@ err_code_t UpdateService::sacp_msg_proc(void * obj, sacp_hmi_message_t *msg) {
     break;
 
     case UPGRADE_PAHSE_APP_START:
-      pit = (pack_info_t *)msg->data;
+      pit = (pack_info_t *)(msg->data + 2);
       ugr_ctrl_svc.start_proc(pit, msg);
     break;
 

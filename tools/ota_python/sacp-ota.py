@@ -2,7 +2,10 @@ import serial
 import time
 import argparse
 import fsm
+import packet
 
+PEER_ID = 2
+BAUDRATE = 115200
 # ================================================================================================
 parser = argparse.ArgumentParser(description="snapIvesFOC ota")
 parser.add_argument('--com', '-p', help='specify the serial port')
@@ -28,9 +31,10 @@ def time_after(a, b):
 OTA_MAGIC = 0x534E4150
 RET_OK = 0x00
 CMD_GET_VER = 0x11
-CMD_OTA_START = 0x13
-CMD_OTA_TRNAS = 0x15
-CMD_OTA_FINISH = 0x17
+CMD_OTA_CMD_SET = 0xAD
+CMD_OTA_START = 0x01
+CMD_OTA_TRNAS = 0x02
+CMD_OTA_FINISH = 0x03
 
 def get_seq():
   global seq
@@ -40,6 +44,14 @@ def get_seq():
   return ret
 
 #####################################################
+def clear_ser(ser):
+  while True:
+    c = ser.read()
+    if 0 == len(c):
+      return
+    else:
+      print("clear %d" + c)
+    
 def get_frame(ser):
   start_tick_ms = int(round(time.time() * 1000))
   while True:
@@ -79,28 +91,26 @@ def _4_byte_xor(data):
     ret[3] ^= cutoff[3]
   return ret    
 
-def ota_start(ser, ra, size, checksum):
+def ota_start(ser, bin_data):
   pl = bytearray()
+  pl.append(CMD_OTA_CMD_SET)
   pl.append(CMD_OTA_START)
-  seq = get_seq()
-  pl.append(seq)
-  pl.extend(OTA_MAGIC.to_bytes(4, 'little'))
-  pl.extend(ra.to_bytes(4, 'little'))
-  pl.extend(size.to_bytes(4, 'little'))
-  pl.extend(checksum.to_bytes(4, 'little'))
-  frame = sf.build_frame(pl)
+  pl.append(0x00)
+  pl.append(0x01)
+  pl.extend(bin_data[0:256])
+  frame = sf.build_frame(pl, PEER_ID)
   frame_str = " ".join(["{:02x}".format(x) for x in frame])
   print("TX: " + frame_str)
   ser.write(frame)
   
   ret_frame = get_frame(ser)
   if None != ret_frame:
-    cmd, ret_seq, ret_code = sf.pars_ret_frame(ret_frame)
-    if cmd != CMD_OTA_START+1:
+    cmd_set, cmd_id, ret_code = sf.pars_ret_frame(ret_frame)
+    if cmd_set != CMD_OTA_CMD_SET:
+      print("ota start ack code error")
+    if cmd_id != CMD_OTA_START:
       print("ota start ack code error")
       return False
-    if ret_seq != seq:
-      print("ota start seq error")
       return False
     if ret_code != RET_OK:
       print("ota start return %d" % ret_code)
@@ -109,103 +119,77 @@ def ota_start(ser, ra, size, checksum):
 
 def ota_trans(ser, offset, block):
   pl = bytearray()
+  pl.append(CMD_OTA_CMD_SET)
   pl.append(CMD_OTA_TRNAS)
-  seq = get_seq()
-  pl.append(seq)
+  pl.append(0)
   pl.extend(offset.to_bytes(4, 'little'))
+  pl.extend(len(block).to_bytes(2, 'little'))
   pl.extend(block)
-  frame = sf.build_frame(pl)
-  frame_str = " ".join(["{:02x}".format(x) for x in frame])
-  print(frame_str)
+  frame = sf.build_frame(pl, PEER_ID)
+  # frame_str = " ".join(["{:02x}".format(x) for x in frame])
+  # print(frame_str)
   ser.write(frame)
-  
-  ret_frame = get_frame(ser)
-  if None != ret_frame:
-    cmd, ret_seq, ret_code = sf.pars_ret_frame(ret_frame)
-    if cmd != CMD_OTA_TRNAS+1:
-      print("ota trans ack code error")
-      return None
-    if ret_seq != seq:
-      print("ota trnas seq error")
-      return None
-    if ret_code != RET_OK:
-      print("ota trans ack return %d" % ret_code)
-      return None
-    ret_offset = int.from_bytes(ret_frame[7:10], 'little')
-    if ret_offset != offset + len(block):
-      print("return offset error")
-      return None
-    else:
-      return ret_offset
   return None
 
-def ota_finish(ser):
+def ota_finish(ser, ret):
   pl = bytearray()
+  pl.append(CMD_OTA_CMD_SET)
   pl.append(CMD_OTA_FINISH)
-  seq = get_seq()
-  pl.append(seq)
-  frame = sf.build_frame(pl)
-  frame_str = " ".join(["{:02x}".format(x) for x in frame])
-  print(frame_str)
+  pl.append(ret & 0xFF)
+  frame = sf.build_frame(pl, PEER_ID)
+  # frame_str = " ".join(["{:02x}".format(x) for x in frame])
+  # print(frame_str)
   ser.write(frame)
-  
-  ret_frame = get_frame(ser)
-  if None != ret_frame:
-    cmd, ret_seq, ret_code = sf.pars_ret_frame(ret_frame)
-    if cmd != CMD_OTA_FINISH+1:
-      print("ota finish ack code error")
-      return False
-    if ret_seq != seq:
-      print("ota finish seq error")
-      return False
-    if ret_code != RET_OK:
-      print("ota finish ack return %d" % ret_code)
-      return False
-  return True
+  return None
 
-def ota(ser, bin_data, run_addr, block_size):
-  bin_size = len(bin_data)
-  checksum = _4_byte_xor(bin_data)
-  # ver_str = ota_get_ver(ser)
-  # if None == ver_str:
-  #   return False
-  # print("get version " + ver_str )
+def ota(ser, bin_data):
+  bin_size = len(bin_data) - 256
   
-  if True != ota_start(ser, run_addr, bin_size, int.from_bytes(checksum, 'little')):
+  if True != ota_start(ser, bin_data):
     return False
 
-  offset = 0
-  while(offset < bin_size):
-    if (bin_size - offset) > block_size:
-      tx_block_size = block_size
-    else:
-      tx_block_size = bin_size - offset
-
-    ret_offset = ota_trans(ser, offset, bin_data[offset:offset + tx_block_size])
-    if None == ret_offset:
-      return False
-
-    offset = ret_offset
-  return ota_finish(ser)
+  while True:
+    ret_frame = get_frame(ser)
+    if None != ret_frame:
+      cmd_set, cmd_id, ret_code = sf.pars_ret_frame(ret_frame)
+      if cmd_set != CMD_OTA_CMD_SET:
+        print("ota start ack code error")
+        continue
       
+      if cmd_id == CMD_OTA_TRNAS:
+        req_offset = int.from_bytes(ret_frame[13:17], 'little')
+        block_size = int.from_bytes(ret_frame[17:19], 'little')
+        print("req offset %d, block size %d" % (req_offset, block_size))
+        block = bin_data[256 + req_offset : 256 + req_offset + block_size]
+        ota_trans(ser, req_offset, block)
+        
+      elif cmd_id == CMD_OTA_FINISH:
+        ota_finish(ser, ret_code)
+        if ret_code == RET_OK:
+         break
 
-# bin_data = bytearray()
-# for c in range(0, 0x100):
-#   bin_data.append(c)
+  if ret_code == RET_OK:
+    return True
+  else:
+    return False
 
-# open bin file
 f = open(bin_file, 'rb')
 bin_data = f.read()
-print("len %d" % len(bin_data))
-ser.read_all()
-
-APP_RUN_ADDR = 0x08010800
+success_cnt = 0
+failed_cnt = 0
 while True:
-  if ota(ser, bin_data, APP_RUN_ADDR, 128+64):
+  if ota(ser, bin_data):
     print("ota seccussful!")
+    success_cnt += 1
   else:
     print("ota failed")
-    
-  while(1):
-    time.sleep(2)
+    failed_cnt += 1
+
+  if success_cnt + failed_cnt > 100:
+    print("success %d, failed %d" % (success_cnt, failed_cnt))
+    while True: 
+      time.sleep(2)
+
+  clear_ser(ser)
+  time.sleep(10)
   

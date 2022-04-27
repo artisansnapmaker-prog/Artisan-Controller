@@ -70,7 +70,7 @@ err_code_t UpgradeCtrlService::start_proc(pack_info_t *boot_info, sacp_hmi_messa
 
   boot_info->peer = msg->peer;
   boot_info->upgrade_state = UPGRADE_STATE_START;
-  ugr_svc->set_boot_info((pack_info_t *)(msg->data));
+  ugr_svc->set_boot_info((pack_info_t *)(msg->data + 2));
 
   if (!ugr_svc->boot_info_flush_to_flash()) {
     if (!ugr_svc->boot_info_flush_to_flash()) {
@@ -81,6 +81,8 @@ err_code_t UpgradeCtrlService::start_proc(pack_info_t *boot_info, sacp_hmi_messa
 
   ugr_svc->set_updgrade_phase(UPGRADE_PAHSE_APP_START);
   ugr_svc->print_packet_info(boot_info);
+  host_hmi.send_ack(msg, E_SUCCESS);
+
   LOG_I("System will restart in 1 second to start updating\r\n");
   vTaskDelay(pdMS_TO_TICKS(1000));
   NVIC_SystemReset();

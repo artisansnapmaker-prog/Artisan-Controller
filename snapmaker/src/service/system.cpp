@@ -204,7 +204,7 @@ ack_hmi:
       job_ctrl_svc.req_stop(STOP_EXCEPTION, SACP_JOB_PAUSE_ISSUE_RET_EXCEPTION, NULL, NULL);
     }
     else {
-      LOG_W("not in working, cannot stop printer!, excep:[%u, %u]\n", owner, state);
+      LOG_W("SystemService: not in working, cannot stop printer!, excep:[%u, %u]\n", owner, state);
     }
   }
   else if (actions & EXCEP_ACT_STOP_WITH_RECOVERY) {
@@ -212,37 +212,43 @@ ack_hmi:
         // normal printing
         // pause it firsly
         job_ctrl_svc.req_pause(PAUSE_EXCEPTION, NULL, NULL);
+        LOG_E("SystemService: pause working as exception to get env!\n");
         // get env and save it to emergency record
         JobEnv *env = job_ctrl_svc.get_env();
         emergency_hdl.save_env_manually((uint8_t *)env, sizeof(JobEnv));
+        LOG_E("SystemService: saved env!\n");
         // then stop work
         job_ctrl_svc.req_stop(STOP_EXCEPTION, SACP_JOB_PAUSE_ISSUE_RET_EXCEPTION, NULL, NULL);
+        LOG_E("SystemService: req_stop!\n");
     }
     else if (smprinter.on_printing()) {
       // but if printer start working from calibraion, not allow be paused, just stop it
       job_ctrl_svc.req_stop(STOP_EXCEPTION, SACP_JOB_PAUSE_ISSUE_RET_EXCEPTION, NULL, NULL);
+      LOG_E("SystemService: stop working as exception!\n");
     }
     else {
-      LOG_W("not in working, cannot stop printer with recovery!, excep:[%u, %u]\n", owner, state);
+      LOG_W("SystemService: not in working, cannot stop printer with recovery!, excep:[%u, %u]\n", owner, state);
     }
   }
   else if (actions & EXCEP_ACT_PAUSE_WORKING) {
     // if printer start working from normal condition, just pause it
     if (smprinter.get_sys_status() == SYSTEM_STATUS_PRINTING) {
+      LOG_E("SystemService: pause working as exception!\n");
       job_ctrl_svc.req_pause(PAUSE_EXCEPTION, NULL, NULL);
     }
     else if (smprinter.on_printing()) {
+      LOG_E("SystemService: stop calibration printing as exception!\n");
       // but if printer start working from calibraion, not allow be paused, just stop it
       job_ctrl_svc.req_stop(STOP_EXCEPTION, SACP_JOB_PAUSE_ISSUE_RET_EXCEPTION, NULL, NULL);
     }
     else {
-      LOG_W("not in working, cannot pause printer!, excep:[%u, %u]\n", owner, state);
+      LOG_W("SystemService: not in working, cannot pause printer!, excep:[%u, %u]\n", owner, state);
     }
   }
 
   // actions to power domain manager
   if (actions & EXCEP_ACT_DISABLE_POWER) {
-    LOG_W("will diable power [0x%x], excep:[%u, %u]\n", actions & EXCEP_ACT_DISABLE_POWER, owner, state);
+    LOG_W("SystemService: will diable power [0x%x], excep:[%u, %u]\n", actions & EXCEP_ACT_DISABLE_POWER, owner, state);
     smprinter.disable_power_domain(actions & EXCEP_ACT_DISABLE_POWER);
   }
 

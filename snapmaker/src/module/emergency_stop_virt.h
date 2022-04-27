@@ -33,7 +33,7 @@ class EmergencyStopVirtual: public ModuleBase {
     }
     bool check_online() { return true; }
     err_code_t pre_init() { return E_SUCCESS; }
-    err_code_t post_init() { return E_SUCCESS; }
+    err_code_t post_init();
     err_code_t deinit() { return E_SUCCESS; }
 
   static void show_info();

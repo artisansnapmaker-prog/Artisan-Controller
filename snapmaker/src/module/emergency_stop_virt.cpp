@@ -8,3 +8,10 @@ void EmergencyStopVirtual::show_info() {
     LOG_I("Emergency Stop button: %s\n", digitalRead(stop_button) ? "Open": "Triggered");
   }
 }
+
+
+err_code_t EmergencyStopVirtual::post_init() {
+  set_status(MODULE_STATUS_NORMAL);
+
+  return E_SUCCESS;
+}

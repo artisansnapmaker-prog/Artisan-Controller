@@ -1070,10 +1070,7 @@ void Temperature::_temp_error(const heater_id_t heater_id, FSTR_P const serial_m
   #elif defined(BOGUS_TEMPERATURE_GRACE_PERIOD)
     UNUSED(killed);
   #else
-    #if MB_SNAPMAKER
-    // if (!killed) { killed = 1; loud_kill(lcd_msg, heater_id); }
-    LOG_I("TODO: _temp_error\r\n");
-    #else
+    #if !MB_SNAPMAKER
     if (!killed) { killed = 1; loud_kill(lcd_msg, heater_id); }
     #endif
   #endif
@@ -1084,6 +1081,30 @@ void Temperature::max_temp_error(const heater_id_t heater_id) {
     DWIN_Popup_Temperature(1);
   #endif
   _temp_error(heater_id, F(STR_T_MAXTEMP), GET_TEXT_F(MSG_ERR_MAXTEMP));
+  #if MB_SNAPMAKER
+  switch (heater_id) {
+  case H_CHAMBER:
+    smprinter.raise_exception(SM_EXCEP_OWNER_BED, BED_EXCEP_STA_OVERTEMP_ERROR_ZONE1,
+                                EXCEP_ACT_PAUSE_WORKING | EXCEP_ACT_DISABLE_HEATING_BED);
+    break;
+
+  case H_BED:
+    smprinter.raise_exception(SM_EXCEP_OWNER_BED, BED_EXCEP_STA_OVERTEMP_ERROR_ZONE0,
+                                EXCEP_ACT_PAUSE_WORKING | EXCEP_ACT_DISABLE_HEATING_BED);
+    break;
+
+  case H_E0:
+    smprinter.raise_exception(SM_EXCEP_OWNER_TOOLHEAD, FDM_EXCEP_STA_OVERTEMP_ERROR_E0, EXCEP_ACT_PAUSE_WORKING);
+    break;
+
+  case H_E1:
+    smprinter.raise_exception(SM_EXCEP_OWNER_TOOLHEAD, FDM_EXCEP_STA_OVERTEMP_ERROR_E1, EXCEP_ACT_PAUSE_WORKING);
+    break;
+
+  default:
+    break;
+  }
+  #endif
 }
 
 void Temperature::min_temp_error(const heater_id_t heater_id) {
@@ -1091,6 +1112,32 @@ void Temperature::min_temp_error(const heater_id_t heater_id) {
     DWIN_Popup_Temperature(0);
   #endif
   _temp_error(heater_id, F(STR_T_MINTEMP), GET_TEXT_F(MSG_ERR_MINTEMP));
+  #if MB_SNAPMAKER
+  switch (heater_id) {
+  case H_CHAMBER:
+    smprinter.raise_exception(SM_EXCEP_OWNER_BED, BED_EXCEP_STA_MINTEMP_ERROR_ZONE1,
+                              EXCEP_ACT_PAUSE_WORKING | EXCEP_ACT_DISABLE_HEATING_BED, EXCEP_BAN_HEATING_BED);
+    break;
+
+  case H_BED:
+    smprinter.raise_exception(SM_EXCEP_OWNER_BED, BED_EXCEP_STA_MINTEMP_ERROR_ZONE0,
+                              EXCEP_ACT_PAUSE_WORKING | EXCEP_ACT_DISABLE_HEATING_BED, EXCEP_BAN_HEATING_BED);
+    break;
+
+  case H_E0:
+    smprinter.raise_exception(SM_EXCEP_OWNER_TOOLHEAD, FDM_EXCEP_STA_MINTEMP_ERROR_E0,
+                              EXCEP_ACT_PAUSE_WORKING | EXCEP_ACT_DISABLE_HEATING_HOTEND, EXCEP_BAN_HEATING_HOTEND);
+    break;
+
+  case H_E1:
+    smprinter.raise_exception(SM_EXCEP_OWNER_TOOLHEAD, FDM_EXCEP_STA_MINTEMP_ERROR_E1,
+                              EXCEP_ACT_PAUSE_WORKING | EXCEP_ACT_DISABLE_HEATING_HOTEND, EXCEP_BAN_HEATING_HOTEND);
+    break;
+
+  default:
+    break;
+  }
+  #endif
 }
 
 #if ANY(PID_DEBUG, PID_BED_DEBUG, PID_CHAMBER_DEBUG)
@@ -1399,6 +1446,12 @@ void Temperature::manage_heater() {
           else {
             TERN_(HAS_DWIN_E3V2_BASIC, DWIN_Popup_Temperature(0));
             _temp_error((heater_id_t)e, FPSTR(str_t_heating_failed), GET_TEXT_F(MSG_HEATING_FAILED_LCD));
+            if (e == H_E0)
+              smprinter.raise_exception(SM_EXCEP_OWNER_TOOLHEAD, FDM_EXCEP_STA_HEATING_FAILED_E0,
+                                        EXCEP_ACT_PAUSE_WORKING | EXCEP_ACT_DISABLE_HEATING_HOTEND);
+            if (e == H_E1)
+              smprinter.raise_exception(SM_EXCEP_OWNER_TOOLHEAD, FDM_EXCEP_STA_HEATING_FAILED_E1,
+                                        EXCEP_ACT_PAUSE_WORKING | EXCEP_ACT_DISABLE_HEATING_HOTEND);
           }
         }
       #endif
@@ -1436,6 +1489,8 @@ void Temperature::manage_heater() {
         else {
           TERN_(HAS_DWIN_E3V2_BASIC, DWIN_Popup_Temperature(0));
           _temp_error(H_BED, FPSTR(str_t_heating_failed), GET_TEXT_F(MSG_HEATING_FAILED_LCD));
+          smprinter.raise_exception(SM_EXCEP_OWNER_BED, BED_EXCEP_STA_HEATING_FAILED_ZONE0,
+                                    EXCEP_ACT_PAUSE_WORKING | EXCEP_ACT_DISABLE_HEATING_BED);
         }
       }
     #endif // WATCH_BED
@@ -1514,8 +1569,11 @@ void Temperature::manage_heater() {
       if (watch_chamber.elapsed(ms)) {          // Time to check the chamber?
         if (watch_chamber.check(degChamber()))  // Increased enough? Error below.
           start_watching_chamber();             // If temp reached, turn off elapsed check.
-        else
+        else {
           _temp_error(H_CHAMBER, FPSTR(str_t_heating_failed), GET_TEXT_F(MSG_HEATING_FAILED_LCD));
+          smprinter.raise_exception(SM_EXCEP_OWNER_BED, BED_EXCEP_STA_HEATING_FAILED_ZONE1,
+                                    EXCEP_ACT_PAUSE_WORKING | EXCEP_ACT_DISABLE_HEATING_BED);
+        }
       }
     #endif
 
@@ -2644,6 +2702,16 @@ void Temperature::init() {
       case TRRunaway:
         TERN_(HAS_DWIN_E3V2_BASIC, DWIN_Popup_Temperature(0));
         _temp_error(heater_id, FPSTR(str_t_thermal_runaway), GET_TEXT_F(MSG_THERMAL_RUNAWAY));
+        #if MB_SNAPMAKER
+        if (heater_id == H_CHAMBER)
+          smprinter.raise_exception(SM_EXCEP_OWNER_BED, BED_EXCEP_STA_THERMAL_RUNAWAY_ZONE1, EXCEP_ACT_PAUSE_WORKING);
+        if (heater_id == H_BED)
+          smprinter.raise_exception(SM_EXCEP_OWNER_BED, BED_EXCEP_STA_THERMAL_RUNAWAY_ZONE0, EXCEP_ACT_PAUSE_WORKING);
+        if (heater_id == H_E0)
+          smprinter.raise_exception(SM_EXCEP_OWNER_TOOLHEAD, FDM_EXCEP_STA_THERMAL_RUNAWAY_E0, EXCEP_ACT_PAUSE_WORKING);
+        if (heater_id == H_E1)
+          smprinter.raise_exception(SM_EXCEP_OWNER_TOOLHEAD, FDM_EXCEP_STA_THERMAL_RUNAWAY_E1, EXCEP_ACT_PAUSE_WORKING);
+        #endif
     }
   }
 

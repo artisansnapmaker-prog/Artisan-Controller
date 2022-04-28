@@ -192,9 +192,9 @@ def ota(ser, bin_data):
   else:
     return False
 
-app_file = "A400_MC.bin.pack"
-esp32_file = "esp32-cam-demo.bin.pack"
-sm2_file = "CNC_firmware.bin.pack"
+app_file = "./bin/A400_MC.bin.pack"
+esp32_file = "./bin/esp32-cam-demo.bin.pack"
+sm2_file = "./bin/CNC_firmware.bin.pack"
 
 f = open(app_file, 'rb')
 app_bin_data = f.read()
@@ -229,25 +229,24 @@ while True:
   # time.sleep(10)
 
   # in app upgrade esp32
-  # if ota(ser, esp32_bin_data):
-  #   print("app upgrade esp32 seccussful!")
-  #   success_cnt += 1
-  # else:
-  #   print("app upgrade esp32 failed")
-  #   failed_cnt += 1
-  # reset_target(ser)
-  # time.sleep(10)
+  if ota(ser, esp32_bin_data):
+    print("app upgrade esp32 seccussful!")
+    success_cnt += 1
+    time.sleep(20)
+    reset_target(ser)
+  else:
+    print("app upgrade esp32 failed")
+    failed_cnt += 1
 
   # in app upgrade sm2
   if ota(ser, sm2_bin_data):
     print("app upgrade sm2 seccussful!")
     success_cnt += 1
+    time.sleep(20)
+    reset_target(ser)
   else:
     print("app upgrade sm2 failed")
     failed_cnt += 1
-  break
-  reset_target(ser)
-  time.sleep(10)
   
   if success_cnt + failed_cnt > 100:
     print("success %d, failed %d" % (success_cnt, failed_cnt))

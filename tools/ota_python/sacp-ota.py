@@ -2,12 +2,11 @@ import serial
 import time
 import argparse
 import fsm
-import packet
 
 PEER_ID = 2
 BAUDRATE = 115200
 # ================================================================================================
-parser = argparse.ArgumentParser(description="snapIvesFOC ota")
+parser = argparse.ArgumentParser(description="sacp upgrade")
 parser.add_argument('--com', '-p', help='specify the serial port')
 parser.add_argument('--baud', '-b', help='baudrate')
 parser.add_argument('--file', '-f', help='file')
@@ -175,7 +174,7 @@ def ota(ser, bin_data):
       elif cmd_id == CMD_OTA_FINISH:
         ota_finish(ser, ret_code)
         if ret_code == RET_OK:
-         break
+          break
 
   if ret_code == RET_OK:
     return True

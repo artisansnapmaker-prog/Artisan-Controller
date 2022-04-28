@@ -212,7 +212,7 @@ err_code_t UpgradeHostToModule::end_proc(sacp_hmi_message_t *msg) {
     return ugr_svc->upgrade_notify(msg, E_FAILURE);
   }
 
-  if (!msg->length || E_SUCCESS != msg->data[0]) {
+  if (!msg->length) {
     return E_SUCCESS;
   }
 

@@ -4,6 +4,7 @@
 #include "toolhead_laser.h"
 #include "../common/debug.h"
 #include "../snapmaker.h"
+#include "../service/system.h"
 #include "../service/module.h"
 #include "../service/motion_platform.h"
 #include "../service/upgrade/esp32_upgrade.h"

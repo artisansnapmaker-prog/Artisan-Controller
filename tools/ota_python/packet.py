@@ -130,6 +130,9 @@ class packet:
     return payload
 
 
+VER = "V1.1.0"
+FLAG = 0
+RUNADDR = 0x08010000
 parser = argparse.ArgumentParser(description="SACP upgrade packet tools")
 parser.add_argument('--file', '-f', help='bin file name')
 parser.add_argument('--type', '-t', help='packet type, 1: SM2 CONTROLER, 2: A400 CONTROLER, 3: J1 CONTROLER, 4: SM2 MODUEL, 5: ESP32 MODUEL')
@@ -141,17 +144,17 @@ args = parser.parse_args()
 try: 
   FILE = args.file
   TYPE = int(args.type)
-  VER = args.ver
-  FLAG = int(args.flag)
 except:
   print("unsupported param")
   while True:
     time.sleep(1)
 
-try: 
+try:
+  VER = args.ver
+  FLAG = int(args.flag)
   RUNADDR = int(args.radr)
 except:
-  RUNADDR = 0x08010000
+  pass
 
 print("======== INFORMATION ======")
 print("flie: " + FILE)

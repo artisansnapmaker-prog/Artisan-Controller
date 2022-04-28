@@ -146,20 +146,20 @@ err_code_t UpgradeHostToController::start_proc(sacp_hmi_message_t *msg) {
 
   if (!flash_erase(module_fw_partition)) {
     if (!flash_erase(module_fw_partition)) {
-      LOG_E("upgrade_module: module flash partition erase failure\r\n");
+      LOG_E("upgrade_hc: module flash partition erase failure\r\n");
       return start_ack(msg, E_FAILURE);
     }
   }
 
   if (BOOT_INFO_SIZE != flash_write(module_fw_partition, (uint8_t *)pit, BOOT_INFO_SIZE)) {
     if (BOOT_INFO_SIZE != flash_write(module_fw_partition, (uint8_t *)pit, BOOT_INFO_SIZE)) {
-      LOG_E("upgrade_module: can not write packet info\r\n");
+      LOG_E("upgrade_hc: can not write packet info\r\n");
       return start_ack(msg, E_FAILURE);
     }
   }
 
   if (E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_MODULE_UPGRADE, NULL)) {
-    LOG_E("upgrade_module: can not enter module upgrade status\r\n");
+    LOG_E("upgrade_hc: can not enter module upgrade status\r\n");
     return start_ack(msg, E_FAILURE);
   }
   ugr_svc->print_packet_info(pit);
@@ -181,17 +181,17 @@ err_code_t UpgradeHostToController::trans_proc(sacp_hmi_message_t *msg) {
   uint16_t rx_pack_len;
 
   if (UPGRADE_HC_STATUS_TRANS != status) {
-    LOG_E("upgrade_module: can not handle trans packet as current is not in UPGRADE_STATE_TRANS state\r\n");
+    LOG_E("upgrade_hc: can not handle trans packet as current is not in UPGRADE_STATE_TRANS state\r\n");
     return ugr_svc->upgrade_notify(msg, E_FAILURE);
   }
 
   if (msg->length < 7) {
-    LOG_E("upgrade_module: lenght error\r\n");
+    LOG_E("upgrade_hc: lenght error\r\n");
     return ugr_svc->upgrade_notify(msg, E_FAILURE);
   }
 
   if (E_SUCCESS != msg->data[0]) {
-    LOG_E("upgrade_module: trans return error\r\n");
+    LOG_E("upgrade_hc: trans return error\r\n");
     return ugr_svc->upgrade_notify(msg, E_FAILURE);
   }
 
@@ -201,7 +201,7 @@ err_code_t UpgradeHostToController::trans_proc(sacp_hmi_message_t *msg) {
   LOG_I(">>> offset %d, pack_len %d\r\n", rx_offset, rx_pack_len);
   
   if (offset != rx_offset) {
-    LOG_E("upgrade_module: offset not match\r\n");
+    LOG_E("upgrade_hc: offset not match\r\n");
     return ugr_svc->upgrade_notify(msg, E_FAILURE);
   }
 
@@ -213,7 +213,7 @@ err_code_t UpgradeHostToController::trans_proc(sacp_hmi_message_t *msg) {
   action_retry++;
 
   if (offset >= fw_lenght) {
-    LOG_I("upgrade_module: RX ALL DATA\r\n");
+    LOG_I("upgrade_hc: RX ALL DATA\r\n");
     if (ugr_svc->firmware_flash_checksum(checksum, module_fw_partition.start_addr + BOOT_INFO_SIZE, fw_lenght)) {
       end_ret = E_SUCCESS;
       status = UPGRADE_HC_STATUS_START_CM;
@@ -236,11 +236,11 @@ err_code_t UpgradeHostToController::trans_proc(sacp_hmi_message_t *msg) {
 err_code_t UpgradeHostToController::end_proc(sacp_hmi_message_t *msg) {
 
   if (UPGRADE_HC_STATUS_END != status) {
-    LOG_E("upgrade_module: can not handle end ack packet as current is not in UPGRADE_HC_STATUS_END state\r\n");
+    LOG_E("upgrade_hc: can not handle end ack packet as current is not in UPGRADE_HC_STATUS_END state\r\n");
     return ugr_svc->upgrade_notify(msg, E_FAILURE);
   }
 
-  if (!msg->length || E_SUCCESS != msg->data[0]) {
+  if (!msg->length) {
     return E_SUCCESS;
   }
 
@@ -269,7 +269,7 @@ void UpgradeHostToController::trans_data_req(uint32_t offset, uint16_t len) {
   _16_TO_LITTLE_STREAM(len, tx_msg.data + index);
   index += 2;
   tx_msg.length = index;
-  LOG_I("%dms upgrade_module: trans_req offset %d, buffer %d\r\n", millis(), offset, len);
+  LOG_I("%dms upgrade_hc: trans_req offset %d, buffer %d\r\n", millis(), offset, len);
   host_hmi.send(&tx_msg);
 }
 
@@ -287,7 +287,7 @@ void UpgradeHostToController::end_req(uint8_t ret) {
   tx_msg.data[0] = ret;
   tx_msg.length = 1;
   host_hmi.send(&tx_msg);
-  LOG_I("%dms upgrade_module: end_req, ret %d\r\n", millis(), ret);
+  LOG_I("%dms upgrade_hc: end_req, ret %d\r\n", millis(), ret);
 }
 
 void UpgradeHostToController::error_notify(uint8_t ret) {
@@ -304,5 +304,5 @@ void UpgradeHostToController::error_notify(uint8_t ret) {
   tx_msg.data[0] = ret;
   tx_msg.length = 1;
   host_hmi.send(&tx_msg);
-  LOG_I("%dms upgrade_module: notify %d\r\n", millis(), ret);
+  LOG_I("%dms upgrade_hc: notify %d\r\n", millis(), ret);
 }

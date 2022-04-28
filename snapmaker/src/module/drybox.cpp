@@ -187,7 +187,7 @@ err_code_t DryBox::set_pid(float p, float i, float d) {
     buffer[1] = (uint8_t)(val[i]>>24);
     buffer[2] = (uint8_t)(val[i]>>16);
     buffer[3] = (uint8_t)(val[i]>>8);
-    buffer[4] = (uint8_t)(val[i]);
+    // buffer[4] = (uint8_t)(val[i]);
     ret = host_can_rou.send(&msg);
 
     if (ret != E_SUCCESS) {

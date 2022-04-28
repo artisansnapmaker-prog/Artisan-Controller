@@ -487,6 +487,12 @@ class Temperature {
       static constexpr millis_t fan_update_interval_ms = TERN(HAS_PWMFANCHECK, 5000, TERN(HAS_FANCHECK, 1000, 2500));
     #endif
 
+    #if MB_SNAPMAKER
+      #if HAS_HOTEND
+        static temp_range_t temp_range[HOTENDS];
+      #endif
+    #endif
+
   private:
 
     #if ENABLED(WATCH_HOTENDS)
@@ -498,8 +504,10 @@ class Temperature {
       static lpq_ptr_t lpq_ptr;
     #endif
 
+    #if !MB_SNAPMAKER
     #if HAS_HOTEND
       static temp_range_t temp_range[HOTENDS];
+    #endif
     #endif
 
     #if HAS_HEATED_BED

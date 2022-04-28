@@ -749,9 +749,11 @@ void MotionPlatformService::set_hotend_maxtemp(uint8_t e, int16_t temp) {
   switch (e) {
     case 0:
       thermalManager.hotend_maxtemp[0] = temp;
+      thermalManager.temp_range[0].maxtemp = temp + 15;
       break;
     case 1:
       thermalManager.hotend_maxtemp[1] = temp;
+      thermalManager.temp_range[1].maxtemp = temp + 15;
       break;
   }
 }

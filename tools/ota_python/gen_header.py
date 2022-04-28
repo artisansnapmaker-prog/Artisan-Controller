@@ -134,47 +134,51 @@ VER = "V1.1.0"
 FLAG = 0
 RUNADDR = 0x08010000
 START_ID = 0
-END_ID = 0
-parser = argparse.ArgumentParser(description="SACP upgrade packet tools")
-parser.add_argument('--boot', '-b', help='boot bin file name')
-parser.add_argument('--app',  '-a', help='application bin file name')
+END_ID = 23
+parser = argparse.ArgumentParser(description="gen_header")
+parser.add_argument('--file', '-f', help='bin file name')
+parser.add_argument('--type', '-t', help='packet type, 1: SM2 CONTROLER, 2: A400 CONTROLER, 3: J1 CONTROLER, 4: SM2 MODUEL, 5: ESP32 MODUEL')
+parser.add_argument('--ver',  '-v', help='version')
+parser.add_argument('--flag', '-c', help='upgrade control flag, 0 for normal, 1 for force')
+parser.add_argument('--radr', '-a', help='firmware run address')
 args = parser.parse_args()
 
 try: 
-  BOOT = args.boot
-  APP = args.app
+  FILE = args.file
+  TYPE = int(args.type)
 except:
   print("unsupported param")
   while True:
     time.sleep(1)
 
+try:
+  VER = args.ver
+  FLAG = int(args.flag)
+  RUNADDR = int(args.radr)
+except:
+  pass
+
+print("======== INFORMATION ======")
+print("flie: " + FILE)
+print("type: %d" % TYPE)
+print("ver: " + VER)
+print("flag %d: " % FLAG)
+
 # _(self, bin, p_type, ctrl_flag, ver, radr):
-f = open(BOOT, 'rb')
-boot_fw = f.read()
-print("boot file lenght %d" % len(boot_fw))
+f = open(FILE, 'rb')
+bin = f.read()
+print("file lenght %d" % len(bin))
 
-f = open(APP, 'rb')
-app_fw = f.read()
-print("file lenght %d" % len(app_fw))
-
-pt = packet(app_fw, 2, 0, VER, RUNADDR, START_ID, END_ID)
+pt = packet(bin, TYPE, FLAG, VER, RUNADDR, START_ID, END_ID)
 head = pt.gen()
 
 hex_str = " ".join(["{:02x}".format(x) for x in head])
 print(hex_str)
 
-of = "A400_BOOT_APP.bin"
-
+of = ntpath.basename(FILE) + ".pack"
 f = open(of, 'wb')
-f.write(boot_fw)
-
-f.seek(1024 * 32)
 f.write(head)
-
-f.seek(RUNADDR - 0x08000000)
-f.write(app_fw)
-
-f.close()
+f.write(bin)
   
 if __name__=='__main__':
     pass

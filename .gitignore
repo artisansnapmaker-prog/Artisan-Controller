@@ -178,4 +178,7 @@ __pycache__
 eeprom.dat
 imgui.ini
 
+# snapmaker tools bin
+tools/bin/
+
 snapmaker/scripts/env*txt

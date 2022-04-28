@@ -23,6 +23,8 @@
 
 #include "base.h"
 
+// #define ENABLE_DRYBOX_INTERRUPT_LOG
+
 typedef enum {
   DRYBOX_REQ_CMD_ID_GET_DRYBOX_INFO    = 1,
   DRYBOX_REQ_CMD_ID_SET_TEMP           = 2,

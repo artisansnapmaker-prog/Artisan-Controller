@@ -748,7 +748,9 @@ static void fdm_callback_report_hotend_offset(void *obj, uint8_t *data, uint8_t 
   ((uint8_t *)&offset)[1] = data[2];
   ((uint8_t *)&offset)[2] = data[3];
   ((uint8_t *)&offset)[3] = data[4];
-  LOG_I("axis: %d, offset: %f\n", axis, offset);
+  #ifdef USE_FDM_INTERRUPT_LOG
+    LOG_I("axis: %d, offset: %f\n", axis, offset);
+  #endif
   if (isnan(offset)) {
     switch (axis) {
       case X_AXIS:
@@ -767,19 +769,25 @@ static void fdm_callback_report_hotend_offset(void *obj, uint8_t *data, uint8_t 
       case X_AXIS:
         if ((fdm.hotend_offset[axis][1] < DEFAULT_HOTEND_OFFSET_X - BIAS_HOTEND_OFFSET_X) || (fdm.hotend_offset[axis][1] > DEFAULT_HOTEND_OFFSET_X + BIAS_HOTEND_OFFSET_X)) {
           fdm.hotend_offset[axis][1] = DEFAULT_HOTEND_OFFSET_X;
-          LOG_E("report x hotend offset error: %f\n", offset);
+          #ifdef USE_FDM_INTERRUPT_LOG
+            LOG_E("report x hotend offset error: %f\n", offset);
+          #endif
         }
         break;
       case Y_AXIS:
         if ((fdm.hotend_offset[axis][1] < DEFAULT_HOTEND_OFFSET_Y - BIAS_HOTEND_OFFSET_Y) || (fdm.hotend_offset[axis][1] > DEFAULT_HOTEND_OFFSET_Y + BIAS_HOTEND_OFFSET_Y)) {
           fdm.hotend_offset[axis][1] = DEFAULT_HOTEND_OFFSET_Y;
-          LOG_E("report y hotend offset error: %f\n", offset);
+          #ifdef USE_FDM_INTERRUPT_LOG
+            LOG_E("report y hotend offset error: %f\n", offset);
+          #endif
         }
         break;
       case Z_AXIS:
         if ((fdm.hotend_offset[axis][1] < DEFAULT_HOTEND_OFFSET_Z - BIAS_HOTEND_OFFSET_Z) || (fdm.hotend_offset[axis][1] > DEFAULT_HOTEND_OFFSET_Z + BIAS_HOTEND_OFFSET_Z)) {
           fdm.hotend_offset[axis][1] = DEFAULT_HOTEND_OFFSET_Z;
-          LOG_E("report z hotend offset error: %f\n", offset);
+          #ifdef USE_FDM_INTERRUPT_LOG
+            LOG_E("report z hotend offset error: %f\n", offset);
+          #endif
         }
         break;
     }
@@ -1010,15 +1018,21 @@ void ToolHeadFDM::report_pid(uint8_t *data) {
   float val = (float)((data[1] << 24) | (data[2] << 16) | (data[3] << 8) | data[4]) / 1000;
   switch (param) {
     case 0:
-      LOG_I("P: %f\n", val);
+      #ifdef USE_FDM_INTERRUPT_LOG
+        LOG_I("P: %f\n", val);
+      #endif
       pid[0] = val;
       break;
     case 1:
+      #ifdef USE_FDM_INTERRUPT_LOG
       LOG_I("I: %f\n", val);
+      #endif
       pid[1] = val;
       break;
     case 2:
-      LOG_I("D: %f\n", val);
+      #ifdef USE_FDM_INTERRUPT_LOG
+        LOG_I("D: %f\n", val);
+      #endif
       pid[2] = val;
       break;
   }
@@ -1031,7 +1045,9 @@ void ToolHeadFDM::set_hotend_type(uint8_t *data) {
       if (hotend_type[i] != (hotend_type_t)data[i]) {
         hotend_type[i] = (hotend_type_t)data[i];
       }
-      LOG_I("nozzle_index: %d, type: %d\n", i, hotend_type[i]);
+      #ifdef USE_FDM_INTERRUPT_LOG
+        LOG_I("nozzle_index: %d, type: %d\n", i, hotend_type[i]);
+      #endif
     }
   } else {
     fdm_exception_trigger(FDM_FAULT_NOZZLE_IDENTIFY);

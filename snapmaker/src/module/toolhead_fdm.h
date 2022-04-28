@@ -23,6 +23,8 @@
 
 #include "base.h"
 
+// #define USE_FDM_INTERRUPT_LOG
+
 #define EXTRUDERS 2
 #define EXTRUDER0_SWITCH_POSITION 0
 #define EXTRUDER1_SWITCH_POSITION 410

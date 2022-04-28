@@ -299,15 +299,21 @@ void DryBox::update_heating_time_info(uint8_t type, uint32_t time) {
   switch (type) {
     case 0:
       target_heating_time = time;
-      LOG_I("target heating time: %d\n", time);
+      #ifdef ENABLE_DRYBOX_INTERRUPT_LOG
+        LOG_I("target heating time: %d\n", time);
+      #endif
       break;
     case 1:
       acc_heating_time = time;
-      LOG_I("accumulate heating time: %d\n", time);
+      #ifdef ENABLE_DRYBOX_INTERRUPT_LOG
+        LOG_I("accumulate heating time: %d\n", time);
+      #endif
       break;
     case 2:
       remaining_heating_time = time;
-      LOG_I("remaining heating time: %d\n", time);
+      #ifdef ENABLE_DRYBOX_INTERRUPT_LOG
+        LOG_I("remaining heating time: %d\n", time);
+      #endif
       break;
   }
 }
@@ -320,21 +326,31 @@ void DryBox::update_temp_humidity(uint8_t *data) {
   current_heater_temp  = (data[0] << 8) | data[1];
   current_chamber_temp = (data[2] << 8) | data[3];
   current_chamber_humidity = (data[4] << 8) | data[5];
-  LOG_I("heater_temp: %d, chamber_temp: %d, chamber_humidity: %d\n", current_heater_temp, current_chamber_temp, current_chamber_humidity);
+  #ifdef ENABLE_DRYBOX_INTERRUPT_LOG
+    LOG_I("heater_temp: %d, chamber_temp: %d, chamber_humidity: %d\n", current_heater_temp, current_chamber_temp, current_chamber_humidity);
+  #endif
 }
 
 void DryBox::report_pid(uint8_t *data) {
   uint8_t param = data[0];
-  float val = (float)((data[1] << 24) | (data[2] << 16) | (data[3] << 8) | data[4]) / 1000;
+  #ifdef ENABLE_DRYBOX_INTERRUPT_LOG
+    float val = (float)((data[1] << 24) | (data[2] << 16) | (data[3] << 8) | data[4]) / 1000;
+  #endif
   switch (param) {
     case 0:
-      LOG_I("P: %f\n", val);
+      #ifdef ENABLE_DRYBOX_INTERRUPT_LOG
+        LOG_I("P: %f\n", val);
+      #endif
       break;
     case 1:
-      LOG_I("I: %f\n", val);
+      #ifdef ENABLE_DRYBOX_INTERRUPT_LOG
+        LOG_I("I: %f\n", val);
+      #endif
       break;
     case 2:
-      LOG_I("D: %f\n", val);
+      #ifdef ENABLE_DRYBOX_INTERRUPT_LOG
+        LOG_I("D: %f\n", val);
+      #endif
       break;
   }
 }

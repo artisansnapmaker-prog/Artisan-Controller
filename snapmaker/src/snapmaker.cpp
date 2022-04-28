@@ -739,7 +739,6 @@ toolHeadType SnapmakerPrinter::get_toolhead_type(void) {
     return TH_TYPE_LASER;
   }
 
-  LOG_E("toolhead unknow\r\n");
   return TH_TYPE_UNKNOW;
 }
 

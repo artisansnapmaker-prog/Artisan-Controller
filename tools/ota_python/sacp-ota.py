@@ -167,7 +167,10 @@ def ota(ser, bin_data):
     ret_code = RET_ERROR
     ret_frame = get_frame(ser)
     if None == ret_frame:
-      break
+      time_out_cnt += 1
+      if time_out_cnt > 20:
+        break
+      continue
       
     cmd_set, cmd_id, ret_code = sf.pars_ret_frame(ret_frame)
     if cmd_set != CMD_OTA_CMD_SET:

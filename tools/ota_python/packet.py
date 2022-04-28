@@ -64,13 +64,13 @@ class ugr_status(Enum):
   UGR_STATUS_FIRST_JUMP_APP = 0xAA05
 
 class packet:
-  def __init__(self, bin, p_type, ctrl_flag, ver, radr):
+  def __init__(self, bin, p_type, ctrl_flag, ver, radr, s_id, e_id):
     self.magic_string = "snapmaker update.bin"
     self.protocol_ver = 0x01
     self.pack_type = p_type
     self.ugr_ctrl_flag = ctrl_flag
-    self.start_index = 0
-    self.end_index = 0
+    self.start_index = s_id
+    self.end_index = e_id
     self.fw_version = ver
     self.timestamp = "2022.04.28:18:03:01"
     self.ugr_status = 0xAA00
@@ -133,6 +133,8 @@ class packet:
 VER = "V1.1.0"
 FLAG = 0
 RUNADDR = 0x08010000
+START_ID = 0
+END_ID = 23
 parser = argparse.ArgumentParser(description="SACP upgrade packet tools")
 parser.add_argument('--file', '-f', help='bin file name')
 parser.add_argument('--type', '-t', help='packet type, 1: SM2 CONTROLER, 2: A400 CONTROLER, 3: J1 CONTROLER, 4: SM2 MODUEL, 5: ESP32 MODUEL')
@@ -167,7 +169,7 @@ f = open(FILE, 'rb')
 bin = f.read()
 print("file lenght %d" % len(bin))
 
-pt = packet(bin, TYPE, FLAG, VER, RUNADDR)
+pt = packet(bin, TYPE, FLAG, VER, RUNADDR, START_ID, END_ID)
 head = pt.gen()
 
 hex_str = " ".join(["{:02x}".format(x) for x in head])

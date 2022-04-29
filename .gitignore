@@ -180,5 +180,6 @@ imgui.ini
 
 # snapmaker tools bin
 tools/bin/
+tools/ota_python/bin/
 
 snapmaker/scripts/env*txt

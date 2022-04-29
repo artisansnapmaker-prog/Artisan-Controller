@@ -50,7 +50,7 @@ def clear_ser(ser):
     if 0 == len(c):
       return
     else:
-      print("clear %d" + c)
+      print(c)
     
 def get_frame(ser):
   start_tick_ms = int(round(time.time() * 1000))
@@ -223,6 +223,7 @@ while True:
   # time.sleep(10)
   
   # # in app upgrade app
+  clear_ser(ser)
   if ota(ser, app_bin_data):
     print("app upgrade application seccussful!")
     success_cnt += 1
@@ -232,15 +233,17 @@ while True:
   time.sleep(10)
 
   # # in app upgrade esp32
-  # clear_ser(ser)
-  # if ota(ser, esp32_bin_data):
-  #   print("app upgrade esp32 seccussful!")
-  #   success_cnt += 1
-  #   reset_target(ser)
-  # else:
-  #   print("app upgrade esp32 failed")
-  #   failed_cnt += 1
-  # time.sleep(20)
+  clear_ser(ser)
+  if ota(ser, esp32_bin_data):
+    print("app upgrade esp32 seccussful!")
+    success_cnt += 1
+    reset_target(ser)
+    time.sleep(20)
+  else:
+    print("app upgrade esp32 failed")
+    failed_cnt += 1
+    time.sleep(2)
+
 
   # in app upgrade sm2
   clear_ser(ser)
@@ -248,10 +251,11 @@ while True:
     print("app upgrade sm2 seccussful!")
     success_cnt += 1
     reset_target(ser)
+    time.sleep(20)
   else:
     print("app upgrade sm2 failed")
     failed_cnt += 1
-  time.sleep(20)
+    time.sleep(2)
   
   if success_cnt + failed_cnt > 100:
     print("success %d, failed %d" % (success_cnt, failed_cnt))

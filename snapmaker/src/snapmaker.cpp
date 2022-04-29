@@ -291,6 +291,39 @@ err_code_t SnapmakerPrinter::hmi_cb_set_protocol_for_PC(void *obj, sacp_hmi_mess
   return ret;
 }
 
+err_code_t SnapmakerPrinter::hmi_cb_set_machine_enter_replace_mode(void *obj, sacp_hmi_message_t *msg) {
+  err_code_t ret = E_SUCCESS;
+  SystemStatus ret_status = SYSTEM_STATUS_IDLE; 
+  bool change_work_mode = false;
+  uint32_t domains = 0;
+  SnapmakerPrinter *printer = (SnapmakerPrinter *)obj;
+
+  if (!msg || !obj || msg->length != 1) {
+    LOG_E("[%s] got a invalid parameter\n",__FUNCTION__);
+    return host_hmi.send_ack(msg, E_PARAM);
+  }
+
+  if (printer->set_sys_status(SYSTEM_STATUS_REPLACE_MODE, &ret_status)) {
+    LOG_E("[%s] enter replace mode fail, cur system sta: %d\n",__FUNCTION__, ret_status);
+    return host_hmi.send_ack(msg, E_FAILURE);
+  }
+
+  change_work_mode = msg->data[0];
+  LOG_I("[%s] change_work_mode: %d\n", __FUNCTION__, change_work_mode);
+
+  if (!change_work_mode)
+    domains |= POWER_DOMAIN_4P_ADDON;
+
+  domains |= (POWER_DOMAIN_MOTIVE_POWER | POWER_DOMAIN_8P_TOOLHEAD | POWER_DOMAIN_8P_MOTOR | POWER_DOMAIN_BED);
+  module_svc.machine_replace_mode_deinit(change_work_mode);
+  printer->disable_power_domain(domains);
+  
+  if ((ret = host_hmi.send_ack(msg, E_SUCCESS)) != E_SUCCESS) {
+    LOG_E("[%s] failed to tell screen the home state, ret[%u]\n", __FUNCTION__, ret);
+  }
+  return ret;
+}
+
 
 // can recv handler
 static void hmi_recv_handler(void *param) {
@@ -378,6 +411,8 @@ static void system_thread(void *p) {
   host_hmi.register_callback(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_REBOOT,
       (void *)&smprinter, SnapmakerPrinter::hmi_cb_request_reboot);
 
+  host_hmi.register_callback(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_ENTRY_REPLACE_MODE,
+      (void *)&smprinter, SnapmakerPrinter::hmi_cb_set_machine_enter_replace_mode);
 
   // loop
   for (;;) {
@@ -878,6 +913,20 @@ err_code_t SnapmakerPrinter::set_sys_status(enum SystemStatus req_status, enum S
     break;
 
   // emergency handler end
+  /*********************************************************************************/
+
+
+  // replace mode start
+  /*********************************************************************************/
+
+  case SYSTEM_STATUS_REPLACE_MODE:
+    if (sys_status == SYSTEM_STATUS_IDLE) {
+      sys_status = req_status;
+      ret = E_SUCCESS;
+    }
+    break;
+    
+  // replace mode end
   /*********************************************************************************/
 
 

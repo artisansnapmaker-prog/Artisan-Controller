@@ -715,6 +715,12 @@ void GcodeSuite::M2000() {
     }
   break;
 
+  case 90:
+    uint8_t test_send_buff[10];
+    test_send_buff[0] = parser.boolval('P', false);
+    host_hmi.test_interface(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_ENTRY_REPLACE_MODE, test_send_buff, 1);
+  break;
+
   default:
     break;
   }

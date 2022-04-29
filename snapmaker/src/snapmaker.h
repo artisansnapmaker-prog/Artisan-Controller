@@ -95,6 +95,8 @@ enum SystemStatus {
   SYSTEM_STATUS_EMERGENCY_STOP,
   SYSTEM_STATUS_POWER_LOSS,
 
+  SYSTEM_STATUS_REPLACE_MODE, 
+
   // 3DP calibration
   SYSTEM_STATUS_XY_CALIBRATING = 31,
   SYSTEM_STATUS_XY_CALIBRATING_PRINTING,
@@ -463,6 +465,8 @@ class SnapmakerPrinter
     static err_code_t hmi_cb_get_machine_info(void *obj, sacp_hmi_message_t *msg);
     static err_code_t hmi_cb_get_machine_size(void *obj, sacp_hmi_message_t *msg);
     static err_code_t hmi_cb_set_protocol_for_PC(void *obj, sacp_hmi_message_t *msg);
+
+    static err_code_t hmi_cb_set_machine_enter_replace_mode(void *obj, sacp_hmi_message_t *msg);
 
     SnapmakerModel get_model() { return model; }
     void show_sys_info();

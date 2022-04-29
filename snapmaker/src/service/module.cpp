@@ -799,3 +799,16 @@ void ModuleService::scan_modules() {
   LOG_I("starting scan modules...\n");
   host_mac.send(MODULE_MAC_CMD_SCAN);
 }
+
+void ModuleService::machine_replace_mode_deinit(bool switch_working_mode) {
+  for (int i = 0; i < configured_module; i++) {
+    if (switch_working_mode && (modules[i]->get_device_id() == MODULE_DEVICE_ID_ENCLOSURE_2020 \
+        || modules[i]->get_device_id() == MODULE_DEVICE_ID_ENCLOSURE_A400_2022)) {
+      continue;
+    }
+    else {
+      unregister_routine((void*)modules[i]);
+      modules[i]->deinit();
+    }
+  }
+}

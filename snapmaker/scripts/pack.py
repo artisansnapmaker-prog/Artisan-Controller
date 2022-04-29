@@ -171,7 +171,7 @@ def main(argv=None):
 
     print("boot: " + args.boot)
     print("application: " + args.application)
-    of = args.boot + "\A400_BOOT_APP.bin"
+    of = args.out + "\A400_BOOT_APP.bin"
     print("output: " + of)
 
     if os.path.exists(args.boot) and os.path.exists(args.application):
@@ -198,6 +198,8 @@ def main(argv=None):
         f.write(app_fw)
 
         f.close()
+    else:
+      print("Files not ready!!!")
 
 if __name__=='__main__':
     main()

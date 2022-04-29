@@ -47,10 +47,10 @@ app_fw_bin = join(projenv.get("PROJECT_BUILD_DIR"), projenv.get("PIOENV"), proje
 
 boot_fw_bin = join(projenv.get("PROJECT_BUILD_DIR"), projenv.get("PIOENV") + '_boot', 'firmware' + '.bin')
 
-print(project_dir)
-print(pack_script)
-print(app_fw_bin)
-print(boot_fw_bin)
+# print(project_dir)
+# print(pack_script)
+# print(app_fw_bin)
+# print(boot_fw_bin)
 
 env.AddCustomTarget(
     name="pack",

@@ -110,6 +110,8 @@ err_code_t sm2_module_upgrade_start_req(pack_info_t *p, module_info_t *m) {
   // FUN_LOG();
   uint8_t buffer[BOOT_PACK_FW_VER_STR_LEN + 8];
   sacp_module_message_t msg;
+  if (!m)
+    return E_FAILURE;
 
   mit = m;
   msg.peer   = mit->mac;

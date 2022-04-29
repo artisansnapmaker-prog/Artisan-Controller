@@ -136,17 +136,20 @@ err_code_t UpgradeHostToController::start_proc(sacp_hmi_message_t *msg) {
   pit = (pack_info_t *)(msg->data+2);
   if (!boot_info_check(pit)) {
     LOG_E("upgrade_hc: packet info checksum failure\r\n");
+    reset_to_idle();
     return start_ack(msg, E_FAILURE);
   }
 
   if (UPGRADE_HC_STATUS_IDLE != status) {
     LOG_E("upgrade_hc: can not start a upgrade as current is not in IDLE status\r\n");
+    reset_to_idle();
     return start_ack(msg, E_FAILURE);
   }
 
   if (!flash_erase(module_fw_partition)) {
     if (!flash_erase(module_fw_partition)) {
       LOG_E("upgrade_hc: module flash partition erase failure\r\n");
+      reset_to_idle();
       return start_ack(msg, E_FAILURE);
     }
   }
@@ -154,12 +157,14 @@ err_code_t UpgradeHostToController::start_proc(sacp_hmi_message_t *msg) {
   if (BOOT_INFO_SIZE != flash_write(module_fw_partition, (uint8_t *)pit, BOOT_INFO_SIZE)) {
     if (BOOT_INFO_SIZE != flash_write(module_fw_partition, (uint8_t *)pit, BOOT_INFO_SIZE)) {
       LOG_E("upgrade_hc: can not write packet info\r\n");
+      reset_to_idle();
       return start_ack(msg, E_FAILURE);
     }
   }
 
   if (E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_MODULE_UPGRADE, NULL)) {
     LOG_E("upgrade_hc: can not enter module upgrade status\r\n");
+    reset_to_idle();
     return start_ack(msg, E_FAILURE);
   }
   ugr_svc->print_packet_info(pit);

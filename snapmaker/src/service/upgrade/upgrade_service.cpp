@@ -43,6 +43,7 @@ err_code_t UpdateService::init(void) {
   ret |= ugr_ctrl_svc.init(this);
   ret |= ugr_hc_svc.init(this);
   ret |= ugr_cm_svc.init(this);
+  ret |= ugr_hm_svc.init(this);
 
   return ret;
 }
@@ -65,6 +66,7 @@ err_code_t UpdateService::sacp_msg_proc(void * obj, sacp_hmi_message_t *msg) {
   pack_info_t *pit;
   UpdateService &upgrade = *(UpdateService *)obj;
 
+  LOG_I("upgrade.phase %d\r\n", upgrade.phase);
   switch (upgrade.phase) {
     case UPGRADE_PHASE_INIT:
       if (CMD_ID_UPGRADE_START != msg->cmd_id) {
@@ -189,6 +191,7 @@ void UpdateService::print_packet_info(pack_info_t *pit) {
 UpgradePhase UpdateService::set_updgrade_phase(UpgradePhase p) {
   UpgradePhase lp = phase;
   phase = p;
+  LOG_I("upgrade_servicde: upgrade.phase %d\r\n", phase);
   return lp;
 }
 

@@ -122,22 +122,26 @@ err_code_t UpgradeHostToModule::start_proc(sacp_hmi_message_t *msg) {
   pit = (pack_info_t *)(msg->data+2);
   if (!boot_info_check(pit)) {
     LOG_E("upgrade_hm: packet info checksum failure\r\n");
+    reset_to_idle();
     return start_ack(msg, E_FAILURE);
   }
 
   if (UPGRADE_HM_STATUS_IDLE != status) {
     LOG_E("upgrade_hm: can not start a upgrade as current is not in IDLE status\r\n");
+    reset_to_idle();
     return start_ack(msg, E_FAILURE);
   }
 
   module_upgrade_info = get_module_upgrade_handls((UpdatePackType)pit->pack_type, pit->start_index);
   if (!module_upgrade_info) {
     LOG_E("upgrade_hm: unsupported pack %d with id %d\r\n", pit->pack_type, pit->start_index);
+    reset_to_idle();
     return start_ack(msg, E_FAILURE);
   }
 
   if (E_SUCCESS != module_upgrade_info->module_init(&(module_upgrade_info->handle))) {
     LOG_E("upgrade_hm: module upgrade init error\r\n");
+    reset_to_idle();
     return start_ack(msg, E_FAILURE);
   }
 

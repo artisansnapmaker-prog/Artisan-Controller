@@ -75,7 +75,7 @@ void ClientNode::class_init(void) {
   ret |= host_hmi.register_callback(CMD_SET_JOB_CTRL, CMD_ID_JOB_GET_FEEDRATE_PERCENTAGE, NULL, sacp_cb);
   ret |= host_hmi.register_callback(CMD_SET_JOB_CTRL, CMD_ID_JOB_SET_FLOWRATE_PERCENTAGE, NULL, sacp_cb);
   ret |= host_hmi.register_callback(CMD_SET_JOB_CTRL, CMD_ID_JOB_GET_FLOWRATE_PERCENTAGE, NULL, sacp_cb);
-  
+
   // register subscibtion
   LOG_I("Client node: register SACP subscription callback\r\n");
   ret |= host_hmi.register_subscription(  CMD_SET_JOB_CTRL,
@@ -661,60 +661,45 @@ err_code_t ClientNode::req_stop_job(sacp_hmi_message_t* msg) {
 err_code_t ClientNode::req_set_feedrate_percentage(sacp_hmi_message_t* msg) {
   err_code_t ret = E_SUCCESS;
 
-  // uint8_t key = msg->data[0];
-  uint8_t e = msg->data[1];
-  int16_t feedrate_percentage = msg->data[2] | (msg->data[3] << 8);
-
-  ToolHeadFDM *fdm = (ToolHeadFDM *)module_svc.get_module(MODULE_DEVICE_ID_FDM_2EXTRUDER_2021, 0);
-  if (!fdm) {
-    fdm = (ToolHeadFDM *)module_svc.get_module(MODULE_DEVICE_ID_FDM_1EXTRUDER_2019, 0);
-    if (!fdm) {
-      ret = E_FAILURE;
-      goto EXIT;
-    }
+  // get current toolhead
+  ModuleBase *cur_toolhead = smprinter.get_cur_toolhead();
+  if (!cur_toolhead) {
+    ret = E_HARDWARE;
+    goto EXIT;
   }
 
-  ret = fdm->set_extruders_feedrate_percentage(feedrate_percentage, e);
-
-  // response to hmi
-  host_hmi.send_ack(msg, ret);
+  ret = cur_toolhead->set_feedrate_percentage(msg->data, msg->length);
 
 EXIT:
+  // response to hmi
+  host_hmi.send_ack(msg, ret);
   return ret;
 }
 
 err_code_t ClientNode::req_get_feedrate_percentage(sacp_hmi_message_t* msg) {
   err_code_t ret = E_SUCCESS;
   uint8_t key;
-  int16_t extruder0_feedrate_percentage;
-  int16_t extruder1_feedrate_percentage;
-  uint16_t index;
-
-  ToolHeadFDM *fdm = (ToolHeadFDM *)module_svc.get_module(MODULE_DEVICE_ID_FDM_2EXTRUDER_2021, 0);
-  if (!fdm) {
-    fdm = (ToolHeadFDM *)module_svc.get_module(MODULE_DEVICE_ID_FDM_1EXTRUDER_2019, 0);
-    if (!fdm) {
-      ret = E_FAILURE;
-      goto EXIT;
-    }
-  }
+  uint16_t index = 0;
+  uint16_t length = 0;
 
   key = msg->data[0];
-  extruder0_feedrate_percentage = fdm->get_extruders_feedrate_percentage(0);
-  extruder1_feedrate_percentage = fdm->get_extruders_feedrate_percentage(1);
 
+  // get current toolhead
+  ModuleBase *cur_toolhead = smprinter.get_cur_toolhead();
+  if (!cur_toolhead) {
+    ret = E_HARDWARE;
+    goto EXIT;
+  }
+
+  length = cur_toolhead->get_feedrate_percentage(&(msg->data[2]));
+
+EXIT:
   index = 0;
   msg->data[index++] = ret;
   msg->data[index++] = key;
-  msg->data[index++] = 2;
-  msg->data[index++] = extruder0_feedrate_percentage & 0xff;
-  msg->data[index++] = (extruder0_feedrate_percentage >> 8) & 0xff;
-  msg->data[index++] = extruder1_feedrate_percentage & 0xff;
-  msg->data[index++] = (extruder1_feedrate_percentage >> 8) & 0xff;
-  msg->length = index;
-  host_hmi.send_ack(msg);
+  msg->length = index + length;
 
-EXIT:
+  host_hmi.send_ack(msg);
   return ret;
 }
 

@@ -170,6 +170,8 @@ class ToolHeadFDM: public ModuleBase {
     err_code_t standby(void);
     void prepare_to_start_a_new_print_job(void);
     bool prepare_start(void);
+    err_code_t set_feedrate_percentage(uint8_t *data, uint16_t length);
+    uint16_t get_feedrate_percentage(uint8_t *buffer);
 
     err_code_t probe_state_sync();
     err_code_t hotend_type_sync();

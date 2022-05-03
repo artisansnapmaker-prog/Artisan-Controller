@@ -1815,6 +1815,36 @@ bool ToolHeadFDM::prepare_start(void) {
   }
 }
 
+err_code_t ToolHeadFDM::set_feedrate_percentage(uint8_t *data, uint16_t length) {
+  err_code_t ret = E_SUCCESS;
+  uint8_t e;
+  int16_t feedrate_percentage;
+
+  // uint8_t key = data[0];
+  e = data[1];
+  feedrate_percentage = data[2] | (data[3] << 8);
+  ret = set_extruders_feedrate_percentage(feedrate_percentage, e);
+
+  return ret;
+}
+
+uint16_t ToolHeadFDM::get_feedrate_percentage(uint8_t *buffer) {
+  int16_t extruder0_feedrate_percentage;
+  int16_t extruder1_feedrate_percentage;
+
+  extruder0_feedrate_percentage = get_extruders_feedrate_percentage(0);
+  extruder1_feedrate_percentage = get_extruders_feedrate_percentage(1);
+
+  uint16_t index = 0;
+  buffer[index++] = 2;
+  buffer[index++] = extruder0_feedrate_percentage & 0xff;
+  buffer[index++] = (extruder0_feedrate_percentage >> 8) & 0xff;
+  buffer[index++] = extruder1_feedrate_percentage & 0xff;
+  buffer[index++] = (extruder1_feedrate_percentage >> 8) & 0xff;
+
+  return index;
+}
+
 void ToolHeadFDM::fdm_exception_trigger(fdm_fault_e fault) {
   fdm_state |= 1 << fault;
   LOG_E("set fdm_sate: %x\n", fdm_state);

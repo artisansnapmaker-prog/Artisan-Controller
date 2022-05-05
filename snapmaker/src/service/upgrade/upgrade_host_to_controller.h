@@ -71,6 +71,7 @@ class UpgradeHostToController {
 
     UpgradeHCStatus status;
     UpdateService *ugr_svc;
+    sacp_hmi_message_t msg_cp;
 
     uint32_t host_id;
     uint32_t host_ch;

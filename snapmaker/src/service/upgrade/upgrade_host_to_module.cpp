@@ -21,6 +21,7 @@
 #include "upgrade_host_to_module.h"
 #include "upgrade_service.h"
 #include "../../snapmaker.h"
+#include "../../boot/boot_upgrade.h"
 #include "upgrade_module_interface.h"
 
 
@@ -47,6 +48,7 @@ void UpgradeHostToModule::loop(void) {
         }
         else {
           LOG_E("upgrade_hm: upgrade start request timeout, return to upgrade init\r\n");
+          ugr_svc->upgrade_notify(&msg_cp, RET_TIMEOUT);
           reset_to_idle();
         }
       }
@@ -60,6 +62,7 @@ void UpgradeHostToModule::loop(void) {
         }
         else {
           LOG_E("upgrade_hm: upgrade trans timeout, return to upgrade init\r\n");
+          ugr_svc->upgrade_notify(&msg_cp, RET_TIMEOUT);
           reset_to_idle();
         }
       }
@@ -123,35 +126,36 @@ err_code_t UpgradeHostToModule::start_proc(sacp_hmi_message_t *msg) {
   if (!boot_info_check(pit)) {
     LOG_E("upgrade_hm: packet info checksum failure\r\n");
     reset_to_idle();
-    return start_ack(msg, E_FAILURE);
+    return start_ack(msg, RET_PACK_HEAD_CHECK_FAILED);
   }
 
   if (UPGRADE_HM_STATUS_IDLE != status) {
     LOG_E("upgrade_hm: can not start a upgrade as current is not in IDLE status\r\n");
     reset_to_idle();
-    return start_ack(msg, E_FAILURE);
+    return start_ack(msg, RET_STATE_ERROR);
   }
 
   module_upgrade_info = get_module_upgrade_handls((UpdatePackType)pit->pack_type, pit->start_index);
   if (!module_upgrade_info) {
     LOG_E("upgrade_hm: unsupported pack %d with id %d\r\n", pit->pack_type, pit->start_index);
     reset_to_idle();
-    return start_ack(msg, E_FAILURE);
+    return start_ack(msg, RET_MODULE_UPGRADE_INIT_ERROR);
   }
 
   if (E_SUCCESS != module_upgrade_info->module_init(&(module_upgrade_info->handle))) {
     LOG_E("upgrade_hm: module upgrade init error\r\n");
     reset_to_idle();
-    return start_ack(msg, E_FAILURE);
+    return start_ack(msg, RET_MODULE_UPGRADE_INIT_ERROR);
   }
 
   if (E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_MODULE_UPGRADE, NULL)) {
     LOG_E("upgrade_hm: can not enter module upgrade status\r\n");
     reset_to_idle();
-    return start_ack(msg, E_FAILURE);
+    return start_ack(msg, RET_STATE_ERROR);
   }
   ugr_svc->print_packet_info(pit);
 
+  msg_cp = *msg;
   host_id = msg->peer;
   host_ch = msg->ch;
   offset = 0;
@@ -173,12 +177,12 @@ err_code_t UpgradeHostToModule::trans_proc(sacp_hmi_message_t *msg) {
 
   if (UPGRADE_HM_STATUS_TRANS != status) {
     LOG_E("upgrade_hm: can not handle trans packet as current is not in UPGRADE_STATE_TRANS state\r\n");
-    return ugr_svc->upgrade_notify(msg, E_FAILURE);
+    return ugr_svc->upgrade_notify(msg, RET_STATE_ERROR);
   }
 
   if (msg->length < 7) {
     LOG_E("upgrade_hm: lenght error\r\n");
-    return ugr_svc->upgrade_notify(msg, E_FAILURE);
+    return ugr_svc->upgrade_notify(msg, RET_INVALID_LEN);
   }
 
   if (E_SUCCESS != msg->data[0]) {

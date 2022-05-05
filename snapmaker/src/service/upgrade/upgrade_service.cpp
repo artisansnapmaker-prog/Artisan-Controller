@@ -21,6 +21,7 @@
 #include "../../common/debug.h"
 #include "../../common/utility.h"
 #include "../../host/sacp_module.h"
+#include "../../boot/boot_upgrade.h"
 #include "../../common/flash.h"
 #include "../../snapmaker.h"
 #include "upgrade_service.h"
@@ -71,12 +72,14 @@ err_code_t UpdateService::sacp_msg_proc(void * obj, sacp_hmi_message_t *msg) {
     case UPGRADE_PHASE_INIT:
       if (CMD_ID_UPGRADE_START != msg->cmd_id) {
         LOG_E("upgrade_service: only upgrade start can been accepted IN UPGRADE_PHASE_INIT\r\n");
+        upgrade.upgrade_notify(msg, RET_STATE_ERROR);
         break;
       }
 
       pit = (pack_info_t *)(msg->data + 2);
       if (!boot_info_check(pit)) {
         LOG_E("upgrade_service: packet info checksum failure\r\n");
+        upgrade.upgrade_notify(msg, RET_PACK_HEAD_CHECK_FAILED);
         break;
       }
 

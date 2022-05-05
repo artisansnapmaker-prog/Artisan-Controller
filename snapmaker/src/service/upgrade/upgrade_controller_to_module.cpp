@@ -20,6 +20,7 @@
  */
 #include "upgrade_controller_to_module.h"
 #include "upgrade_service.h"
+#include "../../boot/boot_upgrade.h"
 #include "../../snapmaker.h"
 #include "../module.h"
 

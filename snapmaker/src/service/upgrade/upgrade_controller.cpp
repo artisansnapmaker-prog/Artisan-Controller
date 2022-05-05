@@ -21,6 +21,7 @@
 
 #include "upgrade_controller.h"
 #include "../../boot/boot.h"
+#include "../../boot/boot_upgrade.h"
 #include "upgrade_service.h"
 
 UpgradeCtrlService ugr_ctrl_svc;
@@ -75,7 +76,7 @@ err_code_t UpgradeCtrlService::start_proc(pack_info_t *boot_info, sacp_hmi_messa
   if (!ugr_svc->boot_info_flush_to_flash()) {
     if (!ugr_svc->boot_info_flush_to_flash()) {
       LOG_E("can not write boot info to flash\r\n");
-      return ugr_svc->upgrade_start_ack(msg, E_FAILURE);
+      return ugr_svc->upgrade_start_ack(msg, RET_FLASH_ERROR);
     }
   }
 

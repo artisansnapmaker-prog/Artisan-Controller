@@ -25,15 +25,17 @@
 #include "../common/flash.h"
 #include "boot.h"
 
-#define RET_OK                      (0)
-#define RET_ERROR                   (1)
-#define RET_INVALID_LEN             (2)
-#define RET_STATE_ERROR             (3)
-#define RET_PACK_HEAD_CHECK_FAILED  (4)
-#define RET_NOT_TARTGET_FIRMWARE    (5)
-#define RET_FIRMWARE_CHECK_FAILED   (6)
-#define RET_OFFSET_ERR              (7)
-#define RET_TIMEOUT                 (8)
+#define RET_OK                                (0)
+#define RET_ERROR                             (1)
+#define RET_INVALID_LEN                       (2)
+#define RET_STATE_ERROR                       (3)
+#define RET_PACK_HEAD_CHECK_FAILED            (4)
+#define RET_NOT_TARTGET_FIRMWARE              (5)
+#define RET_FIRMWARE_CHECK_FAILED             (6)
+#define RET_OFFSET_ERR                        (7)
+#define RET_TIMEOUT                           (8)
+#define RET_FLASH_ERROR                       (9)
+#define RET_MODULE_UPGRADE_INIT_ERROR         (10)
 
 typedef void (*cmd_pf_t)(uint8_t *pl, uint32_t len, uint8_t *out, uint32_t &out_len);
 

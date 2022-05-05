@@ -58,8 +58,8 @@ def get_frame(ser):
     c = ser.read()
     if len(c):
       if sf.push_char(c[0]):
-        # frame_str = " ".join(["{:02x}".format(x) for x in sf.frame])
-        # print("RX : " + frame_str)
+        frame_str = " ".join(["{:02x}".format(x) for x in sf.frame])
+        print("RX : " + frame_str)
         return sf.frame
     cur = int(round(time.time() * 1000))
     if time_after(cur, start_tick_ms + 4000):
@@ -200,13 +200,13 @@ f = open(app_file, 'rb')
 app_bin_data = f.read()
 f.close()
 
-f = open(esp32_file, 'rb')
-esp32_bin_data = f.read()
-f.close()
+# f = open(esp32_file, 'rb')
+# esp32_bin_data = f.read()
+# f.close()
 
-f = open(sm2_file, 'rb')
-sm2_bin_data = f.read()
-f.close()
+# f = open(sm2_file, 'rb')
+# sm2_bin_data = f.read()
+# f.close()
 
 success_cnt = 0
 failed_cnt = 0
@@ -230,6 +230,7 @@ while True:
   else:
     print("app upgrade application failed")
     failed_cnt += 1
+  break
   time.sleep(10)
 
   # # in app upgrade esp32

@@ -33,6 +33,7 @@
 #define RET_NOT_TARTGET_FIRMWARE    (5)
 #define RET_FIRMWARE_CHECK_FAILED   (6)
 #define RET_OFFSET_ERR              (7)
+#define RET_TIMEOUT                 (8)
 
 typedef void (*cmd_pf_t)(uint8_t *pl, uint32_t len, uint8_t *out, uint32_t &out_len);
 

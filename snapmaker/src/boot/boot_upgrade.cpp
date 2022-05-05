@@ -103,6 +103,7 @@ void upgrade_loop(void) {
         else {
           Serial.println("upgrade trans error, return to upgrade init, please reset SOC to restart upgrade\r\n");
           set_boot_upgrade_state_and_flush_to_flash(UPGRADE_STATE_WAIT);
+          upgrade_err_req(RET_TIMEOUT);
         }
       }
     break;
@@ -390,7 +391,7 @@ void upgrade_err_req(uint8_t err_code) {
   sacp_msg.seq = seq++;
   sacp_msg.payload[0] = CMD_SET_UPGRADE; 
   sacp_msg.payload[1] = CMD_ID_UPGRADE_ERR;
-  sacp_msg.payload[3] = err_code;
+  sacp_msg.payload[2] = err_code;
   sacp_msg.payload_len = 3;
   frame_len = 64;
 

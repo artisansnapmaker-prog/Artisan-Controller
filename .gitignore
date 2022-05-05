@@ -180,6 +180,7 @@ eeprom.dat
 imgui.ini
 
 # snapmaker tools bin
+*.bin
 tools/bin/
 tools/ota_python/bin/
 

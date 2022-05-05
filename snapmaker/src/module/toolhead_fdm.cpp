@@ -1042,9 +1042,11 @@ void ToolHeadFDM::set_hotend_type(uint8_t *data) {
   if (hotend_type_initialized == false) {
     hotend_type_initialized = true;
     for (uint32_t i = 0; i < EXTRUDERS; i++) {
-      if (hotend_type[i] != (hotend_type_t)data[i]) {
-        hotend_type[i] = (hotend_type_t)data[i];
+      if (data[i] < HOTEND_INFO_MAX) {
+        hotend_type[i] = hotend_info[data[i]].model;
+        hotend_diameter[i] = hotend_info[data[i]].diameter;
       }
+
       #ifdef USE_FDM_INTERRUPT_LOG
         LOG_I("nozzle_index: %d, type: %d\n", i, hotend_type[i]);
       #endif
@@ -1072,9 +1074,9 @@ void ToolHeadFDM::update_hotend_temp(uint8_t *data) {
   }
 }
 
-hotend_type_t ToolHeadFDM::get_hotend_type(uint8_t e) {
+uint8_t ToolHeadFDM::get_hotend_type(uint8_t e) {
   if (get_device_id() != MODULE_DEVICE_ID_FDM_2EXTRUDER_2021 || e >= EXTRUDERS) {
-    return HOTEND_TYPE_INVALID;
+    return 0xff;
   }
 
   return hotend_type[e];
@@ -1201,7 +1203,7 @@ err_code_t ToolHeadFDM::set_hotend_temp(uint16_t temp, uint8_t e) {
     return E_PARAM;
   }
 
-  if (hotend_type[e] == HOTEND_TYPE_INVALID) {
+  if (hotend_type[e] == 0xff) {
     LOG_E("hotend %d is invalid\n", e);
     return E_HARDWARE;
   }

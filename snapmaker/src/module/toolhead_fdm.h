@@ -90,22 +90,35 @@ typedef enum {
   PROBE_SENSOR_INVALID,
 }probe_sensor_t;
 
-typedef enum {
-  HOTEND_TYPE_0,
-  HOTEND_TYPE_1,
-  HOTEND_TYPE_2,
-  HOTEND_TYPE_3,
-  HOTEND_TYPE_4,
-  HOTEND_TYPE_5,
-  HOTEND_TYPE_6,
-  HOTEND_TYPE_7,
-  HOTEND_TYPE_8,
-  HOTEND_TYPE_9,
-  HOTEND_TYPE_10,
+typedef struct {
+  uint8_t model;
+  float diameter;
+}hotend_type_info_t;
 
-  HOTEND_TYPE_IDLE,
-  HOTEND_TYPE_INVALID = 0xff,
-}hotend_type_t;
+#define HOTEND_INFO_MAX 22
+const hotend_type_info_t hotend_info[HOTEND_INFO_MAX] = {{.model = 2, .diameter = 0.4}, \
+                                                         {.model = 1, .diameter = 0.2}, \
+                                                         {.model = 1, .diameter = 0.6}, \
+                                                         {.model = 0xff, .diameter = 0},\
+                                                         {.model = 0xff, .diameter = 0},\
+                                                         {.model = 0xff, .diameter = 0},\
+                                                         {.model = 0xff, .diameter = 0},\
+                                                         {.model = 0xff, .diameter = 0},\
+                                                         {.model = 0xff, .diameter = 0},\
+                                                         {.model = 0xff, .diameter = 0},\
+                                                         {.model = 0xff, .diameter = 0},\
+                                                         {.model = 0xff, .diameter = 0},\
+                                                         {.model = 0xff, .diameter = 0},\
+                                                         {.model = 0xff, .diameter = 0},\
+                                                         {.model = 0xff, .diameter = 0},\
+                                                         {.model = 0xff, .diameter = 0},\
+                                                         {.model = 0xff, .diameter = 0},\
+                                                         {.model = 0xff, .diameter = 0},\
+                                                         {.model = 0xff, .diameter = 0},\
+                                                         {.model = 0xff, .diameter = 0},\
+                                                         {.model = 0, .diameter = 0.4}, \
+                                                         {.model = 0, .diameter = 0.8}, \
+                                                        };
 
 typedef struct {
   int16_t current;
@@ -143,7 +156,7 @@ class ToolHeadFDM: public ModuleBase {
       fdm_state = 0;
       extruder_check_state = EXTRUDER_STATUS_CHECK;
       for (int i = 0; i < EXTRUDERS; i++) {
-        hotend_type[i] = HOTEND_TYPE_IDLE;
+        hotend_type[i] = 0xff;
       }
       for (int i = 0; i < EXTRUDERS; i++) {
         hotend_temp[i].current = 0;
@@ -184,7 +197,7 @@ class ToolHeadFDM: public ModuleBase {
     void report_pid(uint8_t *data);
     void set_hotend_type(uint8_t *data);
     void report_extruder_info(uint8_t *data);
-    hotend_type_t get_hotend_type(uint8_t e);
+    uint8_t get_hotend_type(uint8_t e);
     float get_hotend_diameter(uint8_t e);
     void set_probe_sensor(probe_sensor_t sensor);
     bool get_probe_state();
@@ -243,7 +256,7 @@ class ToolHeadFDM: public ModuleBase {
     uint8_t probe_state;
     probe_sensor_t probe_sensor;
     uint8_t extruder_info;
-    hotend_type_t hotend_type[EXTRUDERS];
+    uint8_t hotend_type[EXTRUDERS];
     hotend_temp_t hotend_temp[EXTRUDERS];
     uint8_t filament_state;
     uint8_t active_extruder;

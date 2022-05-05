@@ -38,9 +38,7 @@
 #define BOOT_DATA_DEFAULT_PROTOCOL_VER          (1)
 #define BOOT_DATA_DEFAULT_PACK_TYPE             (A400_CONTROLLER_FW)
 #define BOOT_DATA_DEFAULT_UPGRADE_FLAG          (UPGRADE_FLAG_ALWAYS)
-#define BOOT_DATA_DEFAULT_UPGRADE_FLAG          (UPGRADE_FLAG_ALWAYS)
 #define BOOT_DATA_DEFAULT_START_INDEX           (0)
-#define BOOT_DATA_DEFAULT_END_INDEX             (0)
 #define BOOT_DATA_DEFAULT_END_INDEX             (0)
 #define BOOT_INFO_SIZE                          (256)
 

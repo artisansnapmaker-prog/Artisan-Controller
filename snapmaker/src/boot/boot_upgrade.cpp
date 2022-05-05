@@ -22,15 +22,6 @@
 #define CMD_TRANS_MIN_LEN           (7)
 #define CMD_END_MIN_LEN             (1)
 
-#define RET_OK                      (0)
-#define RET_ERROR                   (1)
-#define RET_INVALID_LEN             (2)
-#define RET_STATE_ERROR             (3)
-#define RET_PACK_HEAD_CHECK_FAILED  (4)
-#define RET_NOT_TARTGET_FIRMWARE    (5)
-#define RET_FIRMWARE_CHECK_FAILED   (6)
-
-
 #define UPGRADE_TRANS_PACK_SIZE     (2000)
 
 
@@ -55,6 +46,7 @@ void cmd_upgrade_trans(uint8_t *pl, uint32_t len, uint8_t *out, uint32_t &out_le
 void cmd_upgrade_end(uint8_t *pl, uint32_t len, uint8_t *out, uint32_t &out_len);
 void upgrade_trans_req(void);
 void upgrade_end_req(void);
+void upgrade_err_req(uint8_t err_code);
 bool upgrade_app_fw_checksum(void);
 
 upgrade_info_t upgrade_info;
@@ -90,11 +82,9 @@ void upgrade_loop(void) {
   switch(upgrade_info.boot_info->upgrade_state) {
 
     case UPGRADE_STATE_WAIT:
-
     break;
 
     case UPGRADE_STATE_START:
-      // First request
       flash_erase(*(upgrade_info.app_partition));
       set_boot_upgrade_state_and_flush_to_flash(UPGRADE_STATE_TRANS);
       upgrade_trans_req();
@@ -252,10 +242,8 @@ void cmd_upgrade_trans(uint8_t *pl, uint32_t len, uint8_t *out, uint32_t &out_le
 
   if (UPGRADE_STATE_TRANS != upgrade_info.boot_info->upgrade_state) {
     Serial.println("can not handle trans packet as current is not in UPGRADE_STATE_TRANS state");
-    out[0] = CMD_SET_UPGRADE;
-    out[1] = CMD_ID_UPGRADE_ERR;
-    out[2] = RET_STATE_ERROR;
-    out_len = 3;
+    upgrade_err_req(RET_STATE_ERROR);
+    out_len = 0;
     return;
   }
 
@@ -264,10 +252,8 @@ void cmd_upgrade_trans(uint8_t *pl, uint32_t len, uint8_t *out, uint32_t &out_le
     Serial.print(CMD_TRANS_MIN_LEN);
     Serial.print(" but get ");
     Serial.print(len);
-    out[0] = CMD_SET_UPGRADE;
-    out[1] = CMD_ID_UPGRADE_ERR;
-    out[2] = RET_INVALID_LEN;
-    out_len = 3;
+    upgrade_err_req(RET_INVALID_LEN);
+    out_len = 0;
     return;
   }
 
@@ -283,6 +269,9 @@ void cmd_upgrade_trans(uint8_t *pl, uint32_t len, uint8_t *out, uint32_t &out_le
   Serial.println(pack_len);
 
   if (offset != upgrade_info.offset) {
+    Serial.print("upgrade trans offset not match ");
+    upgrade_err_req(RET_OFFSET_ERR);
+    out_len = 0;
     return;
   }
 
@@ -388,6 +377,25 @@ void upgrade_end_req(void) {
 
   last_trans_req_ms = millis();
   trans_req_try++;
+}
+
+void upgrade_err_req(uint8_t err_code) {
+  uint8_t send_frame[64];
+  uint32_t frame_len;
+
+  sacp_msg.ver = VERSION;
+  sacp_msg.attr = ATTR_REQ;
+  sacp_msg.peer = upgrade_info.boot_info->peer;
+  sacp_msg.sender = SACP_HOST_ID_CONTROLLER;
+  sacp_msg.seq = seq++;
+  sacp_msg.payload[0] = CMD_SET_UPGRADE; 
+  sacp_msg.payload[1] = CMD_ID_UPGRADE_ERR;
+  sacp_msg.payload[3] = err_code;
+  sacp_msg.payload_len = 3;
+  frame_len = 64;
+
+  protocol_build_pack(sacp_msg, send_frame, frame_len);
+  send((link_ch_e)upgrade_info.boot_info->link_ch, send_frame, frame_len);
 }
 
 bool upgrade_app_fw_checksum(void) {

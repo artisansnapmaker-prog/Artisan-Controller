@@ -1308,6 +1308,11 @@ void SnapmakerPrinter::reset_settings() {
   settings.live_z_offset[0] = 0;
   settings.live_z_offset[1] = 0;
 
+  // reset e axis steps per unit
+  settings.single_extruder_steps_per_unit = 212.21;
+  settings.dual_extruder_steps_per_unit[0] = 142;
+  settings.dual_extruder_steps_per_unit[1] = 142;
+
   // reset your settings
 
   // reset purifier settings

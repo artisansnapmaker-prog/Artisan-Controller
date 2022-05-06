@@ -245,6 +245,8 @@ class ToolHeadFDM: public ModuleBase {
     void dual_extruder_process_after_z_homed();
     void report_hotend_offset();
     void report_nozzle_type();
+    void set_axis_steps_per_unit(float value);
+    void report_steps_per_unit();
 
   // private methods
   private:
@@ -278,6 +280,8 @@ class ToolHeadFDM: public ModuleBase {
     bool hotend_type_initialized;
     uint32_t turnoff_heating_time_elapsed;
     uint32_t last_recv_time;
+    float single_extruder_steps_per_unit;
+    float dual_extruder_steps_per_unit[EXTRUDERS];
 };
 
 #endif  // #ifndef SNAPMAKER_TOOLHEAD_FDM_H_

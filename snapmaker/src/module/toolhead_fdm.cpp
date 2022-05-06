@@ -149,12 +149,14 @@ err_code_t ToolHeadFDM::single_extruder_post_init() {
   }
 
   last_recv_time = millis();
+  SnapmakerSettings * smsettings = smprinter.get_settings();
+  single_extruder_steps_per_unit = smsettings->single_extruder_steps_per_unit;
 
   hotend_pid_sync();
   probe_state_sync();
   filament_state_sync();
 
-  motion_platform_svc.set_steps_per_unit(212.21, E_AXIS);
+  motion_platform_svc.set_steps_per_unit(single_extruder_steps_per_unit, E_AXIS);
   motion_platform_svc.set_home_offset(-27.5, -21, 0);
   motion_platform_svc.set_hotend_maxtemp(0, 275);
   motion_platform_svc.pins_post_init();
@@ -258,6 +260,8 @@ err_code_t ToolHeadFDM::dual_extruder_post_init() {
   }
 
   last_recv_time = millis();
+  SnapmakerSettings * smsettings = smprinter.get_settings();
+  dual_extruder_steps_per_unit[0] = smsettings->dual_extruder_steps_per_unit[0];
 
   hotend_pid_sync();
   hotend_type_sync();
@@ -266,7 +270,7 @@ err_code_t ToolHeadFDM::dual_extruder_post_init() {
   hotend_offset_sync();
   z_compensation_sync();
 
-  motion_platform_svc.set_steps_per_unit(137, E_AXIS);
+  motion_platform_svc.set_steps_per_unit(dual_extruder_steps_per_unit[0], E_AXIS);
   motion_platform_svc.set_home_offset(-17.5, -6, 0);
   motion_platform_svc.set_hotend_maxtemp(0, 315);
   motion_platform_svc.set_hotend_maxtemp(1, 315);
@@ -1978,5 +1982,31 @@ void ToolHeadFDM::report_nozzle_type() {
 
   LOG_I("nozzle0: %d, %f\n", hotend_type[0], hotend_diameter[0]);
   LOG_I("nozzle1: %d, %f\n", hotend_type[1], hotend_diameter[1]);
+}
+
+void ToolHeadFDM::set_axis_steps_per_unit(float value) {
+  uint16_t device_id = get_device_id();
+  if ((device_id != MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) && (device_id != MODULE_DEVICE_ID_FDM_1EXTRUDER_2019)) {
+    return;
+  }
+
+  SnapmakerSettings *smsettings = smprinter.get_settings();
+
+  if (device_id == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
+    single_extruder_steps_per_unit = value;
+    smsettings->single_extruder_steps_per_unit = value;
+  } else if (device_id == MODULE_DEVICE_ID_FDM_1EXTRUDER_2019) {
+    dual_extruder_steps_per_unit[0] = value;
+    dual_extruder_steps_per_unit[1] = value;
+    smsettings->dual_extruder_steps_per_unit[0] = value;
+    smsettings->dual_extruder_steps_per_unit[1] = value;
+  }
+
+  motion_platform_svc.save_settings();
+}
+
+void ToolHeadFDM::report_steps_per_unit() {
+  LOG_I("single extruder steps per unit: %f", single_extruder_steps_per_unit);
+  LOG_I("dual extruder steps per unit: %f, %f\n", dual_extruder_steps_per_unit[0], dual_extruder_steps_per_unit[1]);
 }
 

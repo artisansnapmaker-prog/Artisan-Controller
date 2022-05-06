@@ -29,6 +29,8 @@ struct SnapmakerSettings {
   int32_t laser_platform_hight;
   int32_t laser_4axis_center_hight;
   float live_z_offset[EXTRUDERS];
+  float single_extruder_steps_per_unit;
+  float dual_extruder_steps_per_unit[EXTRUDERS];
   PurifierWorkSettings purifier_settings;
   EnclosureSettings enclosure_settings;
 };
@@ -433,6 +435,17 @@ class SnapmakerPrinter
     }
 
     void report_probe_sensor_compensation();
+    void report_steps_per_unit() {
+      if (fdm) {
+        fdm->report_steps_per_unit();
+      }
+    }
+
+    void set_axis_steps_per_unit(float value) {
+      if (fdm) {
+        fdm->set_axis_steps_per_unit(value);
+      }
+    }
 
     // LASER
     void set_laser_fan_speed(uint16_t speed) {}

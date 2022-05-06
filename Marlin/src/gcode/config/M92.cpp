@@ -22,6 +22,7 @@
 
 #include "../gcode.h"
 #include "../../module/planner.h"
+#include "../../../../snapmaker/src/snapmaker.h"
 
 /**
  * M92: Set axis steps-per-unit for one or more axes, X, Y, Z, and E.
@@ -62,6 +63,9 @@ void GcodeSuite::M92() {
             planner.max_acceleration_steps_per_s2[E_AXIS_N(target_extruder)] *= factor;
           }
           planner.settings.axis_steps_per_mm[E_AXIS_N(target_extruder)] = value;
+          #if MB_SNAPMAKER
+            smprinter.set_axis_steps_per_unit(value);
+          #endif
         #endif
       }
     }
@@ -91,30 +95,34 @@ void GcodeSuite::M92() {
 }
 
 void GcodeSuite::M92_report(const bool forReplay/*=true*/, const int8_t e/*=-1*/) {
-  report_heading_etc(forReplay, F(STR_STEPS_PER_UNIT));
-  SERIAL_ECHOPGM_P(LIST_N(DOUBLE(LINEAR_AXES),
-    PSTR("  M92 X"), LINEAR_UNIT(planner.settings.axis_steps_per_mm[X_AXIS]),
-    SP_Y_STR, LINEAR_UNIT(planner.settings.axis_steps_per_mm[Y_AXIS]),
-    SP_Z_STR, LINEAR_UNIT(planner.settings.axis_steps_per_mm[Z_AXIS]),
-    SP_I_STR, LINEAR_UNIT(planner.settings.axis_steps_per_mm[I_AXIS]),
-    SP_J_STR, LINEAR_UNIT(planner.settings.axis_steps_per_mm[J_AXIS]),
-    SP_K_STR, LINEAR_UNIT(planner.settings.axis_steps_per_mm[K_AXIS]))
-  );
-  #if HAS_EXTRUDERS && DISABLED(DISTINCT_E_FACTORS)
-    SERIAL_ECHOPGM_P(SP_E_STR, VOLUMETRIC_UNIT(planner.settings.axis_steps_per_mm[E_AXIS]));
-  #endif
-  SERIAL_EOL();
+  #if !MB_SNAPMAKER
+    report_heading_etc(forReplay, F(STR_STEPS_PER_UNIT));
+    SERIAL_ECHOPGM_P(LIST_N(DOUBLE(LINEAR_AXES),
+      PSTR("  M92 X"), LINEAR_UNIT(planner.settings.axis_steps_per_mm[X_AXIS]),
+      SP_Y_STR, LINEAR_UNIT(planner.settings.axis_steps_per_mm[Y_AXIS]),
+      SP_Z_STR, LINEAR_UNIT(planner.settings.axis_steps_per_mm[Z_AXIS]),
+      SP_I_STR, LINEAR_UNIT(planner.settings.axis_steps_per_mm[I_AXIS]),
+      SP_J_STR, LINEAR_UNIT(planner.settings.axis_steps_per_mm[J_AXIS]),
+      SP_K_STR, LINEAR_UNIT(planner.settings.axis_steps_per_mm[K_AXIS]))
+    );
+    #if HAS_EXTRUDERS && DISABLED(DISTINCT_E_FACTORS)
+      SERIAL_ECHOPGM_P(SP_E_STR, VOLUMETRIC_UNIT(planner.settings.axis_steps_per_mm[E_AXIS]));
+    #endif
+    SERIAL_EOL();
 
-  #if ENABLED(DISTINCT_E_FACTORS)
-    LOOP_L_N(i, E_STEPPERS) {
-      if (e >= 0 && i != e) continue;
-      report_echo_start(forReplay);
-      SERIAL_ECHOLNPGM_P(
-        PSTR("  M92 T"), i,
-        SP_E_STR, VOLUMETRIC_UNIT(planner.settings.axis_steps_per_mm[E_AXIS_N(i)])
-      );
-    }
+    #if ENABLED(DISTINCT_E_FACTORS)
+      LOOP_L_N(i, E_STEPPERS) {
+        if (e >= 0 && i != e) continue;
+        report_echo_start(forReplay);
+        SERIAL_ECHOLNPGM_P(
+          PSTR("  M92 T"), i,
+          SP_E_STR, VOLUMETRIC_UNIT(planner.settings.axis_steps_per_mm[E_AXIS_N(i)])
+        );
+      }
+    #else
+      UNUSED(e);
+    #endif
   #else
-    UNUSED(e);
+    smprinter.report_steps_per_unit();
   #endif
 }

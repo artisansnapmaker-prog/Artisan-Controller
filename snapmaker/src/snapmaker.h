@@ -214,6 +214,7 @@ enum FDMExceptionState {
   FDM_EXCEP_STA_MINTEMP_ERROR_E1,
   FDM_EXCEP_STA_OVERTEMP_ERROR_E0,
   FDM_EXCEP_STA_OVERTEMP_ERROR_E1,
+  FDM_EXCEP_STA_OFFLINE,
 };
 
 // exception state for heated Bed

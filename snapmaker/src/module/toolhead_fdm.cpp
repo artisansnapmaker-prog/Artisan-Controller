@@ -148,6 +148,8 @@ err_code_t ToolHeadFDM::single_extruder_post_init() {
     return E_FAILURE;
   }
 
+  last_recv_time = millis();
+
   hotend_pid_sync();
   probe_state_sync();
   filament_state_sync();
@@ -254,6 +256,8 @@ err_code_t ToolHeadFDM::dual_extruder_post_init() {
   if (MODULE_DEVICE_ID_INVALID == get_device_id()) {
     return E_FAILURE;
   }
+
+  last_recv_time = millis();
 
   hotend_pid_sync();
   hotend_type_sync();
@@ -1072,6 +1076,8 @@ void ToolHeadFDM::update_hotend_temp(uint8_t *data) {
   if (get_device_id() == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
     hotend_temp[1].current = data[4] << 8 | data[5];
   }
+
+  last_recv_time = millis();
 }
 
 uint8_t ToolHeadFDM::get_hotend_type(uint8_t e) {
@@ -1627,8 +1633,22 @@ uint8_t ToolHeadFDM::get_active_extruder() {
   return active_extruder;
 }
 
+bool ToolHeadFDM::check_online() {
+  if (last_recv_time + CHECK_ONLINE_TIMEOUT < millis()) {
+    return false;
+  } else {
+    return true;
+  }
+}
+
 err_code_t fdm_callback_routine(void *obj) {
   ToolHeadFDM &fdm = *(ToolHeadFDM *)obj;
+
+  if (fdm.check_online() == false) {
+    LOG_E("fdm offline\n");
+    smprinter.raise_exception(SM_EXCEP_OWNER_TOOLHEAD, FDM_EXCEP_STA_OFFLINE,
+                                EXCEP_ACT_STOP_WORKING | EXCEP_ACT_DISABLE_POWER_8P_TOOLHEAD);
+  }
 
   fdm.delay_turnoff_heating_process();
 

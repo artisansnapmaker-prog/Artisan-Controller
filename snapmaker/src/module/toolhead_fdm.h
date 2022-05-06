@@ -52,6 +52,8 @@
 #define BIAS_HOTEND_OFFSET_Y                    1.2
 #define BIAS_HOTEND_OFFSET_Z                    1.2
 
+#define CHECK_ONLINE_TIMEOUT  5000
+
 
 /****************************************************************************************
 reference links: https://snapmaker2.atlassian.net/wiki/spaces/SNAP/pages/1984987369/FDM
@@ -169,9 +171,10 @@ class ToolHeadFDM: public ModuleBase {
       target_extruder = 0;
       hotend_type_initialized = false;
       memset(hotend_offset, 0, sizeof(hotend_offset));
+      last_recv_time = 0;
     }
 
-    bool check_online() { return false; }
+    bool check_online();
     err_code_t pre_init();
     err_code_t post_init();
     err_code_t single_extruder_post_init();
@@ -272,6 +275,7 @@ class ToolHeadFDM: public ModuleBase {
     float pid[3];
     bool hotend_type_initialized;
     uint32_t turnoff_heating_time_elapsed;
+    uint32_t last_recv_time;
 };
 
 #endif  // #ifndef SNAPMAKER_TOOLHEAD_FDM_H_

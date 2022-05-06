@@ -1963,3 +1963,20 @@ void ToolHeadFDM::dual_extruder_process_after_z_homed() {
   }
 }
 
+void ToolHeadFDM::report_hotend_offset() {
+  if (get_device_id() != MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
+    return;
+  }
+
+  LOG_I("hotend_offset, x: %f, y: %f, z: %f\n", hotend_offset[X_AXIS][1], hotend_offset[Y_AXIS][1], hotend_offset[Z_AXIS][1]);
+}
+
+void ToolHeadFDM::report_nozzle_type() {
+  if (get_device_id() != MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
+    return;
+  }
+
+  LOG_I("nozzle0: %d, %f\n", hotend_type[0], hotend_diameter[0]);
+  LOG_I("nozzle1: %d, %f\n", hotend_type[1], hotend_diameter[1]);
+}
+

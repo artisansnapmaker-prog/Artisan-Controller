@@ -26,6 +26,7 @@
 
 #include "../gcode.h"
 #include "../../module/motion.h"
+#include "../../../../snapmaker/src/snapmaker.h"
 
 #if ENABLED(DELTA)
   #include "../../module/planner.h"
@@ -57,16 +58,22 @@ void GcodeSuite::M218() {
 }
 
 void GcodeSuite::M218_report(const bool forReplay/*=true*/) {
-  report_heading_etc(forReplay, F(STR_HOTEND_OFFSETS));
-  LOOP_S_L_N(e, 1, HOTENDS) {
-    report_echo_start(forReplay);
-    SERIAL_ECHOPGM_P(
-      PSTR("  M218 T"), e,
-      SP_X_STR, LINEAR_UNIT(hotend_offset[e].x),
-      SP_Y_STR, LINEAR_UNIT(hotend_offset[e].y)
-    );
-    SERIAL_ECHOLNPAIR_F_P(SP_Z_STR, LINEAR_UNIT(hotend_offset[e].z), 3);
-  }
+  #if !MB_SNAPMAKER
+    report_heading_etc(forReplay, F(STR_HOTEND_OFFSETS));
+    LOOP_S_L_N(e, 1, HOTENDS) {
+      report_echo_start(forReplay);
+      SERIAL_ECHOPGM_P(
+        PSTR("  M218 T"), e,
+        SP_X_STR, LINEAR_UNIT(hotend_offset[e].x),
+        SP_Y_STR, LINEAR_UNIT(hotend_offset[e].y)
+      );
+      SERIAL_ECHOLNPAIR_F_P(SP_Z_STR, LINEAR_UNIT(hotend_offset[e].z), 3);
+    }
+  #else
+    smprinter.report_hotend_offset();
+    smprinter.report_probe_sensor_compensation();
+    smprinter.report_nozzle_type();
+  #endif
 }
 
 #endif // HAS_HOTEND_OFFSET

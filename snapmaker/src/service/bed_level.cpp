@@ -1115,3 +1115,16 @@ void BedLevelService::update_soft_endstop_max_z() {
   }
   motion_platform_svc.update_soft_endstops(Z_AXIS, 1, -live_z_offset[active_extruder]);
 }
+
+void BedLevelService::report_probe_sensor_compensation() {
+  ToolHeadFDM *fdm = (ToolHeadFDM *)module_svc.get_module(MODULE_DEVICE_ID_FDM_2EXTRUDER_2021, 0);
+  if (!fdm) {
+    return;
+  }
+
+  if (fdm->get_device_id() != MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
+    return;
+  }
+
+  LOG_I("compensation, extruder0: %f, extruder1: %f\n", z_compensation_[0], z_compensation_[1]);
+}

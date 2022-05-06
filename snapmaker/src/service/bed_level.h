@@ -97,6 +97,7 @@ class BedLevelService {
     void auto_hotend_offset_calibration();
     void toolhead_auto_calibation();
     void update_soft_endstop_max_z();
+    void report_probe_sensor_compensation();
 
 
     float z_values_[GRID_MAX_NUM][GRID_MAX_NUM];

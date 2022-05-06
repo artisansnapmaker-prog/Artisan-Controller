@@ -1320,6 +1320,9 @@ void SnapmakerPrinter::reset_settings() {
   settings.enclosure_settings.enclosure_check_enable_mask = ENCLOSURE_CHECK_ENABLE_DEFAULT_MASK;
 }
 
+void SnapmakerPrinter::report_probe_sensor_compensation() {
+  bedlevel_svc.report_probe_sensor_compensation();
+}
 
 void SnapmakerPrinter::raise_exception(SMExceptionOwner owner, uint8_t state,
                                         uint32_t actions/* = 0*/, uint32_t ban/* = 0*/) {

@@ -243,6 +243,8 @@ class ToolHeadFDM: public ModuleBase {
     void show_fdm_info();
     void delay_turnoff_heating_process();
     void dual_extruder_process_after_z_homed();
+    void report_hotend_offset();
+    void report_nozzle_type();
 
   // private methods
   private:

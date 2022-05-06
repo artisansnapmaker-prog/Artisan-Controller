@@ -16,7 +16,6 @@
 #include "module/rotary.h"
 #include "module/purifier.h"
 
-
 #define EVENT_GROUP_MODULE_READY      (0x00000001)
 #define EVENT_GROUP_WAIT_FOR_HEATING  (0X00000002)
 
@@ -420,6 +419,20 @@ class SnapmakerPrinter
         fdm->dual_extruder_process_after_z_homed();
       }
     }
+
+    void report_hotend_offset() {
+      if (fdm) {
+        fdm->report_hotend_offset();
+      }
+    }
+
+    void report_nozzle_type() {
+      if (fdm) {
+        fdm->report_nozzle_type();
+      }
+    }
+
+    void report_probe_sensor_compensation();
 
     // LASER
     void set_laser_fan_speed(uint16_t speed) {}

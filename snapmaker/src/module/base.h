@@ -338,6 +338,7 @@ class ModuleBase {
 
     virtual err_code_t set_feedrate_percentage(uint8_t *data, uint16_t length) { return E_SUCCESS; }
     virtual uint16_t get_feedrate_percentage(uint8_t *buffer) { return 0; }
+    virtual err_code_t factory_reset() { return E_SUCCESS; }
 
     virtual bool check_online() = 0;
 

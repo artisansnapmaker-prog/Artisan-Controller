@@ -812,3 +812,17 @@ void ModuleService::machine_replace_mode_deinit(bool switch_working_mode) {
     }
   }
 }
+
+
+err_code_t ModuleService::factory_reset() {
+  err_code_t ret1, ret2 = E_SUCCESS;
+
+  for (int i = 0; i < configured_module; i++) {
+    if ((ret1 = modules[i]->factory_reset()) != E_SUCCESS) {
+      LOG_E("failed to reset module[0x%x], ret[%u]\n", modules[i]->get_mac(), ret1);
+      ret2 = ret1;
+    }
+  }
+
+  return ret2;
+}

@@ -101,8 +101,10 @@ class ModuleService {
     void quick_stop_all();
     void emergency_stop_all();
     void scan_modules();
-    
+
     void machine_replace_mode_deinit(bool switch_working_mode);
+
+    err_code_t factory_reset();
   // private methods
   private:
     // callbacks

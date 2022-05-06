@@ -291,9 +291,28 @@ err_code_t SnapmakerPrinter::hmi_cb_set_protocol_for_PC(void *obj, sacp_hmi_mess
   return ret;
 }
 
+err_code_t SnapmakerPrinter::hmi_cb_do_factory_reset(void *obj, sacp_hmi_message_t *msg) {
+  err_code_t ret;
+
+  LOG_I("hmi_cb_do_factory_reset\n");
+
+  if (msg->length < 1) {
+    LOG_E("cmd[%x:%x]: length should be 1\n", msg->cmd_set, msg->cmd_id);
+    return host_hmi.send_ack(msg, E_PARAM);
+  }
+
+  motion_platform_svc.reset_settings();
+
+  motion_platform_svc.save_settings();
+
+  ret = module_svc.factory_reset();
+
+  return host_hmi.send_ack(msg, ret);
+}
+
 err_code_t SnapmakerPrinter::hmi_cb_set_machine_enter_replace_mode(void *obj, sacp_hmi_message_t *msg) {
   err_code_t ret = E_SUCCESS;
-  SystemStatus ret_status = SYSTEM_STATUS_IDLE; 
+  SystemStatus ret_status = SYSTEM_STATUS_IDLE;
   bool change_work_mode = false;
   uint32_t domains = 0;
   SnapmakerPrinter *printer = (SnapmakerPrinter *)obj;
@@ -317,7 +336,7 @@ err_code_t SnapmakerPrinter::hmi_cb_set_machine_enter_replace_mode(void *obj, sa
   domains |= (POWER_DOMAIN_MOTIVE_POWER | POWER_DOMAIN_8P_TOOLHEAD | POWER_DOMAIN_8P_MOTOR | POWER_DOMAIN_BED);
   module_svc.machine_replace_mode_deinit(change_work_mode);
   printer->disable_power_domain(domains);
-  
+
   if ((ret = host_hmi.send_ack(msg, E_SUCCESS)) != E_SUCCESS) {
     LOG_E("[%s] failed to tell screen the home state, ret[%u]\n", __FUNCTION__, ret);
   }
@@ -407,6 +426,9 @@ static void system_thread(void *p) {
       (void *)&smprinter, SnapmakerPrinter::hmi_cb_get_machine_size);
   host_hmi.register_callback(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_SET_PC_PROTOCOL,
       (void *)&smprinter, SnapmakerPrinter::hmi_cb_set_protocol_for_PC);
+
+  host_hmi.register_callback(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_FACTORY_RESET,
+      (void *)&smprinter, SnapmakerPrinter::hmi_cb_do_factory_reset);
 
   host_hmi.register_callback(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_REBOOT,
       (void *)&smprinter, SnapmakerPrinter::hmi_cb_request_reboot);
@@ -925,7 +947,7 @@ err_code_t SnapmakerPrinter::set_sys_status(enum SystemStatus req_status, enum S
       ret = E_SUCCESS;
     }
     break;
-    
+
   // replace mode end
   /*********************************************************************************/
 
@@ -1049,7 +1071,7 @@ err_code_t SnapmakerPrinter::set_sys_status(enum SystemStatus req_status, enum S
   /*********************************************************************************/
   case SYSTEM_STATUS_APP_UPGRADE:
   case SYSTEM_STATUS_MODULE_UPGRADE:
-    if (sys_status == SYSTEM_STATUS_IDLE || 
+    if (sys_status == SYSTEM_STATUS_IDLE ||
         sys_status == SYSTEM_STATUS_MODULE_UPGRADE ||
         sys_status == SYSTEM_STATUS_APP_UPGRADE) {
       sys_status = req_status;

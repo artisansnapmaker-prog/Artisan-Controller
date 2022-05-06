@@ -235,6 +235,10 @@ class ToolHeadLaser: public ModuleBase {
     err_code_t get_bt_mac();
 
     void read_safety_state();
+    err_code_t factory_reset();
+
+    err_code_t set_feedrate_percentage(uint8_t *data, uint16_t length);
+    uint16_t get_feedrate_percentage(uint8_t *buffer);
 
   private:
     ToolHeadLaserTubeStatus tube_status;
@@ -269,6 +273,8 @@ class ToolHeadLaser: public ModuleBase {
 
     uint8_t bt_mac[8] {0xff};
     uint8_t tell_mac = 0;
+
+    int16_t feedrate_percentage;
 
     ToolHeadLaserCalibrationStatus cali_status = LASER_CALI_STATUS_INVALID;
 };

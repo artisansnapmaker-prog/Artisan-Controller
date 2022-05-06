@@ -214,7 +214,7 @@ class MotionPlatformService {
     void disable_filament_runout();
 
     // settings control
-    void reset_settings() {}
+    void reset_settings();
     void load_settings();
     void save_settings();
 

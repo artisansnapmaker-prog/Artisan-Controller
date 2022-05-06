@@ -768,6 +768,10 @@ void MotionPlatformService::save_settings() {
   run_gcode((char*)"M500");
 }
 
+void MotionPlatformService::reset_settings() {
+  run_gcode((char*)"M502");
+}
+
 float current_bed_temp(uint8_t area_id = 0) {
   float cur_temp = 0;
   #if ENABLED(SNAPMAKER_DOUBLE_ZONE_BED)

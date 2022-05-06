@@ -24,6 +24,9 @@
 // P2 step, PA15: T1 CH0
 // P3 step, PB15: T11 CH0
 
+#define LASER_10W_TEMP_THRESHOLD_PROTECTED  (55)
+#define LASER_10W_TEMP_THRESHOLD_RECOVER    (45)
+
 static module_func_prio_t prio_map[] = {
   { MODULE_FUNC_SET_FAN1,              MODULE_FUNC_PRIORITY_MEDIUM },
   { MODULE_FUNC_SET_CAMERA_POWER,      MODULE_FUNC_PRIORITY_MEDIUM },
@@ -649,7 +652,7 @@ err_code_t ToolHeadLaser::hmi_cb_set_safety_lock(void *obj, sacp_hmi_message_t *
 
     laser.set_status(MODULE_STATUS_NORMAL);
   }
-  else { 
+  else {
     if (laser.get_status() == MODULE_STATUS_LASER_LOCKED) {
       return host_hmi.send_ack(message, E_SUCCESS);
     }
@@ -1064,6 +1067,9 @@ err_code_t ToolHeadLaser::post_init() {
   check_online_tick = 0;
   offline_count = 0;
 
+  feedrate_percentage = 100;
+  motion_platform_svc.sync_feedrate_percentage_to_platform(feedrate_percentage);
+
   return E_SUCCESS;
 }
 
@@ -1163,6 +1169,9 @@ err_code_t ToolHeadLaser::deinit() {
   set_master_switch(SWITCH_STATE_OFF);
 
   set_status(MODULE_STATUS_OFFLINE);
+
+  feedrate_percentage = 100;
+  motion_platform_svc.sync_feedrate_percentage_to_platform(feedrate_percentage);
 
   return E_SUCCESS;
 }
@@ -1481,6 +1490,7 @@ typedef struct __packed LaserEnv {
   float power_current;
   uint16_t power_pwm;
   ToolHeadLaserTubeStatus tube_status;
+  int16_t  feedrate_percentage;
 } laser_env_t;
 
 err_code_t ToolHeadLaser::save_env(uint8_t *env_buf, uint32_t &len) {
@@ -1493,6 +1503,7 @@ err_code_t ToolHeadLaser::save_env(uint8_t *env_buf, uint32_t &len) {
   env->power_current = power_current;
   env->power_pwm = power_pwm;
   env->tube_status = tube_status;
+  env->feedrate_percentage = feedrate_percentage;
 
   len = sizeof(laser_env_t);
 
@@ -1512,6 +1523,8 @@ err_code_t ToolHeadLaser::resume_env(uint8_t *env_buf, uint32_t &len) {
   // power_pwm = env->power_pwm;
   update_power(power_current);
   tube_status = env->tube_status;
+  feedrate_percentage = env->feedrate_percentage;
+  motion_platform_svc.sync_feedrate_percentage_to_platform(feedrate_percentage);
 
   len = sizeof(laser_env_t);
 
@@ -1580,3 +1593,52 @@ err_code_t ToolHeadLaser::register_esp32_upgrade_callbake(void) {
   return E_SUCCESS;
 }
 
+
+err_code_t ToolHeadLaser::factory_reset() {
+  err_code_t ret;
+  ret = write_focal_length(LASER_CAMERA_FOCUS_MAX);
+
+  if (get_device_id() == MODULE_DEVICE_ID_LASER_10W_2021) {
+    ret += set_temp_threshold(LASER_10W_TEMP_THRESHOLD_PROTECTED, LASER_10W_TEMP_THRESHOLD_RECOVER);
+  }
+
+  return ret;
+}
+
+
+err_code_t ToolHeadLaser::set_feedrate_percentage(uint8_t *data, uint16_t length) {
+  if (length < 4) {
+    LOG_E("set_feedrate_percentage: parameter length[%u] is less than 4!\n", length);
+    return E_PARAM;
+  }
+
+  if (data[0] != get_key()) {
+    LOG_E("set_feedrate_percentage: invalid key[%u]\n", data[0]);
+    return E_INVALID_MODULE_KEY;
+  }
+
+  int16_t *percentage = (int16_t *)(data + 2);
+
+  feedrate_percentage = *percentage;
+
+  LOG_I("set_feedrate_percentage: %d\n", feedrate_percentage);
+
+  motion_platform_svc.sync_feedrate_percentage_to_platform(feedrate_percentage);
+
+  return E_SUCCESS;
+}
+
+
+uint16_t ToolHeadLaser::get_feedrate_percentage(uint8_t *buffer) {
+  if (!buffer) {
+    return 0;
+  }
+
+  uint16_t index = 0;
+
+  buffer[index++] = 1;
+  buffer[index++] = (uint8_t)(feedrate_percentage & 0xFF);
+  buffer[index++] = (uint8_t)(feedrate_percentage>>8);
+
+  return index;
+}

@@ -82,7 +82,9 @@ const static char *excoption_str[32] {
 
 static SnapDebugLevel pc_msg_level = SNAP_DEBUG_LEVEL_INFO;
 static SnapDebugLevel sc_msg_level = SNAP_DEBUG_LEVEL_INFO;
-static char log_buf[SNAP_LOG_BUFFER_SIZE + 2];
+// static char sc_log_buf[SNAP_SC_LOG_BUFFER_SIZE];
+// static uint16_t sc_log_length = 0;
+static char single_log_buf[SNAP_SINGLE_LOG_BUFFER_SIZE];
 
 const char *snap_debug_str[SNAP_DEBUG_LEVEL_MAX] = {
   SNAP_TRACE_STR,
@@ -97,29 +99,35 @@ void SnapDebug::init() {
   lock = xSemaphoreCreateMutex();
 }
 
+void SnapDebug::flush_sc_log_buff() {
+  // 组织数据发送到屏幕
+}
+
+void SnapDebug::send_marlin_log_to_screen() {
+  // 将数据拷贝至single_log_buf
+
+  SendLog2Screen(SNAP_DEBUG_LEVEL_INFO);
+
+}
+
 void SnapDebug::SendLog2Screen(SnapDebugLevel l) {
-  // SSTP_Event_t event = {EID_SYS_CTRL_ACK, SYSCTL_OPC_TRANS_LOG};
+  // int size = strlen(single_log_buf);
 
-  // int size = strlen(log_buf+2);
+  // if (is_boot_log) {
+  //   // 将数据放到sc_log_buf
 
-  // if (size == 0)
   //   return;
-  // else if (size >= 255) {
-  //   size = 255;
-  //   log_buf[255 + 2] = '\0';
   // }
 
-  // // to include the end '\0'
-  // size++;
+  // // 检查屏幕有没有连接
+  // if () {
+  //   // 屏幕未连接，将数据放到sc_log_buf
 
-  // log_buf[0] = l;
-  // log_buf[1] = size;
+  //   return;
+  // }
 
-  // event.length = size + 2;
-  // event.data = (uint8_t *)log_buf;
+  // // 将数据发送到屏幕
 
-  // hmi.Send(event);
-  return;
 }
 
 // output debug message, will not output message whose level
@@ -145,19 +153,21 @@ void SnapDebug::Log(SnapDebugLevel level, const char *fmt, ...) {
 
   va_start(args, fmt);
 
-  vsnprintf(log_buf + 2, SNAP_LOG_BUFFER_SIZE, fmt, args);
+  vsnprintf(single_log_buf, SNAP_SINGLE_LOG_BUFFER_SIZE, fmt, args);
 
   va_end(args);
 
   if (level >= pc_msg_level)
-    CONSOLE_OUTPUT(log_buf + 2);
+    CONSOLE_OUTPUT(single_log_buf);
 
   if (ret != pdFAIL)
     xSemaphoreGive(lock);
 
-  // TODO:
-  // if (level >= sc_msg_level)
-  //   SendLog2Screen(level);
+  if (is_boot_log) {
+    SendLog2Screen(SNAP_DEBUG_LEVEL_TRACE);
+  } else if (level >= sc_msg_level) {
+    SendLog2Screen(level);
+  }
 }
 
 

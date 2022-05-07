@@ -58,7 +58,8 @@ extern void serial_print_P(const char* str);
 #define CONSOLE_OUTPUT(log) serial_print_P(log)
 
 // log buffer size, max length for one debug massage
-#define SNAP_LOG_BUFFER_SIZE 256
+#define SNAP_SC_LOG_BUFFER_SIZE     (20*1024)
+#define SNAP_SINGLE_LOG_BUFFER_SIZE (256)
 
 #define SNAP_TRACE_STR    "SNAP_TRACE: "
 #define SNAP_INFO_STR     "SNAP_INFO: "
@@ -83,6 +84,9 @@ struct SnapDebugInfo {
 
 class SnapDebug {
   public:
+    SnapDebug () {
+      is_boot_log = true;
+    }
     void Log(SnapDebugLevel level, const char *fmt, ...);
 
     void init();
@@ -96,14 +100,18 @@ class SnapDebug {
 
     void ShowException();
 
+    void set_boot_log_state(bool state) { is_boot_log = state; }
+    void flush_sc_log_buff();
+    void send_marlin_log_to_screen();
+
     // err_code_t SetLogLevel(SSTP_Event_t &event);
 
   private:
     void SendLog2Screen(SnapDebugLevel l);
 
     struct SnapDebugInfo info;
-
     SemaphoreHandle_t lock;
+    bool is_boot_log;
 };
 
 // interface for external use

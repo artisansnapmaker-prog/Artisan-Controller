@@ -243,7 +243,12 @@ err_code_t SnapmakerPrinter::hmi_cb_get_machine_size(void *obj, sacp_hmi_message
 
   LOG_I("report machine size, len[0x%x]\n", msg->length);
 
-  return host_hmi.send_ack(msg);
+  err_code_t ret = host_hmi.send_ack(msg);
+
+  debug.set_boot_log_state(false);
+  debug.flush_sc_log_buff();
+
+  return ret;
 }
 
 err_code_t SnapmakerPrinter::hmi_cb_set_protocol_for_PC(void *obj, sacp_hmi_message_t *msg) {
@@ -437,6 +442,7 @@ static void system_thread(void *p) {
 
   smprinter.check_system_voltage();
   smprinter.get_hw_version();
+  debug.set_boot_log_state(false);
 
   // loop
   for (;;) {

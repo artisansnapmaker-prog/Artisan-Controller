@@ -25,6 +25,11 @@
 
 // #define ENABLE_DRYBOX_INTERRUPT_LOG
 
+#define CHECK_ONLINE_TIMEOUT  5000
+
+#define DRYBOX_SET_BIT(S, B) (S | (0x01 << B))
+#define DRYBOX_CLR_BIT(S, B) (S & ~(0x01 << B))
+
 typedef enum {
   DRYBOX_REQ_CMD_ID_GET_DRYBOX_INFO    = 1,
   DRYBOX_REQ_CMD_ID_SET_TEMP           = 2,
@@ -38,6 +43,27 @@ typedef enum {
   DRYBOX_SUBSCRIPT_CMD_ID_DRYBOX_STATE    = 0xa0,
 }drybox_subscript_cmd_id_e;
 
+typedef enum {
+  DRYBOX_FAULT_OVER_TEMP,
+  DRYBOX_FAULT_COVER_OPEN,
+  DRYBOX_FAULT_HEATER_POWER,
+  DRYBOX_FAULT_NO_EXTERNAL_POWER,
+  DRYBOX_FAULT_DRYBOX_DISCONNECT,
+}drybox_fault_state_e;
+
+typedef enum {
+  DRYBOX_STATE_IDLE,
+  DRYBOX_STATE_HEATING_FREE,
+  DRYBOX_STATE_HEATING_TIMING,
+  DRYBOX_STATE_FAULT,
+}drybox_state_e;
+
+typedef struct {
+  bool is_occupied;
+  uint32_t peer;
+  uint8_t ch;
+}subscript_info_t;
+
 #define HEATER_PREHEATING_TEMP    80
 
 class DryBox: public ModuleBase {
@@ -46,10 +72,16 @@ class DryBox: public ModuleBase {
     // construtor to do pre-init
     DryBox(uint32_t mac, uint8_t key, uint8_t sub_index):
     ModuleBase(mac, key, sub_index) {
-
+      drybox_state = DRYBOX_STATE_IDLE;
+      drybox_fault_state = 0;
+      heating_state = 1;
+      is_drybox_online = true;
+      for (uint32_t i = 0; i < 2; i++) {
+        subscript_info_array[i].is_occupied = false;
+      }
     }
 
-    bool check_online() { return false; }
+    bool check_online();
     err_code_t pre_init();
     err_code_t post_init();
     err_code_t deinit() { return E_SUCCESS; }
@@ -64,8 +96,15 @@ class DryBox: public ModuleBase {
     void report_pid(uint8_t *data);
     void update_heating_time_info(uint8_t type, uint32_t time);
     void update_heater_power_state(uint8_t state);
+    void update_cover_state(uint8_t state);
+    void update_drybox_state(drybox_state_e state);
+    err_code_t heater_power_state_sync();
+    err_code_t cover_state_sync();
+    err_code_t drybox_state_sync();
 
+    static void hmi_subscribe_drybox_status_notify_cb(void *obj, uint32_t peer, uint8_t ch, uint8_t type);
     static uint16_t hmi_subscript_callback_drybox_status(void *obj, uint8_t *buffer);
+    void send_drybox_status_to_hmi();
 
     // hmi request callback
     static err_code_t hmi_req_callback_get_drybox_info(void *obj, sacp_hmi_message_t *msg);
@@ -79,22 +118,27 @@ class DryBox: public ModuleBase {
 
   // public properties
   public:
+    bool is_drybox_online;
 
   // private properties
   private:
     uint16_t device_id;
-    uint8_t heating_state;
-    uint8_t cover_state;
-    uint8_t heater_power_state;
-    int16_t target_heater_temp;
-    int16_t target_chamber_temp;
-    uint16_t target_chamber_humidity;
-    int16_t current_heater_temp;
-    int16_t current_chamber_temp;
-    uint16_t current_chamber_humidity;
-    uint32_t target_heating_time;
-    uint32_t acc_heating_time;
-    uint32_t remaining_heating_time;
+    drybox_state_e drybox_state;
+    volatile uint32_t drybox_fault_state;
+    volatile uint8_t heating_state;
+    volatile uint8_t cover_state;
+    volatile uint8_t heater_power_state;
+    volatile int16_t target_heater_temp;
+    volatile int16_t target_chamber_temp;
+    volatile uint16_t target_chamber_humidity;
+    volatile int16_t current_heater_temp;
+    volatile int16_t current_chamber_temp;
+    volatile uint16_t current_chamber_humidity;
+    volatile uint32_t target_heating_time;
+    volatile uint32_t acc_heating_time;
+    volatile uint32_t remaining_heating_time;
+    uint32_t last_recv_time;
+    subscript_info_t subscript_info_array[2];
 };
 
 #endif  // #ifndef SNAPMAKER_DRYBOX_H_

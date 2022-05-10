@@ -480,9 +480,9 @@ void DryBox::update_drybox_state(drybox_state_e state) {
   }
 
   if ((drybox_state == DRYBOX_STATE_HEATING_FREE) || (drybox_state == DRYBOX_STATE_HEATING_TIMING)) {
-    heating_state = 0;
-  } else {
     heating_state = 1;
+  } else {
+    heating_state = 0;
   }
 }
 
@@ -729,7 +729,6 @@ err_code_t DryBox::heating_ctrl(uint8_t state) {
     return ret;
   }
 
-  state = !state;
   buffer[0] = state;
 
   msg.id = get_message_id(MODULE_FUNC_MODULE_START);

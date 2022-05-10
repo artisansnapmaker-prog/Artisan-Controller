@@ -1102,7 +1102,7 @@ void HostSACPHMI::handle_events() {
 
 
 err_code_t HostSACPHMI::register_subscription(uint8_t cmd_set, uint8_t cmd_id, void *obj,
-  sacp_hmi_subscribe_callback cb) {
+  sacp_hmi_subscribe_callback cb, sacp_hmi_subscribe_notify_cb notify_cb/*=NULL*/) {
 
   int i = 0, j = 0;
   sacp_subscription_handle_t *handle = NULL;
@@ -1147,6 +1147,7 @@ err_code_t HostSACPHMI::register_subscription(uint8_t cmd_set, uint8_t cmd_id, v
     subscription_handles[j].obj = obj;
     subscription_handles[j].cb = cb;
     subscription_handles[j].next = NULL;
+    subscription_handles[j].notify_cb = notify_cb;
     xSemaphoreGive(subscription_lock);
   }
   else {
@@ -1213,6 +1214,7 @@ err_code_t HostSACPHMI::handle_subscript(void *obj, sacp_hmi_message_t *msg) {
   HostSACPHMI &host = *(HostSACPHMI *)obj;
   err_code_t ret = E_SUCCESS;
   sacp_subscription_node_t *node = NULL;
+  sacp_subscription_handle_t *handle = NULL;
   int client_index = 0;
   int node_index = 0;
   uint8_t cmd_set;
@@ -1302,6 +1304,13 @@ err_code_t HostSACPHMI::handle_subscript(void *obj, sacp_hmi_message_t *msg) {
   }
   else {
     LOG_I("subscribe success!\n");
+    handle = host.subscription_nodes[node_index].handle;
+    while (handle) {
+      if (handle->notify_cb)
+        handle->notify_cb(handle->obj, msg->peer, msg->ch, SACP_SUBS_NOTIFY_TYPE_SUBSCRIBE);
+
+      handle = handle->next;
+    }
   }
 
 out_subscript:
@@ -1313,6 +1322,7 @@ err_code_t HostSACPHMI::handle_unsubscript(void *obj, sacp_hmi_message_t *msg) {
   HostSACPHMI &host = *(HostSACPHMI *)obj;
   err_code_t ret = E_SUCCESS;
   sacp_subscription_node_t *node = NULL;
+  sacp_subscription_handle_t *handle = NULL;
   int client_index = 0;
   uint8_t cmd_set;
   uint8_t cmd_id;
@@ -1340,6 +1350,7 @@ err_code_t HostSACPHMI::handle_unsubscript(void *obj, sacp_hmi_message_t *msg) {
         break;
       if (node->cmd_set == cmd_set && node->cmd_id == cmd_id) {
         xTimerDelete(host.subscription_clients[client_index].timer, portMAX_DELAY);
+        handle = node->handle;
         // deinit client
         xSemaphoreTake(host.subscription_lock, portMAX_DELAY);
         host.subscription_clients[client_index].peer = SACP_V1_HOST_INVALID;
@@ -1361,6 +1372,13 @@ err_code_t HostSACPHMI::handle_unsubscript(void *obj, sacp_hmi_message_t *msg) {
   ret = E_PARAM;
 
 out_unsubscript:
+  while (handle) {
+    if (handle->notify_cb)
+      handle->notify_cb(handle->obj, msg->peer, msg->ch, SACP_SUBS_NOTIFY_TYPE_UNSUBSCRIBE);
+
+    handle = handle->next;
+  }
+
   return host_hmi.send_ack(msg, ret);
 }
 

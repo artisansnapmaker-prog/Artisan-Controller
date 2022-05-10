@@ -32,6 +32,9 @@ typedef err_code_t (*sacp_hmi_callback)(void *obj, sacp_hmi_message_t *msg);
 
 typedef uint16_t (*sacp_hmi_subscribe_callback)(void *obj, uint8_t *buffer);
 
+typedef void (*sacp_hmi_subscribe_notify_cb)(void *obj, uint32_t peer, uint8_t ch, uint8_t type);
+
+
 typedef void (*sacp_hmi_notify_new_route_cb)(void *obj, sacp_route_table_t *rt);
 
 typedef struct {
@@ -81,6 +84,7 @@ enum SACPHMIChannel {
 typedef struct sacp_subscription_handle {
   void *obj;
   sacp_hmi_subscribe_callback cb;
+  sacp_hmi_subscribe_notify_cb notify_cb;
   sacp_subscription_handle *next;
 } sacp_subscription_handle_t;
 
@@ -96,6 +100,11 @@ typedef struct {
   sacp_subscription_node_t *node;
   TimerHandle_t timer;
 } sacp_subscription_client_t;
+
+enum SACPSubscribeNotifyType {
+  SACP_SUBS_NOTIFY_TYPE_SUBSCRIBE,
+  SACP_SUBS_NOTIFY_TYPE_UNSUBSCRIBE,
+};
 
 class HostSACPHMI: public HostSACP {
   // public methods
@@ -149,7 +158,8 @@ class HostSACPHMI: public HostSACP {
     err_code_t register_callback(uint8_t cmd_set, uint8_t cmd_id, void *obj, sacp_hmi_callback cb,
                                   uint32_t attr=0, uint8_t ver=SACP_VER_INVALID);
 
-    err_code_t register_subscription(uint8_t cmd_set, uint8_t cmd_id, void *obj, sacp_hmi_subscribe_callback cb);
+    err_code_t register_subscription(uint8_t cmd_set, uint8_t cmd_id, void *obj, sacp_hmi_subscribe_callback cb,
+                                      sacp_hmi_subscribe_notify_cb notify_cb=NULL);
 
     err_code_t send_sync_legacy(sacp_hmi_message_t *message, uint8_t *out, uint16_t *out_len, uint32_t timeout=100, uint8_t retry=1);
 

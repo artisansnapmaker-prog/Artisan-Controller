@@ -1371,12 +1371,7 @@ err_code_t ToolHeadFDM::extruder_status_check_ctrl(extruder_status_e status) {
     return ret;
   }
 
-  extruder_check_state = status;
   return ret;
-}
-
-uint8_t ToolHeadFDM::get_extruder_check_state() {
-  return (uint8_t)extruder_check_state;
 }
 
 err_code_t ToolHeadFDM::tool_change(uint8_t new_tool, bool z_compensation/*=true*/) {
@@ -1427,7 +1422,6 @@ err_code_t ToolHeadFDM::tool_change(uint8_t new_tool, bool z_compensation/*=true
     // z raise
     motion_platform_svc.moveto_z(motion_platform_svc.get_current_position(Z_AXIS) + TOOL_CHANGE_RAISE_SPACE, 10);
 
-    uint8_t extruder_check_state = get_extruder_check_state();
     extruder_status_check_ctrl(EXTRUDER_STATUS_IDLE);
     motion_platform_svc.update_position_from_platform();
     motion_platform_svc.sm_destination_position[X_AXIS] = motion_platform_svc.sm_current_position[X_AXIS];
@@ -1466,7 +1460,7 @@ err_code_t ToolHeadFDM::tool_change(uint8_t new_tool, bool z_compensation/*=true
     active_extruder = new_tool;
     motion_platform_svc.update_active_extruder_to_platform(active_extruder);
     switch_extruder(active_extruder);
-    extruder_status_check_ctrl((extruder_status_e)extruder_check_state);
+    extruder_status_check_ctrl(EXTRUDER_STATUS_CHECK);
 
     bedlevel_svc.apply_live_z_offset(active_extruder);
 

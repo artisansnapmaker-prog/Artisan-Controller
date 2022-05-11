@@ -156,7 +156,6 @@ class ToolHeadFDM: public ModuleBase {
     ToolHeadFDM(uint8_t extruder, uint32_t mac, uint8_t key, uint8_t sub_index):
     ModuleBase(mac, key, sub_index) {
       fdm_state = 0;
-      extruder_check_state = EXTRUDER_STATUS_CHECK;
       for (int i = 0; i < EXTRUDERS; i++) {
         hotend_type[i] = 0xff;
       }
@@ -222,7 +221,6 @@ class ToolHeadFDM: public ModuleBase {
     void get_fdm_state(fdm_fault_e state);
     uint8_t get_extruder_status(uint8_t e);
     err_code_t extruder_status_check_ctrl(extruder_status_e status);
-    uint8_t get_extruder_check_state();
     err_code_t tool_change(uint8_t new_tool, bool z_compensation=true);
     err_code_t switch_extruder(uint8_t e);
     void switch_extruder_without_move(uint8_t e);
@@ -261,7 +259,6 @@ class ToolHeadFDM: public ModuleBase {
   // private properties
   private:
     uint32_t fdm_state;
-    extruder_status_e extruder_check_state;
     uint8_t probe_state;
     probe_sensor_t probe_sensor;
     uint8_t extruder_info;

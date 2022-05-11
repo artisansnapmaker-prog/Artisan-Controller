@@ -407,14 +407,6 @@ class SnapmakerPrinter
       return NULL;
     }
 
-    uint8_t get_extruder_check_state() {
-      if (fdm) {
-        return fdm->get_extruder_check_state();
-      }
-
-      return 0;
-    }
-
     void set_extruder_check_state(uint8_t state) {
       if (fdm) {
         fdm->extruder_status_check_ctrl((extruder_status_e)state);

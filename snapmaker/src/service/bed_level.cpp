@@ -349,8 +349,6 @@ static err_code_t hmi_req_callback_bed_position_detection(void *obj, sacp_hmi_me
     goto EXIT;
   }
 
-  smprinter.fdm->extruder_status_check_ctrl(EXTRUDER_STATUS_IDLE);
-
   if (bedlevel.get_bedlevel_mode() == BEDLEVEL_MODE_AUTO_BED_DETECTION) {
     if (extruder_index == 0) {
       // clear live_z_offset
@@ -379,7 +377,9 @@ static err_code_t hmi_req_callback_bed_position_detection(void *obj, sacp_hmi_me
     } else if (extruder_index == 1) {
       smprinter.fdm->set_probe_sensor(PROBE_SENSOR_RIGHT_OPTOCOUPLER);
     }
+    smprinter.fdm->extruder_status_check_ctrl(EXTRUDER_STATUS_IDLE);
     bedlevel.detected_bed_z_values[extruder_index] = motion_platform_svc.probe_at_point(x, y, PROBE_PT_RAISE);
+    smprinter.fdm->extruder_status_check_ctrl(EXTRUDER_STATUS_CHECK);
     LOG_I("auto bed detction%d: %f\n", extruder_index, bedlevel.detected_bed_z_values[extruder_index]);
   } else if (bedlevel.get_bedlevel_mode() == BEDLEVEL_MODE_MANUAL_BED_DETECTION) {
     if (extruder_index == 0) {
@@ -456,7 +456,9 @@ static err_code_t hmi_req_callback_probe_sensor_calibration(void *obj, sacp_hmi_
       motion_platform_svc.moveto_z(20, 30);
       motion_platform_svc.enable_z_probe();
       smprinter.fdm->set_probe_sensor(PROBE_SENSOR_LEFT_OPTOCOUPLER);
+      smprinter.set_extruder_check_state(EXTRUDER_STATUS_IDLE);
       bedlevel.hotend_triggered_z_[0] = motion_platform_svc.probe_at_point(x, y, PROBE_PT_RAISE);
+      smprinter.set_extruder_check_state(EXTRUDER_STATUS_CHECK);
       LOG_I("hotend_triggered_z%d: %f\n", 0, bedlevel.hotend_triggered_z_[0]);
       break;
     case 1:
@@ -464,7 +466,9 @@ static err_code_t hmi_req_callback_probe_sensor_calibration(void *obj, sacp_hmi_
       motion_platform_svc.enable_z_probe();
       smprinter.fdm->tool_change(1, false);
       smprinter.fdm->set_probe_sensor(PROBE_SENSOR_RIGHT_OPTOCOUPLER);
+      smprinter.set_extruder_check_state(EXTRUDER_STATUS_IDLE);
       bedlevel.hotend_triggered_z_[1] = motion_platform_svc.probe_at_point(x, y, PROBE_PT_RAISE);
+      smprinter.set_extruder_check_state(EXTRUDER_STATUS_CHECK);
       LOG_I("hotend_triggered_z%d: %f\n", 1, bedlevel.hotend_triggered_z_[1]);
       break;
     case 2:
@@ -781,6 +785,8 @@ err_code_t BedLevelService::start_auto_bed_leveling(uint8_t grids) {
   msg.attr    = 0;
   msg.length  = 3;
 
+  smprinter.set_extruder_check_state(EXTRUDER_STATUS_IDLE);
+
   for (int k = 0; k < GRID_MAX_POINTS_X * GRID_MAX_POINTS_Y; ++k) {
     LOG_I("Probing No. %d\n", k);
     LOG_I("x: %f, y: %f\n", _GET_MESH_X(cur_x), _GET_MESH_Y(cur_y));
@@ -794,6 +800,7 @@ err_code_t BedLevelService::start_auto_bed_leveling(uint8_t grids) {
     if (isnan(z)) {
       LOG_E("auto probing fail !\n");
       reset_bed_level();
+      smprinter.set_extruder_check_state(EXTRUDER_STATUS_CHECK);
       return E_FAILURE;
     }
 
@@ -817,6 +824,7 @@ err_code_t BedLevelService::start_auto_bed_leveling(uint8_t grids) {
     cur_y = new_y;
   }
 
+  smprinter.set_extruder_check_state(EXTRUDER_STATUS_CHECK);
   return E_SUCCESS;
 }
 

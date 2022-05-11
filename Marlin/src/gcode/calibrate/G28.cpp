@@ -434,10 +434,10 @@ void GcodeSuite::G28() {
 
       #else
 
-        uint8_t extruder_check_status = smprinter.get_extruder_check_state();
         smprinter.tool_change(0);
-        smprinter.set_extruder_check_state(extruder_check_status);
+        smprinter.set_extruder_check_state(EXTRUDER_STATUS_IDLE);
         homeaxis(X_AXIS);
+        smprinter.set_extruder_check_state(EXTRUDER_STATUS_CHECK);
 
       #endif
     }

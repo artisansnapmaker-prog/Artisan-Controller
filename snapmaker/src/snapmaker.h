@@ -95,7 +95,7 @@ enum SystemStatus {
   SYSTEM_STATUS_EMERGENCY_STOP,
   SYSTEM_STATUS_POWER_LOSS,
 
-  SYSTEM_STATUS_REPLACE_MODE, 
+  SYSTEM_STATUS_REPLACE_MODE,
 
   // 3DP calibration
   SYSTEM_STATUS_XY_CALIBRATING = 31,
@@ -119,7 +119,7 @@ enum SystemStatus {
   // CNC calibration
   SYSTEM_STATUS_CNC_CALIBRATING = 95,
 
-  // upgrade 
+  // upgrade
   SYSTEM_STATUS_APP_UPGRADE = 127,
   SYSTEM_STATUS_MODULE_UPGRADE,
 };
@@ -200,6 +200,8 @@ enum SMControllerExceptionState {
   CONTROLLER_EXCEP_STA_MISS_SETTINGS,
   CONTROLLER_EXCEP_STA_HOME_FAILED,
   CONTROLLER_EXCEP_STA_REPLACE_TOOLHEAD,
+  CONTROLLER_EXCEP_STA_SYSTEM_VOLTAGE,
+  CONTROLLER_EXCEP_STA_MOTIVE_VOLTAGE,
 };
 
 // exception state for FDM toolhead
@@ -485,6 +487,8 @@ class SnapmakerPrinter
     bool allow_leveling();
     bool allow_turn_on_laser();
     bool allow_turn_on_cnc();
+
+    void check_system_voltage();
 
   private:
     enum SystemStatus sys_status;

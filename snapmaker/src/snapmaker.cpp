@@ -436,6 +436,8 @@ static void system_thread(void *p) {
   host_hmi.register_callback(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_ENTRY_REPLACE_MODE,
       (void *)&smprinter, SnapmakerPrinter::hmi_cb_set_machine_enter_replace_mode);
 
+  smprinter.check_system_voltage();
+
   // loop
   for (;;) {
     module_svc.background_thread();
@@ -481,6 +483,10 @@ void SnapmakerPrinter::pre_init(void) {
   digitalWrite(Z2_STANDBY_PIN_var, HIGH);
 
   digitalWrite(TMC_EN, TMC_EN_ON);
+
+  // configure the voltage detect pins
+  pinMode(VOL1_DETECT_PIN, INPUT_ANALOG);
+  pinMode(VOL2_DETECT_PIN, INPUT_ANALOG);
 }
 
 
@@ -1414,6 +1420,36 @@ bool SnapmakerPrinter::allow_turn_on_cnc()  {
   return system_svc.allow_turn_on_cnc();
 }
 
+void SnapmakerPrinter::check_system_voltage() {
+  // check if voltage of system is normal
+  uint32_t vol1_raw, vol2_raw;
+  float system_vol, motive_vol;
+
+  taskENTER_CRITICAL();
+  vol1_raw = analogRead(VOL1_DETECT_PIN);
+  vol2_raw = analogRead(VOL2_DETECT_PIN);
+  taskEXIT_CRITICAL();
+
+  system_vol = (vol1_raw * 11 * 3.3) / 4096;
+  motive_vol = (vol2_raw * 11 * 3.3) / 4096;
+
+  LOG_I("system vol: %.2fv, motive vol: %.2fv\n", system_vol, motive_vol);
+
+  if (system_vol < SYSTEM_VOL_LOWER_LIMIT || system_vol > SYSTEM_VOL_UPPER_LIMIT) {
+    LOG_E("system vol: %.2fv is out of range[%.2f:%.2f]\n", system_vol,
+          SYSTEM_VOL_LOWER_LIMIT, SYSTEM_VOL_UPPER_LIMIT);
+    system_svc.raise_exception(MODULE_DEVICE_ID_A400_CONTROLLER, CONTROLLER_EXCEP_STA_SYSTEM_VOLTAGE,
+    0, EXCEP_BAN_MOVING | EXCEP_BAN_WORKING);
+  }
+
+  if (motive_vol <  MOTIVE_VOL_LOWER_LIMIT || motive_vol > MOTIVE_VOL_UPPER_LIMIT) {
+    LOG_E("motive vol: %.2fv is out of range[%.2f:%.2f]\n", motive_vol,
+          MOTIVE_VOL_LOWER_LIMIT, MOTIVE_VOL_UPPER_LIMIT);
+    system_svc.raise_exception(MODULE_DEVICE_ID_A400_CONTROLLER, CONTROLLER_EXCEP_STA_MOTIVE_VOLTAGE,
+    0, EXCEP_BAN_MOVING | EXCEP_BAN_WORKING | EXCEP_BAN_HEATING_HOTEND | EXCEP_BAN_HEATING_BED |
+        EXCEP_BAN_TURN_ON_CNC | EXCEP_BAN_TURN_ON_LASER);
+  }
+}
 
 extern "C" {
   // hook for failing to apply memory in freeRTOS

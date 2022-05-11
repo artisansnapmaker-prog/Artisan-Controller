@@ -88,4 +88,10 @@ enum BedZoneNumber {
   BED_ZONE_MAX
 };
 
+#define SYSTEM_VOL_UPPER_LIMIT  (26.0)
+#define SYSTEM_VOL_LOWER_LIMIT  (22.0)
+
+#define MOTIVE_VOL_UPPER_LIMIT  (26.0)
+#define MOTIVE_VOL_LOWER_LIMIT  (22.0)
+
 #endif  // #ifndef SNAPMAKER_CONFIG_H_

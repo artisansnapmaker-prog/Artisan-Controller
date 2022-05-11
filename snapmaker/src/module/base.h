@@ -116,6 +116,8 @@ enum ModuleDeviceID {
   MODULE_DEVICE_ID_DRYBOX               ,   // 17
   MODULE_DEVICE_ID_CALIBRATOR           ,   // 18
 
+  MODULE_DEVICE_ID_CAN_MODULES_MAX = 511,
+
   // below is virtual module
   MODULE_DEVICE_ID_SM2_BED         = 512,   // 512
   MODULE_DEVICE_ID_J1_BED               ,   // 513

@@ -721,32 +721,35 @@ void ModuleService::unregister_routine(void *obj) {
 
 
 void ModuleService::background_thread() {
-    // perform routine of modules
-    for (int i = 0; i < MODULE_ACCESSIBLE_MAX; i++) {
-      if (routines[i].cb)
-        routines[i].cb(routines[i].obj);
-      else
-        break;
+  bool need_broadcast = false;
+
+  // perform routine of modules
+  for (int i = 0; i < MODULE_ACCESSIBLE_MAX; i++) {
+    if (routines[i].cb)
+      routines[i].cb(routines[i].obj);
+    else
+      break;
+  }
+
+  // check if need to broadcast
+  for (int i = 0; i < configured_module; i++) {
+    if (modules[i] && modules[i]->get_device_id() > MODULE_DEVICE_ID_CAN_MODULES_MAX)
+      continue;
+
+    if (modules[i]->get_status() == MODULE_STATUS_NORMAL) {
+      need_broadcast = true;
     }
+  }
 
-    for (int i = 0; i < MODULE_ACCESSIBLE_MAX; i++) {
-      if (!modules[i])
-        continue;
+  // TODO: scan modules
+  // host_mac.send(MODULE_MAC_CMD_SCAN);
 
-      // if (!modules[i]->check_online()) {
-      //   // TODO: tell HMI someone is offline
-      // }
-    }
-
-    // TODO: check if need to upgrade module
-
-    // TODO: scan modules
-    // host_mac.send(MODULE_MAC_CMD_SCAN);
-
-    if ((int)(next_ms_background_broadcast - millis()) < 0) {
-      next_ms_background_broadcast = millis() + BACKGROUND_BROADCAST_DURATION;
+  if ((int)(next_ms_background_broadcast - millis()) < 0) {
+    next_ms_background_broadcast = millis() + BACKGROUND_BROADCAST_DURATION;
+    if (need_broadcast) {
       host_broadcast.send(0x1);
     }
+  }
 }
 
 

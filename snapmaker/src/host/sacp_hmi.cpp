@@ -577,6 +577,13 @@ err_code_t HostSACPHMI::parse_packets(sacp_channel_t &channel) {
         parser.length = parser.buffer[SACP_V1_FRAME_INDEX_LEN_H]<<8 | parser.buffer[SACP_V1_FRAME_INDEX_LEN_L];
         parser.ver    = SACP_VER_1;
       }
+
+      if (parser.length > (SACP_V1_PDU_MAX_SIZE - SACP_FRONT_HEADER_MIN_SIZE)) {
+        LOG_E("V1: length[%u] of packet from host[%u] is out of range[%u]\n", 
+              parser.length, parser.buffer[SACP_V1_FRAME_INDEX_RECV_ID], SACP_V1_PDU_MAX_SIZE);
+        parser.status = SACP_PARSER_STA_IDLE;
+        break;
+      }
     }
     else {
     // if (parser.buffer[SACP_FRAME_INDEX_VER] == SACP_VER_0) {
@@ -592,13 +599,20 @@ err_code_t HostSACPHMI::parse_packets(sacp_channel_t &channel) {
         parser.status = SACP_PARSER_STA_GOT_HEAD;
         parser.next_timeout = millis() + 100;
         avail_bytes   = link->available();
-        // SACP_FRONT_HEADER_MIN_SIZE is 7
+        // because it has been read SACP_FRONT_HEADER_MIN_SIZE bytes
+        // from UART buffer to parser buffer, and SACP_FRONT_HEADER_MIN_SIZE = 7.
         // parser.length is total length of whole packet - 8
         // so we are waiting for (parser.length + (8 - 7)) bytes
         parser.length = (parser.buffer[SACP_V0_FRAME_INDEX_LEN_H]<<8 | parser.buffer[SACP_V0_FRAME_INDEX_LEN_L]) + 1;
         parser.ver    = SACP_VER_0;
       }
 
+      if (parser.length > (SACP_PDU_MAX_SIZE - SACP_V0_NON_PAYPLOAD_SIZE - 1)) {
+        LOG_E("V0: length[%u] of packetis out of range[%u]\n", 
+              parser.length, SACP_PDU_MAX_SIZE);
+        parser.status = SACP_PARSER_STA_IDLE;
+        break;
+      }
     }
     // else {
     //   // unsupported version

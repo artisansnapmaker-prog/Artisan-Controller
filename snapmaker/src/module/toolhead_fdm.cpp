@@ -742,7 +742,7 @@ static void fdm_callback_hotend_type(void *obj, uint8_t *data, uint8_t length) {
 
 static void fdm_callback_extruder_info(void *obj, uint8_t *data, uint8_t length) {
   ToolHeadFDM &fdm = *(ToolHeadFDM *)obj;
-  // fdm.report_extruder_info(data);
+  fdm.report_extruder_info(data);
 
   (void)fdm;
 }
@@ -1067,13 +1067,15 @@ void ToolHeadFDM::set_hotend_type(uint8_t *data) {
 }
 
 void ToolHeadFDM::report_extruder_info(uint8_t *data) {
-  // uint8_t extruder_state = data[0];
+  uint8_t extruder_state = data[0];
   active_extruder = data[1];
   LOG_I("actul active extruder: %d\n", active_extruder);
-  if (active_extruder != target_extruder) {
+  if (extruder_state) {
     fdm_exception_trigger(FDM_FAULT_EXTRUDER_STATE);
+    system_svc.raise_exception(get_device_id(), FDM_EXCEP_STA_EXTRUDER_STATE_ERROR, EXCEP_ACT_PAUSE_WORKING);
   } else {
     fdm_exception_clear(FDM_FAULT_EXTRUDER_STATE);
+    system_svc.clear_exception(get_device_id(), FDM_EXCEP_STA_EXTRUDER_STATE_ERROR);
   }
 }
 

@@ -216,6 +216,10 @@ enum FDMExceptionState {
   FDM_EXCEP_STA_OVERTEMP_ERROR_E0,
   FDM_EXCEP_STA_OVERTEMP_ERROR_E1,
   FDM_EXCEP_STA_OFFLINE,
+  FDM_EXCEP_STA_NOZZLE_TYPE_ERROR,
+  FDM_EXCEP_STA_FILAMENT_RUNOUT,
+  FDM_EXCEP_STA_EXTRUDER_STATE_ERROR,
+  FDM_EXCEP_STA_PROBE_ERROR,
 };
 
 // exception state for heated Bed
@@ -515,6 +519,7 @@ class SnapmakerPrinter
     SnapmakerSettings *get_settings() { return &settings; }
 
     void raise_exception(SMExceptionOwner owner, uint8_t state, uint32_t actions = 0, uint32_t ban = 0);
+    void clear_exception(SMExceptionOwner owner, uint8_t state);
     bool allow_moving();
     bool allow_heating_bed();
     bool allow_heating_hotend();

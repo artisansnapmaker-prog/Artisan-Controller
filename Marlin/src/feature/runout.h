@@ -170,6 +170,7 @@ class TFilamentMonitor : public FilamentMonitorBase {
           if (millis() - ranout_timer > 0) {
             filament_ran_out = false;
             smprinter.clear_fdm_state(FDM_FAULT_FILAMENT);
+            smprinter.clear_exception(SM_EXCEP_OWNER_TOOLHEAD, FDM_EXCEP_STA_FILAMENT_RUNOUT);
           }
         }
       }

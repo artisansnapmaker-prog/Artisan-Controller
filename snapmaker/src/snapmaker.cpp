@@ -1419,6 +1419,89 @@ void SnapmakerPrinter::raise_exception(SMExceptionOwner owner, uint8_t state,
   }
 }
 
+void SnapmakerPrinter::clear_exception(SMExceptionOwner owner, uint8_t state) {
+  ModuleBase *m;
+  switch (owner) {
+  case SM_EXCEP_OWNER_SYSTEM:
+    system_svc.clear_exception(MODULE_DEVICE_ID_A400_CONTROLLER, state);
+    break;
+
+  case SM_EXCEP_OWNER_TOOLHEAD:
+    m = get_cur_toolhead();
+    if (!m) {
+      LOG_E("toolhead offline, cannot raise exception with SM_EXCEP_OWNER_TOOLHEAD!!!\n");
+      system_svc.clear_exception(MODULE_DEVICE_ID_INVALID, state);
+      break;
+    }
+    system_svc.clear_exception(m->get_device_id(), state);
+    break;
+
+  case SM_EXCEP_OWNER_BED:
+    m = module_svc.get_module(MODULE_DEVICE_ID_A400_BED, 0);
+    if (!m) {
+      LOG_E("Bed offline, cannot raise exception with MODULE_DEVICE_ID_A400_BED!!!\n");
+      system_svc.clear_exception(MODULE_DEVICE_ID_INVALID, state);
+      break;
+    }
+    system_svc.clear_exception(m->get_device_id(), state);
+    break;
+
+  case SM_EXCEP_OWNER_LINEAR_X:
+    m = module_svc.get_module(MODULE_DEVICE_ID_A400_LINEAR, MODULE_LINEAR_X1);
+    if (!m) {
+      LOG_E("Axis offline, cannot raise exception with SM_EXCEP_OWNER_LINEAR_X!!!\n");
+      system_svc.clear_exception(MODULE_DEVICE_ID_INVALID, state);
+      break;
+    }
+    system_svc.clear_exception(m->get_device_id(), state);
+    break;
+
+  case SM_EXCEP_OWNER_LINEAR_Y:
+    m = module_svc.get_module(MODULE_DEVICE_ID_A400_LINEAR, MODULE_LINEAR_Y1);
+    if (!m) {
+      LOG_E("Axis offline, cannot raise exception with MODULE_LINEAR_Y1!!!\n");
+      system_svc.clear_exception(MODULE_DEVICE_ID_INVALID, state);
+      break;
+    }
+    system_svc.clear_exception(m->get_device_id(), state);
+    break;
+
+  case SM_EXCEP_OWNER_LINEAR_Z:
+    m = module_svc.get_module(MODULE_DEVICE_ID_A400_LINEAR, MODULE_LINEAR_Z1);
+    if (!m) {
+      LOG_E("Axis offline, cannot raise exception with MODULE_LINEAR_Z1!!!\n");
+      system_svc.clear_exception(MODULE_DEVICE_ID_INVALID, state);
+      break;
+    }
+    system_svc.clear_exception(m->get_device_id(), state);
+    break;
+
+  case SM_EXCEP_OWNER_LINEAR_Y2:
+    m = module_svc.get_module(MODULE_DEVICE_ID_A400_LINEAR, MODULE_LINEAR_Y2);
+    if (!m) {
+      LOG_E("Axis offline, cannot raise exception with MODULE_LINEAR_Y2!!!\n");
+      system_svc.clear_exception(MODULE_DEVICE_ID_INVALID, state);
+      break;
+    }
+    system_svc.clear_exception(m->get_device_id(), state);
+    break;
+
+  case SM_EXCEP_OWNER_LINEAR_Z2:
+    m = module_svc.get_module(MODULE_DEVICE_ID_A400_LINEAR, MODULE_LINEAR_Z2);
+    if (!m) {
+      LOG_E("Axis offline, cannot raise exception with MODULE_LINEAR_Z2!!!\n");
+      system_svc.clear_exception(MODULE_DEVICE_ID_INVALID, state);
+      break;
+    }
+    system_svc.clear_exception(m->get_device_id(), state);
+    break;
+
+  default:
+    LOG_E("invlaid exception owner[%u]!!!\n", owner);
+    break;
+  }
+}
+
 bool SnapmakerPrinter::allow_moving() {
   return system_svc.allow_moving();
 }

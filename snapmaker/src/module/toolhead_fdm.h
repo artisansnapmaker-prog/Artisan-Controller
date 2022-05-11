@@ -172,6 +172,7 @@ class ToolHeadFDM: public ModuleBase {
       hotend_type_initialized = false;
       memset(hotend_offset, 0, sizeof(hotend_offset));
       last_recv_time = 0;
+      is_fdm_online = true;
     }
 
     bool check_online();
@@ -255,6 +256,7 @@ class ToolHeadFDM: public ModuleBase {
   // public properties
   public:
     float hotend_offset[3][EXTRUDERS];
+    bool is_fdm_online;
 
   // private properties
   private:

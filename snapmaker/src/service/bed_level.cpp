@@ -3,6 +3,7 @@
 #include "Arduino.h"
 #include "../snapmaker.h"
 #include "job_ctrl.h"
+#include "../service/system.h"
 
 BedLevelService bedlevel_svc;
 
@@ -139,6 +140,9 @@ static err_code_t hmi_req_callback_start_level(void *obj, sacp_hmi_message_t *ms
 
   if (mode == BEDLEVEL_MODE_AUTO) {
     ret = bedlevel.start_auto_bed_leveling(grid);
+    if (ret != E_SUCCESS) {
+      smprinter.raise_exception(SM_EXCEP_OWNER_TOOLHEAD, FDM_EXCEP_STA_PROBE_ERROR, EXCEP_ACT_STOP_WORKING);
+    }
     bedlevel.set_end_leveling_process_status(true);
   } else if (mode == BEDLEVEL_MODE_MANUAL) {
     ret = bedlevel.start_manual_bed_leveling(grid);

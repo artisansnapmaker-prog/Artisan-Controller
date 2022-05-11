@@ -7,7 +7,7 @@
 #include "../service/motion_platform.h"
 #include "../service/bed_level.h"
 #include "../service/job_ctrl.h"
-
+#include "../service/system.h"
 #include "../../../Marlin/src/core/serial.h"
 
 
@@ -1061,6 +1061,8 @@ void ToolHeadFDM::set_hotend_type(uint8_t *data) {
     }
   } else {
     fdm_exception_trigger(FDM_FAULT_NOZZLE_IDENTIFY);
+    // TBD
+    system_svc.raise_exception(get_device_id(), FDM_EXCEP_STA_NOZZLE_TYPE_ERROR/*, EXCEP_ACT_STOP_WORKING | EXCEP_ACT_DISABLE_POWER_8P_TOOLHEAD*/);
   }
 }
 
@@ -1650,8 +1652,14 @@ err_code_t fdm_callback_routine(void *obj) {
 
   if (fdm.check_online() == false) {
     LOG_E("fdm offline\n");
-    smprinter.raise_exception(SM_EXCEP_OWNER_TOOLHEAD, FDM_EXCEP_STA_OFFLINE,
-                                EXCEP_ACT_STOP_WORKING | EXCEP_ACT_DISABLE_POWER_8P_TOOLHEAD);
+    fdm.is_fdm_online = false;
+    system_svc.raise_exception(fdm.get_device_id(), FDM_EXCEP_STA_OFFLINE, EXCEP_ACT_STOP_WORKING | EXCEP_ACT_DISABLE_POWER_8P_TOOLHEAD);
+  } else {
+    if (fdm.is_fdm_online == false) {
+      LOG_E("fdm resume online\n");
+      fdm.is_fdm_online = true;
+      system_svc.clear_exception(fdm.get_device_id(), FDM_EXCEP_STA_OFFLINE);
+    }
   }
 
   fdm.delay_turnoff_heating_process();

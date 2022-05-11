@@ -23,6 +23,9 @@
 
 #include "base.h"
 #include "../snapmaker.h"
+#include "../common/error.h"
+#include "../host/sacp_hmi.h"
+
 class EmergencyStopVirtual: public ModuleBase {
   // public methods
   public:
@@ -37,6 +40,8 @@ class EmergencyStopVirtual: public ModuleBase {
     err_code_t deinit() { return E_SUCCESS; }
 
   static void show_info();
+
+  static err_code_t hmi_cb_get_button_status(void *obj, sacp_hmi_message_t *msg);
 
   // private methods
   private:

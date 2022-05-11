@@ -9,8 +9,8 @@
 #include "../service/job_ctrl.h"
 
 // normal -> HIGH, triggered -> LOW
-static uint32_t stop_button    = PE1;
-static uint32_t power_loss_det = PE0;
+static uint32_t stop_button    = EMERGENCY_STOP_BUTTON;
+static uint32_t power_loss_det = POWER_LOSS_DETECT;
 
 #define POWER_DOMAIN_EMERGENCY_STOP (POWER_DOMAIN_MOTIVE_POWER | POWER_DOMAIN_8P_TOOLHEAD | \
                                       POWER_DOMAIN_8P_MOTOR | POWER_DOMAIN_4P_ADDON | \

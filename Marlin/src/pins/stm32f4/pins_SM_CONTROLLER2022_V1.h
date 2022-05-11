@@ -257,3 +257,6 @@ extern int16_t E1_ENABLE_PIN_var;
 
 #define POWER_CTRL_ON                    HIGH
 #define POWER_CTRL_OFF                   LOW
+
+#define EMERGENCY_STOP_BUTTON           PE1
+#define POWER_LOSS_DETECT               PE0

@@ -473,7 +473,7 @@ void DryBox::update_drybox_state(drybox_state_e state) {
   drybox_state = state;
 
   if (heating_state == 0 && drybox_state == DRYBOX_STATE_FAULT) {
-    system_svc.raise_exception_from_isr(get_device_id(), DRYBOX_EXCEP_STA_PAUSE_HEATING);
+    system_svc.raise_exception(get_device_id(), DRYBOX_EXCEP_STA_PAUSE_HEATING);
   } else {
     // TODO
     // system_svc.clear_exception();

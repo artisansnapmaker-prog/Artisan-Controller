@@ -94,4 +94,28 @@ enum BedZoneNumber {
 #define MOTIVE_VOL_UPPER_LIMIT  (26.0)
 #define MOTIVE_VOL_LOWER_LIMIT  (22.0)
 
+#define A400_HARDWARE_VER_DELTA  (0.2)
+
+#define A400_HARDWARE_VER_0_VOL  (0.3)
+#define A400_HARDWARE_VER_1_VOL  (0.7)
+#define A400_HARDWARE_VER_2_VOL  (1.1)
+#define A400_HARDWARE_VER_3_VOL  (1.5)
+#define A400_HARDWARE_VER_4_VOL  (1.9)
+#define A400_HARDWARE_VER_5_VOL  (2.3)
+#define A400_HARDWARE_VER_6_VOL  (2.7)
+#define A400_HARDWARE_VER_7_VOL  (3.1)
+
+enum SnapmakerPrinterHWVer {
+  SM_HW_VER_0 = 0,
+  SM_HW_VER_1,
+  SM_HW_VER_2,
+  SM_HW_VER_3,
+  SM_HW_VER_4,
+  SM_HW_VER_5,
+  SM_HW_VER_6,
+  SM_HW_VER_7,
+
+  SM_HW_VER_UNKNOWN = 0xFF
+};
+
 #endif  // #ifndef SNAPMAKER_CONFIG_H_

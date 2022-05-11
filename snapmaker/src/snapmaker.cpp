@@ -199,9 +199,8 @@ err_code_t SnapmakerPrinter::hmi_cb_get_machine_info(void *obj, sacp_hmi_message
   msg->data[0] = E_SUCCESS;
 
   info->model      = (uint8_t)printer->model;
-  info->hw_ver     = 0;
+  info->hw_ver     = printer->hw_ver;
   info->sn         = 0;
-  info->fw_ver_len = 30;
 
   for (; i < 32; i++) {
     info->fw_ver[i] = ver[i];
@@ -437,6 +436,7 @@ static void system_thread(void *p) {
       (void *)&smprinter, SnapmakerPrinter::hmi_cb_set_machine_enter_replace_mode);
 
   smprinter.check_system_voltage();
+  smprinter.get_hw_version();
 
   // loop
   for (;;) {
@@ -487,6 +487,7 @@ void SnapmakerPrinter::pre_init(void) {
   // configure the voltage detect pins
   pinMode(VOL1_DETECT_PIN, INPUT_ANALOG);
   pinMode(VOL2_DETECT_PIN, INPUT_ANALOG);
+  pinMode(HARDWARE_VERSION_PIN, INPUT_ANALOG);
 }
 
 
@@ -1450,6 +1451,46 @@ void SnapmakerPrinter::check_system_voltage() {
         EXCEP_BAN_TURN_ON_CNC | EXCEP_BAN_TURN_ON_LASER);
   }
 }
+
+void SnapmakerPrinter::get_hw_version() {
+  uint32_t vol_raw;
+  uint32_t i = 0;
+  float ver_vol;
+
+  float vol_table[] = {
+    A400_HARDWARE_VER_0_VOL,
+    A400_HARDWARE_VER_1_VOL,
+    A400_HARDWARE_VER_2_VOL,
+    A400_HARDWARE_VER_3_VOL,
+    A400_HARDWARE_VER_4_VOL,
+    A400_HARDWARE_VER_5_VOL,
+    A400_HARDWARE_VER_6_VOL,
+    A400_HARDWARE_VER_7_VOL,
+  };
+
+  taskENTER_CRITICAL();
+  vol_raw = analogRead(HARDWARE_VERSION_PIN);
+  taskEXIT_CRITICAL();
+
+  ver_vol = (vol_raw * 3.3) / 4096;
+
+  for (; i < sizeof(vol_table); i++) {
+    if (ver_vol < (vol_table[i] + A400_HARDWARE_VER_DELTA) ||
+        ver_vol > (vol_table[i] - A400_HARDWARE_VER_DELTA)) {
+      break;
+    }
+  }
+
+  if (i >= sizeof(vol_table)) {
+    hw_ver = (uint8_t)SM_HW_VER_UNKNOWN;
+  }
+  else {
+    hw_ver = i;
+  }
+
+  LOG_I("vol: %.2fv, hw version: %u\n", ver_vol, hw_ver);
+}
+
 
 extern "C" {
   // hook for failing to apply memory in freeRTOS

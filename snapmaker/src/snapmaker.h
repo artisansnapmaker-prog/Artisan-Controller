@@ -490,11 +490,14 @@ class SnapmakerPrinter
 
     void check_system_voltage();
 
+    void get_hw_version();
+
   private:
     enum SystemStatus sys_status;
     SemaphoreHandle_t status_lock;
 
     SnapmakerModel model = SNAPMAKER_MODEL_MAX;
+    uint8_t hw_ver;
 
     Rotary *rotary = NULL;
 

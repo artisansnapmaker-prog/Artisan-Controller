@@ -353,8 +353,8 @@ void MotionPlatformService::motion_background(void *p) {
     if (motion.marlin_paused) {
       LOG_I("Marlin RESUME!!!\n");
     }
+
     motion.marlin_paused = false;
-    taskYIELD();
   }
 }
 

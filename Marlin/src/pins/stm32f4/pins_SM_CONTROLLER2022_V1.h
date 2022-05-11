@@ -225,9 +225,9 @@ extern int16_t E1_ENABLE_PIN_var;
 #define FAN3_PIN                            -4   // fake pin, actul fan3 is controlled with CAN bus
 #define FAN4_PIN                            -5    // fan in controller
 
-#define FAN5_PIN                            LED_RED_PIN
-#define FAN6_PIN                            LED_GREEN_PIN
-#define FAN7_PIN                            LED_BLUE_PIN
+// #define FAN5_PIN                            LED_RED_PIN
+// #define FAN6_PIN                            LED_GREEN_PIN
+// #define FAN7_PIN                            LED_BLUE_PIN
 
 //
 // Misc. Functions

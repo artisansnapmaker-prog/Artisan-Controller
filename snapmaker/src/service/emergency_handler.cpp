@@ -198,6 +198,10 @@ void EmergencyHandler::power_loss() {
   uint32_t *flag = NULL, *checksum_addr = NULL;
   volatile uint32_t checksum;
 
+  digitalWrite(LED_GREEN_PIN, LOW);
+  digitalWrite(LED_BLUE_PIN, LOW);
+  digitalWrite(LED_RED_PIN, HIGH);
+
   // - disable All ISR
   disable_all_interrupts();
 

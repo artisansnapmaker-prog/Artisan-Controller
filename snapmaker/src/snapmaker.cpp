@@ -488,6 +488,14 @@ void SnapmakerPrinter::pre_init(void) {
   pinMode(VOL1_DETECT_PIN, INPUT_ANALOG);
   pinMode(VOL2_DETECT_PIN, INPUT_ANALOG);
   pinMode(HARDWARE_VERSION_PIN, INPUT_ANALOG);
+
+  // configure LED pins
+  pinMode(LED_RED_PIN, OUTPUT);
+  pinMode(LED_GREEN_PIN, OUTPUT);
+  pinMode(LED_BLUE_PIN, OUTPUT);
+  digitalWrite(LED_RED_PIN, HIGH);
+  digitalWrite(LED_GREEN_PIN, HIGH);
+  digitalWrite(LED_BLUE_PIN, HIGH);
 }
 
 

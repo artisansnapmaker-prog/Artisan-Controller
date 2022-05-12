@@ -5,6 +5,7 @@
 #include "../common/debug.h"
 #include "../service/module.h"
 #include "../service/motion_platform.h"
+#include "../service/system.h"
 
 #include "../../../Marlin/src/core/serial.h"
 
@@ -29,6 +30,13 @@ err_code_t Rotary::post_init() {
   device_id = get_device_id();
   if (MODULE_DEVICE_ID_INVALID == device_id) {
     return E_FAILURE;
+  }
+
+  uint32_t port_index = get_port_index();
+  if (port_index != PORT_INDEX_P3) {
+    set_status(MODULE_STATUS_UNCONFIGURE);
+    system_svc.raise_exception(get_device_id(), ROTARY_EXCEP_STA_PORT_ERROR);
+    return E_HARDWARE;
   }
 
   smprinter.register_module(device_id, this);

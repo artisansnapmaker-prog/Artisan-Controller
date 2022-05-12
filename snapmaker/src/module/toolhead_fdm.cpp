@@ -151,6 +151,13 @@ err_code_t ToolHeadFDM::single_extruder_post_init() {
   SnapmakerSettings * smsettings = smprinter.get_settings();
   single_extruder_steps_per_unit = smsettings->fdm_settings.single_extruder_steps_per_unit;
 
+  uint32_t port_index = get_port_index();
+  if (port_index != PORT_INDEX_P1) {
+    set_status(MODULE_STATUS_UNCONFIGURE);
+    system_svc.raise_exception(get_device_id(), FDM_EXCEP_STA_PORT_ERROR);
+    return E_HARDWARE;
+  }
+
   hotend_pid_sync();
   probe_state_sync();
   filament_state_sync();
@@ -261,6 +268,13 @@ err_code_t ToolHeadFDM::dual_extruder_post_init() {
   last_recv_time = millis();
   SnapmakerSettings * smsettings = smprinter.get_settings();
   dual_extruder_steps_per_unit[0] = smsettings->fdm_settings.dual_extruder_steps_per_unit[0];
+
+  uint32_t port_index = get_port_index();
+  if (port_index != PORT_INDEX_P1) {
+    set_status(MODULE_STATUS_UNCONFIGURE);
+    system_svc.raise_exception(get_device_id(), FDM_EXCEP_STA_PORT_ERROR);
+    return E_HARDWARE;
+  }
 
   hotend_pid_sync();
   hotend_type_sync();

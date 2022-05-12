@@ -220,6 +220,7 @@ enum FDMExceptionState {
   FDM_EXCEP_STA_FILAMENT_RUNOUT,
   FDM_EXCEP_STA_EXTRUDER_STATE_ERROR,
   FDM_EXCEP_STA_PROBE_ERROR,
+  FDM_EXCEP_STA_PORT_ERROR,
 };
 
 // exception state for heated Bed
@@ -239,6 +240,11 @@ enum DryBoxExceptionState {
   DRYBOX_EXCEP_STA_OVER_TEMP = 1,
   DRYBOX_EXCEP_STA_PAUSE_HEATING,
   DRYBOX_EXCEP_STA_OFFLINE,
+};
+
+// exception state for drybox
+enum RotaryExceptionState {
+  ROTARY_EXCEP_STA_PORT_ERROR = 1,
 };
 
 

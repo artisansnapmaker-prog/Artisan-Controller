@@ -806,11 +806,13 @@ err_code_t drybox_callback_routine(void *obj) {
   if (drybox.check_online() == false) {
     LOG_E("drybox offline\n");
     drybox.is_drybox_online = false;
+    drybox.set_status(MODULE_STATUS_OFFLINE);
     system_svc.raise_exception(drybox.get_device_id(), DRYBOX_EXCEP_STA_OFFLINE);
   } else {
     if (drybox.is_drybox_online == false) {
       LOG_E("drybox resume online\n");
       drybox.is_drybox_online = true;
+      drybox.set_status(MODULE_STATUS_NORMAL);
       // need to get drybox state
       drybox.drybox_state_sync();
       system_svc.clear_exception(drybox.get_device_id(), DRYBOX_EXCEP_STA_OFFLINE);

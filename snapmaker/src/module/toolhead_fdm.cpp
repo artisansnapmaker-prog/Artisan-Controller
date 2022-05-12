@@ -1662,11 +1662,13 @@ err_code_t fdm_callback_routine(void *obj) {
   if (fdm.check_online() == false) {
     LOG_E("fdm offline\n");
     fdm.is_fdm_online = false;
+    fdm.set_status(MODULE_STATUS_OFFLINE);
     system_svc.raise_exception(fdm.get_device_id(), FDM_EXCEP_STA_OFFLINE, EXCEP_ACT_STOP_WORKING | EXCEP_ACT_DISABLE_POWER_8P_TOOLHEAD);
   } else {
     if (fdm.is_fdm_online == false) {
       LOG_E("fdm resume online\n");
       fdm.is_fdm_online = true;
+      fdm.set_status(MODULE_STATUS_NORMAL);
       system_svc.clear_exception(fdm.get_device_id(), FDM_EXCEP_STA_OFFLINE);
     }
   }

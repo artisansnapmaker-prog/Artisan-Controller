@@ -54,6 +54,9 @@
 
 #define CHECK_ONLINE_TIMEOUT  5000
 
+#define SINGLE_EXTRUDER_STEPS_PER_UNIT_DEFAULT  212.21
+#define DUAL_EXTRUDER_STEPS_PER_UNIT_DEFAULT    142
+
 
 /****************************************************************************************
 reference links: https://snapmaker2.atlassian.net/wiki/spaces/SNAP/pages/1984987369/FDM
@@ -96,6 +99,11 @@ typedef struct {
   uint8_t model;
   float diameter;
 }hotend_type_info_t;
+
+typedef struct {
+  float single_extruder_steps_per_unit;
+  float dual_extruder_steps_per_unit[EXTRUDERS];
+}fdm_settings_t;
 
 #define HOTEND_INFO_MAX 22
 const hotend_type_info_t hotend_info[HOTEND_INFO_MAX] = {{.model = 2, .diameter = 0.4}, \
@@ -188,6 +196,7 @@ class ToolHeadFDM: public ModuleBase {
     bool prepare_start(void);
     err_code_t set_feedrate_percentage(uint8_t *data, uint16_t length);
     uint16_t get_feedrate_percentage(uint8_t *buffer);
+    err_code_t factory_reset();
 
     err_code_t probe_state_sync();
     err_code_t hotend_type_sync();

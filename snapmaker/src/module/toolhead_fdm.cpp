@@ -21,7 +21,6 @@ static err_code_t hmi_req_callback_switch_extruder(void *obj, sacp_hmi_message_t
 static err_code_t hmi_req_callback_set_fan_speed(void *obj, sacp_hmi_message_t *msg);
 static err_code_t hmi_req_callback_set_hotend_offset(void *obj, sacp_hmi_message_t *msg);
 static err_code_t hmi_req_callback_get_hotend_offset(void *obj, sacp_hmi_message_t *msg);
-static err_code_t hmi_req_callback_get_hotend_offset(void *obj, sacp_hmi_message_t *msg);
 static err_code_t hmi_req_callback_extruder_motion(void *obj, sacp_hmi_message_t *msg);
 static err_code_t hmi_req_callback_change_nozzle_ctrl(void *obj, sacp_hmi_message_t *msg);
 
@@ -150,7 +149,7 @@ err_code_t ToolHeadFDM::single_extruder_post_init() {
 
   last_recv_time = millis();
   SnapmakerSettings * smsettings = smprinter.get_settings();
-  single_extruder_steps_per_unit = smsettings->single_extruder_steps_per_unit;
+  single_extruder_steps_per_unit = smsettings->fdm_settings.single_extruder_steps_per_unit;
 
   hotend_pid_sync();
   probe_state_sync();
@@ -261,7 +260,7 @@ err_code_t ToolHeadFDM::dual_extruder_post_init() {
 
   last_recv_time = millis();
   SnapmakerSettings * smsettings = smprinter.get_settings();
-  dual_extruder_steps_per_unit[0] = smsettings->dual_extruder_steps_per_unit[0];
+  dual_extruder_steps_per_unit[0] = smsettings->fdm_settings.dual_extruder_steps_per_unit[0];
 
   hotend_pid_sync();
   hotend_type_sync();
@@ -1798,8 +1797,8 @@ err_code_t ToolHeadFDM::standby(void) {
   if (bedlevel_svc.live_z_offset_changed) {
     bedlevel_svc.live_z_offset_changed = false;
     SnapmakerSettings *smsettings = smprinter.get_settings();
-    smsettings->live_z_offset[0] = bedlevel_svc.live_z_offset[0];
-    smsettings->live_z_offset[1] = bedlevel_svc.live_z_offset[1];
+    smsettings->bedlevel_settings.live_z_offset[0] = bedlevel_svc.live_z_offset[0];
+    smsettings->bedlevel_settings.live_z_offset[1] = bedlevel_svc.live_z_offset[1];
     motion_platform_svc.save_settings();
     // LOG_I("fdm standby, save live_z_offet: %f, %f\n", bedlevel_svc.live_z_offset[0], bedlevel_svc.live_z_offset[1]);
   }
@@ -1873,6 +1872,16 @@ uint16_t ToolHeadFDM::get_feedrate_percentage(uint8_t *buffer) {
   buffer[index++] = (extruder1_feedrate_percentage >> 8) & 0xff;
 
   return index;
+}
+
+err_code_t ToolHeadFDM::factory_reset() {
+  err_code_t ret;
+
+  ret = set_hotend_offset(DEFAULT_HOTEND_OFFSET_X, X_AXIS);
+  ret = set_hotend_offset(DEFAULT_HOTEND_OFFSET_Y, Y_AXIS);
+  ret = set_hotend_offset(DEFAULT_HOTEND_OFFSET_Z, Z_AXIS);
+
+  return ret;
 }
 
 void ToolHeadFDM::fdm_exception_trigger(fdm_fault_e fault) {
@@ -1998,12 +2007,12 @@ void ToolHeadFDM::set_axis_steps_per_unit(float value) {
 
   if (device_id == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
     single_extruder_steps_per_unit = value;
-    smsettings->single_extruder_steps_per_unit = value;
+    smsettings->fdm_settings.single_extruder_steps_per_unit = value;
   } else if (device_id == MODULE_DEVICE_ID_FDM_1EXTRUDER_2019) {
     dual_extruder_steps_per_unit[0] = value;
     dual_extruder_steps_per_unit[1] = value;
-    smsettings->dual_extruder_steps_per_unit[0] = value;
-    smsettings->dual_extruder_steps_per_unit[1] = value;
+    smsettings->fdm_settings.dual_extruder_steps_per_unit[0] = value;
+    smsettings->fdm_settings.dual_extruder_steps_per_unit[1] = value;
   }
 
   motion_platform_svc.save_settings();

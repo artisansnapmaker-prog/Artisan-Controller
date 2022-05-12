@@ -21,8 +21,10 @@
 #ifndef SNAPMAKER_BED_LEVEL_SERVICE_H_
 #define SNAPMAKER_BED_LEVEL_SERVICE_H_
 
+// #include "../config.h"
+// #include "motion_platform.h"
 #include "../config.h"
-#include "motion_platform.h"
+#include "../module/toolhead_fdm.h"
 
 #define CALIBRATION_PAPER_THICKNESS   0.1
 #define LIVE_Z_OFFSET_LIMIT           0.5
@@ -62,6 +64,12 @@ typedef enum {
 #define AUTO_HOTEND_OFFSET_CALIBRATION_X_POSITION  214.4
 #define AUTO_HOTEND_OFFSET_CALIBRATION_Y_POSITION  206
 #define AUTO_HOTEND_OFFSET_CALIBRATION_Z_POSITION  13.8
+
+#define BEDLEVEL_LIVE_Z_OFFSET_DEFAULT  0
+
+typedef struct {
+  float live_z_offset[EXTRUDERS];
+} __attribute__((packed)) bedlevel_settings_t;
 
 class BedLevelService {
   public:

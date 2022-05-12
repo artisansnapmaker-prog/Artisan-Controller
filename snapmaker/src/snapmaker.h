@@ -15,6 +15,7 @@
 #include "module/bed_virt.h"
 #include "module/rotary.h"
 #include "module/purifier.h"
+#include "service/bed_level.h"
 
 #define EVENT_GROUP_MODULE_READY      (0x00000001)
 #define EVENT_GROUP_WAIT_FOR_HEATING  (0X00000002)
@@ -28,9 +29,8 @@
 struct SnapmakerSettings {
   int32_t laser_platform_hight;
   int32_t laser_4axis_center_hight;
-  float live_z_offset[EXTRUDERS];
-  float single_extruder_steps_per_unit;
-  float dual_extruder_steps_per_unit[EXTRUDERS];
+  bedlevel_settings_t bedlevel_settings;
+  fdm_settings_t fdm_settings;
   PurifierWorkSettings purifier_settings;
   EnclosureSettings enclosure_settings;
 };

@@ -4,6 +4,8 @@
 #include "../snapmaker.h"
 #include "job_ctrl.h"
 #include "../service/system.h"
+#include "motion_platform.h"
+#include "../config.h"
 
 BedLevelService bedlevel_svc;
 
@@ -20,8 +22,8 @@ static err_code_t hmi_req_callback_get_live_z_offset(void *obj, sacp_hmi_message
 
 void BedLevelService::init() {
   SnapmakerSettings * smsettings = smprinter.get_settings();
-  live_z_offset[0] = smsettings->live_z_offset[0];
-  live_z_offset[1] = smsettings->live_z_offset[1];
+  live_z_offset[0] = smsettings->bedlevel_settings.live_z_offset[0];
+  live_z_offset[1] = smsettings->bedlevel_settings.live_z_offset[1];
   LOG_I("live_z_offset: %f, %f\n", live_z_offset[0], live_z_offset[1]);
 
   // apply fdm cmd ids handle and register hmi request callback
@@ -354,8 +356,8 @@ static err_code_t hmi_req_callback_bed_position_detection(void *obj, sacp_hmi_me
       // clear live_z_offset
       bedlevel.live_z_offset[0] = 0;
       bedlevel.live_z_offset[1] = 0;
-      smsettings->live_z_offset[0] = 0;
-      smsettings->live_z_offset[1] = 0;
+      smsettings->bedlevel_settings.live_z_offset[0] = 0;
+      smsettings->bedlevel_settings.live_z_offset[1] = 0;
       motion_platform_svc.save_settings();
 
       motion_platform_svc.run_gcode((char *)"G28", true);
@@ -387,8 +389,8 @@ static err_code_t hmi_req_callback_bed_position_detection(void *obj, sacp_hmi_me
       // clear live_z_offset
       bedlevel.live_z_offset[0] = 0;
       bedlevel.live_z_offset[1] = 0;
-      smsettings->live_z_offset[0] = 0;
-      smsettings->live_z_offset[1] = 0;
+      smsettings->bedlevel_settings.live_z_offset[0] = 0;
+      smsettings->bedlevel_settings.live_z_offset[1] = 0;
       motion_platform_svc.save_settings();
 
       motion_platform_svc.run_gcode((char *)"G28", true);
@@ -444,8 +446,8 @@ static err_code_t hmi_req_callback_probe_sensor_calibration(void *obj, sacp_hmi_
       // clear live_z_offset
       bedlevel.live_z_offset[0] = 0;
       bedlevel.live_z_offset[1] = 0;
-      smsettings->live_z_offset[0] = 0;
-      smsettings->live_z_offset[1] = 0;
+      smsettings->bedlevel_settings.live_z_offset[0] = 0;
+      smsettings->bedlevel_settings.live_z_offset[1] = 0;
       motion_platform_svc.save_settings();
       motion_platform_svc.run_gcode((char *)"G28", true);
       bedlevel.set_end_leveling_process_status(false);
@@ -683,8 +685,8 @@ err_code_t BedLevelService::start_manual_bed_leveling(uint8_t grids) {
   live_z_offset[0] = 0;
   live_z_offset[1] = 0;
   SnapmakerSettings *smsettings = smprinter.get_settings();
-  smsettings->live_z_offset[0] = 0;
-  smsettings->live_z_offset[1] = 0;
+  smsettings->bedlevel_settings.live_z_offset[0] = 0;
+  smsettings->bedlevel_settings.live_z_offset[1] = 0;
   motion_platform_svc.save_settings();
 
   // go home
@@ -747,8 +749,8 @@ err_code_t BedLevelService::start_auto_bed_leveling(uint8_t grids) {
   live_z_offset[0] = 0;
   live_z_offset[1] = 0;
   SnapmakerSettings *smsettings = smprinter.get_settings();
-  smsettings->live_z_offset[0] = 0;
-  smsettings->live_z_offset[1] = 0;
+  smsettings->bedlevel_settings.live_z_offset[0] = 0;
+  smsettings->bedlevel_settings.live_z_offset[1] = 0;
   motion_platform_svc.save_settings();
 
   motion_platform_svc.run_gcode((char *)"G28", true);
@@ -952,7 +954,7 @@ void BedLevelService::set_live_z_offset(uint8_t e, float offset) {
       LOG_I("save live_z_offset\n");
       live_z_offset_changed = false;
       SnapmakerSettings *smsettings = smprinter.get_settings();
-      smsettings->live_z_offset[e] = live_z_offset[e];
+      smsettings->bedlevel_settings.live_z_offset[e] = live_z_offset[e];
       motion_platform_svc.save_settings();
     }
   } else {

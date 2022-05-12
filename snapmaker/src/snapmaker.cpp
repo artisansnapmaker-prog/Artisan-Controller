@@ -9,7 +9,6 @@
 #include "service/module.h"
 #include "service/system.h"
 #include "service/motion_platform.h"
-#include "service/bed_level.h"
 #include "service/emergency_handler.h"
 
 #include "host/sacp.h"
@@ -1311,13 +1310,13 @@ void SnapmakerPrinter::reset_settings() {
   settings.laser_4axis_center_hight = LASER_4AXIS_CENTER_HIGHT_DEFAULT;
 
   // reset live_z_offset
-  settings.live_z_offset[0] = 0;
-  settings.live_z_offset[1] = 0;
+  settings.bedlevel_settings.live_z_offset[0] = BEDLEVEL_LIVE_Z_OFFSET_DEFAULT;
+  settings.bedlevel_settings.live_z_offset[1] = BEDLEVEL_LIVE_Z_OFFSET_DEFAULT;
 
   // reset e axis steps per unit
-  settings.single_extruder_steps_per_unit = 212.21;
-  settings.dual_extruder_steps_per_unit[0] = 142;
-  settings.dual_extruder_steps_per_unit[1] = 142;
+  settings.fdm_settings.single_extruder_steps_per_unit  = SINGLE_EXTRUDER_STEPS_PER_UNIT_DEFAULT;
+  settings.fdm_settings.dual_extruder_steps_per_unit[0] = DUAL_EXTRUDER_STEPS_PER_UNIT_DEFAULT;
+  settings.fdm_settings.dual_extruder_steps_per_unit[1] = DUAL_EXTRUDER_STEPS_PER_UNIT_DEFAULT;
 
   // reset your settings
 

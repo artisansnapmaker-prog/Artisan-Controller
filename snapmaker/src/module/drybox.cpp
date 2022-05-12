@@ -45,7 +45,7 @@ err_code_t DryBox::pre_init() {
 
 err_code_t DryBox::post_init() {
   // register hmi subscript callback
-  host_hmi.register_subscription(SACP_CMD_SET_DRY_BOX, DRYBOX_SUBSCRIPT_CMD_ID_DRYBOX_STATE, (void *)this, hmi_subscript_callback_drybox_status);
+  host_hmi.register_subscription(SACP_CMD_SET_DRY_BOX, DRYBOX_SUBSCRIPT_CMD_ID_DRYBOX_STATE, (void *)this, hmi_subscript_callback_drybox_status, hmi_subscribe_drybox_status_notify_cb);
 
   // apply fdm cmd ids handle and register hmi request callback
   host_hmi.apply_cmd_set_handle(SACP_CMD_SET_DRY_BOX, DRYBOX_REQ_CMD_ID_SUM);

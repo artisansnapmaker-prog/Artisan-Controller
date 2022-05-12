@@ -23,6 +23,7 @@
 #include "../../boot/boot.h"
 #include "../../boot/boot_upgrade.h"
 #include "upgrade_service.h"
+#include "../../common/debug.h"
 
 UpgradeCtrlService ugr_ctrl_svc;
 
@@ -54,7 +55,7 @@ void UpgradeCtrlService::mark_boot_info(void) {
 }
 
 void UpgradeCtrlService::loop(void) {
-  
+
 }
 
 err_code_t UpgradeCtrlService::start_proc(pack_info_t *boot_info, sacp_hmi_message_t *msg) {

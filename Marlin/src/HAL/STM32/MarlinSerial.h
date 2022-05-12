@@ -29,6 +29,8 @@
 
 #include "../../core/serial_hook.h"
 
+#define MARLIN_SINGLE_LOG_BUFFER_SIZE  256         // should > 1
+
 enum MarlinSeralChannel {
   MARLIN_SERIAL_CHANNEL_ORIGINAL,
   MARLIN_SERIAL_CHANNEL_SECOND,
@@ -41,7 +43,9 @@ typedef void (*usart_rx_callback_t)(serial_t * obj);
 struct MarlinSerial : public HardwareSerial {
   MarlinSerial(void *peripheral, usart_rx_callback_t rx_callback) :
       HardwareSerial(peripheral), _rx_callback(rx_callback)
-  { }
+  {
+    str_buf_index = 0;
+  }
 
   void begin(unsigned long baud, uint8_t config);
   inline void begin(unsigned long baud) { begin(baud, SERIAL_8N1); }
@@ -54,6 +58,7 @@ struct MarlinSerial : public HardwareSerial {
   int read(void);
   void flush(void);
   size_t write(uint8_t);
+  size_t write_console(uint8_t c);
   int available(void);
 
   int peek_sec(void);
@@ -119,6 +124,10 @@ protected:
 
   void *read_lock = NULL;
   void *write_lock = NULL;
+
+private:
+  char str_buf[MARLIN_SINGLE_LOG_BUFFER_SIZE];
+  uint16_t str_buf_index;
 };
 
 typedef Serial1Class<MarlinSerial> MSerialT;

@@ -22,12 +22,29 @@
 #define SNAPMAKER_DEBUG_H_
 
 #include <stdio.h>
-#include "config.h"
+#include "../config.h"
 
 #include "error.h"
+#include "../host/sacp.h"
 
 // 1 = enable API for snap debug
 #define SNAP_DEBUG 1
+
+typedef enum {
+  DEBUG_REQ_CMD_ID_SET_LOG_LEVEL      = 0x10,
+
+  DEBUG_REQ_CMD_ID_SUM                = 1,      // Adding or deleting IDs requires changing this value
+}debug_req_cmd_id_e;
+
+typedef enum {
+  DEBUG_SUBSCRIPT_CMD_ID_LOG_TRANS     = 0xa1,
+}debug_subscript_cmd_id_e;
+
+typedef struct {
+  bool is_occupied;
+  uint32_t peer;
+  uint8_t ch;
+}debug_subscript_info_t;
 
 enum SnapDebugLevel : uint8_t {
   SNAP_DEBUG_LEVEL_TRACE = 0,
@@ -52,13 +69,8 @@ enum GcodeState : uint8_t {
 
 #if (SNAP_DEBUG)
 
-// massage will output to this interface
-//#define CONSOLE_OUTPUT(log) MYSERIAL0.print_directly(log)
-extern void serial_print_P(const char* str);
-#define CONSOLE_OUTPUT(log) serial_print_P(log)
-
 // log buffer size, max length for one debug massage
-#define SNAP_SC_LOG_BUFFER_SIZE     (20*1024)
+#define BOOT_LOG_BUFFER_SIZE        (20*1024)
 #define SNAP_SINGLE_LOG_BUFFER_SIZE (256)
 
 #define SNAP_TRACE_STR    "SNAP_TRACE: "
@@ -86,10 +98,16 @@ class SnapDebug {
   public:
     SnapDebug () {
       is_boot_log = true;
+      for (uint32_t i = 0; i < 3; i++) {
+        subscript_info_array[i].is_occupied = false;
+        subscript_info_array[i].peer = 0xff;
+        subscript_info_array[i].ch = 0xff;
+      }
     }
     void Log(SnapDebugLevel level, const char *fmt, ...);
 
     void init();
+    void post_init();
 
     void ShowInfo();
     void SetLevel(uint8_t port, SnapDebugLevel l);
@@ -101,8 +119,16 @@ class SnapDebug {
     void ShowException();
 
     void set_boot_log_state(bool state) { is_boot_log = state; }
-    void flush_sc_log_buff();
-    void send_marlin_log_to_screen();
+    void flush_boot_log(uint32_t peer);
+    void send_log_to_boot_log_buffer(char *string);
+    void send_log_to_host(char *string, SnapDebugLevel level = SNAP_DEBUG_LEVEL_MAX);
+    void send_log_to_console_with_sacp_protocol(char *string);
+    void send_log_to_console_with_origin_protocol(char *string);
+    void send_log_to_console(char *string);
+
+    static void hmi_subscribe_log_trans_notify_cb(void *obj, uint32_t peer, uint8_t ch, uint8_t type);
+    static uint16_t hmi_subscript_callback_log_trans(void *obj, uint8_t *buffer);
+    static err_code_t hmi_req_callback_set_log_level(void *obj, sacp_hmi_message_t *msg);
 
     // err_code_t SetLogLevel(SSTP_Event_t &event);
 
@@ -112,6 +138,7 @@ class SnapDebug {
     struct SnapDebugInfo info;
     SemaphoreHandle_t lock;
     bool is_boot_log;
+    debug_subscript_info_t subscript_info_array[3];
 };
 
 // interface for external use

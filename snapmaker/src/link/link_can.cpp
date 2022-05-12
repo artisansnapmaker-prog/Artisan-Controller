@@ -3,9 +3,6 @@
 #include "../common/debug.h"
 #include "src/core/boards.h"
 
-// because macro UNUSED is defined in Marlin and HAL, so undefine it here to avoid buid warning
-#undef UNUSED
-
 #include "arduino.h"
 #include "stm32f4xx_hal_can.h"
 
@@ -351,7 +348,7 @@ BaseType_t LinkCANStdRemote::receive_data(LinkCANChannel ch, uint32_t id) {
 }
 
 err_code_t LinkCANStdRemote::write(uint32_t cmd) {
-  // NOTE: A400 with only can channel 1 
+  // NOTE: A400 with only can channel 1
   return send_packet(LINK_CAN_CH_1, LINK_CAN_TYPE_STD_REMOTE, cmd, NULL, 0);
 }
 // ======================LinkCANStdRemote end======================

@@ -23,6 +23,8 @@
 //#include "../service/system.h"
 //#include "../service/power_loss_recovery.h"
 #include "../snapmaker.h"
+// #include "../host/sacp_hmi.h"
+#include "../service/motion_platform.h"
 
 // marlin headers
 // #include "src/Marlin.h"
@@ -82,10 +84,9 @@ const static char *excoption_str[32] {
 
 static SnapDebugLevel pc_msg_level = SNAP_DEBUG_LEVEL_INFO;
 static SnapDebugLevel sc_msg_level = SNAP_DEBUG_LEVEL_INFO;
-// static char sc_log_buf[SNAP_SC_LOG_BUFFER_SIZE];
-// static uint16_t sc_log_length = 0;
 static char single_log_buf[SNAP_SINGLE_LOG_BUFFER_SIZE];
-
+static char boot_log_buf[BOOT_LOG_BUFFER_SIZE];
+static uint16_t boot_log_buf_wirte_index = 0;
 const char *snap_debug_str[SNAP_DEBUG_LEVEL_MAX] = {
   SNAP_TRACE_STR,
   SNAP_INFO_STR,
@@ -94,40 +95,254 @@ const char *snap_debug_str[SNAP_DEBUG_LEVEL_MAX] = {
   SNAP_FATAL_STR
 };
 
-
 void SnapDebug::init() {
   lock = xSemaphoreCreateMutex();
 }
 
-void SnapDebug::flush_sc_log_buff() {
-  // 组织数据发送到屏幕
+void SnapDebug::post_init() {
+  // register hmi subscript callback
+  host_hmi.register_subscription(SACP_CMD_SET_GLOBAL_REQ, DEBUG_SUBSCRIPT_CMD_ID_LOG_TRANS, this, hmi_subscript_callback_log_trans, hmi_subscribe_log_trans_notify_cb);
+
+  // apply fdm cmd ids handle and register hmi request callback
+  host_hmi.apply_cmd_set_handle(SACP_CMD_SET_GLOBAL_REQ, DEBUG_REQ_CMD_ID_SUM);
+  host_hmi.register_callback(SACP_CMD_SET_GLOBAL_REQ, DEBUG_REQ_CMD_ID_SET_LOG_LEVEL, this, hmi_req_callback_set_log_level, SACP_CB_ATTR_BLOCKED_WITHOUT_MOTION);
 }
 
-void SnapDebug::send_marlin_log_to_screen() {
-  // 将数据拷贝至single_log_buf
+uint16_t SnapDebug::hmi_subscript_callback_log_trans(void *obj, uint8_t *buffer) {
+  // SnapDebug &snapdebug = *(SnapDebug *)obj;
+  uint16_t index = 0;
 
-  SendLog2Screen(SNAP_DEBUG_LEVEL_INFO);
+  // result
+  buffer[index++] = E_SUCCESS;
 
+  // log level
+  buffer[index++] = SNAP_DEBUG_LEVEL_TRACE;
+
+  // string length
+  buffer[index++] = 0;
+  buffer[index++] = 0;
+
+  return index;
 }
 
-void SnapDebug::SendLog2Screen(SnapDebugLevel l) {
-  // int size = strlen(single_log_buf);
+void SnapDebug::hmi_subscribe_log_trans_notify_cb(void *obj, uint32_t peer, uint8_t ch, uint8_t type) {
+  SnapDebug &snapdebug = *(SnapDebug *)obj;
 
-  // if (is_boot_log) {
-  //   // 将数据放到sc_log_buf
+  if (type == (uint8_t)SACP_SUBS_NOTIFY_TYPE_SUBSCRIBE) {
+    for (uint32_t i = 0; i < 3; i++) {
+      if ((snapdebug.subscript_info_array[i].peer != peer || snapdebug.subscript_info_array[i].ch != ch) &&
+          (snapdebug.subscript_info_array[i].is_occupied == false)) {
+        snapdebug.subscript_info_array[i].is_occupied = true;
+        snapdebug.subscript_info_array[i].peer = peer;
+        snapdebug.subscript_info_array[i].ch = ch;
 
-  //   return;
-  // }
+        snapdebug.is_boot_log = false;
+        snapdebug.flush_boot_log(peer);
+      }
+    }
+  } else if (type == (uint8_t)SACP_SUBS_NOTIFY_TYPE_UNSUBSCRIBE) {
+    for (uint32_t i = 0; i < 3; i++) {
+      if (snapdebug.subscript_info_array[i].peer == peer && snapdebug.subscript_info_array[i].ch == ch) {
+        snapdebug.subscript_info_array[i].is_occupied = false;
+        snapdebug.subscript_info_array[i].peer = peer;
+        snapdebug.subscript_info_array[i].ch = ch;
+      }
+    }
+  }
+}
 
-  // // 检查屏幕有没有连接
-  // if () {
-  //   // 屏幕未连接，将数据放到sc_log_buf
+err_code_t SnapDebug::hmi_req_callback_set_log_level(void *obj, sacp_hmi_message_t *msg) {
+  err_code_t ret = E_SUCCESS;
+  uint16_t index = 0;
 
-  //   return;
-  // }
+  if (msg->peer == SACP_HOST_ID_LUBAN) {
+    pc_msg_level = (SnapDebugLevel)msg->data[0];
+  } else if (msg->peer == SACP_HOST_ID_SCREEN) {
+    sc_msg_level = (SnapDebugLevel)msg->data[0];
+  } else {
+    ret = E_PARAM;
+  }
 
-  // // 将数据发送到屏幕
+  msg->data[index++] = ret;
+  msg->length = index;
+  host_hmi.send_ack(msg);
+  return ret;
+}
 
+void SnapDebug::flush_boot_log(uint32_t peer) {
+  uint8_t buffer[SNAP_SINGLE_LOG_BUFFER_SIZE + 4];
+  sacp_hmi_message_t msg;
+  uint16_t need_to_send_length;
+  uint16_t remain_to_send_length;
+  uint16_t already_send_index = 0;
+
+  while (1) {
+    if (already_send_index >= boot_log_buf_wirte_index) {
+      break;
+    }
+
+    remain_to_send_length = boot_log_buf_wirte_index - already_send_index;
+
+    if (remain_to_send_length > SNAP_SINGLE_LOG_BUFFER_SIZE) {
+      need_to_send_length = SNAP_SINGLE_LOG_BUFFER_SIZE;
+    } else {
+      need_to_send_length = remain_to_send_length;
+    }
+
+    uint16_t index = 0;
+    // result
+    buffer[index++] = E_SUCCESS;
+
+    // log level
+    buffer[index++] = SNAP_DEBUG_LEVEL_MAX;
+
+    // string length
+    buffer[index++] = need_to_send_length & 0xff;
+    buffer[index++] = (need_to_send_length >> 8) & 0xff;
+
+    // log contents
+    memcpy((void *)&buffer[index], (void *)&boot_log_buf[already_send_index], need_to_send_length);
+    index += need_to_send_length;
+    already_send_index += need_to_send_length;
+
+    msg.cmd_set = SACP_CMD_SET_GLOBAL_REQ;
+    msg.cmd_id  = DEBUG_SUBSCRIPT_CMD_ID_LOG_TRANS;
+    msg.attr    = SACP_MESSAGE_ATTR_ACK;
+    msg.data    = buffer;
+    msg.length  = index;
+    msg.peer    = peer;
+    msg.ch      = SACP_HMI_CH_SCREEN;
+    host_hmi.send(&msg);
+  }
+}
+
+void SnapDebug::send_log_to_boot_log_buffer(char *string) {
+  uint16_t string_length = strlen(string);
+  uint16_t remain_length = BOOT_LOG_BUFFER_SIZE - boot_log_buf_wirte_index;
+  uint16_t store_length;
+
+  if (remain_length > 0) {
+    store_length = string_length < remain_length ? string_length : remain_length;
+    memcpy((void *)&boot_log_buf, string, store_length);
+    boot_log_buf_wirte_index += store_length;
+  }
+}
+
+void SnapDebug::send_log_to_host(char *string, SnapDebugLevel level/* = SNAP_DEBUG_LEVEL_MAX*/) {
+  BaseType_t ret = pdFAIL;
+
+  if (xTaskGetSchedulerState() == taskSCHEDULER_RUNNING) {
+    if ((ret = xSemaphoreTake(lock, pdMS_TO_TICKS(10))) != pdPASS) {
+      return;
+    }
+  }
+
+  if (is_boot_log == true) {
+    send_log_to_boot_log_buffer(string);
+    goto EXIT;
+  }
+
+  {
+    uint8_t buffer[SNAP_SINGLE_LOG_BUFFER_SIZE + 4];
+    uint16_t index = 0;
+    sacp_hmi_message_t msg;
+
+    // result
+    buffer[index++] = E_SUCCESS;
+
+    // log level
+    buffer[index++] = level;
+
+    // string length
+    uint16_t log_length = strlen(string);
+    buffer[index++] = log_length & 0xff;
+    buffer[index++] = (log_length >> 8) & 0xff;
+
+    // log contents
+    memcpy((void *)&buffer[index], string, log_length);
+    index += log_length;
+
+    msg.cmd_set = SACP_CMD_SET_GLOBAL_REQ;
+    msg.cmd_id  = DEBUG_SUBSCRIPT_CMD_ID_LOG_TRANS;
+    msg.attr    = SACP_MESSAGE_ATTR_ACK;
+    msg.data    = buffer;
+    msg.length  = index;
+
+    for (uint32_t i = 0; i < 3; i++) {
+      if ((subscript_info_array[i].is_occupied == true) && (subscript_info_array[i].ch == SACP_HMI_CH_SCREEN)) {
+        msg.ch = SACP_HMI_CH_SCREEN;
+        if ((subscript_info_array[i].peer == SACP_HOST_ID_LUBAN) && (level > pc_msg_level)) {
+          msg.peer = SACP_HOST_ID_LUBAN;
+          host_hmi.send(&msg);
+        } else if ((subscript_info_array[i].peer == SACP_HOST_ID_SCREEN) && (level > sc_msg_level)) {
+          msg.peer = SACP_HOST_ID_SCREEN;
+          host_hmi.send(&msg);
+        }
+      }
+    }
+  }
+
+EXIT:
+  if (ret != pdFAIL) {
+    xSemaphoreGive(lock);
+  }
+}
+
+void SnapDebug::send_log_to_console_with_sacp_protocol(char *string) {
+  uint8_t buffer[SNAP_SINGLE_LOG_BUFFER_SIZE + 4];
+  uint16_t index = 0;
+  sacp_hmi_message_t msg;
+  bool is_log_subscribed = false;
+
+  for (uint32_t i = 0; i < 3; i++) {
+    if ((subscript_info_array[i].is_occupied == true) &&
+        (subscript_info_array[i].peer == SACP_HOST_ID_LUBAN) &&
+        (subscript_info_array[i].ch == SACP_HMI_CH_PC)) {
+      is_log_subscribed = true;
+      break;
+    }
+  }
+
+  if (is_log_subscribed == false) {
+    return;
+  }
+
+  // result
+  buffer[index++] = E_SUCCESS;
+
+  // pc log level
+  buffer[index++] = pc_msg_level;
+
+  // string length
+  uint16_t log_length = strlen(string);
+  buffer[index++] = log_length & 0xff;
+  buffer[index++] = (log_length >> 8) & 0xff;
+
+  // log contents
+  memcpy((void *)&buffer[index], string, log_length);
+  index += log_length;
+
+  msg.cmd_set = SACP_CMD_SET_GLOBAL_REQ;
+  msg.cmd_id  = DEBUG_SUBSCRIPT_CMD_ID_LOG_TRANS;
+  msg.attr    = SACP_MESSAGE_ATTR_ACK;
+  msg.data    = buffer;
+  msg.length  = index;
+
+  msg.peer = SACP_HOST_ID_LUBAN;
+  msg.ch   = SACP_HMI_CH_PC;
+  host_hmi.send(&msg);
+}
+
+void SnapDebug::send_log_to_console_with_origin_protocol(char *string) {
+  motion_platform_svc.print_string_to_console(string);
+}
+
+void SnapDebug::send_log_to_console(char *string) {
+  if (motion_platform_svc.get_console_protocol_type() == (uint8_t)MARLIN_SERIAL_CHANNEL_ORIGINAL) {
+    send_log_to_console_with_origin_protocol(string);
+  } else if (motion_platform_svc.get_console_protocol_type() == (uint8_t)MARLIN_SERIAL_CHANNEL_SECOND) {
+    send_log_to_console_with_sacp_protocol(string);
+  }
 }
 
 // output debug message, will not output message whose level
@@ -157,17 +372,16 @@ void SnapDebug::Log(SnapDebugLevel level, const char *fmt, ...) {
 
   va_end(args);
 
-  if (level >= pc_msg_level)
-    CONSOLE_OUTPUT(single_log_buf);
-
-  if (ret != pdFAIL)
-    xSemaphoreGive(lock);
-
-  if (is_boot_log) {
-    SendLog2Screen(SNAP_DEBUG_LEVEL_TRACE);
-  } else if (level >= sc_msg_level) {
-    SendLog2Screen(level);
+  // send log to console
+  if (level >= pc_msg_level) {
+    send_log_to_console(single_log_buf);
   }
+
+  if (ret != pdFAIL) {
+    xSemaphoreGive(lock);
+  }
+
+  send_log_to_host(single_log_buf, level);
 }
 
 
@@ -187,26 +401,6 @@ void SnapDebug::SetLevel(uint8_t port, SnapDebugLevel l) {
     pc_msg_level = l;
   }
 }
-
-
-// err_code_t SnapDebug::SetLogLevel(SSTP_Event_t &event) {
-//   err_code_t err = E_FAILURE;
-
-//   if (event.length != 1) {
-//     LOG_E("Need to specify log level!\n");
-//     event.data = &err;
-//     event.length = 1;
-//   }
-//   else {
-//     // LOG_V("SC req change log level");
-//     sc_msg_level = (SnapDebugLevel)event.data[0];
-//     event.data[0] = E_SUCCESS;
-//   }
-
-//   //return hmi.Send(event);
-//   return 0;
-// }
-
 
 SnapDebugLevel SnapDebug::GetLevel() {
   return sc_msg_level < pc_msg_level? sc_msg_level : pc_msg_level;

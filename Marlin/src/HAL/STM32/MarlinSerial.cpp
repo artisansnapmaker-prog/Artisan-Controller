@@ -167,25 +167,35 @@ void MarlinSerial::flush(void) {
 }
 
 size_t MarlinSerial::write(uint8_t c) {
-  if (active_ch == MARLIN_SERIAL_CHANNEL_ORIGINAL) {
-    return HardwareSerial::write(c);
-  }
-  else {
-    uint16_t i = (orig_tx_head + 1) % SERIAL_TX_BUFFER_SIZE;
-
-    // If the output buffer is full, there's nothing for it other than to
-    // wait for the interrupt handler to empty it a bit
-    if (i == orig_tx_tail) {
-      // nop, the interrupt handler will free up space for us
-      return -1;
+  #if MB_SNAPMAKER
+    if (str_buf_index < MARLIN_SINGLE_LOG_BUFFER_SIZE - 1) {
+      str_buf[str_buf_index++] = c;
+    } else {
+      str_buf[str_buf_index] = '\0';
+      str_buf_index = 0;
+      smprinter.send_log_to_console(str_buf);
+      smprinter.send_log_to_host(str_buf);
+      return 1;
     }
 
-    _tx_buffer[orig_tx_head] = c;
-    orig_tx_head = i;
+    if (c == '\n') {
+      str_buf[str_buf_index] = '\0';
+      str_buf_index = 0;
+      smprinter.send_log_to_console(str_buf);
+      smprinter.send_log_to_host(str_buf);
+    }
 
     return 1;
-  }
+  #else
+    return HardwareSerial::write(c);
+  #endif
 }
+
+#if MB_SNAPMAKER
+size_t MarlinSerial::write_console(uint8_t c) {
+  return HardwareSerial::write(c);
+}
+#endif
 
 int MarlinSerial::available(void) {
   if (active_ch == MARLIN_SERIAL_CHANNEL_ORIGINAL) {

@@ -269,6 +269,10 @@ class SnapmakerPrinter
     void pre_init();
     void post_init();
 
+    // API for debug
+    void send_log_to_console(char *str) { debug.send_log_to_console(str); }
+    void send_log_to_host(char *str) { debug.send_log_to_host(str); }
+
     // API for pause
     void pause_trigger(uint8_t pause_reason);
 

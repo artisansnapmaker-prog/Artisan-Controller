@@ -148,6 +148,9 @@ extern uint8_t marlin_debug_flags;
 // SERIAL_CHAR - Print one or more individual chars
 //
 inline void SERIAL_CHAR(char a) { SERIAL_IMPL.write(a); }
+#if MB_SNAPMAKER
+  inline void SERIAL_CHAR_TO_CONSOLE(char a) { SERIAL_IMPL.write_console(a); }
+#endif
 template <typename ... Args>
 void SERIAL_CHAR(char a, Args ... args) { SERIAL_IMPL.write(a); SERIAL_CHAR(args ...); }
 
@@ -190,6 +193,7 @@ inline void SERIAL_FLUSHTX()  { SERIAL_IMPL.flushTX(); }
 
 // Print a single PROGMEM, PGM_P, or PSTR() string.
 void serial_print_P(PGM_P str);
+void print_to_console(PGM_P str);
 inline void serial_println_P(PGM_P str) { serial_print_P(str); SERIAL_EOL(); }
 
 // Print a single FSTR_P, F(), or FPSTR() string.

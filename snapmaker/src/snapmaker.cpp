@@ -245,7 +245,6 @@ err_code_t SnapmakerPrinter::hmi_cb_get_machine_size(void *obj, sacp_hmi_message
   err_code_t ret = host_hmi.send_ack(msg);
 
   debug.set_boot_log_state(false);
-  debug.flush_sc_log_buff();
 
   return ret;
 }
@@ -400,6 +399,8 @@ static void system_thread(void *p) {
   host_hmi.init(thandle_hmi_event, hmi_recv_signal);
   host_hmi.apply_cmd_set_handle(SACP_CMD_SET_GLOBAL_REQ, 24);
   system_svc.init();
+
+  debug.post_init();
 
   // add process esp_32 upgrade
   host_hmi.apply_cmd_set_handle(SSTP_ESP32_UPDATE_FW_EVENT_ASK, FDM_REQ_CMD_ID_SUM  + 5);

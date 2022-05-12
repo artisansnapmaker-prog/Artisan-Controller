@@ -73,6 +73,12 @@ void serial_print_P(PGM_P str) {
   while (const char c = pgm_read_byte(str++)) SERIAL_CHAR(c);
 }
 
+#if MB_SNAPMAKER
+  void print_to_console(PGM_P str) {
+    while (const char c = pgm_read_byte(str++)) SERIAL_CHAR_TO_CONSOLE(c);
+  }
+#endif
+
 void serial_echo_start()  { static PGMSTR(echomagic, "echo:"); serial_print_P(echomagic); }
 void serial_error_start() { static PGMSTR(errormagic, "Error:"); serial_print_P(errormagic); }
 

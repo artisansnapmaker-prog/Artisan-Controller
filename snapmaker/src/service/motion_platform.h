@@ -33,6 +33,7 @@
 #include "../../Marlin/src/module/settings.h"
 #include "../common/error.h"
 #include "src/gcode/gcode.h"
+#include "../../../Marlin/src/core/serial.h"
 
 
 // X Y Z I J K
@@ -90,6 +91,10 @@ class MotionPlatformService {
 
     // time API
     uint32_t get_millis() { return millis(); }
+
+    // communication api
+    void print_string_to_console(char *str) { print_to_console(str); }
+    uint8_t get_console_protocol_type() { return SERIAL_IMPL.get_active_channel(); }
 
     // moving API
     void moveto_xy(float x, float y, float feedrate, bool blocked=true);

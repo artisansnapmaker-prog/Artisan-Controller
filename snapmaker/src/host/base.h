@@ -23,7 +23,6 @@
 
 #include "../config.h"
 #include "../common/error.h"
-#include "../common/debug.h"
 
 #define HOST_NAME_SIZE  (32)
 

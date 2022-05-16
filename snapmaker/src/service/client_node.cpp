@@ -299,6 +299,9 @@ ClientNode::ClientNode(uint32_t peer, uint8_t ch): peer(peer), ch(ch) {
 }
 
 err_code_t ClientNode::init(void) {
+  peer = SACP_HOST_INVALID;
+  ch   = SACP_HMI_CH_INVALID;
+
   return E_SUCCESS;
 }
 

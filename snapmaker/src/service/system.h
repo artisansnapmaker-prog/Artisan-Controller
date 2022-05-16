@@ -108,6 +108,9 @@ class SystemService {
     void lock_nodes();
     void unlock_nodes();
 
+    err_code_t notification_clear_exception(uint16_t owner, uint8_t state, uint8_t *buffer, uint16_t length);
+    err_code_t notification_raise_exception(uint16_t owner, uint8_t state, uint8_t *buffer, uint16_t length);
+
   // public properties
   public:
 

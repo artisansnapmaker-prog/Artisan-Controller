@@ -108,20 +108,9 @@ uint32_t SystemService::get_level(uint32_t ban) {
 err_code_t SystemService::raise_exception(uint16_t owner, uint8_t state, uint32_t actions/* = 0*/, uint32_t ban/* = 0*/) {
   int i = 0, j = 0;
   err_code_t ret = E_SUCCESS;
-  sacp_hmi_message_t msg;
-  uint8_t recv_buff[4];
-  uint16_t recv_len = 4;
   uint8_t buffer[140];
 
   ExceptionInfo *info;
-
-  msg.ch      = SACP_HMI_CH_SCREEN;
-  msg.peer    = SACP_HOST_ID_SCREEN;
-  msg.cmd_set = SACP_CMD_SET_NOTIFICATION;
-  msg.cmd_id  = SACP_CMD_ID_NOTIFICATION_RAISE_EXCEPTION;
-  msg.attr    = 0;
-
-  msg.data = buffer;
 
   info = (ExceptionInfo *)buffer;
 
@@ -253,11 +242,40 @@ ack_hmi:
   }
 
   buffer[4] = get_bans(&buffer[5], 140 - 5);
-  msg.length = buffer[4] + 5;
 
-  ret = host_hmi.send_sync(&msg, recv_buff, &recv_len, SACP_HMI_TIMEOUT_DEFAULT, SACP_HMI_RETRY_DEFAULT);
-  if (ret != E_SUCCESS) {
-    LOG_E("failted to raise exception[%u,%u] to host[%u]\n", owner, state, msg.peer);
+  ret = notification_raise_exception(owner, state, buffer, buffer[4] + 5);
+
+  return ret;
+}
+
+
+err_code_t SystemService::notification_raise_exception(uint16_t owner, uint8_t state, uint8_t *buffer, uint16_t length) {
+  err_code_t ret = SUCCESS;
+
+  sacp_hmi_message_t msg;
+  uint8_t recv_buff[4];
+  uint16_t recv_len = 4;
+
+  ClientNode *client = NULL;
+
+  msg.ch      = SACP_HMI_CH_SCREEN;
+  msg.peer    = SACP_HOST_ID_SCREEN;
+  msg.cmd_set = SACP_CMD_SET_NOTIFICATION;
+  msg.cmd_id  = SACP_CMD_ID_NOTIFICATION_RAISE_EXCEPTION;
+  msg.attr    = 0;
+
+  for (uint8_t i = 0; i < MAX_CLIENT_NODE_NUM; i++) {
+    client = ClientNode::find_client_node(i);
+    if (!client || client->peer == SACP_HOST_INVALID)
+      continue;
+
+    msg.ch = client->ch;
+    msg.peer = client->peer;
+
+    ret = host_hmi.send_sync(&msg, recv_buff, &recv_len, SACP_HMI_TIMEOUT_DEFAULT, SACP_HMI_RETRY_DEFAULT);
+    if (ret != E_SUCCESS) {
+      LOG_E("failted to notify raise exception[%u,%u] to host[%u]\n", owner, state, msg.peer);
+    }
   }
 
   return ret;
@@ -282,20 +300,9 @@ err_code_t SystemService::clear_exception(uint16_t owner, uint8_t state) {
   uint32_t ban = 0;
 
   err_code_t ret = E_SUCCESS;
-  sacp_hmi_message_t msg;
-  uint8_t recv_buff[4];
-  uint16_t recv_len = 4;
   uint8_t buffer[140];
 
   ExceptionInfo *info;
-
-  msg.ch      = SACP_HMI_CH_SCREEN;
-  msg.peer    = SACP_HOST_ID_SCREEN;
-  msg.cmd_set = SACP_CMD_SET_NOTIFICATION;
-  msg.cmd_id  = SACP_CMD_ID_NOTIFICATION_CEALR_EXCEPTION;
-  msg.attr    = 0;
-
-  msg.data = buffer;
 
   for (i = 0; i < EXCEPTION_STATIC_SIZE; i++) {
     if (nodes[i].owner == owner &&
@@ -345,17 +352,42 @@ err_code_t SystemService::clear_exception(uint16_t owner, uint8_t state) {
 
   buffer[4] = get_bans(&buffer[5], 140 - 5);
 
-  msg.length = buffer[4] + 5;
+  ret = notification_clear_exception(owner, state, buffer, buffer[4] + 5);
 
-  ret = host_hmi.send_sync(&msg, recv_buff, &recv_len, SACP_HMI_TIMEOUT_DEFAULT, SACP_HMI_RETRY_DEFAULT);
-  if (ret != E_SUCCESS) {
-    LOG_E("failted to raise exception[%u,%u] to host[%u]\n", owner, state, msg.peer);
+  return ret;
+}
+
+
+err_code_t SystemService::notification_clear_exception(uint16_t owner, uint8_t state, uint8_t *buffer, uint16_t length) {
+  err_code_t ret = E_SUCCESS;
+  sacp_hmi_message_t msg;
+  uint8_t recv_buff[4];
+  uint16_t recv_len = 4;
+
+  ClientNode *client = NULL;
+
+  msg.ch      = SACP_HMI_CH_SCREEN;
+  msg.peer    = SACP_HOST_ID_SCREEN;
+  msg.cmd_set = SACP_CMD_SET_NOTIFICATION;
+  msg.cmd_id  = SACP_CMD_ID_NOTIFICATION_CEALR_EXCEPTION;
+  msg.attr    = 0;
+
+  for (uint8_t i = 0; i < MAX_CLIENT_NODE_NUM; i++) {
+    client = ClientNode::find_client_node(i);
+    if (!client || client->peer == SACP_HOST_INVALID)
+      continue;
+
+    msg.ch = client->ch;
+    msg.peer = client->peer;
+
+    ret = host_hmi.send_sync(&msg, recv_buff, &recv_len, SACP_HMI_TIMEOUT_DEFAULT, SACP_HMI_RETRY_DEFAULT);
+    if (ret != E_SUCCESS) {
+      LOG_E("failted to notify clear exception[%u,%u] to host[%u]\n", owner, state, msg.peer);
+    }
   }
 
   return ret;
-
 }
-
 
 /* raise exception from ISR env
  *  owner   - device id

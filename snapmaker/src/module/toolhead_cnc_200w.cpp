@@ -68,6 +68,7 @@ err_code_t ToolHeadCNC200W::pre_init() {
     calibrate_mode = CNC_CALIBRATION_IDLE;
     online = false;
     record_error = 0;
+    feedrate_percentage = 100;
     set_status(MODULE_STATUS_INIT);
     public_mutex_unlock();
   }

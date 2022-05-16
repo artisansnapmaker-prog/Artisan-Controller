@@ -102,6 +102,7 @@ err_code_t ToolHeadCNC::pre_init() {
     real_power = 0;
     record_error = 0;
     online = false;
+    feedrate_percentage = 100;
     set_status(MODULE_STATUS_INIT);
     public_mutex_unlock();
   }
@@ -353,7 +354,8 @@ err_code_t ToolHeadCNC::sync_cnc_output(uint16_t value, CNCSpeedControlType type
 
 err_code_t ToolHeadCNC::save_env(uint8_t *env_buf, uint32_t &len) {
   err_code_t result = E_FAILURE;
-  uint32_t need_len = sizeof(CNCToolHeadInfo) + 4;
+  // head info len + speed percentage + checksum
+  uint32_t need_len = sizeof(CNCToolHeadInfo) + 2 + 4;  
   uint32_t check_sum = 0;
   CNCToolHeadInfo *tmp_info = NULL;
   tmp_info = (CNCToolHeadInfo *)env_buf;
@@ -371,14 +373,16 @@ err_code_t ToolHeadCNC::save_env(uint8_t *env_buf, uint32_t &len) {
     tmp_info->cur_rpm = rpm;
     tmp_info->target_rpm = target_rpm;
 
+    *((uint16_t*)(env_buf + sizeof(CNCToolHeadInfo))) = feedrate_percentage;
+
     //add simple calibration, 
-    for (uint32_t i = 0; i < sizeof(CNCToolHeadInfo); i++) {
+    for (uint32_t i = 0; i < sizeof(CNCToolHeadInfo) + 2; i++) {
       check_sum += env_buf[i];
     }
     check_sum ^= 0x20;
-    memcpy(env_buf+sizeof(CNCToolHeadInfo), (uint8_t*)(&check_sum), 4);
+    memcpy(env_buf + sizeof(CNCToolHeadInfo) + 2, (uint8_t*)(&check_sum), 4);
     result = E_SUCCESS;
-    len = sizeof(CNCToolHeadInfo) + 4;
+    len = sizeof(CNCToolHeadInfo) + 2 + 4;
   }
   else {
     len = 0;
@@ -391,12 +395,12 @@ err_code_t ToolHeadCNC::resume_env(uint8_t *env_buf, uint32_t &len) {
   uint32_t check_sum = 0;
   uint32_t tmp_sum = 0;
   CNCToolHeadInfo *tmp_info = NULL;
-  if (len == sizeof(CNCToolHeadInfo) + 4) {
-    for (uint32_t i = 0; i < sizeof(CNCToolHeadInfo); i++) {
+  if (len == sizeof(CNCToolHeadInfo) + 2 + 4) {
+    for (uint32_t i = 0; i < sizeof(CNCToolHeadInfo) + 2; i++) {
       tmp_sum += env_buf[i];
     }
     tmp_sum ^= 0x20;
-    check_sum = *(uint32_t*)(env_buf + sizeof(CNCToolHeadInfo));
+    check_sum = *(uint32_t*)(env_buf + sizeof(CNCToolHeadInfo) + 2);
     if (tmp_sum != check_sum) {
       LOG_E("[%s] cnc info check sum error, read check_sum:0x%x cal check_sum: 0x%x\n",__FUNCTION__,check_sum, tmp_sum);
       goto resume_out;
@@ -409,9 +413,15 @@ err_code_t ToolHeadCNC::resume_env(uint8_t *env_buf, uint32_t &len) {
           tmp_info->run_state == 1 ? "RUN" : "STOPING");
     LOG_I("CNC cur_power: %d target_power: %d\n",  tmp_info->cur_power, tmp_info->target_power);
     LOG_I("CNC cur_rpm: %d target_rpm: %d\n",  tmp_info->cur_rpm, tmp_info->target_rpm);
+    LOG_I("CNC speed feedrate: %d\n",*((uint16_t*)(env_buf + sizeof(CNCToolHeadInfo))));
 
-    if (tmp_info->control_mode != ctr_mode && is_support_change_ctr_mode()) {
-      if (set_run_mode((CNCSpeedControlMode)tmp_info->control_mode)) {
+    if (!set_speed_feedrate(*((uint16_t*)(env_buf + sizeof(CNCToolHeadInfo))))) {
+      LOG_E("[%s] resume speed feedrate fail.\n",__FUNCTION__);
+      goto resume_out;
+    }
+
+    if (tmp_info->control_mode != ctr_mode) {
+      if (!is_support_change_ctr_mode() || set_run_mode((CNCSpeedControlMode)tmp_info->control_mode)) {
         LOG_E("[%s] resume ctr_mode fail.\n",__FUNCTION__);
         goto resume_out;
       }
@@ -865,18 +875,7 @@ void ToolHeadCNC::cnc_hmi_self_test_interface(uint8_t test_type, uint32_t param)
       msg.data = buff;
       hmi_set_cnc_exit_calibrate(this, &msg);
     break;
-
-    // case 8:
-    //   len_ = 50;
-    //   save_env(test_buf, len_);
-    //   LOG_I("test_len = %d\n",len_);
-    // break;
-
-    // case 9:
-    //   resume_env(test_buf, len_);
-    //   LOG_I("test_len = %d\n",len_);
-    // break;
-
+    
     default:
     break;
   }
@@ -930,3 +929,49 @@ err_code_t ToolHeadCNC::register_hmi_command_func(void *obj) {
 
   return E_SUCCESS;
 }
+
+bool ToolHeadCNC::set_speed_feedrate(uint16_t feedrate) {
+  bool ret = false;
+  if (public_mutex_lock()) {
+    feedrate_percentage = feedrate;
+    public_mutex_unlock();
+    ret = true;
+    motion_platform_svc.sync_feedrate_percentage_to_platform(feedrate_percentage);
+  }
+  else {
+    LOG_E("[%s] take public_mutex_lock fail\n", __FUNCTION__);
+  }
+  return ret;
+}
+
+err_code_t ToolHeadCNC::set_feedrate_percentage(uint8_t *data, uint16_t length) {
+  if (length < 4 || !data) {
+    LOG_E("[%s] error feedrate param, len: %d, data: %s\n", __FUNCTION__, length, !data ? "null" : "valid");
+    return E_PARAM;
+  }  
+
+  if (data[0] != get_key()) {
+    LOG_E("[%s] msg key is %d, obj key is %d, No processing\n",\
+      __FUNCTION__, data[0], get_key());
+    return  E_INVALID_MODULE_KEY;
+  }
+
+  int16_t percentage = *((int16_t *)(data + 2));
+
+  if (!set_speed_feedrate(percentage))
+    return E_FAILURE;
+
+  LOG_I("set_feedrate_percentage: %d\n", feedrate_percentage);
+  return E_SUCCESS;
+}
+
+uint16_t ToolHeadCNC::get_feedrate_percentage(uint8_t *buffer) {
+  uint16_t index = 0;
+  if (buffer) {
+    buffer[index++] = 1;
+    buffer[index++] = (uint8_t)(feedrate_percentage & 0xFF);
+    buffer[index++] = (uint8_t)(feedrate_percentage>>8);
+  }
+  return index;
+}
+

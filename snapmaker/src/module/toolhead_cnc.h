@@ -128,6 +128,9 @@ class ToolHeadCNC: public ModuleBase {
     err_code_t resume_env(uint8_t *env_buf, uint32_t &len);
     err_code_t standby(void);
 
+    err_code_t set_feedrate_percentage(uint8_t *data, uint16_t length);
+    uint16_t get_feedrate_percentage(uint8_t *buffer);
+
     virtual err_code_t set_output_power(uint8_t new_power, bool is_update_power=true);
     virtual err_code_t set_output_rpm(uint16_t new_rpm, bool is_update_rpm=true) { return E_INVALID_CMD; } 
     virtual err_code_t set_run_mode(CNCSpeedControlMode new_mode) { return E_INVALID_CMD; }
@@ -157,6 +160,7 @@ class ToolHeadCNC: public ModuleBase {
     void lost_counter_routine(uint32_t time_out=CNC_LOST_TIME_OUT);
     bool set_power(uint8_t new_power);
     bool set_calibrate_mode(CNCCalibrationMode mode);
+    bool set_speed_feedrate(uint16_t feedrate);
     virtual bool set_target_rpm(uint16_t new_rpm) { return false; };
     virtual bool is_support_rpm_mode() { return false; }
     virtual bool is_support_change_ctr_mode() { return false; }
@@ -177,6 +181,7 @@ class ToolHeadCNC: public ModuleBase {
     uint16_t record_error;
     uint32_t lost_counter;
     bool  online = false;
+    int16_t feedrate_percentage;
 
     //TODO: if it is necessary to restore the previous acceleration of the machine
     // float accel[3];

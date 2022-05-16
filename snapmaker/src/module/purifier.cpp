@@ -808,7 +808,9 @@ void stop_work_notify_purifier_pro(void *obj, uint8_t reason) {
     }
 
     LOG_I("[%s] purifier close delay_s: %d\n", __FUNCTION__, delay_s);
-    purifier.set_fan_control(false, false, delay_s);
+    
+    if (delay_s != 0xFFFF)
+      purifier.set_fan_control(false, false, delay_s);
     
   }
 }

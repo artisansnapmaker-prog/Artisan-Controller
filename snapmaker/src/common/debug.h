@@ -94,6 +94,14 @@ struct SnapDebugInfo {
   uint32_t last_line_num_of_sc_gcode; // line number of last gcode acked to screen
 };
 
+typedef struct {
+  bool is_need_to_send;
+  unsigned char sacp_msg_buffer[SNAP_SINGLE_LOG_BUFFER_SIZE+4];
+  sacp_hmi_message_t msg;
+}sacp_log_queue_t;
+
+#define SACP_LOG_QUEUE_SIZE 2
+
 class SnapDebug {
   public:
     SnapDebug () {
@@ -102,6 +110,11 @@ class SnapDebug {
         subscript_info_array[i].is_occupied = false;
         subscript_info_array[i].peer = 0xff;
         subscript_info_array[i].ch = 0xff;
+      }
+
+      for (uint32_t i = 0; i < SACP_LOG_QUEUE_SIZE; i++) {
+        sacp_log_queue[i].is_need_to_send = false;
+        sacp_log_queue[i].msg.data = sacp_log_queue[i].sacp_msg_buffer;
       }
     }
     void Log(SnapDebugLevel level, const char *fmt, ...);
@@ -130,6 +143,8 @@ class SnapDebug {
     static uint16_t hmi_subscript_callback_log_trans(void *obj, uint8_t *buffer);
     static err_code_t hmi_req_callback_set_log_level(void *obj, sacp_hmi_message_t *msg);
 
+    void send_sacp_log_routine();
+
     // err_code_t SetLogLevel(SSTP_Event_t &event);
 
   private:
@@ -139,6 +154,7 @@ class SnapDebug {
     SemaphoreHandle_t lock;
     bool is_boot_log;
     debug_subscript_info_t subscript_info_array[3];
+    sacp_log_queue_t sacp_log_queue[SACP_LOG_QUEUE_SIZE];
 };
 
 // interface for external use

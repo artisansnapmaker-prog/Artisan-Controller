@@ -452,6 +452,7 @@ static void system_thread(void *p) {
     smprinter.security_check();
     host_hmi.handle_events();
     upgrade_svc.loop();
+    debug.send_sacp_log_routine();
 
     taskYIELD();
   }

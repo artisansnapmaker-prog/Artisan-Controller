@@ -243,40 +243,49 @@ void SnapDebug::send_log_to_host(char *string, SnapDebugLevel level/* = SNAP_DEB
   }
 
   {
-    uint8_t buffer[SNAP_SINGLE_LOG_BUFFER_SIZE + 4];
     uint16_t index = 0;
-    sacp_hmi_message_t msg;
+    sacp_log_queue_t *sacp_log = NULL;
+    for (uint32_t i = 0; i < SACP_LOG_QUEUE_SIZE; i++) {
+      if (sacp_log_queue[i].is_need_to_send == false) {
+        sacp_log_queue[i].is_need_to_send = true;
+        sacp_log = &sacp_log_queue[i];
+        break;
+      }
+    }
+
+    if (sacp_log == NULL) {
+      goto EXIT;
+    }
 
     // result
-    buffer[index++] = E_SUCCESS;
+    sacp_log->sacp_msg_buffer[index++] = E_SUCCESS;
 
     // log level
-    buffer[index++] = level;
+    sacp_log->sacp_msg_buffer[index++] = level;
 
     // string length
     uint16_t log_length = strlen(string);
-    buffer[index++] = log_length & 0xff;
-    buffer[index++] = (log_length >> 8) & 0xff;
+    sacp_log->sacp_msg_buffer[index++] = log_length & 0xff;
+    sacp_log->sacp_msg_buffer[index++] = (log_length >> 8) & 0xff;
 
     // log contents
-    memcpy((void *)&buffer[index], string, log_length);
+    memcpy((void *)&(sacp_log->sacp_msg_buffer[index]), string, log_length);
     index += log_length;
 
-    msg.cmd_set = SACP_CMD_SET_GLOBAL_REQ;
-    msg.cmd_id  = DEBUG_SUBSCRIPT_CMD_ID_LOG_TRANS;
-    msg.attr    = SACP_MESSAGE_ATTR_ACK;
-    msg.data    = buffer;
-    msg.length  = index;
+    sacp_log->msg.cmd_set = SACP_CMD_SET_GLOBAL_REQ;
+    sacp_log->msg.cmd_id  = DEBUG_SUBSCRIPT_CMD_ID_LOG_TRANS;
+    sacp_log->msg.attr    = SACP_MESSAGE_ATTR_ACK;
+    sacp_log->msg.length  = index;
 
     for (uint32_t i = 0; i < 3; i++) {
       if ((subscript_info_array[i].is_occupied == true) && (subscript_info_array[i].ch == SACP_HMI_CH_SCREEN)) {
-        msg.ch = SACP_HMI_CH_SCREEN;
+        sacp_log->msg.ch = SACP_HMI_CH_SCREEN;
         if ((subscript_info_array[i].peer == SACP_HOST_ID_LUBAN) && (level > pc_msg_level)) {
-          msg.peer = SACP_HOST_ID_LUBAN;
-          host_hmi.send(&msg);
+          sacp_log->msg.peer = SACP_HOST_ID_LUBAN;
+          sacp_log->is_need_to_send = true;
         } else if ((subscript_info_array[i].peer == SACP_HOST_ID_SCREEN) && (level > sc_msg_level)) {
-          msg.peer = SACP_HOST_ID_SCREEN;
-          host_hmi.send(&msg);
+          sacp_log->msg.peer = SACP_HOST_ID_SCREEN;
+          sacp_log->is_need_to_send = true;
         }
       }
     }
@@ -289,9 +298,7 @@ EXIT:
 }
 
 void SnapDebug::send_log_to_console_with_sacp_protocol(char *string) {
-  uint8_t buffer[SNAP_SINGLE_LOG_BUFFER_SIZE + 4];
   uint16_t index = 0;
-  sacp_hmi_message_t msg;
   bool is_log_subscribed = false;
 
   for (uint32_t i = 0; i < 3; i++) {
@@ -307,30 +314,42 @@ void SnapDebug::send_log_to_console_with_sacp_protocol(char *string) {
     return;
   }
 
+  sacp_log_queue_t *sacp_log = NULL;
+  for (uint32_t i = 0; i < SACP_LOG_QUEUE_SIZE; i++) {
+    if (sacp_log_queue[i].is_need_to_send == false) {
+      sacp_log_queue[i].is_need_to_send = true;
+      sacp_log = &sacp_log_queue[i];
+      break;
+    }
+  }
+
+  if (sacp_log == NULL) {
+    return;
+  }
+
   // result
-  buffer[index++] = E_SUCCESS;
+  sacp_log->sacp_msg_buffer[index++] = E_SUCCESS;
 
   // pc log level
-  buffer[index++] = pc_msg_level;
+  sacp_log->sacp_msg_buffer[index++] = pc_msg_level;
 
   // string length
   uint16_t log_length = strlen(string);
-  buffer[index++] = log_length & 0xff;
-  buffer[index++] = (log_length >> 8) & 0xff;
+  sacp_log->sacp_msg_buffer[index++] = log_length & 0xff;
+  sacp_log->sacp_msg_buffer[index++] = (log_length >> 8) & 0xff;
 
   // log contents
-  memcpy((void *)&buffer[index], string, log_length);
+  memcpy((void *)&(sacp_log->sacp_msg_buffer[index]), string, log_length);
   index += log_length;
 
-  msg.cmd_set = SACP_CMD_SET_GLOBAL_REQ;
-  msg.cmd_id  = DEBUG_SUBSCRIPT_CMD_ID_LOG_TRANS;
-  msg.attr    = SACP_MESSAGE_ATTR_ACK;
-  msg.data    = buffer;
-  msg.length  = index;
+  sacp_log->msg.cmd_set = SACP_CMD_SET_GLOBAL_REQ;
+  sacp_log->msg.cmd_id  = DEBUG_SUBSCRIPT_CMD_ID_LOG_TRANS;
+  sacp_log->msg.attr    = SACP_MESSAGE_ATTR_ACK;
+  sacp_log->msg.length  = index;
+  sacp_log->msg.peer = SACP_HOST_ID_LUBAN;
+  sacp_log->msg.ch   = SACP_HMI_CH_PC;
 
-  msg.peer = SACP_HOST_ID_LUBAN;
-  msg.ch   = SACP_HMI_CH_PC;
-  host_hmi.send(&msg);
+  sacp_log->is_need_to_send = true;
 }
 
 void SnapDebug::send_log_to_console_with_origin_protocol(char *string) {
@@ -342,6 +361,15 @@ void SnapDebug::send_log_to_console(char *string) {
     send_log_to_console_with_origin_protocol(string);
   } else if (motion_platform_svc.get_console_protocol_type() == (uint8_t)MARLIN_SERIAL_CHANNEL_SECOND) {
     send_log_to_console_with_sacp_protocol(string);
+  }
+}
+
+void SnapDebug::send_sacp_log_routine() {
+  for (uint32_t i = 0; i < SACP_LOG_QUEUE_SIZE; i++) {
+    if (sacp_log_queue[i].is_need_to_send == true) {
+      sacp_log_queue[i].is_need_to_send = false;
+      host_hmi.send(&sacp_log_queue[i].msg);
+    }
   }
 }
 

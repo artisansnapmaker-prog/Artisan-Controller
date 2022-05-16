@@ -133,6 +133,7 @@ class ToolHeadCNC: public ModuleBase {
     virtual err_code_t set_run_mode(CNCSpeedControlMode new_mode) { return E_INVALID_CMD; }
 
     virtual void report_cnc_status_info();
+    virtual err_code_t start_spindle_self_test(void);
     virtual err_code_t debug_function(uint8_t cmd, uint32_t param) { return E_INVALID_CMD; }
     virtual void cnc_hmi_self_test_interface(uint8_t test_type, uint32_t param);
 

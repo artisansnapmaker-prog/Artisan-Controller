@@ -32,6 +32,7 @@
 // then set it to ModuleBase with set_func_prio_map() in pre_init()
 static module_func_prio_t prio_map[] = {
   {MODULE_FUNC_SET_SPINDLE_SPEED, MODULE_FUNC_PRIORITY_MEDIUM},
+  {MODULE_FUNC_SET_FAN1, MODULE_FUNC_PRIORITY_MEDIUM},
   {MODULE_FUNC_SET_3DP_PID, MODULE_FUNC_PRIORITY_LOW},
   {MODULE_FUNC_GET_HW_VERSION, MODULE_FUNC_PRIORITY_LOW},
   {MODULE_FUNC_SET_SPINDLE_RPM, MODULE_FUNC_PRIORITY_MEDIUM},
@@ -39,6 +40,7 @@ static module_func_prio_t prio_map[] = {
   {MODULE_FUNC_SET_MOTOR_RUN_DIRECTION, MODULE_FUNC_PRIORITY_MEDIUM},
   {MODULE_FUNC_REPORT_SPINDLE_RUN_INFO, MODULE_FUNC_PRIORITY_MEDIUM},
   {MODULE_FUNC_REPORT_SPINDLE_SENSOR_INFO, MODULE_FUNC_PRIORITY_MEDIUM},
+  {MODULE_FUNC_REPORT_MOTOR_SELF_INFO, MODULE_FUNC_PRIORITY_MEDIUM},
 
   // must set the last element as below !!!!
   {MODULE_FUNCTION_ID_INVALID, MODULE_FUNCTION_PRIORITY_INVALID}
@@ -125,12 +127,44 @@ void hp_cnc_callback_update_sensor_info(void *obj, uint8_t *data, uint8_t length
         cnc.public_mutex_unlock();
         return;
       }
-      cnc.motor_temp = (float)(data[0] << 8 | data[1]) / 10;
-      cnc.pcb_temp = (float)(data[2] << 8 | data[3]) / 10;
-      cnc.motor_current = data[4] << 8 | data[5];
-      cnc.motor_voltage = (float)(data[6] << 8 | data[7]) / 100;
+      cnc.motor_temp = (float)((int16_t)(data[0] << 8 | data[1])) / 10;
+      cnc.pcb_temp = (float)((int16_t)(data[2] << 8 | data[3])) / 10;
+      cnc.motor_current = (int16_t)(data[4] << 8 | data[5]);
+      cnc.motor_voltage = (float)((int16_t)(data[6] << 8 | data[7])) / 100;
       cnc.public_mutex_unlock();
     }
+  }
+}
+
+void hp_cnc_callback_self_test_info(void *obj, uint8_t *data, uint8_t length) {
+  ToolHeadCNC200W &cnc = *(ToolHeadCNC200W *)obj;
+  if (!obj || !cnc.online || !length)
+    return;  
+  uint32_t self_test_sta = 0;
+  switch (data[0]) {
+    case 1:
+      LOG_I("cnc self mos index: %d, trigger sta: %d mos_current: %dmA\n", \
+        data[1], data[2], data[3] << 24 | data[4] << 16 | data[5] << 8 | data[6]);
+    break;
+
+    case 2:
+      LOG_I("cnc self hall index: %d, read hall sta: 0x%x need hall sta: 0x%x\n", \
+        data[1], data[2], data[3]);
+    break;
+
+    case 3:
+      self_test_sta = data[1] << 24 | data[2] << 16 | data[3] << 8 | data[4];
+      LOG_I("self_test_sta: 0x%x\n",self_test_sta);
+      if (self_test_sta & (1 << 31)) 
+        LOG_I("mos test fail, interruption self test\n");
+      if (self_test_sta & (1 << 30)) 
+        LOG_I("hall test fail, over-current\n");
+      LOG_I("mos test info: 0x%x, hall test info: 0x%x\n", \
+            self_test_sta & 0x3f, (self_test_sta >> 6) & 0x3f);
+    break;
+
+    default:
+    break;
   }
 }
 
@@ -188,6 +222,35 @@ err_code_t ToolHeadCNC200W::set_run_mode(CNCSpeedControlMode mode) {
     return E_FAILURE;
   }
   buffer[0] = (uint8_t)mode;
+  msg.ch     = get_channel();
+  msg.data   = buffer;
+  msg.length = 1;
+  result = host_can_rou.send_sync(&msg, out_buf, &out_len, 200);
+  if (result == E_SUCCESS) {
+    if (!out_buf[0]) {
+      result = E_FAILURE;
+      LOG_E("[%s] set fail\n",__FUNCTION__);
+    }
+  }
+  else {
+    LOG_E("[%s] send msg fail result: %d\n",__FUNCTION__, result);
+  }
+  return result;
+}
+
+err_code_t ToolHeadCNC200W::set_fan_ctr(bool ctr) {
+  smcan_message_t msg;
+  err_code_t result = E_FAILURE;
+  uint8_t buffer[2] = {0};
+  uint8_t out_buf[8] = {0};
+  uint8_t out_len = sizeof(out_buf);
+
+  msg.id = get_message_id(MODULE_FUNC_SET_FAN1);
+  if (msg.id == MODULE_MESSAGE_ID_INVALID) {
+    LOG_E("[%s] invalid message\n",__FUNCTION__);
+    return E_FAILURE;
+  }
+  buffer[0] = !!ctr;
   msg.ch     = get_channel();
   msg.data   = buffer;
   msg.length = 1;
@@ -415,6 +478,29 @@ err_code_t ToolHeadCNC200W::set_output_rpm(uint16_t new_rpm, bool is_update_rpm)
   }
 }
 
+err_code_t ToolHeadCNC200W::start_spindle_self_test(void) {
+  smcan_message_t msg;
+  err_code_t result = E_FAILURE;
+  uint8_t buffer[2] = {0};
+
+  msg.id = get_message_id(MODULE_FUNC_REPORT_MOTOR_SELF_INFO);
+  if (msg.id == MODULE_MESSAGE_ID_INVALID) {
+    LOG_E("[%s] invalid message to start spindle self test\n",__FUNCTION__);
+    return E_FAILURE;
+  }
+
+  buffer[0] = 0;
+  msg.ch     = get_channel();
+  msg.data   = buffer;
+  msg.length = 1;
+
+  result = host_can_rou.send(&msg);
+  if (result != E_SUCCESS) {
+    LOG_E("[%s], msg send fail ret: %u\n", __FUNCTION__, result);
+  }
+  return result;
+}
+
 err_code_t ToolHeadCNC200W::post_init() {
   LOG_I("HP_CNC post_init in\n");
   uint8_t hw_verion = 0xff;
@@ -445,6 +531,16 @@ err_code_t ToolHeadCNC200W::post_init() {
   // register callback to handle sensor info from module
   if (host_can_rou.register_callback(msg_id, (void *)this, hp_cnc_callback_update_sensor_info) != E_SUCCESS)
     return E_FAILURE;
+
+  msg_id = get_message_id(MODULE_FUNC_REPORT_MOTOR_SELF_INFO);
+  if (msg_id == MODULE_MESSAGE_ID_INVALID) {
+    LOG_E("invalid message MODULE_FUNC_REPORT_MOTOR_SELF_INFO\n");
+    //return E_FAILURE;
+  }
+  else {
+    if (host_can_rou.register_callback(msg_id, (void *)this, hp_cnc_callback_self_test_info) != E_SUCCESS)
+      return E_FAILURE;
+  }  
 
   if (module_svc.register_routine((void *)this, hp_cnc_callback_routine)) {
     LOG_E("[%s] HP_CNC register routine func fail\n", __FUNCTION__);
@@ -496,6 +592,10 @@ err_code_t ToolHeadCNC200W::debug_function(uint8_t cmd, uint32_t param) {
     case CMD_SET_MOTOR_PID_KI:
     case CMD_SET_MOTOR_PID_KD:
       result = set_cnc_pid(cmd - CMD_SET_MOTOR_PID_KP, 1, param);
+    break;
+
+    case CMD_SET_MOTOR_FAN:
+      result = set_fan_ctr(!!param);
     break;
 
     default:

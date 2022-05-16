@@ -457,6 +457,11 @@ err_code_t ToolHeadCNC::standby(void) {
   return sync_cnc_output(0, CNC_PWM_SET_SPEED);
 }
 
+err_code_t ToolHeadCNC::start_spindle_self_test(void) {
+  LOG_I("[%s] the current module does not support self-testing\n");
+  return E_FAILURE;
+}
+
 // functions provided by CNC for screen use
 // commandset 0x11  commandId 0x01 
 err_code_t send_cnc_head_info_to_hmi(void *obj, sacp_hmi_message_t *msg) {

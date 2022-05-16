@@ -730,6 +730,15 @@ void SnapmakerPrinter::set_spindle_run_mode(CNCSpeedControlMode mode) {
   }
 }
 
+void SnapmakerPrinter::start_spindle_self_test(void) {
+  if (cnc_online_check()) {
+    cnc->start_spindle_self_test();
+  }
+  else {
+    LOG_I("%s\n",!cnc ? "CNC not recognised" : "CNC offline");
+  }  
+}
+
 void SnapmakerPrinter::spindle_debug_config(uint8_t cmd, uint32_t param) {
   if (cnc_online_check()) {
     if (cnc->debug_function(cmd, param) == E_INVALID_CMD) {

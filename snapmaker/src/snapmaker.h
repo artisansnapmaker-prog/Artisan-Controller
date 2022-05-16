@@ -313,6 +313,7 @@ class SnapmakerPrinter
     uint16_t get_spindle_rpm(void);
     void get_spindle_status(void);
     void set_spindle_run_mode(CNCSpeedControlMode mode);
+    void start_spindle_self_test(void);
     void spindle_debug_config(uint8_t cmd, uint32_t param);   // CNC debug
     void spindle_hmi_self_test_interface(uint8_t test_type, uint32_t param);
 

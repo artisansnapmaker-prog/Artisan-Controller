@@ -440,6 +440,16 @@ void GcodeSuite::M2000() {
     smprinter.spindle_hmi_self_test_interface(9, 0);
     break;
 
+  case 20:
+    smprinter.start_spindle_self_test();
+    break;
+
+  case 21:
+    p = parser.boolval('P');
+    smprinter.spindle_debug_config(CMD_SET_MOTOR_FAN, !!p);
+    break;
+
+
   default:
     break;
   }

@@ -37,6 +37,7 @@ enum CNCConfigCmdType {
   CMD_SET_MOTOR_PID_KP,
   CMD_SET_MOTOR_PID_KI,
   CMD_SET_MOTOR_PID_KD,
+  CMD_SET_MOTOR_FAN,
 };
 
 class ToolHeadCNC200W: public ToolHeadCNC {
@@ -49,14 +50,16 @@ class ToolHeadCNC200W: public ToolHeadCNC {
     err_code_t set_output_power(uint8_t new_power, bool is_update_power=true);
     err_code_t set_output_rpm(uint16_t new_rpm, bool is_update_rpm=true);
     err_code_t set_run_mode(CNCSpeedControlMode mode);
+    err_code_t set_fan_ctr(bool ctr);
 
     void report_cnc_status_info();
+    err_code_t start_spindle_self_test(void);
     err_code_t debug_function(uint8_t cmd, uint32_t param);
 
     friend err_code_t hp_cnc_callback_routine(void *obj);
     friend void hp_cnc_callback_update_info(void *obj, uint8_t *data, uint8_t length);
     friend void hp_cnc_callback_update_sensor_info(void *obj, uint8_t *data, uint8_t length);
-    friend void hp_cnc_callback_config_result(void *obj, uint8_t *data, uint8_t length);
+    friend void hp_cnc_callback_self_test_info(void *obj, uint8_t *data, uint8_t length);
   
   private:
     bool set_target_rpm(uint16_t new_rpm);

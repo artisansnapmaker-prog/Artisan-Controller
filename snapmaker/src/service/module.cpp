@@ -253,6 +253,7 @@ err_code_t ModuleService::report_module_info(void *obj, sacp_hmi_message_t *mess
     info->hw_version = module->get_hw_verion();
     info->sub_index  = module->get_sub_index();
     info->sn = module->get_sn();
+    info->module_status = module->get_status();
 
     fw_ver = module->get_fw_version();
     if (!fw_ver) {

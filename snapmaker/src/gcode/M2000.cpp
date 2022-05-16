@@ -195,6 +195,14 @@ void GcodeSuite::M2000() {
     }
     break;
 
+  case 10:
+    // do factory reset
+    {
+      uint8_t data[4] {0};
+      host_hmi.test_interface(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_FACTORY_RESET, data, 1);
+    }
+    break;
+
   default:
     break;
   }

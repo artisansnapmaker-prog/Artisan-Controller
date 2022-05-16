@@ -293,6 +293,26 @@ err_code_t SnapmakerPrinter::hmi_cb_set_protocol_for_PC(void *obj, sacp_hmi_mess
   return ret;
 }
 
+err_code_t SnapmakerPrinter::hmi_cb_run_gcode(void *obj, sacp_hmi_message_t *msg) {
+  err_code_t ret = E_SUCCESS;
+  char buf[96];
+  memset(buf, '\0', sizeof(buf));
+
+  uint16_t length = msg->data[0] | msg->data[1] << 8;
+  if (length >= 96) {
+    ret = E_PARAM;
+    host_hmi.send_ack(msg, ret);
+    goto EXIT;
+  }
+
+  ret = host_hmi.send_ack(msg, ret);
+  memcpy(buf, &msg->data[3], length);
+  ret = motion_platform_svc.run_gcode(buf);
+
+EXIT:
+  return ret;
+}
+
 err_code_t SnapmakerPrinter::hmi_cb_do_factory_reset(void *obj, sacp_hmi_message_t *msg) {
   err_code_t ret;
 
@@ -397,7 +417,7 @@ static void system_thread(void *p) {
 
   // must init hmi firstly
   host_hmi.init(thandle_hmi_event, hmi_recv_signal);
-  host_hmi.apply_cmd_set_handle(SACP_CMD_SET_GLOBAL_REQ, 24);
+  host_hmi.apply_cmd_set_handle(SACP_CMD_SET_GLOBAL_REQ, 26);
   system_svc.init();
 
   debug.post_init();
@@ -420,6 +440,9 @@ static void system_thread(void *p) {
       (void *)&host_hmi, HostSACPHMI::handle_subscript);
   host_hmi.register_callback(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_UNSUBSCRIPT,
       (void *)&host_hmi, HostSACPHMI::handle_unsubscript);
+
+  host_hmi.register_callback(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOBAL_REQ_RUN_GOCDE,
+      (void *)&smprinter, SnapmakerPrinter::hmi_cb_run_gcode);
 
   host_hmi.register_subscription(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_HEARTBEAT,
       (void *)&smprinter, SnapmakerPrinter::hmi_cb_publish_system_status);

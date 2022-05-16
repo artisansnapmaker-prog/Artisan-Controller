@@ -81,8 +81,11 @@ enum SACPCommandSet {
   SACP_CMD_SET_MAX
 };
 
+#define SACP_CMD_ID_GLOBAL_SUM                (26)
+
 #define SACP_CMD_ID_GLOABL_REQ_SUBSCRIPT      (0x00)
 #define SACP_CMD_ID_GLOABL_REQ_UNSUBSCRIPT    (0x01)
+#define SACP_CMD_ID_GLOBAL_REQ_RUN_GOCDE      (0x02)
 #define SACP_CMD_ID_GLOABL_REQ_REBOOT         (0x03)
 
 #define SSTP_ESP32_UPDATE_FW_EVENT_ASK        (0x10)

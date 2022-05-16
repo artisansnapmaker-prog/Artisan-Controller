@@ -121,6 +121,8 @@ void GcodeSuite::M1006() {
     break;
   }
 
+  LOG_I("SACP V1\n");
+
   LinearVirtual::show_info();
   EmergencyStopVirtual::show_info();
 }

@@ -26,6 +26,7 @@
 
 #include "error.h"
 #include "../host/sacp.h"
+#include "../host/sacp_hmi.h"
 
 // 1 = enable API for snap debug
 #define SNAP_DEBUG 1
@@ -108,8 +109,8 @@ class SnapDebug {
       is_boot_log = true;
       for (uint32_t i = 0; i < 3; i++) {
         subscript_info_array[i].is_occupied = false;
-        subscript_info_array[i].peer = 0xff;
-        subscript_info_array[i].ch = 0xff;
+        subscript_info_array[i].peer = SACP_HOST_ID_INVALIDE;
+        subscript_info_array[i].ch = SACP_HMI_CH_INVALID;
       }
 
       for (uint32_t i = 0; i < SACP_LOG_QUEUE_SIZE; i++) {

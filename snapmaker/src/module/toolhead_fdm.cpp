@@ -756,8 +756,6 @@ static void fdm_callback_hotend_type(void *obj, uint8_t *data, uint8_t length) {
 static void fdm_callback_extruder_info(void *obj, uint8_t *data, uint8_t length) {
   ToolHeadFDM &fdm = *(ToolHeadFDM *)obj;
   fdm.report_extruder_info(data);
-
-  (void)fdm;
 }
 
 static void fdm_callback_report_hotend_offset(void *obj, uint8_t *data, uint8_t length) {

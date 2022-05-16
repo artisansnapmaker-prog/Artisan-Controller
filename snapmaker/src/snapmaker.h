@@ -165,6 +165,8 @@ extern motor_pins_t pins_map[PORT_INDEX_MAX];
 #define EXCEP_ACT_DISABLE_HEATING_BED           (1<<11)
 #define EXCEP_ACT_DISABLE_HEATING_HOTEND        (1<<12)
 
+#define EXCEP_ACT_ALL                           (0x1FFF)
+
 // ================= exception ban defination =================
 #define EXCEP_BAN_ENABLE_POWER_MOTIVE         (POWER_DOMAIN_MOTIVE_POWER)
 #define EXCEP_BAN_ENABLE_POWER_8P_TOOLHEAD    (POWER_DOMAIN_8P_TOOLHEAD)
@@ -179,6 +181,8 @@ extern motor_pins_t pins_map[PORT_INDEX_MAX];
 #define EXCEP_BAN_HEATING_BED                 (1<<11)
 #define EXCEP_BAN_TURN_ON_LASER               (1<<12)
 #define EXCEP_BAN_TURN_ON_CNC                 (1<<13)
+
+#define EXCEP_BAN_ALL                         (0x3FFF)
 
 enum SMExceptionOwner {
   SM_EXCEP_OWNER_SYSTEM,
@@ -247,6 +251,11 @@ enum RotaryExceptionState {
   ROTARY_EXCEP_STA_PORT_ERROR = 1,
 };
 
+
+// exception state for emergency stop
+enum EmergencyStopExceptionState {
+  EMERGENCY_STOP_EXCEP_STA_TRIGGERRED = 1,
+};
 
 // wrapper of snapmaker for marlin
 class SnapmakerPrinter

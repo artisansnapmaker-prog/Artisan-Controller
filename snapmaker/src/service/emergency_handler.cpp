@@ -7,6 +7,7 @@
 
 #include "../service/motion_platform.h"
 #include "../service/job_ctrl.h"
+#include "../service/system.h"
 
 // normal -> HIGH, triggered -> LOW
 static uint32_t stop_button    = EMERGENCY_STOP_BUTTON;
@@ -282,23 +283,14 @@ void EmergencyHandler::req_stop_job() {
 
 // notify screen the emergency button is pressed
 void EmergencyHandler::job_cb_notify_emergency_stop(void *p, uint8_t result) {
-  sacp_hmi_message_t *msg = (sacp_hmi_message_t *)p;
-  err_code_t ret;
-
-  uint8_t send_buff[2];
-  uint8_t recv_buff[4];
-  uint16_t recv_len = 4;
-
-  send_buff[0] = ((emergency_hdl.read_button() == PIN_STATE_TRIGGERED) ? true: false);
-
-  LOG_I("EmergencyHandler: report emergency stop[%u]\n", send_buff[0]);
-
-  msg->data   = send_buff;
-  msg->length = 1;
-  ret = host_hmi.send_sync(msg, recv_buff, &recv_len, 200, 3);
-  if (ret != E_SUCCESS) {
-    LOG_E("failed to report emergency stop[%u]\n", ret);
+  if (emergency_hdl.read_button() == PIN_STATE_TRIGGERED) {
+    system_svc.raise_exception(MODULE_DEVICE_ID_A400_EMERGENCY_STOP, EMERGENCY_STOP_EXCEP_STA_TRIGGERRED,
+      EXCEP_ACT_ALL, EXCEP_BAN_ALL);
   }
+  else {
+    system_svc.clear_exception(MODULE_DEVICE_ID_A400_EMERGENCY_STOP, EMERGENCY_STOP_EXCEP_STA_TRIGGERRED);
+  }
+
 }
 
 
@@ -582,7 +574,7 @@ err_code_t EmergencyHandler::save_env_manually(uint8_t *new_env, uint32_t size) 
   disable_all_interrupts();
   size = flash_write_buffer(env, EMERGENCY_ENV_SIZE, ENV_START_IN_FLASH);
   enable_all_interrupts();
-  
+
   if (size != EMERGENCY_ENV_SIZE) {
     LOG_E("failed to save env!\n");
     return E_FAILURE;

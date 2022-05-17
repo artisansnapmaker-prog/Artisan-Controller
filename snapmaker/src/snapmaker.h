@@ -251,11 +251,23 @@ enum RotaryExceptionState {
   ROTARY_EXCEP_STA_PORT_ERROR = 1,
 };
 
-
 // exception state for emergency stop
 enum EmergencyStopExceptionState {
   EMERGENCY_STOP_EXCEP_STA_TRIGGERRED = 1,
 };
+
+// exception state for emergency stop
+enum EmergencyStopExceptionState {
+  LASER_EXCEP_STA_NORMAL,
+  LASER_EXCEP_STA_IMU_EXCEPTION,
+  LASER_EXCEP_STA_TUBE_TEMP_TOO_HIGH,
+  LASER_EXCEP_STA_ABNORMAL_ATTITUDE,
+  LASER_EXCEP_STA_TUBE_TEMP_TOO_LOW,
+
+  LASER_EXCEP_STA_IMU_TEMP_TOO_HIGH = 9,
+  LASER_EXCEP_STA_PLUGGED_ERROR_PORT,
+};
+
 
 // wrapper of snapmaker for marlin
 class SnapmakerPrinter

@@ -789,9 +789,18 @@ void ToolHeadLaser::can_cb_handle_security_status(void *obj, uint8_t *data, uint
 }
 
 err_code_t ToolHeadLaser::pre_init() {
+  uint32_t port_index;
   set_func_prio_map(prio_map);
 
   //TODO: check if laser is plugged in correct port and update output_pin & serial_port
+  port_index = get_port_index();
+  if (port_index != PORT_INDEX_P1) {
+    LOG_E("must plug laser into Toolhead port! detect port: %u\n", port_index);
+    system_svc.raise_exception(get_device_id(), LASER_EXCEP_STA_PLUGGED_ERROR_PORT, 0,
+                              EXCEP_BAN_WORKING | EXCEP_BAN_TURN_ON_LASER);
+
+    return E_HARDWARE;
+  }
 
   output_pin = E0_STEP_PIN;
 

@@ -28,7 +28,7 @@
 #include "../host/sacp_hmi.h"
 
 #define EXCEPTION_STATIC_SIZE     (64)
-#define EXCEPTION_ISR_QUEUE_SIZE  (4)
+#define EXCEPTION_ISR_QUEUE_SIZE  (8)
 #define EXCEPTION_OWNER_INVALID   (0xFFFF)
 struct ExceptionNode {
   uint16_t owner;
@@ -36,7 +36,11 @@ struct ExceptionNode {
   uint32_t ban;
 };
 
+
+#define EXCEP_ISR_TYPE_CLEAR  (0)
+#define EXCEP_ISR_TYPE_RAISE  (1)
 struct ExceptionNodeISR {
+  uint8_t  type;
   uint16_t owner;
   uint8_t  state;
   uint32_t ban;
@@ -79,12 +83,13 @@ class SystemService {
     bool allow_leveling();
     bool allow_turn_on_laser();
     bool allow_turn_on_cnc();
+
     /* raise exception from thread env
     *  owner   - device id
     *  state   - exception enumeration, each owner must define itself exception
-    *  actions - actions you want to trigger, these have been define in system.h, 
+    *  actions - actions you want to trigger, these have been define in system.h,
     *            the macros start with prefix 'EXCEP_ACT_'
-    *  ban     - when an exception exists, the behaviors you want to ban, 
+    *  ban     - when an exception exists, the behaviors you want to ban,
     *            the macros start with prefix 'EXCEP_BAN_'
     */
     err_code_t raise_exception(uint16_t owner, uint8_t state, uint32_t actions = 0, uint32_t ban = 0);
@@ -95,8 +100,20 @@ class SystemService {
     */
     err_code_t clear_exception(uint16_t owner, uint8_t state);
 
-    /* raise exception from thread env */
+    /* raise exception from ISR env
+    *  owner   - device id
+    *  state   - exception enumeration, each owner must define itself exception
+    *  actions - actions you want to trigger, these have been define in system.h,
+    *            the macros start with prefix 'EXCEP_ACT_'
+    *  ban     - when an exception exists, the behaviors you want to ban
+    */
     void raise_exception_from_isr(uint16_t owner, uint8_t state, uint32_t actions = 0, uint32_t ban = 0);
+
+    /* clear exception from ISR env
+    *  owner   - device id
+    *  state   - exception enumeration, each owner must define itself exception
+    */
+    void clear_exception_from_isr(uint16_t owner, uint8_t state)
 
     static err_code_t hmi_cb_get_exceptions(void *obj, sacp_hmi_message_t *msg);
 

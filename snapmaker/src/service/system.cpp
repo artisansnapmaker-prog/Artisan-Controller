@@ -282,19 +282,6 @@ err_code_t SystemService::notification_raise_exception(uint16_t owner, uint8_t s
 }
 
 
-void SystemService::raise_exception_from_isr(uint16_t owner, uint8_t state, uint32_t actions/* = 0*/, uint32_t ban/* = 0*/) {
-  for (int i = 0; i < EXCEPTION_ISR_QUEUE_SIZE; i++) {
-    if (nodes_isr[i].owner == EXCEPTION_OWNER_INVALID) {
-      nodes_isr[i].owner   = owner;
-      nodes_isr[i].ban     = ban;
-      nodes_isr[i].state   = state;
-      nodes_isr[i].actions = actions;
-      break;
-    }
-  }
-}
-
-
 err_code_t SystemService::clear_exception(uint16_t owner, uint8_t state) {
   uint32_t i = 0, j = 0;
   uint32_t ban = 0;
@@ -389,13 +376,35 @@ err_code_t SystemService::notification_clear_exception(uint16_t owner, uint8_t s
   return ret;
 }
 
-/* raise exception from ISR env
- *  owner   - device id
- *  state   - exception enumeration, each owner must define itself exception
- *  actions - actions you want to trigger, these have been define in system.h,
- *            the macros start with prefix 'EXCEP_ACT_'
- *  ban     - when an exception exists, the behaviors you want to ban
- */
+
+void SystemService::raise_exception_from_isr(uint16_t owner, uint8_t state, uint32_t actions/* = 0*/, uint32_t ban/* = 0*/) {
+  for (int i = 0; i < EXCEPTION_ISR_QUEUE_SIZE; i++) {
+    if (nodes_isr[i].owner == EXCEPTION_OWNER_INVALID) {
+      nodes_isr[i].owner   = owner;
+      nodes_isr[i].ban     = ban;
+      nodes_isr[i].state   = state;
+      nodes_isr[i].actions = actions;
+      nodes_isr[i].type    = EXCEP_ISR_TYPE_RAISE;
+      break;
+    }
+  }
+}
+
+
+void SystemService::clear_exception_from_isr(uint16_t owner, uint8_t state) {
+  for (int i = 0; i < EXCEPTION_ISR_QUEUE_SIZE; i++) {
+    if (nodes_isr[i].owner == EXCEPTION_OWNER_INVALID) {
+      nodes_isr[i].owner   = owner;
+      nodes_isr[i].ban     = ban;
+      nodes_isr[i].state   = state;
+      nodes_isr[i].actions = actions;
+      nodes_isr[i].type    = EXCEP_ISR_TYPE_CLEAR;
+      break;
+    }
+  }
+}
+
+
 err_code_t SystemService::hmi_cb_get_exceptions(void *obj, sacp_hmi_message_t *msg) {
   SystemService &svc  = *(SystemService *)obj;
   ExceptionInfo *node = (ExceptionInfo *)(msg->data + 2);
@@ -560,22 +569,30 @@ bool SystemService::allow_turn_on_cnc() {
 void SystemService::background_thread() {
   ExceptionNodeISR node = { EXCEPTION_OWNER_INVALID };
   for (int i = 0; i < EXCEPTION_ISR_QUEUE_SIZE; i++) {
+    if (nodes_isr[i].owner == EXCEPTION_OWNER_INVALID);
+      continue;
+
     disable_all_interrupts();
     node = nodes_isr[i];
     enable_all_interrupts();
 
-    if (node.owner != EXCEPTION_OWNER_INVALID) {
-      // release the node
-      disable_all_interrupts();
-      nodes_isr[i].owner = EXCEPTION_OWNER_INVALID;
-      enable_all_interrupts();
-      break;
-    }
+    // release the node
+    disable_all_interrupts();
+    nodes_isr[i].owner = EXCEPTION_OWNER_INVALID;
+    enable_all_interrupts();
+    break;
   }
 
   if (node.owner != EXCEPTION_OWNER_INVALID) {
-    LOG_W("got exception from ISR! excep[o:%u, s:%u, a:0x%x, b: 0x%x]\n",
-          node.owner, node.state, node.actions, node.ban);
-    raise_exception(node.owner, node.state, node.actions, node.ban);
+    if (node.type == EXCEP_ISR_TYPE_RAISE) {
+      LOG_W("raise exception from ISR! excep[o:%u, s:%u, a:0x%x, b: 0x%x]\n",
+            node.owner, node.state, node.actions, node.ban);
+      raise_exception(node.owner, node.state, node.actions, node.ban);
+    }
+    else {
+      LOG_I("clear exception from ISR! excep[o:%u, s:%u]\n",
+            node.owner, node.state);
+      clear_exception(node.owner, node.state);
+    }
   }
 }

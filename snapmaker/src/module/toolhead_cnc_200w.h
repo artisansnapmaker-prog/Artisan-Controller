@@ -66,7 +66,7 @@ class ToolHeadCNC200W: public ToolHeadCNC {
     bool is_support_rpm_mode() { return true; }
     bool is_support_change_ctr_mode() { return true; }
     virtual err_code_t sync_cnc_output(uint16_t power, CNCSpeedControlType type=CNC_PWM_SET_SPEED);
-    bool get_enclosure_hw_verion(uint8_t *version);
+    bool get_cnc_hw_verion(uint8_t *version);
     err_code_t set_cnc_run_dir(uint8_t dir); 
     err_code_t set_cnc_pid(uint8_t index, uint8_t mode, uint32_t param);
 

@@ -177,7 +177,7 @@ err_code_t hp_cnc_callback_routine(void *obj) {
   return E_SUCCESS;
 }
 
-bool ToolHeadCNC200W::get_enclosure_hw_verion(uint8_t *version) {
+bool ToolHeadCNC200W::get_cnc_hw_verion(uint8_t *version) {
   smcan_message_t msg;
   bool ret = false;
   err_code_t result = E_FAILURE;
@@ -188,8 +188,9 @@ bool ToolHeadCNC200W::get_enclosure_hw_verion(uint8_t *version) {
     msg.ch     = get_channel();
     msg.data   = NULL;
     msg.length = 0;
+    result = host_can_rou.send_sync(&msg, out_buf, &out_len, 200);
   }
-  result = host_can_rou.send_sync(&msg, out_buf, &out_len, 200);
+
   if (result == E_SUCCESS) {
     *version = out_buf[0];
     ret = true;
@@ -506,9 +507,9 @@ err_code_t ToolHeadCNC200W::post_init() {
   LOG_I("HP_CNC post_init in\n");
   uint8_t hw_verion = 0xff;
 
-  if (!get_enclosure_hw_verion(&hw_verion)) {
+  if (!get_cnc_hw_verion(&hw_verion)) {
     LOG_E("HP_CNC GET_HW_VERSION fail\n");
-    return E_FAILURE;
+    // return E_FAILURE;
   }
 
   LOG_I("HP_CNC HW_VERSION: 0x%x\n", hw_verion);  

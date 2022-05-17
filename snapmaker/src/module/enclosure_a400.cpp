@@ -269,8 +269,8 @@ bool EnclosureA400::get_enclosure_hw_verion(uint8_t *version) {
     msg.ch     = get_channel();
     msg.data   = NULL;
     msg.length = 0;
+    result = host_can_rou.send_sync(&msg, out_buf, &out_len, 200);
   }
-  result = host_can_rou.send_sync(&msg, out_buf, &out_len, 200);
   if (result == E_SUCCESS) {
     *version = out_buf[0];
     ret = true;
@@ -284,7 +284,7 @@ err_code_t EnclosureA400::post_init() {
 
   if (!get_enclosure_hw_verion(&hw_verion)) {
     LOG_E("Enclosure A400 GET_HW_VERSION fail\n");
-    return E_FAILURE;
+    // return E_FAILURE;
   }
 
   LOG_I("Enclosure A400 HW_VERSION: 0x%x\n", hw_verion);  

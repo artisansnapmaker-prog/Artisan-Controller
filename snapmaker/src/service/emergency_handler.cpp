@@ -4,6 +4,7 @@
 #include "../snapmaker.h"
 #include "../HAL/interrupt.h"
 #include "../HAL/flash.h"
+#include "../HAL/core.h"
 
 #include "../service/motion_platform.h"
 #include "../service/job_ctrl.h"
@@ -540,6 +541,8 @@ void EmergencyHandler::background() {
       LOG_E("failed to set system to SYSTEM_STATUS_IDLE\n");
       return;
     }
+
+    reboot();
 
     // LOG_I("recover from SYSTEM_STATUS_EMERGENCY_STOP, rescan modules!\n");
     // module_svc.scan_modules();

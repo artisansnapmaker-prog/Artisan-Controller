@@ -128,10 +128,18 @@ err_code_t ModuleService::handle_module_inserted(void *obj, uint32_t mac, LinkCA
   if (module && module->get_status() == MODULE_STATUS_OFFLINE) {
     module->set_mac(mac);
     module->set_channel(ch);
-    module->pre_init();
+    if (module->pre_init() != E_SUCCESS) {
+      ret = E_FAILURE;
+      goto out;
+    }
     // re-bind message id
     ms->bind_message_id(*module);
-    module->post_init();
+    if (module->post_init() != E_SUCCESS) {
+      ret = E_FAILURE;
+      goto out;
+    }
+
+    ms->get_module_info(*module);
     goto out;
   }
 
@@ -188,6 +196,10 @@ err_code_t ModuleService::handle_module_inserted(void *obj, uint32_t mac, LinkCA
       ret = E_FAILURE;
       goto out;
     }
+  }
+  else {
+    // set status to MODULE_STATUS_INIT to indicates it has done pre_init()
+    module->set_status(MODULE_STATUS_INIT);
   }
 
 out:
@@ -356,6 +368,8 @@ void ModuleService::init() {
   // do post init for all modules
   LOG_I("configured_module: %d\n", configured_module);
   for (int i = 0; i < configured_module; i++) {
+    if (modules[i]->get_status() != MODULE_STATUS_INIT)
+      continue;
     modules[i]->post_init();
   }
 
@@ -387,6 +401,7 @@ int ModuleService::init_virtual_modules() {
     if (module->pre_init() == E_SUCCESS) {
       module->set_fw_version((char *)"v1.0.0");
       modules[configured_module++] = module;
+      module->set_status(MODULE_STATUS_INIT);
     }
     else {
       LOG_E("failed to init linear X!\n");
@@ -401,6 +416,7 @@ int ModuleService::init_virtual_modules() {
     if (module->pre_init() == E_SUCCESS) {
       module->set_fw_version((char *)"v1.0.0");
       modules[configured_module++] = module;
+      module->set_status(MODULE_STATUS_INIT);
     }
     else {
       LOG_E("failed to init linear Y1!\n");
@@ -415,6 +431,7 @@ int ModuleService::init_virtual_modules() {
     if (module->pre_init() == E_SUCCESS) {
       module->set_fw_version((char *)"v1.0.0");
       modules[configured_module++] = module;
+      module->set_status(MODULE_STATUS_INIT);
     }
     else {
       LOG_E("failed to init linear Z1!\n");
@@ -429,6 +446,7 @@ int ModuleService::init_virtual_modules() {
     if (module->pre_init() == E_SUCCESS) {
       module->set_fw_version((char *)"v1.0.0");
       modules[configured_module++] = module;
+      module->set_status(MODULE_STATUS_INIT);
     }
     else {
       LOG_E("failed to init linear Y2!\n");
@@ -443,6 +461,7 @@ int ModuleService::init_virtual_modules() {
     if (module->pre_init() == E_SUCCESS) {
       module->set_fw_version((char *)"v1.0.0");
       modules[configured_module++] = module;
+      module->set_status(MODULE_STATUS_INIT);
     }
     else {
       LOG_E("failed to init linear Z2!\n");
@@ -458,6 +477,7 @@ int ModuleService::init_virtual_modules() {
     if (module->pre_init() == E_SUCCESS) {
       module->set_fw_version((char *)"v1.0.0");
       modules[configured_module++] = module;
+      module->set_status(MODULE_STATUS_INIT);
     }
     else {
       LOG_E("failed to init Bed!\n");
@@ -473,6 +493,7 @@ int ModuleService::init_virtual_modules() {
     if (module->pre_init() == E_SUCCESS) {
       module->set_fw_version((char *)"v1.0.0");
       modules[configured_module++] = module;
+      module->set_status(MODULE_STATUS_INIT);
     }
     else {
       LOG_E("failed to init Bed!\n");

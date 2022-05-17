@@ -134,7 +134,6 @@ class ToolHeadCNC: public ModuleBase {
 
     virtual void report_cnc_status_info();
     virtual err_code_t debug_function(uint8_t cmd, uint32_t param) { return E_INVALID_CMD; }
-    virtual void debug_emergency_stop();
     virtual void cnc_hmi_self_test_interface(uint8_t test_type, uint32_t param);
 
     friend err_code_t cnc_callback_routine(void *obj);

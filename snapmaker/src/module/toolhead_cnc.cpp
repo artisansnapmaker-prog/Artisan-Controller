@@ -185,7 +185,6 @@ void cnc_callback_update_rpm(void *obj, uint8_t *data, uint8_t length) {
 
   if (stall_trigger) {
     LOG_I("CNC blocking trigger!!!\n");
-    // cnc.debug_emergency_stop();
     cnc.record_error = cnc.error_state;
     smprinter.pause_trigger(PAUSE_EXCEPTION);
   }
@@ -351,10 +350,6 @@ err_code_t ToolHeadCNC::sync_cnc_output(uint16_t value, CNCSpeedControlType type
   return E_SUCCESS;
 }
 
-void ToolHeadCNC::debug_emergency_stop() {
-  OUT_WRITE(POWER_CTRL_8P_TOOLHEAD, POWER_CTRL_OFF);
-  emergency_parser.killed_by_M112 = true;
-}
 
 err_code_t ToolHeadCNC::save_env(uint8_t *env_buf, uint32_t &len) {
   err_code_t result = E_FAILURE;

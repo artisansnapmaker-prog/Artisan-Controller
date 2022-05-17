@@ -108,7 +108,6 @@ void hp_cnc_callback_update_info(void *obj, uint8_t *data, uint8_t length) {
     
     if (error_trigger) {
       LOG_E("new exception trigger, error_state: 0x%x\n", cnc.error_state);
-      // cnc.debug_emergency_stop();
       cnc.record_error = cnc.error_state;
       smprinter.pause_trigger(PAUSE_EXCEPTION);
     }

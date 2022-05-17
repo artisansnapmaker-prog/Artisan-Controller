@@ -57,8 +57,10 @@
   #warning "Warning! Don't use dummy thermistors (998/999) for final build!"
 #endif
 
+#if !MB_SNAPMAKER
 #if NONE(HAS_RESUME_CONTINUE, HOST_PROMPT_SUPPORT)
   #warning "Your Configuration provides no method to acquire user feedback!"
+#endif
 #endif
 
 #if AUTO_ASSIGNED_X2_STEPPER

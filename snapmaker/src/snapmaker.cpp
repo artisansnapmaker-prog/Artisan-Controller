@@ -179,11 +179,23 @@ uint16_t SnapmakerPrinter::hmi_cb_publish_system_status(void *obj, uint8_t *buff
 
 // HMI event callback
 err_code_t SnapmakerPrinter::hmi_cb_request_reboot(void *obj, sacp_hmi_message_t *msg) {
+  err_code_t ret = E_SUCCESS;
+  uint8_t  recv_buffer[4];
+  uint16_t recv_len = 4;
+
   LOG_I("hmi_cb_request_reboot\n");
   host_hmi.send_ack(msg, E_SUCCESS);
-  vTaskDelay(pdMS_TO_TICKS(500));
-  HAL_reboot();
+
+  msg->cmd_id = SACP_CMD_ID_GLOABL_NOTIFY_START_REBOOT;
+  msg->length = 0;
+
+  ret = host_hmi.send_sync(msg, recv_buffer, &recv_len, SACP_HMI_TIMEOUT_DEFAULT, SACP_HMI_RETRY_DEFAULT);
+  if (ret != E_SUCCESS) {
+    LOG_E("failed to notify host that we will reboot!\n");
+  }
+
   disable_all_interrupts();
+  HAL_reboot();
   while(1);
   return E_SUCCESS;
 }

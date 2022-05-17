@@ -150,7 +150,7 @@ err_code_t SystemService::raise_exception(uint16_t owner, uint8_t state, uint32_
     }
   }
 
-  if (i >= EXCEPTION_OWNER_INVALID) {
+  if (i >= EXCEPTION_STATIC_SIZE) {
     LOG_I("no free static nodes\n");
     if (!dynamic_nodes) {
       dynamic_nodes = (ExceptionNode *)pvPortMalloc(sizeof(ExceptionNode) * EXCEPTION_STATIC_SIZE);

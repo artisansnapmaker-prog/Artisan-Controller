@@ -147,8 +147,8 @@ uint32_t ModuleBase::get_port_index() {
   int32_t pin;
   sacp_module_message_t msg;
   uint8_t buffer[4];
-  uint8_t recv_buff[8];
-  uint16_t recv_len = 8;
+  uint8_t recv_buff[12];
+  uint16_t recv_len = 12;
 
   msg.cmd_id = MODULE_EXT_CMD_CONFIG_REQ;
   msg.data   = buffer;
@@ -184,7 +184,7 @@ uint32_t ModuleBase::get_port_index() {
       continue;
     }
     else {
-      if (recv_len == 0 || recv_buff[0] != 1)
+      if (recv_len == 0 || recv_buff[1] != 1)
         continue;
       else
         break;

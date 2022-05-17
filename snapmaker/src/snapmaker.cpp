@@ -1633,6 +1633,19 @@ void SnapmakerPrinter::get_hw_version() {
 }
 
 
+
+
+// must call in marlin idle()
+void SnapmakerPrinter::check_if_quickstop() {
+  if (!quick_stop) {
+    return;
+  }
+
+  quick_stop = false;
+
+  motion_platform_svc.do_quickstop();
+}
+
 extern "C" {
   // hook for failing to apply memory in freeRTOS
   void vApplicationMallocFailedHook( void ) {

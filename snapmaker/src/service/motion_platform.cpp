@@ -486,7 +486,7 @@ void MotionPlatformService::sync_leveling_limit_to_platform(float x_start, float
 
 // emergency_handle will call this API in ISR to stop motion platform
 void MotionPlatformService::req_emergency_stop() {
-  emergency_parser.quickstop_by_M410 = true;
+  smprinter.req_quick_stop();
   stepper.quick_stop();
 }
 
@@ -502,7 +502,7 @@ void MotionPlatformService::req_quickstop(void) {
   // planner.quick_stop();
   // while (planner.has_blocks_queued())
   planner_clean_cnt = TEMP_TIMER_FREQUENCY;
-  emergency_parser.quickstop_by_M410 = true;
+  smprinter.req_quick_stop();
 
   // wait for the current request finish
   // LOG_I("wait for the quickstop finish\r\n");
@@ -515,7 +515,7 @@ void MotionPlatformService::req_live_Z_offset_quickstop(void) {
   req_motion_platform_quickstop = true;
 
   planner_clean_cnt = 0;
-  emergency_parser.quickstop_by_M410 = true;
+  smprinter.req_quick_stop();
 
   take_quickstop_sem(0xffffffff);
 }
@@ -1258,4 +1258,9 @@ void MotionPlatformService::stop() {
 void MotionPlatformService::run() {
   LOG_I("running motion platform!!!\n");
   marlin_state = MF_RUNNING;
+}
+
+
+void MotionPlatformService::do_quickstop() {
+  quickstop_stepper();
 }

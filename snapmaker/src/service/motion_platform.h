@@ -243,6 +243,8 @@ class MotionPlatformService {
     void stop();
     void run();
 
+    void do_quickstop();
+
   private:
     MessageBufferHandle_t gcode_queue;
     xSemaphoreHandle  marlin_signal;

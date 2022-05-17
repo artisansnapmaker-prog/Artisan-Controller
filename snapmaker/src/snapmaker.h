@@ -543,6 +543,9 @@ class SnapmakerPrinter
 
     void get_hw_version();
 
+    void req_quick_stop() { quick_stop = true; }
+    void check_if_quickstop();
+
   private:
     enum SystemStatus sys_status;
     SemaphoreHandle_t status_lock;
@@ -551,6 +554,8 @@ class SnapmakerPrinter
     uint8_t hw_ver;
 
     Rotary *rotary = NULL;
+
+    bool quick_stop = false;
 
   // settings save into marlin
   private:

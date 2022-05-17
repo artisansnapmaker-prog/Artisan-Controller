@@ -786,6 +786,10 @@ void idle(bool no_stepper_sleep/*=false*/) {
   // Core Marlin activities
   manage_inactivity(no_stepper_sleep);
 
+  #if MB_SNAPMAKER
+    smprinter.check_if_quickstop();
+  #endif
+
   // Manage Heaters (and Watchdog)
   thermalManager.manage_heater();
 

@@ -51,7 +51,11 @@ err_code_t ToolHeadCNC200W::pre_init() {
   // must set the function priority map in pre_init() !!!!!
   set_func_prio_map(prio_map);
 
-  // TODO: insertion port of the detection module
+  uint32_t port_index = get_port_index();
+  if (port_index != PORT_INDEX_P1) {
+    LOG_E("[%s] cnc port check fail, check indx: %d\n", __FUNCTION__, port_index);
+    return E_FAILURE;
+  }
 
   // create resource lock
   if (!create_public_mutex_lock())

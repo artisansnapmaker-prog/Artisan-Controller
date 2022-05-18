@@ -139,8 +139,11 @@ typedef struct {
   uint8_t *gcode_str;
 } res_batch_gcode_t;
 
-typedef void (*client_node_onoffline_cb)(uint8_t id, SACPRouteStatus status);
-
+typedef void (*client_node_onoffline_cb)(void * obj, uint8_t id, SACPRouteStatus status);
+typedef struct {
+  client_node_onoffline_cb cb;
+  void *obj;
+} client_node_onoffline_handle_t;
 
 class ClientNode {
   // Class define
@@ -158,7 +161,7 @@ class ClientNode {
     static err_code_t del_client_node(uint8_t id);
     static err_code_t del_client_node(ClientNode *cn);
     static ClientNode *touch_client(uint32_t peer, uint8_t ch);
-    static err_code_t register_on_client_node_online(client_node_onoffline_cb cb);
+    static err_code_t register_on_client_node_online(void *obj, client_node_onoffline_cb cb);
 
     static err_code_t sacp_cb(void *obj, sacp_hmi_message_t *);
     static bool get_batch_gcode(uint8_t client_id, req_batch_gcode_t &req_batch_gcode, res_batch_gcode_t &res_batch_gcode);
@@ -180,7 +183,7 @@ class ClientNode {
   private:
     static SemaphoreHandle_t _lock;
     static ClientNode* client_node_tab[MAX_CLIENT_NODE_NUM];
-    static client_node_onoffline_cb client_node_onoffline_cb_tab[CLIENT_NODE_ONFFLINE_NOTIFY_CB_MAX];
+    static client_node_onoffline_handle_t client_node_onoffline_cb_tab[CLIENT_NODE_ONFFLINE_NOTIFY_CB_MAX];
 
   // Instance define
   public:

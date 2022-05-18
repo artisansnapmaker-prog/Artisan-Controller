@@ -64,7 +64,7 @@ uint32_t SystemService::get_bans(uint8_t *buffer, uint32_t buff_len) {
   uint32_t len = 0;
 
   if (bans) {
-    for (int i = 0; i < EXCEPTION_STATIC_SIZE; i++) {
+    for (int i = 0; i < EXCEPTION_BAN_SIZE; i++) {
       if (bans & (1<<i)) {
         buffer[len++] = i;
       }
@@ -395,9 +395,7 @@ void SystemService::clear_exception_from_isr(uint16_t owner, uint8_t state) {
   for (int i = 0; i < EXCEPTION_ISR_QUEUE_SIZE; i++) {
     if (nodes_isr[i].owner == EXCEPTION_OWNER_INVALID) {
       nodes_isr[i].owner   = owner;
-      nodes_isr[i].ban     = ban;
       nodes_isr[i].state   = state;
-      nodes_isr[i].actions = actions;
       nodes_isr[i].type    = EXCEP_ISR_TYPE_CLEAR;
       break;
     }
@@ -569,7 +567,7 @@ bool SystemService::allow_turn_on_cnc() {
 void SystemService::background_thread() {
   ExceptionNodeISR node = { EXCEPTION_OWNER_INVALID };
   for (int i = 0; i < EXCEPTION_ISR_QUEUE_SIZE; i++) {
-    if (nodes_isr[i].owner == EXCEPTION_OWNER_INVALID);
+    if (nodes_isr[i].owner == EXCEPTION_OWNER_INVALID)
       continue;
 
     disable_all_interrupts();

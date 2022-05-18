@@ -257,7 +257,7 @@ enum EmergencyStopExceptionState {
 };
 
 // exception state for emergency stop
-enum EmergencyStopExceptionState {
+enum LaserExceptionState {
   LASER_EXCEP_STA_NORMAL,
   LASER_EXCEP_STA_IMU_EXCEPTION,
   LASER_EXCEP_STA_TUBE_TEMP_TOO_HIGH,

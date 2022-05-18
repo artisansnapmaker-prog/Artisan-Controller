@@ -30,6 +30,7 @@
 #define EXCEPTION_STATIC_SIZE     (64)
 #define EXCEPTION_ISR_QUEUE_SIZE  (8)
 #define EXCEPTION_OWNER_INVALID   (0xFFFF)
+#define EXCEPTION_BAN_SIZE        (32)
 struct ExceptionNode {
   uint16_t owner;
   uint8_t  state;
@@ -40,8 +41,8 @@ struct ExceptionNode {
 #define EXCEP_ISR_TYPE_CLEAR  (0)
 #define EXCEP_ISR_TYPE_RAISE  (1)
 struct ExceptionNodeISR {
-  uint8_t  type;
   uint16_t owner;
+  uint8_t  type;
   uint8_t  state;
   uint32_t ban;
   uint32_t actions;
@@ -100,22 +101,24 @@ class SystemService {
     */
     err_code_t clear_exception(uint16_t owner, uint8_t state);
 
-    /* raise exception from ISR env
+    /* raise exception with non-blocking
     *  owner   - device id
     *  state   - exception enumeration, each owner must define itself exception
     *  actions - actions you want to trigger, these have been define in system.h,
     *            the macros start with prefix 'EXCEP_ACT_'
     *  ban     - when an exception exists, the behaviors you want to ban
     */
-    void raise_exception_from_isr(uint16_t owner, uint8_t state, uint32_t actions = 0, uint32_t ban = 0);
+    void raise_exception_async(uint16_t owner, uint8_t state, uint32_t actions = 0, uint32_t ban = 0);
 
-    /* clear exception from ISR env
+    /* clear exception with non-blocking
     *  owner   - device id
     *  state   - exception enumeration, each owner must define itself exception
     */
-    void clear_exception_from_isr(uint16_t owner, uint8_t state)
+    void clear_exception_async(uint16_t owner, uint8_t state);
 
     static err_code_t hmi_cb_get_exceptions(void *obj, sacp_hmi_message_t *msg);
+    static err_code_t hmi_ack_cb_raise_exception(void *obj, sacp_hmi_message_t *msg);
+    static err_code_t hmi_ack_cb_clear_exception(void *obj, sacp_hmi_message_t *msg);
 
   // private methods
   private:

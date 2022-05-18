@@ -860,9 +860,6 @@ void HostSACPHMI::handle_receive() {
 
     tmp_queue   = NULL;
     if (version == SACP_VER_1) {
-      // check if this message is received from new route
-      record_new_route(parser_buff[SACP_V1_FRAME_INDEX_SENDER_ID], i, SACP_VER_1);
-
       seq = parser_buff[SACP_V1_FRAME_INDEX_SEQ_H]<<8 | parser_buff[SACP_V1_FRAME_INDEX_SEQ_L];
       if (xSemaphoreTake(waiting_lock, 0) == pdPASS) {
         for (int j = 0; j < SACP_HMI_WAITING_NODE_MAX; j++) {
@@ -882,8 +879,6 @@ void HostSACPHMI::handle_receive() {
       }
     }
     else {
-      // check if this message is received from new route
-      record_new_route(0, i, SACP_VER_0);
       if (xSemaphoreTake(waiting_lock, 0) == pdPASS) {
         for (int j = 0; j < SACP_HMI_WAITING_NODE_MAX; j++) {
           if (waiting_nodes[j].status == SACP_WAITING_NODE_STA_INUSE_V0) {
@@ -1083,12 +1078,18 @@ void HostSACPHMI::handle_events() {
     msg.attr    = buffer[SACP_V1_FRAME_INDEX_ATTR];
     msg.seq     = buffer[SACP_V1_FRAME_INDEX_SEQ_H]<<8 | buffer[SACP_V1_FRAME_INDEX_SEQ_L];
     msg.data    = buffer + (SACP_V1_FRONT_HEADER_SIZE + SACP_V1_REAR_HEADER_SIZE);
+
+    // check if this message is received from new route
+    record_new_route(buffer[SACP_V1_FRAME_INDEX_SENDER_ID], event_handle->channel, SACP_VER_1);
   }
   else if (event_handle->version == SACP_VER_0) {
     if (event_handle->length < 2) {
       LOG_E("for now didn't support single command of V0!\n");
       return;
     }
+
+    // check if this message is received from new route
+    record_new_route(0, event_handle->channel, SACP_VER_0);
 
     msg.length  = event_handle->length - 2;
     msg.cmd_set = buffer[SACP_V0_FRAME_INDEX_EVENT_ID];

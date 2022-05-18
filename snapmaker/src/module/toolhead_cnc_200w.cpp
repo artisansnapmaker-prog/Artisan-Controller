@@ -26,6 +26,7 @@
 #include "../common/debug.h"
 #include "../service/module.h"
 #include "../service/job_ctrl.h"
+#include "../service/system.h"
 #include "toolhead_cnc_200w.h"
 
 // every module must define itself function and priority map !!!!
@@ -54,6 +55,7 @@ err_code_t ToolHeadCNC200W::pre_init() {
   uint32_t port_index = get_port_index();
   if (port_index != PORT_INDEX_P1) {
     LOG_E("[%s] cnc port check fail, check indx: %d\n", __FUNCTION__, port_index);
+    system_svc.raise_exception(get_device_id(), CNC_EXCEP_STA_DETECT_PORT);
     return E_FAILURE;
   }
 
@@ -87,6 +89,9 @@ err_code_t ToolHeadCNC200W::pre_init() {
 void hp_cnc_callback_update_info(void *obj, uint8_t *data, uint8_t length) {
   ToolHeadCNC200W &cnc = *(ToolHeadCNC200W *)obj;
   uint8_t error_trigger = 0;
+  uint16_t raise_err_flag = 0;
+  uint16_t error_sta_bak = 0;
+
   if (!obj || !cnc.online)
     return;
   // update cnc info
@@ -97,11 +102,21 @@ void hp_cnc_callback_update_info(void *obj, uint8_t *data, uint8_t length) {
         return;
       }
       cnc.rpm = data[0] << 8 | data[1];
-      // cnc.error_state = data[2];
       cnc.output_sta = (CNCOutputStatus)data[3];
       cnc.ctr_mode = (CNCSpeedControlMode)data[5];
       cnc.real_power = data[7];
       cnc.lost_counter = xTaskGetTickCount();
+      error_sta_bak = cnc.error_state;
+
+      if ((error_sta_bak & 0x3f) ^ (data[2] & 0x3f)) {
+        // anomaly status has changed
+        for (int i = 0; i < 6; i++) {
+          if ((error_sta_bak & (1 << i)) ^ (data[2] & (1 << i))) {
+            raise_err_flag |= (1 << i);
+          }
+        }
+      }
+
       if (data[2]) {
         if ((~cnc.error_state) & data[2]) { 
           error_trigger = 1; 
@@ -118,6 +133,24 @@ void hp_cnc_callback_update_info(void *obj, uint8_t *data, uint8_t length) {
       cnc.record_error = cnc.error_state;
       smprinter.pause_trigger(PAUSE_EXCEPTION);
     }
+
+    if (raise_err_flag) {
+      uint32_t action = 0;
+      uint32_t ban = 0;
+      for (int i = 0; i < 6; i++) {
+        if (raise_err_flag & (1 << i)) {
+          if (cnc.error_state & (1 << i)) {
+            action = EXCEP_ACT_PAUSE_WORKING;
+            ban = i > 1 ? EXCEP_BAN_TURN_ON_CNC : 0; 
+            system_svc.raise_exception(cnc.get_device_id(), CNC_EXCEP_STA_STALLED + i, action, ban);
+          }
+          else {
+            system_svc.clear_exception(cnc.get_device_id(), CNC_EXCEP_STA_STALLED + i);
+          }
+        }
+      }
+    }
+
   }
 }
 
@@ -572,6 +605,9 @@ err_code_t ToolHeadCNC200W::post_init() {
 
   motion_platform_svc.set_home_offset(0, 0, 0);
   smprinter.register_module(MODULE_DEVICE_ID_CNC_200W_2021, this);
+
+  // TODO: clear all cnc exception state
+
   LOG_I("HP_CNC post_init out\n");
   LOG_I("Hight power CNC ready!\n");
   return E_SUCCESS;

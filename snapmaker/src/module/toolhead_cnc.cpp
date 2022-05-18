@@ -26,6 +26,7 @@
 #include "../common/debug.h"
 #include "../service/module.h"
 #include "../service/job_ctrl.h"
+#include "../service/system.h"
 #include "toolhead_cnc.h"
 
 // debug function: emergency stop
@@ -88,6 +89,7 @@ err_code_t ToolHeadCNC::pre_init() {
   uint32_t port_index = get_port_index();
   if (port_index != PORT_INDEX_P1) {
     LOG_E("[%s] cnc port check fail, check indx: %d\n", __FUNCTION__, port_index);
+    system_svc.raise_exception(get_device_id(), CNC_EXCEP_STA_DETECT_PORT);
     return E_FAILURE;
   }
 
@@ -159,6 +161,7 @@ uint8_t ToolHeadCNC::is_can_resume_work(void) {
 void cnc_callback_update_rpm(void *obj, uint8_t *data, uint8_t length) {
   ToolHeadCNC &cnc = *(ToolHeadCNC *)obj;
   uint8_t stall_trigger = 0;
+  bool is_raise_err = false;
   if (!obj || !cnc.online)
     return;
 
@@ -167,13 +170,16 @@ void cnc_callback_update_rpm(void *obj, uint8_t *data, uint8_t length) {
       cnc.public_mutex_unlock();
       return;
     }
+
+    // current cnc only has blocking exceptions
+    if ((cnc.error_state & CNC_STALL_ERROR_MASK) ^ (data[2] & CNC_STALL_ERROR_MASK))
+      is_raise_err = true;
+
     cnc.rpm = (data[0]<<8 | data[1]);
     if (cnc.rpm == 0 && cnc.output_sta == CNC_OUTPUT_OFF_ING) 
       cnc.output_sta = CNC_OUTPUT_OFF;
-    
+
     if (data[2]) {
-      // TODO: Modified state better after the event has been successfully 
-      // processed, subsequent optimisation.
       if (!(cnc.error_state & CNC_STALL_ERROR_MASK)) {
         // cnc blocking trigger
         stall_trigger = 1;
@@ -193,6 +199,16 @@ void cnc_callback_update_rpm(void *obj, uint8_t *data, uint8_t length) {
     cnc.record_error = cnc.error_state;
     smprinter.pause_trigger(PAUSE_EXCEPTION);
   }
+
+  if (is_raise_err) {
+    if (cnc.error_state & CNC_STALL_ERROR_MASK) {
+      system_svc.raise_exception(cnc.get_device_id(), CNC_EXCEP_STA_STALLED, \
+            EXCEP_ACT_PAUSE_WORKING);
+    }
+    else {
+      system_svc.clear_exception(cnc.get_device_id(), CNC_EXCEP_STA_STALLED);
+    }
+  }
 }
 
 // cnc module heartbeat detection
@@ -203,7 +219,12 @@ void ToolHeadCNC::lost_counter_routine(uint32_t time_out) {
         online = false;
         set_status(MODULE_STATUS_OFFLINE);
         public_mutex_unlock();
-        LOG_E("cnc offline!!!");
+        LOG_E("cnc offline!!!\n");
+        // upgrading will take the module offline
+        if (smprinter.get_sys_status() != SYSTEM_STATUS_MODULE_UPGRADE) {
+          system_svc.raise_exception(get_device_id(), CNC_EXCEP_STA_OFFLINE, \
+            EXCEP_ACT_STOP_WORKING | EXCEP_ACT_DISABLE_POWER_8P_TOOLHEAD, EXCEP_BAN_TURN_ON_CNC);
+        }
       }
     }
   }
@@ -246,6 +267,8 @@ err_code_t ToolHeadCNC::post_init() {
     LOG_E("[%s] CNC take public_mutex_lock fail\n", __FUNCTION__);
     return E_FAILURE;
   }
+
+  // TODO: clear all cnc exception state
   
   motion_platform_svc.set_home_offset(0, 0, 0);
   smprinter.register_module(MODULE_DEVICE_ID_CNC_50W_2019, this);

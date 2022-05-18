@@ -449,6 +449,10 @@ void GcodeSuite::M2000() {
     smprinter.spindle_debug_config(CMD_SET_MOTOR_FAN, !!p);
     break;
 
+  // case 30:
+  //   extern uint16_t cnc_test_flag;
+  //   cnc_test_flag = parser.ushortval('P');
+  //   break;
 
   default:
     break;

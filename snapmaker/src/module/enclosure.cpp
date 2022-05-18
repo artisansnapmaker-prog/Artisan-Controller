@@ -126,7 +126,7 @@ void Enclosure::enclosure_offline_check(uint32_t time_out) {
         online = false;
         set_status(MODULE_STATUS_OFFLINE);
         public_mutex_unlock();
-        LOG_E("enclosure offline!!!");
+        LOG_E("enclosure offline!!!\n");
       }
     }
   }

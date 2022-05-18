@@ -270,6 +270,19 @@ enum LaserExceptionState {
 };
 
 
+// exception state for cnc
+enum CNCExceptionState {
+  CNC_EXCEP_STA_STALLED =  1,
+  CNC_EXCEP_STA_HARD_PROTECT,
+  CNC_EXCEP_STA_OVERCURRENT,
+  CNC_EXCEP_STA_P_TEMP,
+  CNC_EXCEP_STA_M_TEMP,
+  CNC_EXCEP_STA_V_POWER,
+  CNC_EXCEP_STA_DETECT_PORT,
+  CNC_EXCEP_STA_OFFLINE
+};
+
+
 // wrapper of snapmaker for marlin
 class SnapmakerPrinter
 {

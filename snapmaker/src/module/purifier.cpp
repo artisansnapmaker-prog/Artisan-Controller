@@ -101,7 +101,6 @@ err_code_t Purifier::pre_init() {
     sysnc_get_info_flag = false;
     sys_sta = 0;
     close_delay_tick = 0;
-    set_status(MODULE_STATUS_INIT);
     public_mutex_unlock();
   }
   else {

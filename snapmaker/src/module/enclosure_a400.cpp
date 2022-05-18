@@ -55,7 +55,6 @@ err_code_t EnclosureA400::pre_init() {
     light_adc = 0;
     tick = xTaskGetTickCount(); 
     online = false;
-    set_status(MODULE_STATUS_INIT);
     public_mutex_unlock();  
   } 
   else {

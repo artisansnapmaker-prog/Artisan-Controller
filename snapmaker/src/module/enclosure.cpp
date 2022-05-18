@@ -90,7 +90,6 @@ err_code_t Enclosure::pre_init() {
     loop_next_time = 0;
     tick = xTaskGetTickCount();
     online = false;
-    set_status(MODULE_STATUS_INIT);
     public_mutex_unlock();
   }
   else {

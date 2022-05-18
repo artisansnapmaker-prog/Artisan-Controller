@@ -109,7 +109,6 @@ err_code_t ToolHeadCNC::pre_init() {
     record_error = 0;
     online = false;
     feedrate_percentage = 100;
-    set_status(MODULE_STATUS_INIT);
     public_mutex_unlock();
   }
   else {

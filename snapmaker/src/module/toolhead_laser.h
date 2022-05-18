@@ -171,7 +171,7 @@ class ToolHeadLaser: public ModuleBase {
 
     void update_power(float power);
 
-    err_code_t report_bt_mac();
+    err_code_t report_bt_mac(uint32_t peer, uint8_t ch);
 
     void show_status();
 
@@ -186,6 +186,7 @@ class ToolHeadLaser: public ModuleBase {
 
     // callback for module event and routine
     static void can_cb_handle_security_status(void *obj, uint8_t *data, uint8_t length);
+    static void client_cb_report_bt_mac(void *obj, uint8_t id, SACPRouteStatus status);
     friend err_code_t laser_routine(void *obj);
 
     // callback for working flow

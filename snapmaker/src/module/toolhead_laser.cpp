@@ -8,6 +8,7 @@
 #include "../service/module.h"
 #include "../service/motion_platform.h"
 #include "../service/upgrade/esp32_upgrade.h"
+#include "../service/client_node.h"
 #include "../HAL/pwm.h"
 #include "Arduino.h"
 
@@ -181,8 +182,6 @@ err_code_t ToolHeadLaser::hmi_cb_get_info(void *obj, sacp_hmi_message_t *message
   ToolHeadLaser &laser = *(ToolHeadLaser *)obj;
   SnapmakerSettings *smsettings;
   LaserToolHeadInfo *info;
-
-  laser.tell_mac++;
 
   if (message->data[0] != laser.get_key()) {
     LOG_E("invalid module key[%u] in cmd[%x:%x]\n", message->data[0], message->cmd_set, message->cmd_id);
@@ -712,12 +711,8 @@ err_code_t laser_routine(void *obj) {
   if (laser.get_status() != MODULE_STATUS_NORMAL)
     return E_INVALID_STATE;
 
-  if (laser.tell_mac > 0) {
-    laser.tell_mac--;
-    if (laser.bt_mac[0] != 0) {
-      laser.get_bt_mac();
-    }
-    laser.report_bt_mac();
+  if (laser.bt_mac[0] != 0) {
+    laser.get_bt_mac();
   }
 
   // run every 100ms
@@ -767,6 +762,29 @@ void ToolHeadLaser::can_cb_handle_security_status(void *obj, uint8_t *data, uint
   if (data[0] != 0) {
     LOG_E("laser err: sta[%u], pitch[%d], roll[%d], tube temp[%d], imu temp[%d]\n", laser.safety_state,
           laser.pitch, laser.roll, laser.tube_temp, laser.imu_temp);
+  }
+}
+
+
+void ToolHeadLaser::client_cb_report_bt_mac(void *obj, uint8_t id, SACPRouteStatus status) {
+  ToolHeadLaser &laser = *(ToolHeadLaser *)obj;
+  ClientNode *node = NULL;
+  int i = 5;
+
+  if (status == SACP_ROUTE_STA_ONLINE) {
+    while (laser.bt_mac[0] != 0 && i > 0) {
+      i--;
+      laser.get_bt_mac();
+    }
+
+    if (i == 0) {
+      // TODO: raise exception!
+      return;
+    }
+    
+    node = ClientNode::find_client_node(id);
+    if (node)
+      laser.report_bt_mac(node->peer, node->ch);
   }
 }
 
@@ -1073,8 +1091,6 @@ err_code_t ToolHeadLaser::post_init() {
 
   setup_camera_port(PORT_INDEX_P1);
 
-  // wait for camrea to boot up
-  vTaskDelay(pdMS_TO_TICKS(3000));
 
   get_bt_mac();
 
@@ -1087,6 +1103,8 @@ err_code_t ToolHeadLaser::post_init() {
 
   feedrate_percentage = 100;
   motion_platform_svc.sync_feedrate_percentage_to_platform(feedrate_percentage);
+
+  ClientNode::register_on_client_node_online((void *)this, client_cb_report_bt_mac);
 
   return E_SUCCESS;
 }
@@ -1155,7 +1173,7 @@ err_code_t ToolHeadLaser::get_bt_mac() {
   msg.length = 1;
   msg.data = &cmd;
 
-  if ((ret = host_hmi.send_sync_legacy(&msg, recv_buff, &recv_len, 1000, 3)) != E_SUCCESS) {
+  if ((ret = host_hmi.send_sync_legacy(&msg, recv_buff, &recv_len, 500, 2)) != E_SUCCESS) {
     LOG_E("failed to get BT MAC, ret[%u]\n", ret);
   }
 
@@ -1447,7 +1465,7 @@ void ToolHeadLaser::if_disable_switch() {
 }
 
 
-err_code_t ToolHeadLaser::report_bt_mac() {
+err_code_t ToolHeadLaser::report_bt_mac(uint32_t peer, uint8_t ch) {
   sacp_hmi_message_t msg;
   err_code_t ret = E_SUCCESS;
   uint8_t buffer[12];

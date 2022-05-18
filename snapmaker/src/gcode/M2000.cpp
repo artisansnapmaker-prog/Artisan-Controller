@@ -239,7 +239,7 @@ void GcodeSuite::M2000() {
     case 2:
       { // report bt mac
         if (laser)
-          laser->report_bt_mac();
+          laser->report_bt_mac(SACP_HOST_ID_SCREEN, SACP_HMI_CH_SCREEN);
       }
       break;
 

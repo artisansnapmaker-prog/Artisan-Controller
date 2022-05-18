@@ -115,25 +115,7 @@ uint16_t ToolHeadLaser::hmi_cb_publish_safety_state(void *obj, uint8_t *buffer) 
   buffer[i++] = E_SUCCESS;
 
   buffer[i++] = laser.get_key();
-  buffer[i++] = 0;
-
-  for (int j = 0; j < 8; j++) {
-    if (laser.safety_state & (1<<j)) {
-      buffer[i++] = j + 1;
-    }
-  }
-
-  if (laser.tube_temp < 0 && !(laser.safety_state & MODULE_EXCEP_BIT_TUBE_THERMISTOR)) {
-    // TODO: raise exceptions
-    buffer[i++] = LASER_SAFETY_STATE_TUBE_TEMP_TOO_LOW;
-  }
-
-  if (laser.imu_temp > LASER_PCBA_OVERTEMP) {
-    // TODO: raise exceptions
-    buffer[i++] = LASER_SAFETY_STATE_IMU_TEMP_TOO_HIGH;
-  }
-  buffer[2] = i - 2;
-  LOG_I("laser exception length: [%u]\n", buffer[2]);
+  buffer[i++] = laser.safety_state;
 
   pi32_tmp = (int32_t *)&buffer[i];
   *pi32_tmp = laser.tube_temp * 1000;

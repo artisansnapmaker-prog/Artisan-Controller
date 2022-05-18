@@ -25,7 +25,7 @@
 #define MODULE_EXCEP_BIT_IMU_CONNECTION       (1<<0)
 #define MODULE_EXCEP_BIT_TUBE_OVERTEMP        (1<<1)
 #define MODULE_EXCEP_BIT_ATTITUDE             (1<<2)
-#define MODULE_EXCEP_BIT_TUBE_THERMISTOR      (1<<3)
+#define MODULE_EXCEP_BIT_PWM_PIN              (1<<3)
 
 // P1/2/3 step timer channel in GD32F407
 // P1 step, PE14: T0 CH3
@@ -129,8 +129,6 @@ uint16_t ToolHeadLaser::hmi_cb_publish_safety_state(void *obj, uint8_t *buffer) 
   pi32_tmp = (int32_t *)&buffer[i];
   *pi32_tmp = laser.roll * 1000;
   i += 4;
-
-  laser.read_safety_state();
 
   LOG_I("safety state: len[%u]\n", i);
 
@@ -719,20 +717,25 @@ err_code_t laser_routine(void *obj) {
   laser.if_close_fan();
   laser.if_disable_switch();
 
-  // check every second
-  if (++laser.check_online_tick > 10) {
+  // check every 500ms
+  if (++laser.check_online_tick > 5) {
     laser.check_online_tick = 0;
 
-    if (laser.read_focal_length() != E_SUCCESS) {
-      if (++laser.offline_count > 3) {
-        laser.offline_count = 0;
+    if (laser.get_device_id() == MODULE_DEVICE_ID_LASER_1P6W_2019)
+      laser.read_focal_length_async();
+    else
+      laser.read_safety_state();
+  }
 
-        LOG_I("Laser: offline!\n");
-        laser.deinit();
+  if (++laser.offline_count > 6) {
+    laser.offline_count = 0;
 
-        // TODO: trigger stop
-      }
-    }
+    LOG_I("Laser: offline!\n");
+    laser.deinit();
+
+    // TODO: trigger stop
+    system_svc.raise_exception(laser.get_device_id(), LASER_EXCEP_STA_OFFLINE, EXCEP_ACT_PAUSE_WORKING,
+                                EXCEP_BAN_WORKING | EXCEP_BAN_TURN_ON_LASER);
   }
 
   laser.next_ms = millis() + 100;
@@ -742,6 +745,9 @@ err_code_t laser_routine(void *obj) {
 
 
 void ToolHeadLaser::can_cb_handle_security_status(void *obj, uint8_t *data, uint8_t length) {
+  static uint8_t pre_state = 0;
+  uint8_t diff_state, new_state, clear_state;
+
   if (length < 7) {
     LOG_W("invlaid laser security data, len=%u\n", length);
     return;
@@ -749,20 +755,82 @@ void ToolHeadLaser::can_cb_handle_security_status(void *obj, uint8_t *data, uint
 
   ToolHeadLaser &laser = *(ToolHeadLaser *)obj;
 
+  // clear counter to avoid raising exception
+  laser.offline_count = 0;
+
   laser.safety_state = data[0];
   if (laser.safety_state > 0) {
     // when exception appear, turn off laser
     laser.set_output(0);
   }
+
+  diff_state = laser.safety_state^pre_state;
+  if (diff_state) {
+    new_state   = diff_state & laser.safety_state;
+    clear_state = diff_state & pre_state;
+    if (new_state & MODULE_EXCEP_BIT_IMU_CONNECTION) {
+      system_svc.raise_exception_async(laser.get_device_id(), LASER_EXCEP_STA_IMU_EXCEPTION, EXCEP_ACT_PAUSE_WORKING,
+                                        EXCEP_BAN_TURN_ON_LASER | EXCEP_BAN_WORKING);
+    }
+
+    if (new_state & MODULE_EXCEP_BIT_TUBE_OVERTEMP) {
+      system_svc.raise_exception_async(laser.get_device_id(), LASER_EXCEP_STA_TUBE_TEMP_TOO_HIGH, EXCEP_ACT_PAUSE_WORKING,
+                                        EXCEP_BAN_TURN_ON_LASER | EXCEP_BAN_WORKING);
+    }
+
+    if (new_state & MODULE_EXCEP_BIT_ATTITUDE) {
+      system_svc.raise_exception_async(laser.get_device_id(), LASER_EXCEP_STA_ABNORMAL_ATTITUDE, EXCEP_ACT_PAUSE_WORKING,
+                                        EXCEP_BAN_TURN_ON_LASER | EXCEP_BAN_WORKING);
+    }
+
+    if (new_state & MODULE_EXCEP_BIT_PWM_PIN) {
+      system_svc.raise_exception_async(laser.get_device_id(), LASER_EXCEP_STA_PWM_PIN, EXCEP_ACT_PAUSE_WORKING,
+                                        EXCEP_BAN_TURN_ON_LASER | EXCEP_BAN_WORKING);
+    }
+
+    if (clear_state & MODULE_EXCEP_BIT_IMU_CONNECTION) {
+      system_svc.clear_exception_async(laser.get_device_id(), LASER_EXCEP_STA_IMU_EXCEPTION);
+    }
+
+    if (clear_state & MODULE_EXCEP_BIT_TUBE_OVERTEMP) {
+      system_svc.clear_exception_async(laser.get_device_id(), LASER_EXCEP_STA_TUBE_TEMP_TOO_HIGH);
+    }
+
+    if (clear_state & MODULE_EXCEP_BIT_ATTITUDE) {
+      system_svc.clear_exception_async(laser.get_device_id(), LASER_EXCEP_STA_ABNORMAL_ATTITUDE);
+    }
+
+    if (clear_state & MODULE_EXCEP_BIT_PWM_PIN) {
+      system_svc.clear_exception_async(laser.get_device_id(), LASER_EXCEP_STA_PWM_PIN);
+    }
+  }
+
   laser.pitch = data[1]<<8 | data[2];
   laser.roll  = data[3]<<8 | data[4];
-  laser.tube_temp = data[5];
-  laser.imu_temp   = data[6];
+  laser.tube_temp = (int8_t)data[5];
+  laser.imu_temp   = (int8_t)data[6];
+
+  if (laser.tube_temp < 0) {
+    system_svc.raise_exception_async(laser.get_device_id(), LASER_EXCEP_STA_TUBE_TEMP_TOO_LOW, EXCEP_ACT_PAUSE_WORKING,
+                                      EXCEP_BAN_TURN_ON_LASER | EXCEP_BAN_WORKING);
+  }
+
+  if (laser.imu_temp > LASER_PCBA_OVERTEMP) {
+    system_svc.raise_exception_async(laser.get_device_id(), LASER_EXCEP_STA_IMU_TEMP_TOO_HIGH, EXCEP_ACT_PAUSE_WORKING,
+                                      EXCEP_BAN_TURN_ON_LASER | EXCEP_BAN_WORKING);
+  }
 
   if (data[0] != 0) {
     LOG_E("laser err: sta[%u], pitch[%d], roll[%d], tube temp[%d], imu temp[%d]\n", laser.safety_state,
           laser.pitch, laser.roll, laser.tube_temp, laser.imu_temp);
   }
+}
+
+
+void ToolHeadLaser::can_cb_handle_focal_len(void *obj, uint8_t *data, uint8_t length) {
+  ToolHeadLaser &laser = *(ToolHeadLaser *)obj;
+
+  laser.offline_count = 0;
 }
 
 
@@ -1003,6 +1071,10 @@ err_code_t ToolHeadLaser::post_init() {
     pwm_normal = true;
   }
 
+  
+  host_can_rou.register_callback(get_message_id(MODULE_FUNC_GET_LASER_FOCUS),
+    (void *)this, can_cb_handle_focal_len);
+
   tube_status = LASER_TUBE_STA_OFF;
 
   power_limit   = LASER_POWER_NORMA_LIMIT;
@@ -1209,6 +1281,8 @@ err_code_t ToolHeadLaser::deinit() {
   feedrate_percentage = 100;
   motion_platform_svc.sync_feedrate_percentage_to_platform(feedrate_percentage);
 
+  module_svc.unregister_routine(this);
+
   return E_SUCCESS;
 }
 
@@ -1284,6 +1358,20 @@ err_code_t ToolHeadLaser::read_focal_length() {
   }
 
   return ret;
+}
+
+
+// use to keep alive with laser module
+err_code_t ToolHeadLaser::read_focal_length_async() {
+  smcan_message_t msg;
+  uint8_t buffer[2] = {0};
+
+  msg.id     = msg_id_get_focal_length;
+  msg.ch     = get_channel();
+  msg.length = 1;
+  msg.data   = buffer;
+
+  return host_can_rou.send(&msg);
 }
 
 

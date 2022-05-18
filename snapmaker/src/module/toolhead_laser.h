@@ -186,6 +186,7 @@ class ToolHeadLaser: public ModuleBase {
 
     // callback for module event and routine
     static void can_cb_handle_security_status(void *obj, uint8_t *data, uint8_t length);
+    static void can_cb_handle_focal_len(void *obj, uint8_t *data, uint8_t length);
     static void client_cb_report_bt_mac(void *obj, uint8_t id, SACPRouteStatus status);
     friend err_code_t laser_routine(void *obj);
 
@@ -229,6 +230,7 @@ class ToolHeadLaser: public ModuleBase {
 
     err_code_t write_focal_length(uint16_t len);
     err_code_t read_focal_length();
+    err_code_t read_focal_length_async();
 
     err_code_t read_bt_info();
     err_code_t set_bt_info();
@@ -265,6 +267,7 @@ class ToolHeadLaser: public ModuleBase {
     uint16_t msg_id_ctrl_switch;
 
     uint16_t focal_length = LASER_CAMERA_FOCUS_MAX;
+    uint16_t msg_id_get_focal_length;
 
     uint8_t safety_state = 0;
     int16_t roll;

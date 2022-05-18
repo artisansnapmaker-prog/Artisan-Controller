@@ -27,6 +27,7 @@
 #include "../common/debug.h"
 #include "../service/module.h"
 #include "../service/job_ctrl.h"
+#include "../service/system.h"
 #include "enclosure_a400.h"
 
 static module_func_prio_t prio_map[] = {
@@ -323,6 +324,8 @@ err_code_t EnclosureA400::post_init() {
   }
 
   smprinter.register_module(MODULE_DEVICE_ID_ENCLOSURE_A400_2022, this);
+  system_svc.clear_exception_by_owner(get_device_id());
+  
   LOG_I("Enclosure A400 post_init out\n");
   LOG_I("Enclosure a400 ready!!!\n");
   return E_SUCCESS;

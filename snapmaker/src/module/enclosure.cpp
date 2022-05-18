@@ -27,6 +27,7 @@
 #include "../common/debug.h"
 #include "../service/module.h"
 #include "../service/job_ctrl.h"
+#include "../service/system.h"
 #include "enclosure.h"
 
 static module_func_prio_t prio_map[] = {
@@ -127,6 +128,10 @@ void Enclosure::enclosure_offline_check(uint32_t time_out) {
         set_status(MODULE_STATUS_OFFLINE);
         public_mutex_unlock();
         LOG_E("enclosure offline!!!\n");
+        // upgrading will take the module offline
+        if (smprinter.get_sys_status() != SYSTEM_STATUS_MODULE_UPGRADE) {
+          system_svc.raise_exception(get_device_id(), ENCLOSURE_EXCEP_STA_OFFLINE, EXCEP_ACT_PAUSE_WORKING);
+        }
       }
     }
   }
@@ -440,6 +445,7 @@ err_code_t Enclosure::post_init() {
   }
 
   smprinter.register_module(MODULE_DEVICE_ID_ENCLOSURE_2020, this);
+  system_svc.clear_exception_by_owner(get_device_id());
   LOG_I("Enclosure post_init out\n");
   LOG_I("Enclosure ready!!!\n");
   return E_SUCCESS;

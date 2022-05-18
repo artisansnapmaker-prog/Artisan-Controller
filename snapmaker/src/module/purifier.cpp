@@ -26,6 +26,7 @@
 #include "../common/debug.h"
 #include "../service/module.h"
 #include "../service/job_ctrl.h"
+#include "../service/system.h"
 #include "purifier.h"
 
 // every module must define itself function and priority map !!!!
@@ -148,6 +149,10 @@ void Purifier::purifier_offline_check(uint32_t time_out) {
         public_mutex_unlock();
       }
       LOG_E("Purifier offline!!!\n");
+      // upgrading will take the module offline
+      if (smprinter.get_sys_status() != SYSTEM_STATUS_MODULE_UPGRADE) {
+        system_svc.raise_exception(get_device_id(), PURIFIER_EXCEP_STA_OFFLINE);
+      }
     }
   }
 }
@@ -907,6 +912,8 @@ err_code_t Purifier::post_init() {
   }
 
   smprinter.register_module(MODULE_DEVICE_ID_PURIFIER_2021, this);
+  system_svc.clear_exception_by_owner(get_device_id());
+  
   LOG_I("Purifier post_init out\n");
   LOG_I("Purifier ready\n");
   return E_SUCCESS;

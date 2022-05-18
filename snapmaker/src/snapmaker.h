@@ -282,6 +282,14 @@ enum CNCExceptionState {
   CNC_EXCEP_STA_OFFLINE
 };
 
+enum EnclosureExceptionState {
+  ENCLOSURE_EXCEP_STA_OFFLINE = 1,
+};
+
+enum PurifierExceptionState {
+  PURIFIER_EXCEP_STA_OFFLINE = 1,
+};
+
 
 // wrapper of snapmaker for marlin
 class SnapmakerPrinter

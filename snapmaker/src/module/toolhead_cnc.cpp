@@ -267,9 +267,8 @@ err_code_t ToolHeadCNC::post_init() {
     LOG_E("[%s] CNC take public_mutex_lock fail\n", __FUNCTION__);
     return E_FAILURE;
   }
-
-  // TODO: clear all cnc exception state
   
+  system_svc.clear_exception_by_owner(get_device_id());
   motion_platform_svc.set_home_offset(0, 0, 0);
   smprinter.register_module(MODULE_DEVICE_ID_CNC_50W_2019, this);
   LOG_I("CNC post_init out\n");

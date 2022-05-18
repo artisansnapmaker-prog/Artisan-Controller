@@ -125,6 +125,8 @@ class SystemService {
     static err_code_t hmi_ack_cb_raise_exception(void *obj, sacp_hmi_message_t *msg);
     static err_code_t hmi_ack_cb_clear_exception(void *obj, sacp_hmi_message_t *msg);
 
+    void clear_exception_by_owner(uint16_t owner) {}
+
   // private methods
   private:
     uint32_t get_bans(uint8_t *buffer, uint32_t buff_len);

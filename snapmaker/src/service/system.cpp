@@ -114,6 +114,21 @@ err_code_t SystemService::raise_exception(uint16_t owner, uint8_t state, uint32_
 
   info = (ExceptionInfo *)buffer;
 
+  // check if same exception exist
+  for (i = 0; i < EXCEPTION_STATIC_SIZE; i++) {
+    if (nodes[i].owner == owner && nodes[i].state == state) {
+      LOG_W("same exception has raised! won't raised again!");
+      return E_SUCCESS;
+    }
+  }
+
+  if (dynamic_nodes) {
+    if (dynamic_nodes[i].owner == owner && dynamic_nodes[i].state == state) {
+      LOG_W("same exception has raised! won't raised again!");
+      return E_SUCCESS;
+    }
+  }
+
   info->owner = owner;
   info->state = state;
   info->level = get_level(ban);
@@ -377,7 +392,7 @@ err_code_t SystemService::notification_clear_exception(uint16_t owner, uint8_t s
 }
 
 
-void SystemService::raise_exception_from_isr(uint16_t owner, uint8_t state, uint32_t actions/* = 0*/, uint32_t ban/* = 0*/) {
+void SystemService::raise_exception_async(uint16_t owner, uint8_t state, uint32_t actions/* = 0*/, uint32_t ban/* = 0*/) {
   for (int i = 0; i < EXCEPTION_ISR_QUEUE_SIZE; i++) {
     if (nodes_isr[i].owner == EXCEPTION_OWNER_INVALID) {
       nodes_isr[i].owner   = owner;
@@ -391,7 +406,7 @@ void SystemService::raise_exception_from_isr(uint16_t owner, uint8_t state, uint
 }
 
 
-void SystemService::clear_exception_from_isr(uint16_t owner, uint8_t state) {
+void SystemService::clear_exception_async(uint16_t owner, uint8_t state) {
   for (int i = 0; i < EXCEPTION_ISR_QUEUE_SIZE; i++) {
     if (nodes_isr[i].owner == EXCEPTION_OWNER_INVALID) {
       nodes_isr[i].owner   = owner;

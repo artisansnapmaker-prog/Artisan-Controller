@@ -51,7 +51,7 @@ class PWMController {
       configured_pin = 0;
     }
 
-    int init_pin(const int16_t pin, const uint16_t v, const uint16_t v_size=255, const bool invert=false);
+    int init_pin(const int16_t pin, const uint16_t v, const uint16_t v_size=255, const bool invert=false, uint32_t freq=0xFFFFFFFF);
     err_code_t set_duty(int pin_index, uint16_t new_duty);
     err_code_t set_frequency(int pin_index, uint16_t f_desired);
 

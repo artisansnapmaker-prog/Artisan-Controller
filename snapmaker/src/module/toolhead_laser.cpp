@@ -695,8 +695,7 @@ err_code_t laser_routine(void *obj) {
       set_pwm_duty(laser.output_pin, 0, 255, true);
       set_pwm_frequency(laser.output_pin, 250);
       #else
-      laser.pwm_index =  pwm_controller.init_pin(laser.output_pin, 0, 255, true);
-      pwm_controller.set_frequency(laser.pwm_index, 250);
+      laser.pwm_index = pwm_controller.init_pin(laser.output_pin, 0, 255, false, 250);
       #endif
       laser.set_output(0);
       laser.set_status(MODULE_STATUS_NORMAL);
@@ -895,9 +894,6 @@ err_code_t ToolHeadLaser::pre_init() {
 
   output_pin = E0_STEP_PIN;
 
-  pinMode(output_pin, OUTPUT);
-  digitalWrite(output_pin, HIGH);
-
   return E_SUCCESS;
 }
 
@@ -1094,9 +1090,8 @@ err_code_t ToolHeadLaser::post_init() {
     pwm_normal = true;
   }
 
-
-  host_can_rou.register_callback(get_message_id(MODULE_FUNC_GET_LASER_FOCUS),
-    (void *)this, can_cb_handle_focal_len);
+  msg_id_get_focal_length = get_message_id(MODULE_FUNC_GET_LASER_FOCUS);
+  host_can_rou.register_callback(msg_id_get_focal_length, (void *)this, can_cb_handle_focal_len);
 
   tube_status = LASER_TUBE_STA_OFF;
 
@@ -1169,12 +1164,11 @@ err_code_t ToolHeadLaser::post_init() {
 
   if (pwm_normal) {
     #if USE_MARLIN_PWM
-    pinMode(output_pin, OUTPUT);
-    set_pwm_duty(output_pin, 0, 255, true);
-    set_pwm_frequency(output_pin, 250);
+      pinMode(output_pin, OUTPUT);
+      set_pwm_duty(output_pin, 0, 255, true);
+      set_pwm_frequency(output_pin, 250);
     #else
-    pwm_index = pwm_controller.init_pin(output_pin, 0, 255, true);
-    pwm_controller.set_frequency(pwm_index, 250);
+      pwm_index = pwm_controller.init_pin(output_pin, 0, 255, false, 250);
     #endif
     // must set status to MODULE_STATUS_NORMAL before set output
     set_status(MODULE_STATUS_NORMAL);
@@ -1185,7 +1179,6 @@ err_code_t ToolHeadLaser::post_init() {
   }
 
   setup_camera_port(PORT_INDEX_P1);
-
 
   get_bt_mac();
 

@@ -33,7 +33,7 @@
 
 PWMController pwm_controller;
 
-int PWMController::init_pin(const pin_t pin, const uint16_t v, const uint16_t v_size, const bool invert) {
+int PWMController::init_pin(const pin_t pin, const uint16_t v, const uint16_t v_size, const bool invert, uint32_t freq) {
   if (!PWM_PIN(pin)) return PWM_PIN_MAX; // Don't proceed if no hardware timer
 
   if (configured_pin >= PWM_PIN_MAX)
@@ -57,7 +57,10 @@ int PWMController::init_pin(const pin_t pin, const uint16_t v, const uint16_t v_
 
   if (!timer_handle->timer) {
     timer_handle->timer_instance = Instance;
-    timer_handle->timer_freq = PWM_FREQUENCY;
+    if (freq != 0xFFFFFFFF)
+      timer_handle->timer_freq = PWM_FREQUENCY;
+    else
+      timer_handle->timer_freq = freq;
 
     HardwareTimer_Handle[index]->__this = new HardwareTimer((TIM_TypeDef *)pinmap_peripheral(pin_name, PinMap_PWM));
     timer_handle->timer = (HardwareTimer *)(HardwareTimer_Handle[index]->__this);
@@ -68,8 +71,8 @@ int PWMController::init_pin(const pin_t pin, const uint16_t v, const uint16_t v_
 
   // set mode
   const TimerModes_t previousMode = timer_handle->timer->getMode(channel);
-  if (previousMode != TIMER_OUTPUT_COMPARE_PWM1)
-    timer_handle->timer->setMode(channel, TIMER_OUTPUT_COMPARE_PWM1, pin);
+  if (previousMode != TIMER_OUTPUT_COMPARE_PWM2)
+    timer_handle->timer->setMode(channel, TIMER_OUTPUT_COMPARE_PWM2, pin);
 
   pin_handle = &pin_handles[configured_pin++];
   pin_handle->pin = pin;
@@ -89,7 +92,7 @@ int PWMController::init_pin(const pin_t pin, const uint16_t v, const uint16_t v_
   // pin out
   pinmap_pinout(pin_name, PinMap_PWM); // Make sure the pin output state is set.
 
-  if (previousMode != TIMER_OUTPUT_COMPARE_PWM1)
+  if (previousMode != TIMER_OUTPUT_COMPARE_PWM2)
     timer_handle->timer->resume();
 
   return configured_pin - 1;

@@ -203,9 +203,10 @@ err_code_t JobCtrl::req_resume( uint8_t client_id,
                                 job_req_notify_cb_t cb/* = NULL*/,
                                 void *p/* = NULL*/,
                                 JobResumeType pt/* = RESUME_TYPE_PAUSE*/) {
-  if (!smprinter.can_resume_work()) {
+  err_code_t ret = smprinter.can_resume_work();
+  if (ret != E_SUCCESS) {
     LOG_E("job_ctrl: Can not resume a job\r\n");
-    return E_JOB_NOT_IN_PAUSE_STATUS;
+    return ret;
   }
 
   JobCtrlReqInfo jri;

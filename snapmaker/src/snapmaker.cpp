@@ -1209,7 +1209,7 @@ err_code_t SnapmakerPrinter::can_resume_work(void) {
   // status check
   if (SYSTEM_STATUS_PAUSED != sys_status &&
       SYSTEM_STATUS_RECOVERING != sys_status) {
-    return E_INVALID_STATE;
+    return E_JOB_NOT_IN_PAUSE_STATUS;
   }
 
   toolhead = get_cur_toolhead();

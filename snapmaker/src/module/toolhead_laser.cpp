@@ -1255,11 +1255,18 @@ void ToolHeadLaser::setup_camera_port(uint8_t port) {
 }
 
 err_code_t ToolHeadLaser::get_bt_mac() {
+  static bool is_getting = false;
   err_code_t ret;
   sacp_hmi_message_t msg;
   uint8_t  recv_buff[12];
   uint16_t recv_len = 12;
   uint8_t cmd = 0;
+
+  if (is_getting) {
+    return E_BUSY;
+  }
+
+  is_getting = true;
 
   msg.attr = 0;
   msg.ch = SACP_HMI_CH_CAMERA;
@@ -1270,8 +1277,11 @@ err_code_t ToolHeadLaser::get_bt_mac() {
   msg.length = 1;
   msg.data = &cmd;
 
+  memset(recv_buff, 0xff, recv_len);
+
   if ((ret = host_hmi.send_sync_legacy(&msg, recv_buff, &recv_len, 500, 2)) != E_SUCCESS) {
-    LOG_E("failed to get BT MAC, ret[%u]\n", ret);
+    LOG_E("failed to get BT MAC, ret[%u], recv:\n", ret);
+    is_getting = false;
     return ret;
   }
 
@@ -1284,6 +1294,8 @@ err_code_t ToolHeadLaser::get_bt_mac() {
     LOG_I("%02X, ", bt_mac[i]);
   }
   LOG_I("\n");
+
+  is_getting = false;
 
   return E_SUCCESS;
 }

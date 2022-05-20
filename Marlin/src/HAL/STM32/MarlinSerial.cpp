@@ -85,8 +85,12 @@
 
 void MarlinSerial::begin(unsigned long baud, uint8_t config) {
   HardwareSerial::begin(baud, config);
-  // Replace the IRQ callback with the one we have defined
-  TERN_(EMERGENCY_PARSER, _serial.rx_callback = _rx_callback);
+  #if MB_SNAPMAKER
+    _serial.rx_callback = _rx_callback;
+  #else
+    // Replace the IRQ callback with the one we have defined
+    TERN_(EMERGENCY_PARSER, _serial.rx_callback = _rx_callback);
+  #endif
 }
 
 // This function is Copyright (c) 2006 Nicholas Zambetti.

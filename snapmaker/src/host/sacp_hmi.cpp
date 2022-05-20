@@ -151,7 +151,7 @@ err_code_t HostSACPHMI::register_callback(uint8_t cmd_set, uint8_t cmd_id, void 
   sacp_hmi_handle_t *handle =NULL;
 
   if (ver == SACP_VER_INVALID) {
-    LOG_I("register CB with default ver[%u]\n", this->version);
+    // LOG_I("register CB with default ver[%u]\n", this->version);
     ver = this->version;
   }
 
@@ -203,11 +203,11 @@ err_code_t HostSACPHMI::register_callback(uint8_t cmd_set, uint8_t cmd_id, void 
 
   if ((attr & SACP_CB_ATTR_ACK) && (ver == SACP_VER_1)) {
     cmd_set_handle[cmd_set][i].ack_cb = cb;
-    LOG_I("register V[%u] CB for ACK[%x:%x]\n", ver, cmd_set, cmd_id, i);
+    // LOG_I("register V[%u] CB for ACK[%x:%x]\n", ver, cmd_set, cmd_id, i);
   }
   else {
     cmd_set_handle[cmd_set][i].req_cb = cb;
-    LOG_I("register V[%u] CB for REQ[%x:%x]\n", ver, cmd_set, cmd_id, i);
+    // LOG_I("register V[%u] CB for REQ[%x:%x]\n", ver, cmd_set, cmd_id, i);
   }
 
   return E_SUCCESS;
@@ -579,7 +579,7 @@ err_code_t HostSACPHMI::parse_packets(sacp_channel_t &channel) {
       }
 
       if (parser.length > (SACP_V1_PDU_MAX_SIZE - SACP_FRONT_HEADER_MIN_SIZE)) {
-        LOG_E("V1: length[%u] of packet from host[%u] is out of range[%u]\n", 
+        LOG_E("V1: length[%u] of packet from host[%u] is out of range[%u]\n",
               parser.length, parser.buffer[SACP_V1_FRAME_INDEX_RECV_ID], SACP_V1_PDU_MAX_SIZE);
         parser.status = SACP_PARSER_STA_IDLE;
         break;
@@ -608,7 +608,7 @@ err_code_t HostSACPHMI::parse_packets(sacp_channel_t &channel) {
       }
 
       if (parser.length > (SACP_PDU_MAX_SIZE - SACP_V0_NON_PAYPLOAD_SIZE - 1)) {
-        LOG_E("V0: length[%u] of packetis out of range[%u]\n", 
+        LOG_E("V0: length[%u] of packetis out of range[%u]\n",
               parser.length, SACP_PDU_MAX_SIZE);
         parser.status = SACP_PARSER_STA_IDLE;
         break;
@@ -792,7 +792,7 @@ MessageBufferHandle_t HostSACPHMI::get_event_queue_by_cmd(uint8_t *buffer, uint8
 void HostSACPHMI::record_new_route(uint32_t peer, uint8_t ch, uint8_t ver) {
   bool notify = false;
   int i = 0;
-  
+
   for (; i < SACP_ROUTE_TABLE_DYNAMIC_MAX; i++) {
     if (rt_dynamic[i].peer != SACP_HOST_INVALID) {
       if (rt_dynamic[i].peer == peer &&
@@ -1079,8 +1079,6 @@ void HostSACPHMI::handle_events() {
     msg.seq     = buffer[SACP_V1_FRAME_INDEX_SEQ_H]<<8 | buffer[SACP_V1_FRAME_INDEX_SEQ_L];
     msg.data    = buffer + (SACP_V1_FRONT_HEADER_SIZE + SACP_V1_REAR_HEADER_SIZE);
 
-    // check if this message is received from new route
-    record_new_route(buffer[SACP_V1_FRAME_INDEX_SENDER_ID], event_handle->channel, SACP_VER_1);
   }
   else if (event_handle->version == SACP_VER_0) {
     if (event_handle->length < 2) {
@@ -1089,7 +1087,7 @@ void HostSACPHMI::handle_events() {
     }
 
     // check if this message is received from new route
-    record_new_route(0, event_handle->channel, SACP_VER_0);
+    // record_new_route(0, event_handle->channel, SACP_VER_0);
 
     msg.length  = event_handle->length - 2;
     msg.cmd_set = buffer[SACP_V0_FRAME_INDEX_EVENT_ID];
@@ -1099,6 +1097,12 @@ void HostSACPHMI::handle_events() {
   }
 
   handle_message(msg, event_handle->handle);
+
+  if (event_handle->version == SACP_VER_1) {
+    // check if this message is received from new route
+    // for now only record node for V1
+    record_new_route(buffer[SACP_V1_FRAME_INDEX_SENDER_ID], event_handle->channel, SACP_VER_1);
+  }
 }
 
 
@@ -1386,6 +1390,8 @@ out_unsubscript:
 
 err_code_t HostSACPHMI::register_new_route_handle(void *obj, sacp_hmi_notify_new_route_cb cb) {
   int i = 0;
+
+  LOG_I("register route notify cb");
 
   for (; i < SACP_ROUTE_TABLE_HANDLE_MAX; i++) {
     if (new_route_handle[i].cb == NULL) {

@@ -130,8 +130,6 @@ uint16_t ToolHeadLaser::hmi_cb_publish_safety_state(void *obj, uint8_t *buffer) 
   *pi32_tmp = laser.roll * 1000;
   i += 4;
 
-  LOG_I("safety state: len[%u]\n", i);
-
   return i;
 }
 
@@ -727,7 +725,8 @@ err_code_t laser_routine(void *obj) {
       laser.read_safety_state();
   }
 
-  if (++laser.offline_count > 6) {
+  // if didn't get respond from module for 3s, will trigger offline
+  if (++laser.offline_count > 30) {
     laser.offline_count = 0;
 
     LOG_I("Laser: offline!\n");
@@ -765,6 +764,7 @@ void ToolHeadLaser::can_cb_handle_security_status(void *obj, uint8_t *data, uint
   }
 
   diff_state = laser.safety_state^pre_state;
+  pre_state = laser.safety_state;
   if (diff_state) {
     new_state   = diff_state & laser.safety_state;
     clear_state = diff_state & pre_state;
@@ -849,7 +849,7 @@ void ToolHeadLaser::client_cb_report_bt_mac(void *obj, uint8_t id, SACPRouteStat
       // TODO: raise exception!
       return;
     }
-    
+
     node = ClientNode::find_client_node(id);
     if (node)
       laser.report_bt_mac(node->peer, node->ch);
@@ -1071,7 +1071,7 @@ err_code_t ToolHeadLaser::post_init() {
     pwm_normal = true;
   }
 
-  
+
   host_can_rou.register_callback(get_message_id(MODULE_FUNC_GET_LASER_FOCUS),
     (void *)this, can_cb_handle_focal_len);
 
@@ -1141,7 +1141,7 @@ err_code_t ToolHeadLaser::post_init() {
 
   module_svc.register_routine( (void *)this, laser_routine);
   if (register_esp32_upgrade_callbake()) {
-    LOG_E("register_esp32_upgrade_callbake fail\n");
+    LOG_E("Laser: register_esp32_upgrade_callbake fail\n");
   }
 
   if (pwm_normal) {
@@ -1176,7 +1176,9 @@ err_code_t ToolHeadLaser::post_init() {
   feedrate_percentage = 100;
   motion_platform_svc.sync_feedrate_percentage_to_platform(feedrate_percentage);
 
-  ClientNode::register_on_client_node_online((void *)this, client_cb_report_bt_mac);
+  if (ClientNode::register_on_client_node_online((void *)this, client_cb_report_bt_mac) != E_SUCCESS) {
+    LOG_E("Laser: failed to register host online callback!\n");
+  }
 
   return E_SUCCESS;
 }
@@ -1572,6 +1574,8 @@ err_code_t ToolHeadLaser::report_bt_mac(uint32_t peer, uint8_t ch) {
   buffer[len++] = get_key();
   buffer[len++] = bt_mac[0];
   buffer[len++] = 6;
+
+  LOG_I("report BT MAC to host[%u:%u]\n", peer, ch);
 
   for (int i = 1; i < 7; i++) {
     buffer[len++] = bt_mac[i];

@@ -139,22 +139,26 @@ err_code_t ToolHeadCNC::deinit() {
 }
 
 err_code_t ToolHeadCNC::prepare_start(void) {
-  bool result = false;
-  if (get_status() == MODULE_STATUS_NORMAL && !(error_state & CNC_LIMIT_WORK_STATE_MASK) /*&& !smprinter.get_enclosure_door_status()*/)
-    result = true;
-  else {
+  err_code_t result = E_SUCCESS;
+  if (error_state & CNC_LIMIT_WORK_STATE_MASK) {
+    if (error_state & CNC_VOLTAGE_ERROR_MASK) {
+      result = E_JOB_CNC_V_POWER_EXCE;
+    }
+    else if (error_state & CNC_OVERCURRENT_ERROR_MASK) {
+      result = E_JOB_CNC_OVERCURRENT;
+    }
+    else if (error_state & CNC_PCB_TEMP_ERROR_MASK) {
+      result = E_JOB_CNC_P_TEMP_EXCE;
+    }
+    else {
+      result = E_JOB_CNC_M_TEMP_EXCE;
+    }
     LOG_I("CNC can't start working, status: %d, error_state: 0x%x, door: %d\n", \
-      get_status(), error_state, smprinter.get_enclosure_door_status());
+        get_status(), error_state, smprinter.get_enclosure_door_status());
   }
   return result;
 }
 
-uint8_t ToolHeadCNC::is_can_resume_work(void) {
-  uint8_t ret = 0;
-  if (get_status() == MODULE_STATUS_NORMAL && !(error_state & CNC_LIMIT_WORK_STATE_MASK))
-    ret = 1;
-  return ret;
-}
 
 // message id callback to handle RPM update from module
 void cnc_callback_update_rpm(void *obj, uint8_t *data, uint8_t length) {

@@ -60,7 +60,7 @@
 #define E_JOB_CNC_OVERCURRENT                           SACP_RET_JOB_CNC_OVERCURRENT
 #define E_JOB_CNC_P_TEMP_EXCE                           SACP_RET_JOB_CNC_P_TEMP_EXCE
 #define E_JOB_CNC_M_TEMP_EXCE                           SACP_RET_JOB_CNC_M_TEMP_EXCE
-#define E_JOB_CNC_V_POWER_EXC                           SACP_RET_JOB_CNC_V_POWER_EXC
+#define E_JOB_CNC_V_POWER_EXCE                          SACP_RET_JOB_CNC_V_POWER_EXCE
 #define E_JOB_ENCLOSURE_DOOR_OPEN                       SACP_RET_JOB_ENCLOSURE_DOOR_OPEN
 #define E_JOB_LASER_IMU_CONNECTION                      SACP_RET_JOB_LASER_IMU_CONNECTION
 #define E_JOB_LASER_TUBE_TEMP_TOO_HIGH                  SACP_RET_JOB_LASER_TUBE_TEMP_TOO_HIGH

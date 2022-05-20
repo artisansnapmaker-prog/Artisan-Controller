@@ -483,6 +483,7 @@ static void system_thread(void *p) {
   smprinter.check_system_voltage();
   smprinter.get_hw_version();
   debug.set_boot_log_state(false);
+  BedVirtual::work_mode_bed_check();
 
   // loop
   for (;;) {
@@ -510,13 +511,16 @@ void SnapmakerPrinter::pre_init(void) {
 
   // enable the power to do TMC initialization in arduino setup()
   pinMode(POWER_CTRL_MOTIVE, OUTPUT);
-  digitalWrite(POWER_CTRL_MOTIVE, POWER_CTRL_ON);
+  // digitalWrite(POWER_CTRL_MOTIVE, POWER_CTRL_ON);
 
   pinMode(POWER_CTRL_8P_MOTOR, OUTPUT);
-  digitalWrite(POWER_CTRL_8P_MOTOR, POWER_CTRL_ON);
+  // digitalWrite(POWER_CTRL_8P_MOTOR, POWER_CTRL_ON);
+
+  enable_power_domain(POWER_DOMAIN_MOTIVE_POWER | POWER_DOMAIN_8P_MOTOR);
 
   pinMode(TMC_EN, OUTPUT);
   digitalWrite(TMC_EN, TMC_EN_OFF);
+
 
   pinMode(X_STANDBY_PIN_var, OUTPUT);
   digitalWrite(X_STANDBY_PIN_var, HIGH);
@@ -562,16 +566,19 @@ void SnapmakerPrinter::post_init() {
 
   // enable power
   pinMode(POWER_CTRL_8P_TOOLHEAD, OUTPUT);
-  digitalWrite(POWER_CTRL_8P_TOOLHEAD, POWER_CTRL_ON);
+  // digitalWrite(POWER_CTRL_8P_TOOLHEAD, POWER_CTRL_ON);
 
   pinMode(POWER_CTRL_BED, OUTPUT);
-  digitalWrite(POWER_CTRL_BED, POWER_CTRL_ON);
+  // digitalWrite(POWER_CTRL_BED, POWER_CTRL_ON);
 
   pinMode(POWER_CTRL_HMI, OUTPUT);
-  digitalWrite(POWER_CTRL_HMI, POWER_CTRL_ON);
+  // digitalWrite(POWER_CTRL_HMI, POWER_CTRL_ON);
 
   pinMode(POWER_CTRL_4P_ADDON, OUTPUT);
-  digitalWrite(POWER_CTRL_4P_ADDON, POWER_CTRL_ON);
+  // digitalWrite(POWER_CTRL_4P_ADDON, POWER_CTRL_ON);
+
+  enable_power_domain(POWER_DOMAIN_8P_TOOLHEAD | POWER_DOMAIN_BED | POWER_DOMAIN_HMI | \
+    POWER_DOMAIN_4P_ADDON);
 
   debug.init();
 
@@ -809,6 +816,13 @@ void SnapmakerPrinter::security_check() {
 
     if (laser->get_power_limit() !=  limit_power)
       laser->set_power_limit(limit_power);
+  }
+
+  if (thermalManager.get_bed_sw_detect() == 1) {
+    thermalManager.set_bed_sw_detect(2);
+    smprinter.raise_exception(SM_EXCEP_OWNER_BED, BED_EXCEP_STA_ERROR_MOS_SW_CTRL,
+                                EXCEP_ACT_PAUSE_WORKING | EXCEP_ACT_DISABLE_HEATING_BED | EXCEP_ACT_DISABLE_POWER_BED,\
+                                EXCEP_BAN_ENABLE_POWER_BED);
   }
 }
 // API for puase
@@ -1294,26 +1308,32 @@ void SnapmakerPrinter::show_sys_info() {
 
 void SnapmakerPrinter::disable_power_domain(uint32_t domains) {
   if (domains & POWER_DOMAIN_MOTIVE_POWER) {
+    power_domains &= (~POWER_DOMAIN_MOTIVE_POWER);
     digitalWrite(POWER_CTRL_MOTIVE, POWER_CTRL_OFF);
   }
 
   if (domains & POWER_DOMAIN_8P_TOOLHEAD) {
+    power_domains &= (~POWER_DOMAIN_8P_TOOLHEAD);
     digitalWrite(POWER_CTRL_8P_TOOLHEAD, POWER_CTRL_OFF);
   }
 
   if (domains & POWER_DOMAIN_8P_MOTOR) {
+    power_domains &= (~POWER_DOMAIN_8P_MOTOR);
     digitalWrite(POWER_CTRL_8P_MOTOR, POWER_CTRL_OFF);
   }
 
   if (domains & POWER_DOMAIN_4P_ADDON) {
+    power_domains &= (~POWER_DOMAIN_4P_ADDON);
     digitalWrite(POWER_CTRL_4P_ADDON, POWER_CTRL_OFF);
   }
 
   if (domains & POWER_DOMAIN_BED) {
+    power_domains &= (~POWER_DOMAIN_BED);
     digitalWrite(POWER_CTRL_BED, POWER_CTRL_OFF);
   }
 
   if (domains & POWER_DOMAIN_HMI) {
+    power_domains &= (~POWER_DOMAIN_HMI);
     digitalWrite(POWER_CTRL_HMI, POWER_CTRL_OFF);
   }
 }
@@ -1327,6 +1347,7 @@ void SnapmakerPrinter::enable_power_domain(uint32_t domains) {
     }
     else {
       digitalWrite(POWER_CTRL_MOTIVE, POWER_CTRL_ON);
+      power_domains |= POWER_DOMAIN_MOTIVE_POWER;
     }
   }
 
@@ -1336,6 +1357,7 @@ void SnapmakerPrinter::enable_power_domain(uint32_t domains) {
     }
     else {
       digitalWrite(POWER_CTRL_8P_TOOLHEAD, POWER_CTRL_ON);
+      power_domains |= POWER_DOMAIN_8P_TOOLHEAD;
     }
   }
 
@@ -1345,6 +1367,7 @@ void SnapmakerPrinter::enable_power_domain(uint32_t domains) {
     }
     else {
       digitalWrite(POWER_CTRL_8P_MOTOR, POWER_CTRL_ON);
+      power_domains |= POWER_DOMAIN_8P_MOTOR;
     }
   }
 
@@ -1354,6 +1377,7 @@ void SnapmakerPrinter::enable_power_domain(uint32_t domains) {
     }
     else {
       digitalWrite(POWER_CTRL_4P_ADDON, POWER_CTRL_ON);
+      power_domains |= POWER_DOMAIN_4P_ADDON;
     }
   }
 
@@ -1363,6 +1387,7 @@ void SnapmakerPrinter::enable_power_domain(uint32_t domains) {
     }
     else {
       digitalWrite(POWER_CTRL_BED, POWER_CTRL_ON);
+      power_domains |= POWER_DOMAIN_BED;
     }
   }
 
@@ -1372,6 +1397,7 @@ void SnapmakerPrinter::enable_power_domain(uint32_t domains) {
     }
     else {
       digitalWrite(POWER_CTRL_HMI, POWER_CTRL_ON);
+      power_domains |= POWER_DOMAIN_HMI;
     }
   }
 }
@@ -1428,13 +1454,16 @@ void SnapmakerPrinter::raise_exception(SMExceptionOwner owner, uint8_t state,
     break;
 
   case SM_EXCEP_OWNER_BED:
-    m = module_svc.get_module(MODULE_DEVICE_ID_A400_BED, 0);
-    if (!m) {
-      LOG_E("Bed offline, cannot raise exception with MODULE_DEVICE_ID_A400_BED!!!\n");
-      system_svc.raise_exception(MODULE_DEVICE_ID_INVALID, state, actions, ban);
-      break;
+    // m = module_svc.get_module(MODULE_DEVICE_ID_A400_BED, 0);
+    // if (!m) {
+    //   LOG_E("Bed offline, cannot raise exception with MODULE_DEVICE_ID_A400_BED!!!\n");
+    //   system_svc.raise_exception(MODULE_DEVICE_ID_INVALID, state, actions, ban);
+    //   break;
+    // }
+    if (get_toolhead_type() != TH_TYPE_3DP) {
+      actions &= (~(EXCEP_ACT_PAUSE_WORKING | EXCEP_ACT_STOP_WORKING | EXCEP_ACT_STOP_WITH_RECOVERY));
     }
-    system_svc.raise_exception(m->get_device_id(), state, actions, ban);
+    system_svc.raise_exception(MODULE_DEVICE_ID_A400_BED, state, actions, ban);
     break;
 
   case SM_EXCEP_OWNER_LINEAR_X:

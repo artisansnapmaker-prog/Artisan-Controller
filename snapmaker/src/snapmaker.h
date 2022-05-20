@@ -237,6 +237,9 @@ enum BedExceptionState {
   BED_EXCEP_STA_MINTEMP_ERROR_ZONE1,
   BED_EXCEP_STA_OVERTEMP_ERROR_ZONE0,
   BED_EXCEP_STA_OVERTEMP_ERROR_ZONE1,
+  BED_EXCEP_STA_INSERTED_ERROR_HEAD,
+  BED_EXCEP_STA_ABSENCE_WITH_3DP_HEAD,
+  BED_EXCEP_STA_ERROR_MOS_SW_CTRL
 };
 
 // exception state for drybox
@@ -303,10 +306,14 @@ class SnapmakerPrinter
     void update_gcode_file_pass_line_number(uint32_t l);
 
   public:
+    uint32_t power_domains;
+
+  public:
     SnapmakerPrinter() {
       #if MB(SM_CONTROLLER2022_V1)
         model = SNAPMAKER_MODEL_A400;
       #endif
+      power_domains = 0;
     }
 
     void pre_init();

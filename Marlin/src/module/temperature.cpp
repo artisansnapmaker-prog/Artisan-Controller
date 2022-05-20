@@ -449,6 +449,11 @@ PGMSTR(str_t_heating_failed, STR_T_HEATING_FAILED);
     uint8_t Temperature::active_bed_state = 0,
             Temperature::active_bed_index = 0;
   #endif
+
+  #if MB_SNAPMAKER
+    bool Temperature::bed_inserted = false;
+    uint8_t Temperature::bed_sw_detect = 0;
+  #endif
 #endif
 
 #if HAS_TEMP_CHAMBER
@@ -1116,12 +1121,12 @@ void Temperature::min_temp_error(const heater_id_t heater_id) {
   switch (heater_id) {
   case H_CHAMBER:
     smprinter.raise_exception(SM_EXCEP_OWNER_BED, BED_EXCEP_STA_MINTEMP_ERROR_ZONE1,
-                              EXCEP_ACT_PAUSE_WORKING | EXCEP_ACT_DISABLE_HEATING_BED, EXCEP_BAN_HEATING_BED);
+                              EXCEP_ACT_PAUSE_WORKING | EXCEP_ACT_DISABLE_HEATING_BED);
     break;
 
   case H_BED:
     smprinter.raise_exception(SM_EXCEP_OWNER_BED, BED_EXCEP_STA_MINTEMP_ERROR_ZONE0,
-                              EXCEP_ACT_PAUSE_WORKING | EXCEP_ACT_DISABLE_HEATING_BED, EXCEP_BAN_HEATING_BED);
+                              EXCEP_ACT_PAUSE_WORKING | EXCEP_ACT_DISABLE_HEATING_BED);
     break;
 
   case H_E0:
@@ -3166,18 +3171,16 @@ void Temperature::isr() {
         bool bed_on = soft_pwm_bed.add(pwm_mask, temp_bed.soft_pwm_amount);
         bool chamber_on = soft_pwm_chamber.add(pwm_mask, temp_chamber.soft_pwm_amount);
         if (bed_on && chamber_on) {
-          if (active_bed_state == 3) {
-            if (active_bed_index) {
-              WRITE_HEATER_CHAMBER(LOW);
-              WRITE_HEATER_BED(HIGH);
-            }
-            else {
-              WRITE_HEATER_BED(LOW);
-              WRITE_HEATER_CHAMBER(HIGH);
-            }
+          if (active_bed_index) {
+            WRITE_HEATER_CHAMBER(LOW);
+            WRITE_HEATER_BED(HIGH);
+          }
+          else {
+            WRITE_HEATER_BED(LOW);
+            WRITE_HEATER_CHAMBER(HIGH);
           }
           active_bed_index = !active_bed_index;
-          active_bed_state = (1 << 0 | 1 << 1);
+          active_bed_state = 3;  // (1 << 0 | 1 << 1)
         }
         else if (!bed_on && !chamber_on) {
           WRITE_HEATER_BED(LOW);
@@ -3185,18 +3188,14 @@ void Temperature::isr() {
           active_bed_state = 0;
         }
         else {
-            if (bed_on) {
-              if (active_bed_index == 0) {
-                WRITE_HEATER_CHAMBER(LOW);
-                WRITE_HEATER_BED(HIGH);
-              }
-            }
-            else {
-              if (active_bed_index == 1) {
-                WRITE_HEATER_BED(LOW);
-                WRITE_HEATER_CHAMBER(HIGH);
-              }
-            }
+          if (bed_on) {
+            WRITE_HEATER_CHAMBER(LOW);
+            WRITE_HEATER_BED(HIGH);
+          }
+          else {
+            WRITE_HEATER_BED(LOW);
+            WRITE_HEATER_CHAMBER(HIGH);
+          }
           active_bed_index = !bed_on;
           active_bed_state = 1 << active_bed_index;
         }
@@ -3258,7 +3257,8 @@ void Temperature::isr() {
       #endif
 
       #if ENABLED(SNAPMAKER_DOUBLE_ZONE_BED)
-        #define _PWM_LOW_PRO(N,S) do{ if (S.count <= pwm_count_tmp + (active_bed_state == 3)) WRITE_HEATER_##N(LOW); }while(0)
+        //dead zone protection, turn off the hotbed an interval earlier
+        #define _PWM_LOW_PRO(N,S) do{ if (S.count <= pwm_count_tmp + _BV(SOFT_PWM_SCALE)) WRITE_HEATER_##N(LOW); }while(0)
         active_bed_index ? WRITE_HEATER_BED(LOW) : WRITE_HEATER_CHAMBER(LOW);
       #endif
 
@@ -3268,6 +3268,29 @@ void Temperature::isr() {
 
       #if HAS_HEATED_CHAMBER
         TERN(SNAPMAKER_DOUBLE_ZONE_BED,_PWM_LOW_PRO(CHAMBER, soft_pwm_chamber),_PWM_LOW(CHAMBER, soft_pwm_chamber));
+      #endif
+
+      #if ENABLED(SNAPMAKER_DOUBLE_ZONE_BED)
+        if (bed_inserted) {
+          if ((pwm_count_tmp > _BV(SOFT_PWM_SCALE)) && (smprinter.power_domains & POWER_DOMAIN_BED)) {
+            bool bed_sw1 = READ(BED_SW1_DETECT);
+            bool bed_sw2 = READ(BED_SW2_DETECT);
+            if (active_bed_state) {
+              if (active_bed_index == 0 && soft_pwm_bed.count > (pwm_count_tmp + _BV(SOFT_PWM_SCALE))) {
+                if (!(bed_sw1 == false && bed_sw2 == true))
+                  bed_sw_detect = 1;
+              }
+              else if (active_bed_index == 1 && soft_pwm_chamber.count > (pwm_count_tmp + _BV(SOFT_PWM_SCALE))){
+                if (!(bed_sw1 == true && bed_sw2 == false))
+                  bed_sw_detect = 1;
+              }
+            }
+            else {
+              if (!(bed_sw1 == true && bed_sw2 == true))
+                  bed_sw_detect = 1;
+            }
+          }
+        }
       #endif
 
       #if HAS_COOLER

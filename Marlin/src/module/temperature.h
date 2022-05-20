@@ -493,6 +493,15 @@ class Temperature {
       #endif
     #endif
 
+    #if MB_SNAPMAKER  
+      static bool bed_inserted;
+      static uint8_t bed_sw_detect;    // 0: normal 1: trigger  2:raise
+      bool get_bed_inserted(void) { return bed_inserted; }
+      void set_bed_inserted(bool sta) { bed_inserted = sta; }
+      uint8_t get_bed_sw_detect(void) { return bed_sw_detect; }
+      void set_bed_sw_detect(uint8_t sta) { bed_sw_detect = sta; }
+    #endif
+
   private:
 
     #if ENABLED(WATCH_HOTENDS)

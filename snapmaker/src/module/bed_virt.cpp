@@ -1,5 +1,6 @@
 #include "bed_virt.h"
 #include "../host/sacp_hmi.h"
+#include "../service/system.h"
 #include "src/module/temperature.h"
 
 #define BED_INEXISTENT_ADC (4084)  // -27 deg
@@ -31,13 +32,13 @@ err_code_t send_bed_info_to_hmi(void *obj, sacp_hmi_message_t *msg) {
   tmp_info->cur_temp = (int32_t)(thermalManager.degBed() * 1000);
   tmp_info->target_temp = thermalManager.degTargetBed();
 
-#if ENABLED(SNAPMAKER_DOUBLE_ZONE_BED)
-  msg->data[2] = 2;
-  tmp_info = (ZoneInfo *)(msg->data + 3 + sizeof(ZoneInfo));
-  tmp_info->bed_index = 1;
-  tmp_info->cur_temp = (int32_t)(thermalManager.degChamber() * 1000);
-  tmp_info->target_temp = thermalManager.degTargetChamber();
-#endif
+  #if ENABLED(SNAPMAKER_DOUBLE_ZONE_BED)
+    msg->data[2] = 2;
+    tmp_info = (ZoneInfo *)(msg->data + 3 + sizeof(ZoneInfo));
+    tmp_info->bed_index = 1;
+    tmp_info->cur_temp = (int32_t)(thermalManager.degChamber() * 1000);
+    tmp_info->target_temp = thermalManager.degTargetChamber();
+  #endif
   result = host_hmi.send_ack(msg, msg->data, msg->data[2] * sizeof(ZoneInfo) + 3);
   if (result != E_SUCCESS) {
     LOG_E("[%s] send msg fail\n",__FUNCTION__);
@@ -99,31 +100,51 @@ uint16_t hmi_subscribe_bed_func(void *obj, uint8_t *buff) {
   tmp_info->cur_temp = (int32_t)(thermalManager.degBed() * 1000);
   tmp_info->target_temp = thermalManager.degTargetBed();
 
-#if ENABLED(SNAPMAKER_DOUBLE_ZONE_BED)
-  buff[2] = 2;
-  tmp_info = (ZoneInfo *)(buff + 3 + sizeof(ZoneInfo));
-  tmp_info->bed_index = 1;
-  tmp_info->cur_temp = (int32_t)(thermalManager.degChamber() * 1000);
-  tmp_info->target_temp = thermalManager.degTargetChamber();
-#endif
+  #if ENABLED(SNAPMAKER_DOUBLE_ZONE_BED)
+    buff[2] = 2;
+    tmp_info = (ZoneInfo *)(buff + 3 + sizeof(ZoneInfo));
+    tmp_info->bed_index = 1;
+    tmp_info->cur_temp = (int32_t)(thermalManager.degChamber() * 1000);
+    tmp_info->target_temp = thermalManager.degTargetChamber();
+  #endif
 
   return sizeof(ZoneInfo) * buff[2] + 3;
 }
 
 err_code_t BedVirtual::pre_init() {
   //TODO: check if the bed is plugged
+  uint32_t zone0_adc = 0; 
   pinMode(TEMP_BED_PIN, INPUT_ANALOG);
-  pinMode(TEMP_CHAMBER_PIN, INPUT_ANALOG);
+  pinMode(BED_SW1_DETECT, INPUT);
+  #if ENABLED(SNAPMAKER_DOUBLE_ZONE_BED)
+    uint32_t zone1_adc = 0;
+    pinMode(TEMP_CHAMBER_PIN, INPUT_ANALOG);
+    pinMode(BED_SW2_DETECT, INPUT);
+  #endif
 
   vTaskDelay(pdMS_TO_TICKS(10));
+  
+  taskENTER_CRITICAL();
+  zone0_adc = analogRead(TEMP_BED_PIN);
+  #if ENABLED(SNAPMAKER_DOUBLE_ZONE_BED)
+    zone1_adc = analogRead(TEMP_CHAMBER_PIN);
+  #endif
+  taskEXIT_CRITICAL();
 
-  LOG_I("Bed: zone0 ADC: %u\n", analogRead(TEMP_BED_PIN));
-  LOG_I("Bed: zone1 ADC: %u\n", analogRead(TEMP_CHAMBER_PIN));
+  LOG_I("Bed: zone0 ADC: %u\n", zone0_adc);
+  #if ENABLED(SNAPMAKER_DOUBLE_ZONE_BED)
+    LOG_I("Bed: zone1 ADC: %u\n", zone1_adc);
+  #endif
 
-  if (analogRead(TEMP_BED_PIN) > BED_INEXISTENT_ADC || analogRead(TEMP_CHAMBER_PIN) > BED_INEXISTENT_ADC) {
+  if (zone0_adc > BED_INEXISTENT_ADC 
+    #if ENABLED(SNAPMAKER_DOUBLE_ZONE_BED)
+      || zone1_adc > BED_INEXISTENT_ADC
+    #endif
+  ) {
     LOG_E("Bed didn't plug!\n");
     return E_HARDWARE;
   }
+  thermalManager.set_bed_inserted(true);
   return E_SUCCESS;
 }
 
@@ -146,7 +167,7 @@ err_code_t BedVirtual::post_init() {
   if (host_hmi.register_subscription(SACP_CMD_SET_HEATED_BED, SACP_BED_SUBSCRIBE_COMMANDID,\
       this, hmi_subscribe_bed_func))
     return E_FAILURE;
-
+  system_svc.clear_exception_by_owner(get_device_id());
   set_status(MODULE_STATUS_NORMAL);
   return E_SUCCESS;
 }
@@ -224,9 +245,9 @@ err_code_t BedVirtual::save_env(uint8_t *env_buf, uint32_t &len) {
   uint32_t check_sum = 0;
   ZoneInfo *tmp_info = NULL;
   uint8_t bed_num = 1;
-#if ENABLED(SNAPMAKER_DOUBLE_ZONE_BED)
-  bed_num = 2;
-#endif
+  #if ENABLED(SNAPMAKER_DOUBLE_ZONE_BED)
+    bed_num = 2;
+  #endif
   need_len = bed_num * sizeof(ZoneInfo) + 4; // bed info + check
   if (len >= need_len) {
     tmp_info = (ZoneInfo *)(env_buf);
@@ -235,10 +256,10 @@ err_code_t BedVirtual::save_env(uint8_t *env_buf, uint32_t &len) {
     tmp_info->target_temp = thermalManager.degTargetBed();
 
     #if ENABLED(SNAPMAKER_DOUBLE_ZONE_BED)
-    tmp_info = (ZoneInfo *)(env_buf + sizeof(ZoneInfo));
-    tmp_info->bed_index = 1;
-    tmp_info->cur_temp = (int32_t)(thermalManager.degChamber() * 1000);
-    tmp_info->target_temp = thermalManager.degTargetChamber();
+      tmp_info = (ZoneInfo *)(env_buf + sizeof(ZoneInfo));
+      tmp_info->bed_index = 1;
+      tmp_info->cur_temp = (int32_t)(thermalManager.degChamber() * 1000);
+      tmp_info->target_temp = thermalManager.degTargetChamber();
     #endif
 
     //add simple calibration
@@ -263,9 +284,9 @@ err_code_t BedVirtual::resume_env(uint8_t *env_buf, uint32_t &len) {
   uint32_t tmp_sum = 0;
   ZoneInfo *tmp_info = NULL;
   uint8_t bed_num = 1;
-#if ENABLED(SNAPMAKER_DOUBLE_ZONE_BED)
-  bed_num = 2;
-#endif
+  #if ENABLED(SNAPMAKER_DOUBLE_ZONE_BED)
+    bed_num = 2;
+  #endif
   need_len = bed_num * sizeof(ZoneInfo) + 4; // bed info + check
   if (need_len == len) {
     for(u_int32_t i = 0; i < need_len - 4; i++) {
@@ -313,4 +334,17 @@ err_code_t BedVirtual::standby(void) {
   #endif
   taskEXIT_CRITICAL();
   return E_SUCCESS;
+}
+
+void BedVirtual::work_mode_bed_check(void) {
+  if (smprinter.get_toolhead_type() == TH_TYPE_3DP) {
+    if (!thermalManager.get_bed_inserted()) {
+      smprinter.raise_exception(SM_EXCEP_OWNER_BED, BED_EXCEP_STA_ABSENCE_WITH_3DP_HEAD);
+    }
+  }
+  else {
+    if (thermalManager.get_bed_inserted()) {
+      smprinter.raise_exception(SM_EXCEP_OWNER_BED, BED_EXCEP_STA_INSERTED_ERROR_HEAD);
+    }
+  }
 }

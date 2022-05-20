@@ -286,9 +286,10 @@ void EmergencyHandler::req_stop_job() {
 void EmergencyHandler::job_cb_notify_emergency_stop(void *p, uint8_t result) {
   if (emergency_hdl.read_button() == PIN_STATE_TRIGGERED) {
     system_svc.raise_exception(MODULE_DEVICE_ID_A400_EMERGENCY_STOP, EMERGENCY_STOP_EXCEP_STA_TRIGGERRED,
-      EXCEP_ACT_ALL, EXCEP_BAN_ALL);
+      EXCEP_ACT_ALL&(~EXCEP_ACT_DISABLE_POWER_HMI), EXCEP_BAN_ALL);
   }
   else {
+    LOG_I("EmergencyHandler: button released, will reboot!\n");
     system_svc.clear_exception(MODULE_DEVICE_ID_A400_EMERGENCY_STOP, EMERGENCY_STOP_EXCEP_STA_TRIGGERRED);
   }
 

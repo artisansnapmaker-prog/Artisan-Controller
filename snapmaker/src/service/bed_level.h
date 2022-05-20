@@ -38,12 +38,13 @@ typedef enum {
   BEDLEVEL_REQ_CMD_ID_GOTO_PROBE_POINT         = 0x04,
   BEDLEVEL_REQ_CMD_ID_EXIT_LEVEL               = 0x06,
   BEDLEVEL_REQ_CMD_ID_GET_LEVEL_STATE          = 0x07,
+  BEDLEVEL_REQ_CMD_ID_ABORT_AUTO_BEDLEVEL      = 0x09,
   BEDLEVEL_REQ_CMD_ID_BED_POSITION_DETECTION   = 0x12,
   BEDLEVEL_REQ_CMD_ID_PROBE_SENSOR_CALIBRATION = 0x13,
   BEDLEVEL_REQ_CMD_ID_SET_LIVE_Z_OFFSET        = 0x15,
   BEDLEVEL_REQ_CMD_ID_GET_LIVE_Z_OFFSET        = 0x16,
 
-  BEDLEVEL_REQ_CMD_ID_SUM                      = 10,               // Adding or deleting IDs requires changing this value
+  BEDLEVEL_REQ_CMD_ID_SUM                      = 11,               // Adding or deleting IDs requires changing this value
 
   BEDLEVEL_CMD_ID_REPORT_BEDLEVEL_POINT        = 0xa1,
 
@@ -78,6 +79,7 @@ class BedLevelService {
       z_compensation_[0] = 1.5;
       z_compensation_[1] = 1.5;
       live_z_offset_changed = false;
+      need_to_abort_auto_bedlevel = false;
     }
 
     void init();
@@ -115,6 +117,7 @@ class BedLevelService {
     float hotend_touch_bed_z_[EXTRUDERS];
     float live_z_offset[EXTRUDERS];
     bool live_z_offset_changed;
+    bool need_to_abort_auto_bedlevel;
   private:
     uint8_t bedlevel_mode;
     uint8_t manual_leveling_point_index_;

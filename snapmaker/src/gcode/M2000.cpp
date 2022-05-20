@@ -806,6 +806,11 @@ void GcodeSuite::M2000() {
           bedlevel_svc.toolhead_auto_calibation();
         }
         break;
+      case 10:
+        {
+          host_hmi.test_interface(SACP_CMD_SET_CALIBRATE_FDM, BEDLEVEL_REQ_CMD_ID_ABORT_AUTO_BEDLEVEL, buffer, index);
+        }
+        break;
       case 100:
         {
           host_hmi.test_interface(SACP_CMD_SET_CALIBRATE_FDM, BEDLEVEL_REQ_CMD_ID_EXIT_LEVEL, buffer, index);

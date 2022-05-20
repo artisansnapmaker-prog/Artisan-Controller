@@ -1080,13 +1080,19 @@ void ToolHeadFDM::set_hotend_type(uint8_t *data) {
 void ToolHeadFDM::report_extruder_info(uint8_t *data) {
   uint8_t extruder_state = data[0];
   active_extruder = data[1];
-  LOG_I("actul active extruder: %d\n", active_extruder);
+  #ifdef USE_FDM_INTERRUPT_LOG
+    LOG_I("actul active extruder: %d\n", active_extruder);
+  #endif
   if (extruder_state) {
-    fdm_exception_trigger(FDM_FAULT_EXTRUDER_STATE);
-    system_svc.raise_exception(get_device_id(), FDM_EXCEP_STA_EXTRUDER_STATE_ERROR, EXCEP_ACT_PAUSE_WORKING);
+    if (((fdm_state >> FDM_FAULT_EXTRUDER_STATE) & 0x01) == 0) {
+      fdm_exception_trigger(FDM_FAULT_EXTRUDER_STATE);
+      system_svc.raise_exception(get_device_id(), FDM_EXCEP_STA_EXTRUDER_STATE_ERROR, EXCEP_ACT_PAUSE_WORKING);
+    }
   } else {
-    fdm_exception_clear(FDM_FAULT_EXTRUDER_STATE);
-    system_svc.clear_exception(get_device_id(), FDM_EXCEP_STA_EXTRUDER_STATE_ERROR);
+    if (((fdm_state >> FDM_FAULT_EXTRUDER_STATE) & 0x01) == 1) {
+      fdm_exception_clear(FDM_FAULT_EXTRUDER_STATE);
+      system_svc.clear_exception(get_device_id(), FDM_EXCEP_STA_EXTRUDER_STATE_ERROR);
+    }
   }
 }
 

@@ -33,8 +33,6 @@
 
 typedef enum {
   DEBUG_REQ_CMD_ID_SET_LOG_LEVEL      = 0x10,
-
-  DEBUG_REQ_CMD_ID_SUM                = 1,      // Adding or deleting IDs requires changing this value
 }debug_req_cmd_id_e;
 
 typedef enum {

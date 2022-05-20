@@ -236,22 +236,18 @@ static err_code_t hmi_req_callback_exit_level(void *obj, sacp_hmi_message_t *msg
 
   ret = smprinter.set_sys_status(SYSTEM_STATUS_IDLE, &ret_status);
 
-  // check if the leveling work is finished
-  // if (!bedlevel.get_end_leveling_process_status()) {
-  //   ret = E_FAILURE;
-  //   goto EXIT;
-  // }
-
   if (bedlevel.get_bedlevel_mode() == BEDLEVEL_MODE_MANUAL) {
     LOG_I("finish bedlevel\n");
     ret = bedlevel.finish_manual_bed_leveling();
-    motion_platform_svc.sync_z_values_to_platform(0);
-    motion_platform_svc.extrapolate_unprobed_points();
-    motion_platform_svc.interpolate_virt_points();
-    motion_platform_svc.print_leveling_grid();
-    motion_platform_svc.print_leveling_grid_virt();
-    motion_platform_svc.disable_z_probe();
-    motion_platform_svc.save_settings();
+    if (bedlevel.get_end_leveling_process_status() == true) {
+      motion_platform_svc.sync_z_values_to_platform(0);
+      motion_platform_svc.extrapolate_unprobed_points();
+      motion_platform_svc.interpolate_virt_points();
+      motion_platform_svc.print_leveling_grid();
+      motion_platform_svc.print_leveling_grid_virt();
+      motion_platform_svc.disable_z_probe();
+      motion_platform_svc.save_settings();
+    }
     motion_platform_svc.enable_leveling();
     motion_platform_svc.moveto_z(motion_platform_svc.get_current_position(Z_AXIS)+100, 30);
   }
@@ -716,10 +712,13 @@ err_code_t BedLevelService::start_manual_bed_leveling(uint8_t grids) {
     return E_PARAM;
   }
 
+  end_of_leveling_process = false;
+
   LOG_I("start manual bed level, grids: %d\n", grids);
 
   motion_platform_svc.set_leveling_grids(grids);
   manual_leveling_point_index_ = 25;
+  manual_leveling_point_sum = 0;
 
   // clear live_z_offset
   live_z_offset[0] = 0;
@@ -752,12 +751,10 @@ err_code_t BedLevelService::goto_leveling_point(uint8_t index) {
       manual_leveling_z_values_[manual_leveling_point_index_] = motion_platform_svc.get_current_position(Z_AXIS);
       LOG_I("P[%d]: (%.2f, %.2f, %.2f)\n",manual_leveling_point_index_, motion_platform_svc.get_current_position(X_AXIS), motion_platform_svc.get_current_position(Y_AXIS), motion_platform_svc.get_current_position(Z_AXIS));
 
-      // if ((manual_leveling_point_index_ != index - 1) && ) {
-
-      // }
       motion_platform_svc.moveto_z(motion_platform_svc.get_current_position(Z_AXIS) + 3, 10);
     }
 
+    manual_leveling_point_sum++;
     // move to new point
     manual_leveling_point_index_ = index - 1;
     motion_platform_svc.moveto_xy(_GET_MESH_X(manual_leveling_point_index_ % GRID_MAX_POINTS_X), _GET_MESH_Y(manual_leveling_point_index_ / GRID_MAX_POINTS_Y), 180);
@@ -770,6 +767,14 @@ err_code_t BedLevelService::finish_manual_bed_leveling () {
   manual_leveling_z_values_[manual_leveling_point_index_] = motion_platform_svc.get_current_position(Z_AXIS);
   LOG_I("P[%d]: (%.2f, %.2f, %.2f)\n",manual_leveling_point_index_, motion_platform_svc.get_current_position(X_AXIS), motion_platform_svc.get_current_position(Y_AXIS), motion_platform_svc.get_current_position(Z_AXIS));
   uint32_t i, j;
+
+  if (manual_leveling_point_sum == GRID_MAX_POINTS_X * GRID_MAX_POINTS_Y) {
+    LOG_I("manual bedlevel real finish\n");
+    end_of_leveling_process = true;
+  } else {
+    return E_FAILURE;
+  }
+
   for (j = 0; j < GRID_MAX_POINTS_Y; j++) {
     for (i = 0; i < GRID_MAX_POINTS_X; i++) {
       LOG_I("i: %d, j: %d\n", i, j);
@@ -777,6 +782,7 @@ err_code_t BedLevelService::finish_manual_bed_leveling () {
       z_values_[i][j] = manual_leveling_z_values_[j * GRID_MAX_POINTS_X + i];
     }
   }
+
   return E_SUCCESS;
 }
 

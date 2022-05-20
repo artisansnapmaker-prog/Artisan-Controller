@@ -121,6 +121,7 @@ class BedLevelService {
   private:
     uint8_t bedlevel_mode;
     uint8_t manual_leveling_point_index_;
+    uint8_t manual_leveling_point_sum;
     float manual_leveling_z_values_[GRID_MAX_NUM*GRID_MAX_NUM];
     bool is_bed_leveled;
     bool end_of_leveling_process;

@@ -1858,12 +1858,28 @@ void ToolHeadFDM::prepare_to_start_a_new_print_job(void) {
 
 // called when start a new print job or resume an old print job
 err_code_t ToolHeadFDM::prepare_start(void) {
+  err_code_t ret = E_SUCCESS;
   LOG_I("fdm_fault_state: %d, fdm_state: %d\n", fdm_state, get_status());
   if ((fdm_state == 0) && (get_status() == MODULE_STATUS_NORMAL)) {
-    return true;
-  } else {
-    return false;
+    ret = E_SUCCESS;
+    return ret;
   }
+
+  if (((fdm_state >> FDM_FAULT_NOZZLE_TEMP) & 0x01) == 1) {
+    ret = E_JOB_FDM_NOZZLE_TEMP;
+  } else if (((fdm_state >> FDM_FAULT_NOZZLE_IDENTIFY) & 0x01) == 1) {
+    ret = E_JOB_FDM_NOZZLE_TYPE;
+  } else if (((fdm_state >> FDM_FAULT_EXTRUDER_STATE) & 0x01) == 1) {
+    ret = E_JOB_FDM_EXTRUDER_STATE;
+  } else if (((fdm_state >> FDM_FAULT_FILAMENT) & 0x01) == 1) {
+    ret = E_JOB_FDM_FILAMENT_RUNOUT;
+  }
+
+  if (ret != E_SUCCESS) {
+    LOG_E("fdm can't start work!\n");
+  }
+
+  return ret;
 }
 
 err_code_t ToolHeadFDM::set_feedrate_percentage(uint8_t *data, uint16_t length) {

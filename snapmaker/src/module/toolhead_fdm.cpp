@@ -1476,6 +1476,14 @@ err_code_t ToolHeadFDM::tool_change(uint8_t new_tool, bool z_compensation/*=true
     motion_platform_svc.sync_plan_position_to_platform();
 
     motion_platform_svc.moveto_xyz(motion_platform_svc.sm_destination_position[X_AXIS], motion_platform_svc.sm_destination_position[Y_AXIS], motion_platform_svc.sm_destination_position[Z_AXIS], 120);
+    if (extruder_status[active_extruder] != EXTRUDER_WORK_STATE_UNAVAILABLE) {
+      extruder_status[active_extruder] = EXTRUDER_WORK_STATE_STANDBY;
+    }
+
+    if (extruder_status[new_tool] != EXTRUDER_WORK_STATE_UNAVAILABLE) {
+      extruder_status[new_tool] = EXTRUDER_WORK_STATE_ACTIVE;
+    }
+
     active_extruder = new_tool;
     motion_platform_svc.update_active_extruder_to_platform(active_extruder);
     switch_extruder(active_extruder);

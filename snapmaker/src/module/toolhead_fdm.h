@@ -147,6 +147,12 @@ typedef enum {
   FDM_FAULT_FILAMENT,
 }fdm_fault_e;
 
+typedef enum {
+  EXTRUDER_WORK_STATE_STANDBY,
+  EXTRUDER_WORK_STATE_ACTIVE,
+  EXTRUDER_WORK_STATE_UNAVAILABLE,
+}extruder_work_state_e;
+
 typedef struct {
   uint8_t active_extruder;
   int16_t feedrate_percentage[EXTRUDERS];
@@ -164,6 +170,8 @@ class ToolHeadFDM: public ModuleBase {
     ToolHeadFDM(uint8_t extruder, uint32_t mac, uint8_t key, uint8_t sub_index):
     ModuleBase(mac, key, sub_index) {
       fdm_state = 0;
+      extruder_status[0] = EXTRUDER_WORK_STATE_ACTIVE;
+      extruder_status[1] = EXTRUDER_WORK_STATE_STANDBY;
       for (int i = 0; i < EXTRUDERS; i++) {
         hotend_type[i] = 0xff;
       }
@@ -278,7 +286,7 @@ class ToolHeadFDM: public ModuleBase {
     uint8_t target_extruder;
     probe_sensor_t active_probe_sensor;
     uint8_t filament_detect_mask;
-    uint8_t extruder_status[EXTRUDERS];
+    extruder_work_state_e extruder_status[EXTRUDERS];
     float hotend_diameter[EXTRUDERS];
     uint8_t fan_speed[3];
     int16_t extruders_feedrate_percentage[EXTRUDERS];

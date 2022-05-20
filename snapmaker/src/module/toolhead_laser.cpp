@@ -22,10 +22,13 @@
 
 #define LASER_PCBA_OVERTEMP   (65)
 
-#define MODULE_EXCEP_BIT_IMU_CONNECTION       (1<<0)
-#define MODULE_EXCEP_BIT_TUBE_OVERTEMP        (1<<1)
-#define MODULE_EXCEP_BIT_ATTITUDE             (1<<2)
-#define MODULE_EXCEP_BIT_PWM_PIN              (1<<3)
+#define SAFETY_STATE_BIT_IMU_CONNECTION       (1<<0)
+#define SAFETY_STATE_BIT_TUBE_OVERTEMP        (1<<1)
+#define SAFETY_STATE_BIT_ATTITUDE             (1<<2)
+#define SAFETY_STATE_BIT_PWM_PIN              (1<<3)
+
+#define MODULE_EXCEP_BIT_TUBE_TEMP_TOO_LOW    (1<<0)
+#define MODULE_EXCEP_BIT_IMU_OVERTEMP         (1<<1)
 
 // P1/2/3 step timer channel in GD32F407
 // P1 step, PE14: T0 CH3
@@ -768,39 +771,39 @@ void ToolHeadLaser::can_cb_handle_security_status(void *obj, uint8_t *data, uint
   if (diff_state) {
     new_state   = diff_state & laser.safety_state;
     clear_state = diff_state & pre_state;
-    if (new_state & MODULE_EXCEP_BIT_IMU_CONNECTION) {
+    if (new_state & SAFETY_STATE_BIT_IMU_CONNECTION) {
       system_svc.raise_exception_async(laser.get_device_id(), LASER_EXCEP_STA_IMU_EXCEPTION, EXCEP_ACT_PAUSE_WORKING,
                                         EXCEP_BAN_TURN_ON_LASER | EXCEP_BAN_WORKING);
     }
 
-    if (new_state & MODULE_EXCEP_BIT_TUBE_OVERTEMP) {
+    if (new_state & SAFETY_STATE_BIT_TUBE_OVERTEMP) {
       system_svc.raise_exception_async(laser.get_device_id(), LASER_EXCEP_STA_TUBE_TEMP_TOO_HIGH, EXCEP_ACT_PAUSE_WORKING,
                                         EXCEP_BAN_TURN_ON_LASER | EXCEP_BAN_WORKING);
     }
 
-    if (new_state & MODULE_EXCEP_BIT_ATTITUDE) {
+    if (new_state & SAFETY_STATE_BIT_ATTITUDE) {
       system_svc.raise_exception_async(laser.get_device_id(), LASER_EXCEP_STA_ABNORMAL_ATTITUDE, EXCEP_ACT_PAUSE_WORKING,
                                         EXCEP_BAN_TURN_ON_LASER | EXCEP_BAN_WORKING);
     }
 
-    if (new_state & MODULE_EXCEP_BIT_PWM_PIN) {
+    if (new_state & SAFETY_STATE_BIT_PWM_PIN) {
       system_svc.raise_exception_async(laser.get_device_id(), LASER_EXCEP_STA_PWM_PIN, EXCEP_ACT_PAUSE_WORKING,
                                         EXCEP_BAN_TURN_ON_LASER | EXCEP_BAN_WORKING);
     }
 
-    if (clear_state & MODULE_EXCEP_BIT_IMU_CONNECTION) {
+    if (clear_state & SAFETY_STATE_BIT_IMU_CONNECTION) {
       system_svc.clear_exception_async(laser.get_device_id(), LASER_EXCEP_STA_IMU_EXCEPTION);
     }
 
-    if (clear_state & MODULE_EXCEP_BIT_TUBE_OVERTEMP) {
+    if (clear_state & SAFETY_STATE_BIT_TUBE_OVERTEMP) {
       system_svc.clear_exception_async(laser.get_device_id(), LASER_EXCEP_STA_TUBE_TEMP_TOO_HIGH);
     }
 
-    if (clear_state & MODULE_EXCEP_BIT_ATTITUDE) {
+    if (clear_state & SAFETY_STATE_BIT_ATTITUDE) {
       system_svc.clear_exception_async(laser.get_device_id(), LASER_EXCEP_STA_ABNORMAL_ATTITUDE);
     }
 
-    if (clear_state & MODULE_EXCEP_BIT_PWM_PIN) {
+    if (clear_state & SAFETY_STATE_BIT_PWM_PIN) {
       system_svc.clear_exception_async(laser.get_device_id(), LASER_EXCEP_STA_PWM_PIN);
     }
   }
@@ -811,13 +814,33 @@ void ToolHeadLaser::can_cb_handle_security_status(void *obj, uint8_t *data, uint
   laser.imu_temp   = (int8_t)data[6];
 
   if (laser.tube_temp < 0) {
-    system_svc.raise_exception_async(laser.get_device_id(), LASER_EXCEP_STA_TUBE_TEMP_TOO_LOW, EXCEP_ACT_PAUSE_WORKING,
-                                      EXCEP_BAN_TURN_ON_LASER | EXCEP_BAN_WORKING);
+    if (!(laser.exception_state & MODULE_EXCEP_BIT_TUBE_TEMP_TOO_LOW)) {
+      laser.exception_state |= MODULE_EXCEP_BIT_TUBE_TEMP_TOO_LOW;
+      system_svc.raise_exception_async(laser.get_device_id(), LASER_EXCEP_STA_TUBE_TEMP_TOO_LOW, EXCEP_ACT_PAUSE_WORKING,
+                                        EXCEP_BAN_TURN_ON_LASER | EXCEP_BAN_WORKING);
+    }
+  }
+  else {
+    if (laser.exception_state & MODULE_EXCEP_BIT_TUBE_TEMP_TOO_LOW) {
+      laser.exception_state &= (~MODULE_EXCEP_BIT_TUBE_TEMP_TOO_LOW);
+      system_svc.clear_exception_async(laser.get_device_id(), LASER_EXCEP_STA_TUBE_TEMP_TOO_LOW);
+    }
   }
 
   if (laser.imu_temp > LASER_PCBA_OVERTEMP) {
-    system_svc.raise_exception_async(laser.get_device_id(), LASER_EXCEP_STA_IMU_TEMP_TOO_HIGH, EXCEP_ACT_PAUSE_WORKING,
-                                      EXCEP_BAN_TURN_ON_LASER | EXCEP_BAN_WORKING);
+    if (!(laser.exception_state & MODULE_EXCEP_BIT_IMU_OVERTEMP)) {
+      laser.exception_state |= MODULE_EXCEP_BIT_IMU_OVERTEMP;
+
+      system_svc.raise_exception_async(laser.get_device_id(), LASER_EXCEP_STA_IMU_TEMP_TOO_HIGH, EXCEP_ACT_PAUSE_WORKING,
+                                        EXCEP_BAN_TURN_ON_LASER | EXCEP_BAN_WORKING);
+    }
+  }
+  else {
+    if (laser.exception_state & MODULE_EXCEP_BIT_IMU_OVERTEMP) {
+      laser.exception_state &= (~MODULE_EXCEP_BIT_IMU_OVERTEMP);
+
+      system_svc.clear_exception_async(laser.get_device_id(), LASER_EXCEP_STA_IMU_TEMP_TOO_HIGH);
+    }
   }
 
   if (data[0] != 0) {
@@ -1688,18 +1711,41 @@ err_code_t ToolHeadLaser::quickstop(void) {
   return E_SUCCESS;
 }
 
-bool ToolHeadLaser::prepare_start(void) {
-  if (get_status() != MODULE_STATUS_NORMAL || smprinter.get_enclosure_door_status()) {
-    LOG_E("Laser: cannot start work, module sta[%u], enclosure sta[%u]\n", get_status(),
-        smprinter.get_enclosure_door_status());
-    return false;
+
+err_code_t ToolHeadLaser::prepare_start(void) {
+  err_code_t ret = E_SUCCESS;
+
+  if (get_device_id() == MODULE_DEVICE_ID_LASER_1P6W_2019)
+    return E_SUCCESS;
+
+  if (safety_state) {
+    if (safety_state & SAFETY_STATE_BIT_IMU_CONNECTION) {
+      ret = E_JOB_LASER_IMU_CONNECTION;
+    }
+    else if (safety_state & SAFETY_STATE_BIT_TUBE_OVERTEMP) {
+      ret = E_JOB_LASER_TUBE_TEMP_TOO_HIGH;
+    }
+    else if (safety_state & SAFETY_STATE_BIT_ATTITUDE) {
+      ret = E_JOB_LASER_ABNORMAL_ATTTUDE;
+    }
+    else if (safety_state & SAFETY_STATE_BIT_PWM_PIN) {
+      ret = E_JOB_LASER_INVLAID_PWN_PIN;
+    }
   }
-  else if (safety_state != LASER_SAFETY_STATE_NORMAL) {
-    LOG_E("Laser: cannot start work, safety sta[%u]\n", safety_state);
-    return false;
+  
+  if (exception_state) {
+    if (exception_state & MODULE_EXCEP_BIT_TUBE_TEMP_TOO_LOW) {
+      ret = E_JOB_LASER_TUBE_TEMP_TOO_LOW;
+    }
+    else if (exception_state & MODULE_EXCEP_BIT_IMU_OVERTEMP) {
+      ret = E_JOB_LASER_IMU_OVERTEMP;
+    }
   }
-  else
-    return true;
+
+  if (ret != E_SUCCESS)
+    LOG_E("Laser: cannot start work, safety sta[0x%x], excep sta[0x%x]\n", safety_state, exception_state);
+
+  return ret;
 }
 
 err_code_t ToolHeadLaser::register_esp32_upgrade_callbake(void) {

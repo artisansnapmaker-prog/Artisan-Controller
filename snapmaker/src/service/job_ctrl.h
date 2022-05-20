@@ -48,9 +48,29 @@
 #define E_JOB_GCODE_FILE_NO_EXIT                        SACP_RET_JOB_GCODE_FILE_NO_EXIT
 #define E_JOB_SAVE_ENV_FAILURE                          SACP_RET_JOB_SAVE_ENV_FAILURE
 #define E_JOB_RESUME_ENV_FAILURE                        SACP_RET_JOB_RESUME_ENV_FAILURE
-#define E_JOB_UNKNOW_STOP_TPYE                          SACP_RET_JOB_UNKNOW_STOP_TPYE
 #define E_JOB_UNSUPPORT_PARAM                           SACP_RET_UNSUPPORT_PARAM
 #define E_JOB_UNMATCHED_TOOLHEAD                        SACP_RET_JOB_UNMATCHED_TOOLHEAD
+#define E_JOB_NO_TOOLHEAD                               SACP_RET_JOB_NO_TOOLHEAD
+#define E_JOB_TOOLHEAD_OFFLINE                          SACP_RET_JOB_TOOLHEAD_OFFLINE
+#define E_JOB_EXCEPTION_BAN                             SACP_RET_JOB_EXCEPTION_BAN
+#define E_JOB_FDM_EXTRUDER_STATE                        SACP_RET_JOB_FDM_EXTRUDER_STATE
+#define E_JOB_FDM_NOZZLE_TYPE                           SACP_RET_JOB_FDM_NOZZLE_TYPE
+#define E_JOB_FDM_NOZZLE_TEMP                           SACP_RET_JOB_FDM_NOZZLE_TEMP
+#define E_JOB_FDM_FILAMENT_RUNOUT                       SACP_RET_JOB_FDM_FILAMENT_RUNOUT
+#define E_JOB_CNC_OVERCURRENT                           SACP_RET_JOB_CNC_OVERCURRENT
+#define E_JOB_CNC_P_TEMP_EXCE                           SACP_RET_JOB_CNC_P_TEMP_EXCE
+#define E_JOB_CNC_M_TEMP_EXCE                           SACP_RET_JOB_CNC_M_TEMP_EXCE
+#define E_JOB_CNC_V_POWER_EXC                           SACP_RET_JOB_CNC_V_POWER_EXC
+#define E_JOB_ENCLOSURE_DOOR_OPEN                       SACP_RET_JOB_ENCLOSURE_DOOR_OPEN
+#define E_JOB_LASER_IMU_CONNECTION                      SACP_RET_JOB_LASER_IMU_CONNECTION
+#define E_JOB_LASER_TUBE_TEMP_TOO_HIGH                  SACP_RET_JOB_LASER_TUBE_TEMP_TOO_HIGH
+#define E_JOB_LASER_ABNORMAL_ATTTUDE                    SACP_RET_JOB_LASER_ABNORMAL_ATTTUDE
+#define E_JOB_LASER_INVLAID_PWN_PIN                     SACP_RET_JOB_LASER_INVLAID_PWN_PIN
+#define E_JOB_LASER_TUBE_TEMP_TOO_LOW                   SACP_RET_JOB_LASER_TUBE_TEMP_TOO_LOW
+#define E_JOB_LASER_IMU_OVERTEMP                        SACP_RET_JOB_LASER_IMU_OVERTEMP
+#define E_JOB_RECOVER_ENV_FAILED                        SACP_RET_JOB_RECOVER_ENV_FAILED
+#define E_JOB_STANDBY_FAILED                            SACP_RET_JOB_STANDBY_FAILED
+
 
 #define E_JOB_ISSUE_RET_FINISH                          SACP_JOB_PAUSE_ISSUE_RET_FINISH
 #define E_JOB_ISSUE_RET_GCODE_PAUSE                     SACP_JOB_PAUSE_ISSUE_RET_GCODE_PAUSE
@@ -199,10 +219,6 @@ class JobCtrl {
                           void *p = NULL,
                           JobResumeType pt = RESUME_TYPE_PAUSE);
     err_code_t req_stop(  enum JobStopType pt,
-                          uint8_t reason,
-                          job_req_notify_cb_t cb = NULL,
-                          void *p = NULL);
-    err_code_t req_stop_from_isr(  enum JobStopType pt,
                           uint8_t reason,
                           job_req_notify_cb_t cb = NULL,
                           void *p = NULL);

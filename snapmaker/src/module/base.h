@@ -331,7 +331,7 @@ class ModuleBase {
     virtual err_code_t post_init() = 0;
     virtual err_code_t deinit() = 0;
 
-    virtual bool prepare_start(void) { return true; }
+    virtual err_code_t prepare_start(void) { return true; }
     virtual err_code_t save_env(uint8_t *env_buf, uint32_t &len) { len = 0; return E_SUCCESS; }
     virtual err_code_t resume_env(uint8_t *env_buf, uint32_t &len) { return E_SUCCESS; }
     virtual err_code_t recover_env(uint8_t *env_buf, uint32_t &len) { return E_SUCCESS; }

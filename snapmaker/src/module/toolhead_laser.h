@@ -196,7 +196,7 @@ class ToolHeadLaser: public ModuleBase {
     err_code_t standby(void);
     err_code_t resume_finish(void);
     err_code_t quickstop(void);
-    bool prepare_start(void);
+    err_code_t prepare_start(void);
 
     err_code_t register_esp32_upgrade_callbake(void);
 
@@ -269,6 +269,7 @@ class ToolHeadLaser: public ModuleBase {
     uint16_t focal_length = LASER_CAMERA_FOCUS_MAX;
     uint16_t msg_id_get_focal_length;
 
+    uint32_t exception_state = 0;
     uint8_t safety_state = 0;
     int16_t roll;
     int16_t pitch;

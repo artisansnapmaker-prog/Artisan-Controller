@@ -193,7 +193,7 @@ class ToolHeadFDM: public ModuleBase {
     err_code_t resume_env(uint8_t *env_buf, uint32_t &len);
     err_code_t standby(void);
     void prepare_to_start_a_new_print_job(void);
-    bool prepare_start(void);
+    err_code_t prepare_start(void);
     err_code_t set_feedrate_percentage(uint8_t *data, uint16_t length);
     uint16_t get_feedrate_percentage(uint8_t *buffer);
     err_code_t factory_reset();

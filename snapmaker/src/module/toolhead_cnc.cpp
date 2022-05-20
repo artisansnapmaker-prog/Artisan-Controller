@@ -132,7 +132,7 @@ err_code_t ToolHeadCNC::deinit() {
   return E_SUCCESS;
 }
 
-bool ToolHeadCNC::prepare_start(void) {
+err_code_t ToolHeadCNC::prepare_start(void) {
   bool result = false;
   if (get_status() == MODULE_STATUS_NORMAL && !(error_state & CNC_LIMIT_WORK_STATE_MASK) /*&& !smprinter.get_enclosure_door_status()*/)
     result = true;

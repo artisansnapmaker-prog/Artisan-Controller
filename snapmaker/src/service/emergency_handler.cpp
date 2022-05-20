@@ -483,14 +483,7 @@ err_code_t EmergencyHandler::hmi_cb_clear_record(void *obj, sacp_hmi_message_t *
 void EmergencyHandler::job_cb_notify_recovery(void *p, uint8_t result) {
   sacp_hmi_message_t *msg = (sacp_hmi_message_t *)p;
 
-  if (SYSTEM_STATUS_PRINTING == result) {
-    host_hmi.send_ack(msg, E_SUCCESS);
-    emergency_hdl.prepare_flash();
-  }
-
-  if (SYSTEM_STATUS_IDLE == result) {
-    host_hmi.send_ack(msg, E_FAILURE);
-  }
+  host_hmi.send_ack(msg, result);
 }
 
 void EmergencyHandler::background() {

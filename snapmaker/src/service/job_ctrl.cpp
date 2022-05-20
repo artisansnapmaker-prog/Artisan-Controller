@@ -141,14 +141,14 @@ err_code_t JobCtrl::req_start(  uint8_t client_id,
                                 toolHeadType th_type,
                                 job_req_notify_cb_t cb/* = NULL*/,
                                 void *p/* = NULL*/) {
-  SystemStatus s = smprinter.get_sys_status();
-  if (!smprinter.can_start_work()) {
-    LOG_E("can not start job as current status is not idle or calibrating\r\n");
-    return E_JOB_NOT_IN_IDLE_STATUS;
+  err_code_t ret = smprinter.can_start_work();
+  if (ret != E_SUCCESS) {
+    LOG_E("req_start: can not start job, ret=[%u]\r\n", ret);
+    return ret;
   }
 
-  LOG_I("Start a printing job at status: %u\r\n", s);
-  status_before_start = s;
+  status_before_start = smprinter.get_sys_status();
+  LOG_I("Start a printing job at status: %u\r\n", status_before_start);
 
   if (th_type != smprinter.get_toolhead_type()) {
     LOG_E("job_ctrl: Unmatched toolhead\r\n");
@@ -245,31 +245,6 @@ err_code_t JobCtrl::req_stop( enum JobStopType st,
     LOG_E("job_ctrl: can not submit a job ctrl request\r\n");
     return E_NO_RESRC;
   }
-
-  return E_SUCCESS;
-}
-
-err_code_t JobCtrl::req_stop_from_isr( enum JobStopType st,
-                              uint8_t reason,
-                              job_req_notify_cb_t cb/* = NULL*/,
-                              void *p/* = NULL*/) {
-  BaseType_t need_switch_task;
-  if (!smprinter.can_stop_work()) {
-    return E_JOB_NOT_IN_PAUSE_STATUS;
-  }
-
-  JobCtrlReqInfo jri;
-  jri.req_action = REQ_STOP;
-  jri.req_data.req_stop_data.type = st;
-  jri.req_data.req_stop_data.reason = reason;
-  jri.cb = cb;
-  jri.param = p;
-
-  if (sizeof(jri) != xMessageBufferSendFromISR(_req_queue, &jri, sizeof(jri), &need_switch_task)) {
-    return E_NO_RESRC;
-  }
-
-  portYIELD_FROM_ISR( need_switch_task );
 
   return E_SUCCESS;
 }
@@ -644,35 +619,25 @@ void JobCtrl::update_gcode_file_pass_line_number(uint32_t l) {
 void JobCtrl::do_start(struct JobCtrlReqInfo &jri) {
   enum SystemStatus ret_sys_status;
   enum SystemStatus next_status;
-  ModuleBase *toolhead = NULL;
 
-  ret_sys_status = smprinter.get_sys_status();
-  if (!smprinter.can_start_work()) {
+  err_code_t ret = smprinter.can_start_work();
+
+  if (ret != E_SUCCESS) {
     LOG_E("can not start job as current status is not idle or calibrating\r\n");
-    DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, ret_sys_status);
+    DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, ret);
     return;
   }
 
-  toolhead = smprinter.get_cur_toolhead();
-  if (!toolhead || !toolhead->prepare_start()) {
-    LOG_E("can not start job as prepare start failed\r\n");
-    DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, E_JOB_NOT_IN_IDLE_STATUS);
+  // if start work from idle:
+  if (E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_STARTING, &ret_sys_status)) {
+    LOG_E("job_ctrl: Can not enter to SYS_STARTING at status: %u\r\n", ret_sys_status);
+    DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, E_FAILURE);
     return;
   }
 
-  if (SYSTEM_STATUS_IDLE == smprinter.get_sys_status()) {
-    // if start work from idle:
-    if (E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_STARTING, &ret_sys_status)) {
-      LOG_E("job_ctrl: Can not enter to SYS_STARTING at status: %u\r\n", ret_sys_status);
-      DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, ret_sys_status);
-      return;
-    }
-    DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, SYSTEM_STATUS_STARTING);
-  }
-  else {
-    // TODO: ???
-  }
+  DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, E_SUCCESS);
 
+  // prepare flash to record emergency data
   emergency_hdl.prepare_flash();
 
   _client_id = jri.req_data.req_start_data.client_id;
@@ -712,10 +677,10 @@ void JobCtrl::do_start(struct JobCtrlReqInfo &jri) {
   if( E_SUCCESS != smprinter.set_sys_status(next_status, &ret_sys_status)) {
     LOG_E("job_ctrl: Can not enter to printing mode[%u] at current status[%u]\r\n", next_status, ret_sys_status);
     smprinter.set_sys_status(SYSTEM_STATUS_IDLE, &ret_sys_status);
-    DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, ret_sys_status);
+    DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, E_FAILURE);
   }
   else{
-    DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, next_status);
+    DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, E_SUCCESS);
     for (int i = 0; i < JOB_CTRL_NOTIFY_QUEUE_SIZE; i++) {
       if (notify_handle_started[i].cb) {
         // tell object the status we start working from
@@ -730,12 +695,21 @@ void JobCtrl::do_pause(struct JobCtrlReqInfo &jri) {
   uint32_t start_millis, end_millis;
   bool need_standby = false;
 
-  if (E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_PAUSING, &ret_sys_status)) {
-    LOG_E("job ctrl: can not to enter SYS_PAUSEING status\r\n");
-    DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, ret_sys_status);
+  ret_sys_status = smprinter.get_sys_status();
+  if (  SYSTEM_STATUS_PRINTING != ret_sys_status &&
+        SYSTEM_STATUS_XY_CALIBRATING_PRINTING != ret_sys_status &&
+        SYSTEM_STATUS_RESUMING != ret_sys_status) {
+
+    LOG_E("job client: can not pause a job as current status[%u] is no printing\r\n", ret_sys_status);
+    DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, E_JOB_NOT_IN_WORKING_STATUS);
     return;
   }
-  DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, SYSTEM_STATUS_PAUSING);
+
+  if (E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_PAUSING, &ret_sys_status)) {
+    LOG_E("job ctrl: can not to enter SYS_PAUSEING status\r\n");
+    DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, E_FAILURE);
+    return;
+  }
 
   start_millis = millis();
   switch (jri.req_data.req_pause_data.type) {
@@ -770,10 +744,13 @@ void JobCtrl::do_pause(struct JobCtrlReqInfo &jri) {
 
   if (E_SUCCESS != save_env()) {
     smprinter.set_sys_status(SYSTEM_STATUS_IDLE, &ret_sys_status);
-    DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, ret_sys_status);
+    DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, E_JOB_SAVE_ENV_FAILURE);
     _issue_ret_rb.insert_one(SACP_JOB_PAUSE_ISSUE_RET_SAVE_ENV_FAILURE);
     return;
   }
+
+  // TODO: tell hmi the result firstly
+  DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, E_SUCCESS);
 
   end_millis = millis();
   LOG_I("quick stop to standby take %d milliseconds\r\n",
@@ -783,7 +760,7 @@ void JobCtrl::do_pause(struct JobCtrlReqInfo &jri) {
 
   if (need_standby && E_SUCCESS != machine_standby()) {
     smprinter.set_sys_status(SYSTEM_STATUS_IDLE, &ret_sys_status);
-    DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, ret_sys_status);
+    DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, E_JOB_STANDBY_FAILED);
     _issue_ret_rb.insert_one(SACP_JOB_PAUSE_ISSUE_RET_STOP_FAILURE);
     return;
   }
@@ -791,7 +768,7 @@ void JobCtrl::do_pause(struct JobCtrlReqInfo &jri) {
   if (E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_PAUSED, &ret_sys_status)) {
     LOG_E("job ctrl: can not enter SYS_PAUSED status");
     smprinter.set_sys_status(SYSTEM_STATUS_IDLE, &ret_sys_status);
-    DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, ret_sys_status);
+    DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, E_FAILURE);
     return;
   }
 
@@ -810,7 +787,7 @@ void JobCtrl::do_pause(struct JobCtrlReqInfo &jri) {
   } else if (PAUSE_FILM_RUNOUT == jri.req_data.req_pause_data.type) {
     _issue_ret_rb.insert_one(SACP_JOB_PAUSE_ISSUE_RET_FILAMENT_RUNOUT);
   }
-  DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, SYSTEM_STATUS_PAUSED);
+  DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, E_SUCCESS);
 
   // notify objects we have paused working
   for (int i = 0; i < JOB_CTRL_NOTIFY_QUEUE_SIZE; i++) {
@@ -826,26 +803,25 @@ void JobCtrl::do_resume(struct JobCtrlReqInfo &jri) {
 
   if (E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_RESUMING, &ret_sys_status)) {
     LOG_E("job_ctrl: Can not enter to SYS_RESUMING status\r\n");
-    DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, ret_sys_status);
+    DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, E_FAILURE);
     return;
   }
-  DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, SYSTEM_STATUS_RESUMING);
+  DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, E_SUCCESS);
 
   // to make job ctrl call resume_finish()
   if (jri.req_data.req_resume_data.type == RESUME_TYPE_RECOVERY) {
-    _paused = true;
     if (E_SUCCESS != recover_env()) {
       LOG_E("job ctrl: recover env failed\r\n");
       smprinter.set_sys_status(SYSTEM_STATUS_IDLE, &ret_sys_status);
-      DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, SYSTEM_STATUS_IDLE);
+      DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, E_JOB_RECOVER_ENV_FAILED);
       return;
     }
   }
 
   if (E_SUCCESS != resume_env(jri.req_data.req_resume_data.type)) {
-    LOG_E("job ctrl: resume failed\r\n");
+    LOG_E("job ctrl: resume env failed\r\n");
     smprinter.set_sys_status(SYSTEM_STATUS_IDLE, &ret_sys_status);
-    DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, SYSTEM_STATUS_IDLE);
+    DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, E_JOB_RESUME_ENV_FAILURE);
     return;
   }
 
@@ -862,11 +838,20 @@ void JobCtrl::do_resume(struct JobCtrlReqInfo &jri) {
   if (E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_PRINTING, NULL)) {
     LOG_E("job ctrl: can not enter SYS_PRINTING status");
     smprinter.set_sys_status(SYSTEM_STATUS_IDLE, &ret_sys_status);
-    DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, ret_sys_status);
+    DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, E_FAILURE);
     _issue_ret_rb.insert_one(SACP_JOB_PAUSE_ISSUE_RET_PAUSE_FAILURE);
     return;
   }
-  DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, SYSTEM_STATUS_PRINTING);
+  DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, E_SUCCESS);
+
+  // to here, it indicates recovery is done, by scott
+  if (jri.req_data.req_resume_data.type == RESUME_TYPE_RECOVERY) {
+    // set this flash to make jobctrl thinks it recovery from paused
+    _paused = true;
+    // prepare flash for possible emergency event
+    emergency_hdl.prepare_flash();
+    // TODO: we should tell HMI the result after all ok
+  }
 
   // notify objects we will resume working
   for (int i = 0; i < JOB_CTRL_NOTIFY_QUEUE_SIZE; i++) {
@@ -883,11 +868,11 @@ void JobCtrl::do_stop(struct JobCtrlReqInfo &jri) {
   if (SYSTEM_STATUS_PRINTING == smprinter.get_sys_status()) {
     if (E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_STOPING, &ret_sys_status)) {
       LOG_E("job_ctrl: Can not enter to SYSTEM_STATUS_STOPING status\r\n");
-      DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, ret_sys_status);
+      DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, E_FAILURE);
       _issue_ret_rb.insert_one(SACP_JOB_PAUSE_ISSUE_RET_STOP_FAILURE);
       return;
     }
-    DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, SYSTEM_STATUS_STOPING);
+    DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, E_SUCCESS);
   }
   else {
     // TODO: do nothing
@@ -920,7 +905,7 @@ void JobCtrl::do_stop(struct JobCtrlReqInfo &jri) {
     case STOP_EXCEPTION:
       motion_platform_svc.req_quickstop();
       smprinter.set_sys_status(SYSTEM_STATUS_EMERGENCY_STOP, NULL);
-      DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, SYSTEM_STATUS_EMERGENCY_STOP);
+      DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, E_SUCCESS);
       _issue_ret_rb.insert_one(jri.req_data.req_stop_data.reason);
       return;
 
@@ -941,7 +926,7 @@ void JobCtrl::do_stop(struct JobCtrlReqInfo &jri) {
   if (E_SUCCESS != machine_standby()) {
     LOG_E("job ctrl: machine standby failure\r\n");
     smprinter.set_sys_status(SYSTEM_STATUS_IDLE, &ret_sys_status);
-    DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, ret_sys_status);
+    DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, E_JOB_STANDBY_FAILED);
     _issue_ret_rb.insert_one(SACP_JOB_PAUSE_ISSUE_RET_STOP_FAILURE);
     return;
   }
@@ -951,12 +936,12 @@ void JobCtrl::do_stop(struct JobCtrlReqInfo &jri) {
     if (E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_IDLE, &ret_sys_status)) {
       LOG_E("job ctrl: can not enter SYS_IDLE status");
       smprinter.set_sys_status(SYSTEM_STATUS_IDLE, &ret_sys_status);
-      DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, ret_sys_status);
+      DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, E_FAILURE);
       _issue_ret_rb.insert_one(SACP_JOB_PAUSE_ISSUE_RET_STOP_FAILURE);
       return;
     }
 
-    DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, SYSTEM_STATUS_IDLE);
+    DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, E_SUCCESS);
     _issue_ret_rb.insert_one(jri.req_data.req_stop_data.reason);
     return;
   }
@@ -967,11 +952,11 @@ void JobCtrl::do_stop(struct JobCtrlReqInfo &jri) {
       LOG_E("job ctrl: can not enter status: %u\n", status_before_start);
       smprinter.set_sys_status(SYSTEM_STATUS_IDLE, &ret_sys_status);
       _issue_ret_rb.insert_one(SACP_JOB_PAUSE_ISSUE_RET_STOP_FAILURE);
-      DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, ret_sys_status);
+      DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, E_FAILURE);
       return;
     }
 
-    DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, status_before_start);
+    DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, E_SUCCESS);
     _issue_ret_rb.insert_one(jri.req_data.req_stop_data.reason);
     // reset the status
     status_before_start = SYSTEM_STATUS_IDLE;

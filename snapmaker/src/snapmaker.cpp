@@ -1160,7 +1160,10 @@ err_code_t SnapmakerPrinter::set_sys_status(enum SystemStatus req_status, enum S
   return ret;
 }
 
-bool SnapmakerPrinter::can_start_work(void) {
+err_code_t SnapmakerPrinter::can_start_work(void) {
+  ModuleBase *toolhead;
+  err_code_t ret;
+
   switch (sys_status) {
     case SYSTEM_STATUS_IDLE:
     case SYSTEM_STATUS_XY_CALIBRATING:
@@ -1170,47 +1173,68 @@ bool SnapmakerPrinter::can_start_work(void) {
       break;
 
     default:
-      return false;
+      return E_INVALID_STATE;
   }
 
-  if (!system_svc.allow_working())
-    return false;
+  toolhead = get_cur_toolhead();
+  if (!toolhead) {
+    return E_JOB_NO_TOOLHEAD;
+  }
+
+  if (toolhead->get_status() == MODULE_STATUS_OFFLINE) {
+    return E_JOB_TOOLHEAD_OFFLINE;
+  }
+
+  ret = toolhead->prepare_start();
+  if (ret != E_SUCCESS) {
+    return ret;
+  }
 
   // TODO: Subsequent use of the allow_working function intercepts such scenarios
   if (smprinter.get_enclosure_door_status()) {
     LOG_E("can not start job as door left open, or enclosure offline\r\n");
-    return false;
+    return E_JOB_ENCLOSURE_DOOR_OPEN;
   }
 
-  return true;
+  if (!system_svc.allow_working())
+    return E_JOB_EXCEPTION_BAN;
+
+  return E_SUCCESS;
 }
 
-bool SnapmakerPrinter::can_resume_work(void) {
+err_code_t SnapmakerPrinter::can_resume_work(void) {
+  ModuleBase *toolhead;
+  err_code_t ret;
+
   // status check
   if (SYSTEM_STATUS_PAUSED != sys_status &&
       SYSTEM_STATUS_RECOVERING != sys_status) {
-    return false;
+    return E_INVALID_STATE;
   }
 
-  ModuleBase *cur_toolhead;
-  cur_toolhead = smprinter.get_cur_toolhead();
-  if (!cur_toolhead || !cur_toolhead->prepare_start()) {
-    LOG_E("can not resume job as prepare start failed\r\n");
-    return false;
+  toolhead = get_cur_toolhead();
+  if (!toolhead) {
+    return E_JOB_NO_TOOLHEAD;
   }
 
-  if (!system_svc.allow_working()) {
-    LOG_E("cannot resume job as system exception\n");
-    return false;
+  if (toolhead->get_status() == MODULE_STATUS_OFFLINE) {
+    return E_JOB_TOOLHEAD_OFFLINE;
   }
 
-  // TODO: Subsequent use of the allow_working function intercepts such scenarios
+  ret = toolhead->prepare_start();
+  if (ret != E_SUCCESS) {
+    return ret;
+  }
+
   if (smprinter.get_enclosure_door_status()) {
-    LOG_E("can not resume job as door left open, or enclosure offline\r\n");
-    return false;
+    LOG_E("can not start job as door left open, or enclosure offline\r\n");
+    return E_JOB_ENCLOSURE_DOOR_OPEN;
   }
 
-  return true;
+  if (!system_svc.allow_working())
+    return E_JOB_EXCEPTION_BAN;
+
+  return E_SUCCESS;
 }
 
 bool SnapmakerPrinter::can_stop_work(void) {

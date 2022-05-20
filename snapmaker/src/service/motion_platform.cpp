@@ -80,7 +80,16 @@ uint16_t MotionPlatformService::hmi_cb_publish_coordinate_info(void *obj, uint8_
 }
 
 // HMI event callback
+#define COORDINATE_TYPE_LOGICAL (0)
+#define COORDINATE_TYPE_NATIVE  (1)
 err_code_t MotionPlatformService::hmi_cb_get_coordinate_info(void *obj, sacp_hmi_message_t *msg) {
+  if (msg->length == 1) {
+    if (msg->data[0] != COORDINATE_TYPE_LOGICAL) {
+      LOG_E("hmi_cb_get_coordinate_info: A400 won't return native coordinate!\n");
+      return host_hmi.send_ack(msg, E_PARAM);
+    }
+  }
+
   msg->length = hmi_cb_publish_coordinate_info(obj, msg->data);
 
   return host_hmi.send_ack(msg);
@@ -165,6 +174,7 @@ err_code_t MotionPlatformService::hmi_cb_move_absoluty(void *obj, sacp_hmi_messa
 
   xyze_float_t dest = motion->sm_current_position;
   uint16_t feedrate;
+  uint8_t  coordinate_type = 0;
 
   for (int i = 0; i < number; i++) {
     switch (move_cmd[i].axis) {
@@ -200,6 +210,16 @@ err_code_t MotionPlatformService::hmi_cb_move_absoluty(void *obj, sacp_hmi_messa
   }
   else {
     feedrate = feedrate_mm_s;
+  }
+
+  LOG_I("msg len: %u\n", msg->length);
+  if (msg->length > (3 + sizeof(coordinate_info_t) * number)) {
+    coordinate_type = msg->data[1 + sizeof(coordinate_info_t) * number];
+
+    if (coordinate_type != COORDINATE_TYPE_LOGICAL) {
+      LOG_E("A400 doesn't supoort coordiante type: %u\n", coordinate_type);
+      return host_hmi.send_ack(msg, E_PARAM);
+    }
   }
 
   LOG_I("move to X%.3f, Y%.3f, Z%.3f, A%.3f, B%.3f, fr: %u\n", dest.x, dest.y, dest.z, dest.i, dest.j, feedrate);
@@ -293,23 +313,23 @@ err_code_t MotionPlatformService::hmi_cb_request_home(void *obj, sacp_hmi_messag
 
   switch (home_axis) {
   case SACP_HOME_ALL:
-    ret = all_axes_homed()? E_SUCCESS : 1;
+    ret = all_axes_homed()? E_SUCCESS : 2;
     break;
 
   case SACP_HOME_X:
-    ret = axis_was_homed(X_AXIS)? E_SUCCESS : 1;
+    ret = axis_was_homed(X_AXIS)? E_SUCCESS : 2;
     break;
 
   case SACP_HOME_Y:
-    ret = axis_was_homed(Y_AXIS)? E_SUCCESS : 1;
+    ret = axis_was_homed(Y_AXIS)? E_SUCCESS : 2;
     break;
 
   case SACP_HOME_Z:
-    ret = axis_was_homed(Z_AXIS)? E_SUCCESS : 1;
+    ret = axis_was_homed(Z_AXIS)? E_SUCCESS : 2;
     break;
 
   case SACP_HOME_B:
-    ret = axis_was_homed(J_AXIS)? E_SUCCESS : 1;
+    ret = axis_was_homed(J_AXIS)? E_SUCCESS : 2;
     break;
 
   default:
@@ -320,6 +340,7 @@ err_code_t MotionPlatformService::hmi_cb_request_home(void *obj, sacp_hmi_messag
   msg->data = &ret;
 
 ack_hmi:
+  // for result of home: 1 -> timeout, 2->failed
   if ((ret = host_hmi.send_sync(msg, recv_buff, &recv_len)) != E_SUCCESS) {
     LOG_E("failed to tell screen the home state, ret[%u]\n", ret);
   }

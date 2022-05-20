@@ -337,80 +337,18 @@ err_code_t ClientNode::free_sacp_msg_node(sacp_hmi_message_t *sacp_msg) {
   return ret;
 }
 
-void ClientNode::job_req_start_cb(void *p, uint8_t result) {
-  sacp_hmi_message_t *copy_msg = (sacp_hmi_message_t *)p;
-  configASSERT(copy_msg);
 
-  if (SYSTEM_STATUS_STARTING == result) {
-    LOG_I("TODO: client_node: send JOB STARTING ACK to client\r\n");
-    // host_hmi.send_ack(copy_msg, SACP_RET_EXECUTING);
+void ClientNode::job_request_cb(void *p, uint8_t result) {
+  sacp_hmi_message_t *copy_msg = (sacp_hmi_message_t *)p;
+  if (!copy_msg) {
+    LOG_W("ClientNode:job_request_cb: msg is NULL, sys status[%u]\n", smprinter.get_sys_status());
+    return;
   }
-  else if(smprinter.on_printing()) {
-    host_hmi.send_ack(copy_msg, SACP_RET_SUCCESS);
-    free_sacp_msg_node(copy_msg);
-  }
-  else {
-    host_hmi.send_ack(copy_msg, result);
-    free_sacp_msg_node(copy_msg);
-  }
+
+  host_hmi.send_ack(copy_msg, result);
+  free_sacp_msg_node(copy_msg);
 }
 
-void ClientNode::job_req_pause_cb(void *p, uint8_t result) {
-  sacp_hmi_message_t *copy_msg = (sacp_hmi_message_t *)p;
-  configASSERT(copy_msg);
-
-  if (SYSTEM_STATUS_PAUSING == result) {
-    LOG_I("TODO: client_node: send JOB PAUSING ACK to client\r\n");
-    // host_hmi.send_ack(copy_msg, SACP_RET_EXECUTING);
-  }
-  else if(SYSTEM_STATUS_PAUSED == result) {
-    LOG_I("client_node: send JOB PAUSED OK ACK to client\r\n");
-    host_hmi.send_ack(copy_msg, SACP_RET_SUCCESS);
-    free_sacp_msg_node(copy_msg);
-  }
-  else {
-    LOG_I("client_node: pause failure\r\n");
-    host_hmi.send_ack(copy_msg, result);
-    free_sacp_msg_node(copy_msg);
-  }
-}
-
-void ClientNode::job_req_resume_cb(void *p, uint8_t result) {
-  sacp_hmi_message_t *copy_msg = (sacp_hmi_message_t *)p;
-  configASSERT(copy_msg);
-
-  if (SYSTEM_STATUS_RESUMING == result) {
-    LOG_I("TODO: client_node: send JOB RESUMING ACK to client\r\n");
-    // host_hmi.send_ack(copy_msg, SACP_RET_EXECUTING);
-  }
-  else if(smprinter.on_printing()) {
-    host_hmi.send_ack(copy_msg, SACP_RET_SUCCESS);
-    free_sacp_msg_node(copy_msg);
-  }
-  else {
-    host_hmi.send_ack(copy_msg, result);
-    free_sacp_msg_node(copy_msg);
-  }
-}
-
-void ClientNode::job_req_stop_cb(void *p, uint8_t result) {
-  sacp_hmi_message_t *copy_msg = (sacp_hmi_message_t *)p;
-  configASSERT(copy_msg);
-
-  if (SYSTEM_STATUS_STOPING == result) {
-    LOG_I("TODO: client_node: send JOB STOPING ACK to client\r\n");
-    // host_hmi.send_ack(copy_msg, SACP_RET_EXECUTING);
-  }
-  // Can to print means return to the state before printing was started
-  else if (smprinter.can_start_work()) {
-    host_hmi.send_ack(copy_msg, SACP_RET_SUCCESS);
-    free_sacp_msg_node(copy_msg);
-  }
-  else {
-    host_hmi.send_ack(copy_msg, result);
-    free_sacp_msg_node(copy_msg);
-  }
-}
 
 void ClientNode::timer_cb(void *p) {
   LOG_I("Send hardtick if need\r\n");
@@ -591,7 +529,7 @@ err_code_t ClientNode::req_start_job(sacp_hmi_message_t *msg) {
     return host_hmi.send_ack(msg, SACP_RET_NO_RESC);
   }
   *msg_cp = *msg;
-  ret = job_ctrl_svc.req_start(id, &gfi, type, job_req_start_cb, msg_cp);
+  ret = job_ctrl_svc.req_start(id, &gfi, type, job_request_cb, msg_cp);
   if (E_SUCCESS != ret) {
     free_sacp_msg_node(msg_cp);
     return host_hmi.send_ack(msg, ret);
@@ -611,7 +549,7 @@ err_code_t ClientNode::req_pause_job(sacp_hmi_message_t* msg) {
     return host_hmi.send_ack(msg, SACP_RET_NO_RESC);
   }
   *msg_cp = *msg;
-  ret = job_ctrl_svc.req_pause(PAUSE_CLIENT_REQ, job_req_pause_cb, msg_cp);
+  ret = job_ctrl_svc.req_pause(PAUSE_CLIENT_REQ, job_request_cb, msg_cp);
   if (E_SUCCESS != ret) {
     free_sacp_msg_node(msg_cp);
     return host_hmi.send_ack(msg, ret);
@@ -631,7 +569,7 @@ err_code_t ClientNode::req_resume_job(sacp_hmi_message_t* msg) {
     return host_hmi.send_ack(msg, SACP_RET_NO_RESC);
   }
   *msg_cp = *msg;
-  ret = job_ctrl_svc.req_resume(id, job_req_resume_cb, msg_cp);
+  ret = job_ctrl_svc.req_resume(id, job_request_cb, msg_cp);
   if (E_SUCCESS != ret) {
     free_sacp_msg_node(msg_cp);
     return host_hmi.send_ack(msg, ret);
@@ -652,7 +590,7 @@ err_code_t ClientNode::req_stop_job(sacp_hmi_message_t* msg) {
   }
   *msg_cp = *msg;
   // ret = job_ctrl_svc.req_stop(STOP_CLIENT_REQ, SACP_JOB_PAUSE_ISSUE_RET_STOP_CLIENT_REQ, job_req_stop_cb, msg_cp);
-  ret = job_ctrl_svc.req_stop(STOP_CLIENT_REQ, SACP_JOB_PAUSE_ISSUE_RET_FINISH, job_req_stop_cb, msg_cp);
+  ret = job_ctrl_svc.req_stop(STOP_CLIENT_REQ, SACP_JOB_PAUSE_ISSUE_RET_FINISH, job_request_cb, msg_cp);
   if (E_SUCCESS != ret) {
     free_sacp_msg_node(msg_cp);
     return host_hmi.send_ack(msg, ret);

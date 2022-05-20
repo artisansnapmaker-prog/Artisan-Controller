@@ -1849,7 +1849,7 @@ void ToolHeadFDM::prepare_to_start_a_new_print_job(void) {
 }
 
 // called when start a new print job or resume an old print job
-bool ToolHeadFDM::prepare_start(void) {
+err_code_t ToolHeadFDM::prepare_start(void) {
   LOG_I("fdm_fault_state: %d, fdm_state: %d\n", fdm_state, get_status());
   if ((fdm_state == 0) && (get_status() == MODULE_STATUS_NORMAL)) {
     return true;

@@ -863,7 +863,7 @@ err_code_t BedLevelService::start_auto_bed_leveling(uint8_t grids) {
     if (k < (GRID_MAX_POINTS_X * GRID_MAX_POINTS_Y - 1)) {
       z = motion_platform_svc.probe_at_point(_GET_MESH_X(cur_x), _GET_MESH_Y(cur_y), PROBE_PT_RAISE);
     } else {
-      z = motion_platform_svc.probe_at_point(_GET_MESH_X(cur_x), _GET_MESH_Y(cur_y), PROBE_PT_NONE);
+      z = motion_platform_svc.probe_at_point(_GET_MESH_X(cur_x), _GET_MESH_Y(cur_y), PROBE_PT_RAISE);
     }
     z_values_[cur_x][cur_y] = z;
     visited[cur_x][cur_y] = true;

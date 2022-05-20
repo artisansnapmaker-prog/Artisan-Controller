@@ -188,10 +188,12 @@ err_code_t SnapmakerPrinter::hmi_cb_request_reboot(void *obj, sacp_hmi_message_t
 
   msg->cmd_id = SACP_CMD_ID_GLOABL_NOTIFY_START_REBOOT;
   msg->length = 0;
+  msg->attr   = 0;
 
   ret = host_hmi.send_sync(msg, recv_buffer, &recv_len, SACP_HMI_TIMEOUT_DEFAULT, SACP_HMI_RETRY_DEFAULT);
   if (ret != E_SUCCESS) {
     LOG_E("failed to notify host that we will reboot!\n");
+    return ret;
   }
 
   disable_all_interrupts();
@@ -430,6 +432,10 @@ static void system_thread(void *p) {
   // must init hmi firstly
   host_hmi.init(thandle_hmi_event, hmi_recv_signal);
   host_hmi.apply_cmd_set_handle(SACP_CMD_SET_GLOBAL_REQ, 26);
+
+  // must do init before initializing modules, by scott
+  ClientNode::class_init();
+
   system_svc.init();
 
   debug.post_init();
@@ -443,7 +449,6 @@ static void system_thread(void *p) {
   motion_platform_svc.init();
   bedlevel_svc.init();
   job_ctrl_svc.init();
-  ClientNode::class_init();
   upgrade_svc.init();
   sm2_module_upgrade_init();
   emergency_hdl.init();

@@ -94,32 +94,29 @@ void ClientNode::class_init(void) {
 }
 
 void ClientNode::on_new_client_node(void *obj, sacp_route_table_t *rt) {
-  bool notify;
+  bool notify = false;
   ClientNode *cn;
 
-  for (int i = 0; i < SACP_ROUTE_TABLE_DYNAMIC_MAX; i++) {
-    notify = false;
-    if (SACP_ROUTE_STA_ONLINE == rt[i].status) {
-      if ((cn = find_client_node(rt[i].peer, rt[i].ch))) {
+  if (SACP_ROUTE_STA_ONLINE == rt->status) {
+    if ((cn = find_client_node(rt->peer, rt->ch))) {
+      notify = true;
+    }
+    else {
+      cn = malloc_client_node(rt->peer, rt->ch);
+      if (cn) {
         notify = true;
       }
       else {
-        cn = malloc_client_node(rt[i].peer, rt[i].ch);
-        if (cn) {
-          notify = true;
-        }
-        else {
-          LOG_E("client_node: can not malloc client node for peer %d ch %d\r\n", rt[i].peer, rt[i].ch);
-        }
+        LOG_E("client_node: can not malloc client node for peer %d ch %d\r\n", rt->peer, rt->ch);
       }
     }
+  }
 
-    if (notify) {
-      LOG_I("client_node: [%u:%u] status change %u\r\n", rt[i].peer, rt[i].ch, rt[i].status);
-      for (uint32_t idx = 0; idx < CLIENT_NODE_ONFFLINE_NOTIFY_CB_MAX; idx++) {
-        if (client_node_onoffline_cb_tab[idx].cb != NULL) {
-          client_node_onoffline_cb_tab[idx].cb(client_node_onoffline_cb_tab[idx].obj, i, rt[i].status);
-        }
+  if (notify) {
+    LOG_I("client_node: [%x:%u] status change %u\r\n", rt->peer, rt->ch, rt->status);
+    for (uint32_t idx = 0; idx < CLIENT_NODE_ONFFLINE_NOTIFY_CB_MAX; idx++) {
+      if (client_node_onoffline_cb_tab[idx].cb != NULL) {
+        client_node_onoffline_cb_tab[idx].cb(client_node_onoffline_cb_tab[idx].obj, cn->id, rt->status);
       }
     }
   }

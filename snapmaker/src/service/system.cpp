@@ -117,14 +117,14 @@ err_code_t SystemService::raise_exception(uint16_t owner, uint8_t state, uint32_
   // check if same exception exist
   for (i = 0; i < EXCEPTION_STATIC_SIZE; i++) {
     if (nodes[i].owner == owner && nodes[i].state == state) {
-      LOG_W("same exception has raised! won't raised again!");
+      LOG_W("same exception has raised! won't raised again!\n");
       return E_SUCCESS;
     }
   }
 
   if (dynamic_nodes) {
     if (dynamic_nodes[i].owner == owner && dynamic_nodes[i].state == state) {
-      LOG_W("same exception has raised! won't raised again!");
+      LOG_W("same exception has raised! won't raised again!\n");
       return E_SUCCESS;
     }
   }
@@ -273,11 +273,11 @@ err_code_t SystemService::notification_raise_exception(uint16_t owner, uint8_t s
 
   ClientNode *client = NULL;
 
-  msg.ch      = SACP_HMI_CH_SCREEN;
-  msg.peer    = SACP_HOST_ID_SCREEN;
   msg.cmd_set = SACP_CMD_SET_NOTIFICATION;
   msg.cmd_id  = SACP_CMD_ID_NOTIFICATION_RAISE_EXCEPTION;
   msg.attr    = 0;
+  msg.length  = length;
+  msg.data    = buffer;
 
   for (uint8_t i = 0; i < MAX_CLIENT_NODE_NUM; i++) {
     client = ClientNode::find_client_node(i);
@@ -287,9 +287,11 @@ err_code_t SystemService::notification_raise_exception(uint16_t owner, uint8_t s
     msg.ch = client->ch;
     msg.peer = client->peer;
 
+    LOG_I("raise exception to host[%u:%u]\n", msg.peer, msg.ch);
+
     ret = host_hmi.send_sync(&msg, recv_buff, &recv_len, SACP_HMI_TIMEOUT_DEFAULT, SACP_HMI_RETRY_DEFAULT);
     if (ret != E_SUCCESS) {
-      LOG_E("failted to notify raise exception[%u,%u] to host[%u]\n", owner, state, msg.peer);
+      LOG_E("failted to notify raise exception[%u,%u] to host[%u:%u]\n", owner, state, msg.peer, msg.ch);
     }
   }
 
@@ -347,14 +349,94 @@ err_code_t SystemService::clear_exception(uint16_t owner, uint8_t state) {
     motion_platform_svc.run();
   }
 
-  info = (ExceptionInfo *)buffer;
+  buffer[0] = 1;
+
+  info = (ExceptionInfo *)(buffer + 1);
   info->owner = owner;
   info->state = state;
   info->level = get_level(ban);
 
-  buffer[4] = get_bans(&buffer[5], 140 - 5);
+  buffer[5] = get_bans(&buffer[6], 140 - 5);
 
-  ret = notification_clear_exception(owner, state, buffer, buffer[4] + 5);
+  ret = notification_clear_exception(owner, state, buffer, buffer[5] + 6);
+
+  return ret;
+}
+
+
+err_code_t SystemService::clear_exception_by_owner(uint16_t owner) {
+  uint32_t i = 0, j = 0;
+  uint32_t len = 0;
+
+  err_code_t ret = E_SUCCESS;
+  uint8_t buffer[256];
+
+  ExceptionInfo *info = (ExceptionInfo *)(buffer + 1);
+
+  for (i = 0; i < EXCEPTION_STATIC_SIZE; i++) {
+    if (nodes[i].owner == owner) {
+      if (len*sizeof(ExceptionInfo) > (sizeof(buffer) - 34)) {
+        LOG_E("cannot save all info for excep of owner[%u]\n", owner);
+        break;
+      }
+
+      info->owner = owner;
+      info->state = nodes[i].state;
+      info->level = get_level(nodes[i].ban);
+      len++;
+      info++;
+      lock_nodes();
+      nodes[i].owner = EXCEPTION_OWNER_INVALID;
+      unlock_nodes();
+      break;
+    }
+  }
+
+  if (i >= EXCEPTION_STATIC_SIZE) {
+    if (!dynamic_nodes) {
+      LOG_E("clear_exception: no exception for owner[%u]!\n", owner);
+      return E_PARAM;
+    }
+
+    for (j = 0; j < EXCEPTION_STATIC_SIZE; j++) {
+      if (dynamic_nodes[j].owner == owner) {
+        if (len*sizeof(ExceptionInfo) > (sizeof(buffer) - 34)) {
+          LOG_E("cannot save all info for excep of owner[%u]\n", owner);
+          break;
+        }
+        info->owner = owner;
+        info->state = dynamic_nodes[i].state;
+        info->level = get_level(dynamic_nodes[i].ban);
+        len++;
+        info++;
+
+        lock_nodes();
+        dynamic_nodes[j].owner = EXCEPTION_OWNER_INVALID;
+        unlock_nodes();
+        break;
+      }
+    }
+
+    if (j >= EXCEPTION_STATIC_SIZE) {
+      LOG_E("clear_exception: no exception for owner[%u]!\n", owner);
+      return E_PARAM;
+    }
+  }
+
+  // update bans:
+  update_bans();
+
+  if (!(bans&EXCEP_BAN_MOVING)) {
+    motion_platform_svc.run();
+  }
+
+  buffer[0] = len;
+
+  buffer[len*sizeof(ExceptionInfo) + 1] = get_bans(buffer + len*sizeof(ExceptionInfo) + 2,
+                                          256 - len*sizeof(ExceptionInfo) + 2);
+
+  ret = notification_clear_exception(owner, 0xFF, buffer,
+        buffer[len*sizeof(ExceptionInfo) + 1] + len*sizeof(ExceptionInfo) + 1);
 
   return ret;
 }
@@ -368,11 +450,11 @@ err_code_t SystemService::notification_clear_exception(uint16_t owner, uint8_t s
 
   ClientNode *client = NULL;
 
-  msg.ch      = SACP_HMI_CH_SCREEN;
-  msg.peer    = SACP_HOST_ID_SCREEN;
   msg.cmd_set = SACP_CMD_SET_NOTIFICATION;
   msg.cmd_id  = SACP_CMD_ID_NOTIFICATION_CEALR_EXCEPTION;
   msg.attr    = 0;
+  msg.length  = length;
+  msg.data    = buffer;
 
   for (uint8_t i = 0; i < MAX_CLIENT_NODE_NUM; i++) {
     client = ClientNode::find_client_node(i);
@@ -382,9 +464,11 @@ err_code_t SystemService::notification_clear_exception(uint16_t owner, uint8_t s
     msg.ch = client->ch;
     msg.peer = client->peer;
 
+    LOG_I("raise exception to host[%u:%u]\n", msg.peer, msg.ch);
+
     ret = host_hmi.send_sync(&msg, recv_buff, &recv_len, SACP_HMI_TIMEOUT_DEFAULT, SACP_HMI_RETRY_DEFAULT);
     if (ret != E_SUCCESS) {
-      LOG_E("failted to notify clear exception[%u,%u] to host[%u]\n", owner, state, msg.peer);
+      LOG_E("failted to notify clear exception[%u,%u] to host[%u:%u]\n", owner, state, msg.peer, msg.ch);
     }
   }
 

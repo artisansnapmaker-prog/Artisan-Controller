@@ -101,6 +101,11 @@ class SystemService {
     */
     err_code_t clear_exception(uint16_t owner, uint8_t state);
 
+    /* clear exception from thread env
+    *  owner   - device id
+    */
+    err_code_t clear_exception_by_owner(uint16_t owner);
+
     /* raise exception with non-blocking
     *  owner   - device id
     *  state   - exception enumeration, each owner must define itself exception

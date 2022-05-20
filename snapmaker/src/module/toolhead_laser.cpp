@@ -1272,6 +1272,7 @@ err_code_t ToolHeadLaser::get_bt_mac() {
 
   if ((ret = host_hmi.send_sync_legacy(&msg, recv_buff, &recv_len, 500, 2)) != E_SUCCESS) {
     LOG_E("failed to get BT MAC, ret[%u]\n", ret);
+    return ret;
   }
 
   for (int i = 0; i < 7; i++) {

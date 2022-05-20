@@ -212,7 +212,6 @@ err_code_t MotionPlatformService::hmi_cb_move_absoluty(void *obj, sacp_hmi_messa
     feedrate = feedrate_mm_s;
   }
 
-  LOG_I("msg len: %u\n", msg->length);
   if (msg->length > (3 + sizeof(coordinate_info_t) * number)) {
     coordinate_type = msg->data[1 + sizeof(coordinate_info_t) * number];
 

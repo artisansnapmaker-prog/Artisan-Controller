@@ -637,8 +637,8 @@ err_code_t HostSACPHMI::parse_packets(sacp_channel_t &channel) {
     if (parser.ver == SACP_VER_1) {
       // read all data payload except the checksum
       if (link->read_multi(parser.buffer + SACP_FRONT_HEADER_MIN_SIZE,
-        parser.length - 2) != (parser.length - 2)) {
-        LOG_E("cannot read enough sacp hmi message!\n");
+        parser.length) != parser.length) {
+        LOG_E("V1: cannot read enough sacp hmi message!\n");
         parser.status = SACP_PARSER_STA_IDLE;
         break;
       }
@@ -646,27 +646,35 @@ err_code_t HostSACPHMI::parse_packets(sacp_channel_t &channel) {
     else {
       if (link->read_multi(parser.buffer + SACP_FRONT_HEADER_MIN_SIZE,
         parser.length) != parser.length) {
-        LOG_E("cannot read enough sacp hmi message!\n");
+        LOG_E("V0: cannot read enough sacp hmi message!\n");
         parser.status = SACP_PARSER_STA_IDLE;
         break;
       }
     }
 
     if (parser.ver == SACP_VER_1) {
-      recv_checksum = (uint16_t)(link->read() | link->read()<<8);
+      recv_checksum = *(uint16_t *)(parser.buffer + SACP_V1_FRONT_HEADER_SIZE + parser.length - 2);
       calc_checksum = calculate_checksum(parser.buffer + SACP_V1_FRONT_HEADER_SIZE, parser.length - 2);
+
+      if (recv_checksum != calc_checksum) {
+        LOG_I("V1: invalid checksum: recv[%x], calc[%x], cmd[%x:%x]\n", recv_checksum, calc_checksum,
+        parser.buffer[SACP_V1_FRAME_INDEX_CMD_SET], parser.buffer[SACP_V1_FRAME_INDEX_CMD_ID]);
+        parser.status = SACP_PARSER_STA_IDLE;
+        break;
+      }
     }
     else {
       recv_checksum = (uint16_t)(parser.buffer[SACP_V0_FRAME_INDEX_CHK_H]<<8 |
                                   parser.buffer[SACP_V0_FRAME_INDEX_CHK_L]);
       parser.length -= 1;
       calc_checksum = calculate_checksum(parser.buffer + SACP_V0_NON_PAYPLOAD_SIZE, parser.length);
-    }
 
-    if (recv_checksum != calc_checksum) {
-      LOG_I("invalid checksum: recv[%x], calc[%x]\n", recv_checksum, calc_checksum);
-      parser.status = SACP_PARSER_STA_IDLE;
-      break;
+      if (recv_checksum != calc_checksum) {
+        LOG_I("V0: invalid checksum: recv[%x], calc[%x], cmd[%x:%x]\n", recv_checksum, calc_checksum,
+        parser.buffer[SACP_V0_FRAME_INDEX_EVENT_ID], parser.buffer[SACP_V0_FRAME_INDEX_OPCODE]);
+        parser.status = SACP_PARSER_STA_IDLE;
+        break;
+      }
     }
 
     ret = E_SUCCESS;

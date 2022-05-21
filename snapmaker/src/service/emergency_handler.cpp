@@ -261,7 +261,10 @@ void EmergencyHandler::emergency_stop() {
   // - get env
   if (smprinter.on_working()) {
     motion_platform_svc.update_position_from_stepper();
-    job_ctrl_svc.update_env();
+
+    if (smprinter.on_printing())
+      job_ctrl_svc.update_env();
+
     job_env = job_ctrl_svc.get_env();
     memcpy(env, job_env, sizeof(JobEnv));
 

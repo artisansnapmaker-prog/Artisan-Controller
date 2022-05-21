@@ -60,6 +60,7 @@ void FastIO_init(); // Must be called before using fast io macros
 #endif
 
 #define _READ(IO)               bool(READ_BIT(FastIOPortMap[STM_PORT(digitalPinToPinName(IO))]->IDR, _BV32(STM_PIN(digitalPinToPinName(IO)))))
+#define _READ_OUTPUT(IO)        bool(READ_BIT(FastIOPortMap[STM_PORT(digitalPinToPinName(IO))]->ODR, _BV32(STM_PIN(digitalPinToPinName(IO)))))
 #define _TOGGLE(IO)             TBI32(FastIOPortMap[STM_PORT(digitalPinToPinName(IO))]->ODR, STM_PIN(digitalPinToPinName(IO)))
 
 #define _GET_MODE(IO)
@@ -69,6 +70,7 @@ void FastIO_init(); // Must be called before using fast io macros
 
 #define WRITE(IO,V)             _WRITE(IO,V)
 #define READ(IO)                _READ(IO)
+#define READ_OUTPUT(IO)         _READ_OUTPUT(IO)
 #define TOGGLE(IO)              _TOGGLE(IO)
 
 #define OUT_WRITE(IO,V)         do{ _SET_OUTPUT(IO); WRITE(IO,V); }while(0)

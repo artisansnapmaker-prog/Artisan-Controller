@@ -213,7 +213,7 @@ err_code_t MotionPlatformService::hmi_cb_move_absoluty(void *obj, sacp_hmi_messa
   }
 
   if (msg->length > (3 + sizeof(coordinate_info_t) * number)) {
-    coordinate_type = msg->data[1 + sizeof(coordinate_info_t) * number];
+    coordinate_type = msg->data[3 + sizeof(coordinate_info_t) * number];
 
     if (coordinate_type != COORDINATE_TYPE_LOGICAL) {
       LOG_E("A400 doesn't supoort coordiante type: %u\n", coordinate_type);

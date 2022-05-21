@@ -2065,7 +2065,12 @@ void ToolHeadFDM::set_axis_steps_per_unit(float value) {
 }
 
 void ToolHeadFDM::report_steps_per_unit() {
-  LOG_I("single extruder steps per unit: %f", single_extruder_steps_per_unit);
-  LOG_I("dual extruder steps per unit: %f, %f\n", dual_extruder_steps_per_unit[0], dual_extruder_steps_per_unit[1]);
+  uint16_t device_id = get_device_id();
+
+  if (device_id == MODULE_DEVICE_ID_FDM_1EXTRUDER_2019) {
+    LOG_I("single extruder steps per unit: %f\n", single_extruder_steps_per_unit);
+  } else if (device_id == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
+    LOG_I("dual extruder steps per unit: %f\n", dual_extruder_steps_per_unit[0]);
+  }
 }
 

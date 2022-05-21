@@ -20,56 +20,12 @@
  */
 
 #include "debug.h"
-//#include "../service/system.h"
-//#include "../service/power_loss_recovery.h"
 #include "../snapmaker.h"
-// #include "../host/sacp_hmi.h"
 #include "../service/motion_platform.h"
-
-// marlin headers
-// #include "src/Marlin.h"
-// #include "src/gcode/gcode.h"
-// #include "src/module/motion.h"
-// #include "src/core/minmax.h"
 
 #if (SNAP_DEBUG == 1)
 
 SnapDebug debug;
-
-const static char *excoption_str[32] {
-  "Didn't detect Executor!",
-  "Didn't detect Linear Module!",
-  "Port of Heated Bed is bad!",
-  "Filemant has ran out!",
-  "Lost settings!",
-  "Lost Executor!",
-  "Power loss happened!",
-  "Hotend heating failed!",
-  "Bed heating failed!",
-  "Temperature runaway of Hotend!",
-  "Temperature runaway of Bed!",
-  "Thermistor of Hotend is Bad!",
-  "Thermistor of Bed is Bad!",
-  "Lost Linear Module!",
-  "Temperature of Hotend is over Max Limit!",
-  "Temperature of Bed is over Max Limit!",
-  "Short circuit maybe appear in Heating tube of Hotend!",
-  "Short circuit maybe appear in Heating tube of Bed!",
-  "Thermistor of Hotend maybe come off!",
-  "Thermistor of Bed maybe come off!",
-  "!",
-  "!",
-  "!",
-  "!",
-  "!",
-  "!",
-  "!",
-  "!",
-  "!",
-  "!",
-  "!",
-  "Unknown Excption!"
-};
 
 #if defined (__GNUC__)                /* GNU GCC Compiler */
   /* the version of GNU GCC must be greater than 4.x */
@@ -87,13 +43,6 @@ static SnapDebugLevel sc_msg_level = SNAP_DEBUG_LEVEL_INFO;
 static char single_log_buf[SNAP_SINGLE_LOG_BUFFER_SIZE];
 static char boot_log_buf[BOOT_LOG_BUFFER_SIZE];
 static uint16_t boot_log_buf_wirte_index = 0;
-const char *snap_debug_str[SNAP_DEBUG_LEVEL_MAX] = {
-  SNAP_TRACE_STR,
-  SNAP_INFO_STR,
-  SNAP_WARNING_STR,
-  SNAP_ERROR_STR,
-  SNAP_FATAL_STR
-};
 
 void SnapDebug::init() {
   lock = xSemaphoreCreateMutex();
@@ -227,7 +176,7 @@ void SnapDebug::send_log_to_boot_log_buffer(char *string) {
   }
 }
 
-void SnapDebug::send_log_to_host(char *string, SnapDebugLevel level/* = SNAP_DEBUG_LEVEL_MAX*/) {
+void SnapDebug::send_log_to_host(char *string, SnapDebugLevel level/* = SNAP_DEBUG_LEVEL_INFO*/) {
   BaseType_t ret = pdFAIL;
 
   if (xTaskGetSchedulerState() == taskSCHEDULER_RUNNING) {
@@ -409,78 +358,6 @@ void SnapDebug::Log(SnapDebugLevel level, const char *fmt, ...) {
   }
 
   send_log_to_host(single_log_buf, level);
-}
-
-
-// set current debug level message level less than this level
-// will not be outputed, set by M2000
-void SnapDebug::SetLevel(uint8_t port, SnapDebugLevel l) {
-  Log(SNAP_DEBUG_LEVEL_INFO, "old debug level: %d\n",
-                            port? sc_msg_level : pc_msg_level);
-
-  if (l > SNAP_DEBUG_LEVEL_MAX)
-    return;
-
-  if (port) {
-    sc_msg_level = l;
-  }
-  else {
-    pc_msg_level = l;
-  }
-}
-
-SnapDebugLevel SnapDebug::GetLevel() {
-  return sc_msg_level < pc_msg_level? sc_msg_level : pc_msg_level;
-}
-
-// record the line number of last Gcode from screen
-void SnapDebug::SetSCGcodeLine(uint32_t l) {
-  info.last_line_num_of_sc_gcode = l;
-}
-
-// error count of uncorrect checksum of commands from screen
-void SnapDebug::CmdChecksumError(bool screen) {
-  if (screen)
-    info.screen_cmd_checksum_err++;
-  else
-    info.pc_cmd_checksum_err++;
-}
-
-// show system debug info
-void SnapDebug::ShowInfo() {
-  // char tmp_buf[100];
-  return;
-
-  // SERIAL_ECHOPAIR("systat: ", systemservice.GetCurrentStatus(), "\n");
-  // SERIAL_ECHOPAIR("SC checksum error: ", info.screen_cmd_checksum_err, "\n");
-  // SERIAL_ECHOPAIR("Last recv line: ", systemservice.current_line(), "\n");
-  // SERIAL_ECHOPAIR("Last ack line: ", info.last_line_num_of_sc_gcode, "\n");
-  // SERIAL_ECHOPAIR("Last st line: ", pl_recovery.LastLine(), "\n");
-  // sprintf(tmp_buf, "Fault: 0x%08X, action ban: 0x%X, power ban: 0x%X\n",
-  //       (int)systemservice.GetFaultFlag(), (int)action_ban, (int)power_ban);
-  // SERIAL_ECHOPAIR(tmp_buf);
-  // sprintf(tmp_buf, "Homing: 0x%X, axes_known: 0x%X\n", axis_homed, axis_known_position);
-  // SERIAL_ECHOPAIR(tmp_buf);
-  // SERIAL_ECHOPAIR("active coordinate: ", gcode.active_coordinate_system, "\n");
-  // SERIAL_ECHOPAIR("coordinate 1: X: ", gcode.coordinate_system[0][X_AXIS], "Y: ", gcode.coordinate_system[0][Y_AXIS], "Z: ", gcode.coordinate_system[0][Z_AXIS], "B: ", gcode.coordinate_system[0][B_AXIS], "\n");
-}
-
-void SnapDebug::ShowException() {
-  uint8_t i;
-  //uint32_t fault_flag = systemservice.GetFaultFlag();
-  uint32_t fault_flag = 0;
-
-  if (!fault_flag) {
-    Log(SNAP_DEBUG_LEVEL_INFO, "No excption happened!\n");
-    return;
-  }
-  else
-    Log(SNAP_DEBUG_LEVEL_INFO, "Excption info:\n");
-
-  for (i=0; i<32; i++) {
-    if (fault_flag & (0x00000001<<i))
-      Log(SNAP_DEBUG_LEVEL_INFO, "%s\n", excoption_str[i]);
-  }
 }
 
 #endif // #if (SNAP_DEBUG == 1)

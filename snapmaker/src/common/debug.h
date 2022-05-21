@@ -121,19 +121,10 @@ class SnapDebug {
     void init();
     void post_init();
 
-    void ShowInfo();
-    void SetLevel(uint8_t port, SnapDebugLevel l);
-    SnapDebugLevel GetLevel();
-    void CmdChecksumError(bool screen);
-    void SetSCGcodeLine(uint32_t l);
-    uint32_t GetSCGcodeLine() { return info.last_line_num_of_sc_gcode; }
-
-    void ShowException();
-
     void set_boot_log_state(bool state) { is_boot_log = state; }
     void flush_boot_log(uint32_t peer);
     void send_log_to_boot_log_buffer(char *string);
-    void send_log_to_host(char *string, SnapDebugLevel level = SNAP_DEBUG_LEVEL_MAX);
+    void send_log_to_host(char *string, SnapDebugLevel level = SNAP_DEBUG_LEVEL_INFO);
     void send_log_to_console_with_sacp_protocol(char *string);
     void send_log_to_console_with_origin_protocol(char *string);
     void send_log_to_console(char *string);
@@ -144,10 +135,7 @@ class SnapDebug {
 
     void send_sacp_log_routine();
 
-    // err_code_t SetLogLevel(SSTP_Event_t &event);
-
   private:
-    void SendLog2Screen(SnapDebugLevel l);
 
     struct SnapDebugInfo info;
     SemaphoreHandle_t lock;
@@ -167,13 +155,6 @@ extern SnapDebug debug;
 #define LOG_I(...) debug.Log(SNAP_DEBUG_LEVEL_INFO, __VA_ARGS__)
 #define LOG_V(...) debug.Log(SNAP_DEBUG_LEVEL_VERBOSE, __VA_ARGS__)
 #define LOG_T(...) debug.Log(SNAP_DEBUG_LEVEL_TRACE, __VA_ARGS__)
-
-
-#define SNAP_DEBUG_SHOW_INFO()            debug.ShowInfo();
-#define SNAP_DEBUG_SHOW_EXCEPTION()       debug.ShowException();
-#define SNAP_DEBUG_SET_LEVEL(p, l)        debug.SetLevel(p, l);
-#define SNAP_DEBUG_CMD_CHECKSUM_ERROR(s)  debug.CmdChecksumError(s);
-#define SNAP_DEBUG_SET_GCODE_LINE(l)      debug.SetSCGcodeLine(l);
 
 #else
 

@@ -664,7 +664,7 @@ bool MotionPlatformService::bed_heatup_to_target(void) {
   #if ENABLED(SNAPMAKER_DOUBLE_ZONE_BED)
   if ((thermalManager.degTargetChamber() > 0) && (thermalManager.degChamber() < thermalManager.degTargetChamber())) {
     LOG_I("job_ctrl: wait for bed zone1 to reach target temp: c[%.2f]@t[%d]\r\n",
-    thermalManager.degChamber(), thermalManager.degTargetChamber);
+    thermalManager.degChamber(), thermalManager.degTargetChamber());
     return false;
   }
   #endif

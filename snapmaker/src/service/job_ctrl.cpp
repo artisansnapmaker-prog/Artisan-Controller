@@ -624,19 +624,21 @@ void JobCtrl::do_start(struct JobCtrlReqInfo &jri) {
   err_code_t ret = smprinter.can_start_work();
 
   if (ret != E_SUCCESS) {
-    LOG_E("can not start job as current status is not idle or calibrating\r\n");
+    LOG_E("JobCtrl::do_start: can not start job, ret=[%u]\r\n", ret);
     DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, ret);
     return;
   }
 
-  // if start work from idle:
-  if (E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_STARTING, &ret_sys_status)) {
-    LOG_E("job_ctrl: Can not enter to SYS_STARTING at status: %u\r\n", ret_sys_status);
-    DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, E_FAILURE);
-    return;
+  status_before_start = smprinter.get_sys_status();
+  // if start work from idle, enter SYSTEM_STATUS_STARTING firstly
+  if (SYSTEM_STATUS_IDLE == status_before_start) {
+    if (E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_STARTING, &ret_sys_status)) {
+      LOG_E("job_ctrl: Can not enter to SYS_STARTING at status: %u\r\n", ret_sys_status);
+      DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, E_FAILURE);
+      return;
+    }
+    DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, E_SUCCESS);
   }
-
-  DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, E_SUCCESS);
 
   // prepare flash to record emergency data
   emergency_hdl.prepare_flash();
@@ -905,14 +907,15 @@ void JobCtrl::do_stop(struct JobCtrlReqInfo &jri) {
 
     case STOP_EXCEPTION:
       motion_platform_svc.req_quickstop();
-      smprinter.set_sys_status(SYSTEM_STATUS_EMERGENCY_STOP, NULL);
-      DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, E_SUCCESS);
-      _issue_ret_rb.insert_one(jri.req_data.req_stop_data.reason);
-      return;
+      break;
 
     case STOP_EMERGENCY:
       motion_platform_svc.req_quickstop();
-    break;
+      // smprinter.set_sys_status(SYSTEM_STATUS_IDLE, NULL);
+      DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, E_SUCCESS);
+      _issue_ret_rb.insert_one(jri.req_data.req_stop_data.reason);
+      // return quickly
+      return;
 
     default:
       LOG_E("Unknow stop type");
@@ -944,11 +947,9 @@ void JobCtrl::do_stop(struct JobCtrlReqInfo &jri) {
 
     DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, E_SUCCESS);
     _issue_ret_rb.insert_one(jri.req_data.req_stop_data.reason);
-    return;
   }
-
-  // other printing
-  {
+  else {
+    // other printing
     if (E_SUCCESS != smprinter.set_sys_status(status_before_start, &ret_sys_status)) {
       LOG_E("job ctrl: can not enter status: %u\n", status_before_start);
       smprinter.set_sys_status(SYSTEM_STATUS_IDLE, &ret_sys_status);

@@ -214,12 +214,12 @@ class ClientNode {
     uint8_t id;
 
   private:
-    err_code_t sacp_handle(sacp_hmi_message_t*);
+    err_code_t sacp_handle(ClientNode *client, sacp_hmi_message_t*);
     err_code_t get_gcode_info(sacp_hmi_message_t*);
-    err_code_t req_start_job(sacp_hmi_message_t*);
-    err_code_t req_pause_job(sacp_hmi_message_t*);
-    err_code_t req_resume_job(sacp_hmi_message_t*);
-    err_code_t req_stop_job(sacp_hmi_message_t*);
+    err_code_t req_start_job(ClientNode *client, sacp_hmi_message_t*);
+    err_code_t req_pause_job(ClientNode *client, sacp_hmi_message_t*);
+    err_code_t req_resume_job(ClientNode *client, sacp_hmi_message_t*);
+    err_code_t req_stop_job(ClientNode *client, sacp_hmi_message_t*);
     err_code_t req_set_feedrate_percentage(sacp_hmi_message_t* msg);
     err_code_t req_get_feedrate_percentage(sacp_hmi_message_t* msg);
     err_code_t req_set_flowrate_percentage(sacp_hmi_message_t* msg);

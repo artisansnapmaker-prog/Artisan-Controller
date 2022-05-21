@@ -127,7 +127,7 @@ err_code_t ClientNode::sacp_cb(void *obj, sacp_hmi_message_t *msg) {
 
   cn = find_client_node(msg->peer, msg->ch);
   if (cn) {
-    return cn->sacp_handle(msg);
+    return cn->sacp_handle(cn, msg);
   }
   else {
     ClientNode *new_cn = malloc_client_node(msg->peer, msg->ch);
@@ -137,7 +137,7 @@ err_code_t ClientNode::sacp_cb(void *obj, sacp_hmi_message_t *msg) {
       return E_FAILURE;
     }
 
-    return new_cn->sacp_handle(msg);
+    return new_cn->sacp_handle(cn, msg);
   }
 }
 
@@ -399,7 +399,7 @@ bool ClientNode::sacp_get_batch_gcode(req_batch_gcode_t &req_batch_gcode, res_ba
   }
 }
 
-err_code_t ClientNode::sacp_handle(sacp_hmi_message_t *msg) {
+err_code_t ClientNode::sacp_handle(ClientNode *client, sacp_hmi_message_t *msg) {
 
   switch (msg->cmd_id) {
     case CMD_ID_JOB_GET_GCODE_FILE_INFO:
@@ -407,19 +407,19 @@ err_code_t ClientNode::sacp_handle(sacp_hmi_message_t *msg) {
     break;
 
     case CMD_ID_JOB_CTRL_START:
-      return req_start_job(msg);
+      return req_start_job(client, msg);
     break;
 
     case CMD_ID_JOB_CTRL_PAUSE:
-      return req_pause_job(msg);
+      return req_pause_job(client, msg);
     break;
 
     case CMD_ID_JOB_CTRL_RESUME:
-      return req_resume_job(msg);
+      return req_resume_job(client, msg);
     break;
 
     case CMD_ID_JOB_CTRL_STOP:
-      return req_stop_job(msg);
+      return req_stop_job(client, msg);
     break;
 
     case CMD_ID_JOB_SET_FEEDRATE_PERCENTAGE:
@@ -483,7 +483,7 @@ err_code_t ClientNode::get_gcode_info(sacp_hmi_message_t* msg) {
   return host_hmi.send(msg);
 }
 
-err_code_t ClientNode::req_start_job(sacp_hmi_message_t *msg) {
+err_code_t ClientNode::req_start_job(ClientNode *client, sacp_hmi_message_t *msg) {
   err_code_t ret;
   uint16_t str_len;
   toolHeadType type;
@@ -491,7 +491,7 @@ err_code_t ClientNode::req_start_job(sacp_hmi_message_t *msg) {
   sacp_hmi_message_t *msg_cp;
   uint8_t *p;
 
-  LOG_I("client_node: client %d request start a job\r\n", peer);
+  LOG_I("client_node: client %d request start a job at sta %u\r\n", client->id, smprinter.get_sys_status());
 
   p = msg->data;
   // check MD5
@@ -538,11 +538,11 @@ err_code_t ClientNode::req_start_job(sacp_hmi_message_t *msg) {
   return E_SUCCESS;
 }
 
-err_code_t ClientNode::req_pause_job(sacp_hmi_message_t* msg) {
+err_code_t ClientNode::req_pause_job(ClientNode *client, sacp_hmi_message_t* msg) {
   err_code_t ret;
   sacp_hmi_message_t *msg_cp;
 
-  LOG_I("Client node: %d client %d request pause a job <<<<<<<<<<<>>>>>>>>>>>\r\n", millis());
+  LOG_I("Client node: %d client %d request pause a job at sta %u\r\n", millis(), client->id, smprinter.get_sys_status());
   msg_cp = malloc_sacp_msg_node();
   if (!msg_cp) {
     LOG_E("client_node: can not malloc sacp msg copy\r\n");
@@ -558,11 +558,11 @@ err_code_t ClientNode::req_pause_job(sacp_hmi_message_t* msg) {
   return E_SUCCESS;
 }
 
-err_code_t ClientNode::req_resume_job(sacp_hmi_message_t* msg) {
+err_code_t ClientNode::req_resume_job(ClientNode *client, sacp_hmi_message_t* msg) {
   err_code_t ret;
   sacp_hmi_message_t *msg_cp;
 
-  LOG_I("Client node: client %d request resume a job\r\n");
+  LOG_I("Client node: client %d request resume a job at sta %u\r\n", client->id, smprinter.get_sys_status());
   msg_cp = malloc_sacp_msg_node();
   if (!msg_cp) {
     LOG_E("client_node: can not malloc sacp msg copy\r\n");
@@ -578,11 +578,11 @@ err_code_t ClientNode::req_resume_job(sacp_hmi_message_t* msg) {
   return E_SUCCESS;
 }
 
-err_code_t ClientNode::req_stop_job(sacp_hmi_message_t* msg) {
+err_code_t ClientNode::req_stop_job(ClientNode *client, sacp_hmi_message_t* msg) {
   err_code_t ret;
   sacp_hmi_message_t *msg_cp;
 
-  LOG_I("Client node: client %d request stop a job\r\n");
+  LOG_I("Client node: client %d request stop a job at sta %u\r\n", client->id, smprinter.get_sys_status());
   msg_cp = malloc_sacp_msg_node();
   if (!msg_cp) {
     LOG_E("client_node: can not malloc sacp msg copy\r\n");

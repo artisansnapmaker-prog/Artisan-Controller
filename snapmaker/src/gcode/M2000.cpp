@@ -87,9 +87,8 @@ void GcodeSuite::M2000() {
 
   case 5:
     { // set pc protocol
-      uint8_t buffer[4];
-      buffer[0] = (uint8_t)p;
-      host_hmi.test_interface(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_SET_PC_PROTOCOL, buffer, 1);
+      uint8_t proto = 1;
+      host_hmi.test_interface(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_SET_PC_PROTOCOL, &proto, 1);
     }
     break;
 

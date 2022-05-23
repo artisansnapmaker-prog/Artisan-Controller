@@ -221,7 +221,9 @@ err_code_t ToolHeadLaser::hmi_cb_get_info(void *obj, sacp_hmi_message_t *message
 
   message->length = sizeof(LaserToolHeadInfo) + 1;
 
-  return host_hmi.send_ack(message);
+  host_hmi.send_ack(message);
+
+  return laser.report_bt_mac(message->peer, message->ch);
 }
 
 err_code_t ToolHeadLaser::hmi_cb_set_focal_length(void *obj, sacp_hmi_message_t *message) {
@@ -578,6 +580,8 @@ err_code_t ToolHeadLaser::hmi_cb_do_auto_focusing(void *obj, sacp_hmi_message_t 
 err_code_t ToolHeadLaser::hmi_cb_set_cali_mode(void *obj, sacp_hmi_message_t *message) {
   ToolHeadLaser &laser = *(ToolHeadLaser *)obj;
 
+  LOG_I("hmi_cb_set_cali_mode [%u]\n", message->data[0]);
+
   if (!system_svc.allow_moving()) {
     LOG_E("cannot enter calibration mode as exception [0x%x]\n", system_svc.get_bans());
     return host_hmi.send_ack(message, E_EXCEPTION);
@@ -598,8 +602,6 @@ err_code_t ToolHeadLaser::hmi_cb_set_cali_mode(void *obj, sacp_hmi_message_t *me
     return host_hmi.send_ack(message, E_INVALID_STATE);
   }
 
-  LOG_I("hmi_cb_set_cali_mode [%u]\n", message->data[0]);
-
   laser.cali_status = (ToolHeadLaserCalibrationStatus)message->data[0];
 
   return host_hmi.send_ack(message, E_SUCCESS);
@@ -613,6 +615,8 @@ err_code_t ToolHeadLaser::hmi_cb_exit_calibraion(void *obj, sacp_hmi_message_t *
   //   LOG_E("invalid module state[%u] in calibration\n", laser.get_status());
   //   return host_hmi.send_ack(message, E_INVALID_STATE);
   // }
+
+  LOG_I("hmi_cb_exit_calibraion [%u]\n", message->data[0]);
 
   if (laser.cali_status >= LASER_CALI_STATUS_INVALID) {
     LOG_E("didn't in cali mode\n");
@@ -628,8 +632,6 @@ err_code_t ToolHeadLaser::hmi_cb_exit_calibraion(void *obj, sacp_hmi_message_t *
     LOG_E("failed to exit laser calibration\n");
     return host_hmi.send_ack(message, E_FAILURE);
   }
-
-  LOG_I("hmi_cb_exit_calibraion [%u]\n", message->data[0]);
 
   laser.cali_status = LASER_CALI_STATUS_INVALID;
 
@@ -1192,9 +1194,10 @@ err_code_t ToolHeadLaser::post_init() {
   feedrate_percentage = 100;
   motion_platform_svc.sync_feedrate_percentage_to_platform(feedrate_percentage);
 
-  if (ClientNode::register_on_client_node_online((void *)this, client_cb_report_bt_mac) != E_SUCCESS) {
-    LOG_E("Laser: failed to register host online callback!\n");
-  }
+  // report  BT MAC when HMI get laser module info
+  // if (ClientNode::register_on_client_node_online((void *)this, client_cb_report_bt_mac) != E_SUCCESS) {
+  //   LOG_E("Laser: failed to register host online callback!\n");
+  // }
 
   return E_SUCCESS;
 }
@@ -1738,7 +1741,7 @@ err_code_t ToolHeadLaser::prepare_start(void) {
       ret = E_JOB_LASER_INVLAID_PWN_PIN;
     }
   }
-  
+
   if (exception_state) {
     if (exception_state & MODULE_EXCEP_BIT_TUBE_TEMP_TOO_LOW) {
       ret = E_JOB_LASER_TUBE_TEMP_TOO_LOW;

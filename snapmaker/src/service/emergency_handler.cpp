@@ -82,7 +82,8 @@ void EmergencyHandler::init() {
   if (button_state == PIN_STATE_TRIGGERED) {
     LOG_E("emergency button is pressed!!!\n");
     smprinter.set_sys_status(SYSTEM_STATUS_EMERGENCY_STOP, NULL);
-    smprinter.disable_power_domain(POWER_DOMAIN_EMERGENCY_STOP);
+    system_svc.raise_exception_async(MODULE_DEVICE_ID_A400_EMERGENCY_STOP, EMERGENCY_STOP_EXCEP_STA_TRIGGERRED,
+      EXCEP_ACT_ALL&(~EXCEP_ACT_DISABLE_POWER_HMI), EXCEP_BAN_ALL);
     return;
   }
 

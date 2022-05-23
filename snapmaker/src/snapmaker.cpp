@@ -437,6 +437,7 @@ static void system_thread(void *p) {
   ClientNode::class_init();
 
   system_svc.init();
+  emergency_hdl.init();
 
   debug.post_init();
 
@@ -451,7 +452,6 @@ static void system_thread(void *p) {
   job_ctrl_svc.init();
   upgrade_svc.init();
   sm2_module_upgrade_init();
-  emergency_hdl.init();
 
   host_hmi.register_callback(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_SUBSCRIPT,
       (void *)&host_hmi, HostSACPHMI::handle_subscript);

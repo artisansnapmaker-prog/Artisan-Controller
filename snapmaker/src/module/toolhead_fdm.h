@@ -116,7 +116,7 @@ const hotend_type_info_t hotend_info[HOTEND_INFO_MAX] = {{.model = 2, .diameter 
                                                          {.model = 0xff, .diameter = 0},\
                                                          {.model = 0xff, .diameter = 0},\
                                                          {.model = 0xff, .diameter = 0},\
-                                                         {.model = 0xff, .diameter = 0},\
+                                                         {.model = 2, .diameter = 0.4},\
                                                          {.model = 0xff, .diameter = 0},\
                                                          {.model = 0xff, .diameter = 0},\
                                                          {.model = 0xff, .diameter = 0},\

@@ -319,8 +319,8 @@ err_code_t SnapmakerPrinter::hmi_cb_run_gcode(void *obj, sacp_hmi_message_t *msg
     goto EXIT;
   }
 
+  memcpy(buf, &msg->data[2], length);
   ret = host_hmi.send_ack(msg, ret);
-  memcpy(buf, &msg->data[3], length);
   ret = motion_platform_svc.run_gcode(buf);
 
 EXIT:
@@ -743,7 +743,7 @@ void SnapmakerPrinter::start_spindle_self_test(void) {
   }
   else {
     LOG_I("%s\n",!cnc ? "CNC not recognised" : "CNC offline");
-  }  
+  }
 }
 
 void SnapmakerPrinter::spindle_debug_config(uint8_t cmd, uint32_t param) {

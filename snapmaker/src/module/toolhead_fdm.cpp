@@ -1676,7 +1676,9 @@ err_code_t fdm_callback_routine(void *obj) {
       LOG_E("fdm offline\n");
       fdm.is_fdm_online = false;
       fdm.set_status(MODULE_STATUS_OFFLINE);
-      system_svc.raise_exception(fdm.get_device_id(), FDM_EXCEP_STA_OFFLINE, EXCEP_ACT_STOP_WORKING | EXCEP_ACT_DISABLE_POWER_8P_TOOLHEAD);
+      if (smprinter.get_sys_status() != SYSTEM_STATUS_MODULE_UPGRADE) {
+        system_svc.raise_exception(fdm.get_device_id(), FDM_EXCEP_STA_OFFLINE, EXCEP_ACT_STOP_WORKING | EXCEP_ACT_DISABLE_POWER_8P_TOOLHEAD);
+      }
     }
   } else {
     if (fdm.is_fdm_online == false) {

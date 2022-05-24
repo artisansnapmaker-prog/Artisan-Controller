@@ -6,5 +6,5 @@
 #include "../HAL/core.h"
 
 void GcodeSuite::M1999() {
-  reboot();  
+  reboot();
 }

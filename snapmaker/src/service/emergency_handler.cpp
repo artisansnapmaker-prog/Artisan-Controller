@@ -73,14 +73,14 @@ void EmergencyHandler::init() {
   msg_notify_stop.length   = 1;
 
   if (sizeof(JobEnv) >= (EMERGENCY_ENV_SIZE - 4)) {
-    LOG_E("env size[%u] is out of range of emergency record[4096]\n", sizeof(JobEnv));
+    LOG_E("EmergencyHandler: env size[%u] is out of range of emergency record[4096]\n", sizeof(JobEnv));
     return;
   }
 
   // TODO: send notification ?
   button_state = read_button();
   if (button_state == PIN_STATE_TRIGGERED) {
-    LOG_E("emergency button is pressed!!!\n");
+    LOG_E("EmergencyHandler: emergency button is pressed!!!\n");
     smprinter.set_sys_status(SYSTEM_STATUS_EMERGENCY_STOP, NULL);
     system_svc.raise_exception_async(MODULE_DEVICE_ID_A400_EMERGENCY_STOP, EMERGENCY_STOP_EXCEP_STA_TRIGGERRED,
       EXCEP_ACT_ALL&(~EXCEP_ACT_DISABLE_POWER_HMI), EXCEP_BAN_ALL);
@@ -90,7 +90,7 @@ void EmergencyHandler::init() {
   // TODO: raise exception ?
   powerloss_state = digitalRead(power_loss_det);
   if (powerloss_state == PIN_STATE_TRIGGERED) {
-    LOG_E("power loss detected in bootup!!!\n");
+    LOG_E("EmergencyHandler: power loss detected in bootup!!!\n");
     smprinter.set_sys_status(SYSTEM_STATUS_POWER_LOSS, NULL);
     return;
   }
@@ -100,10 +100,10 @@ void EmergencyHandler::init() {
 
   record_avail = check_record();
   if (record_avail) {
-    LOG_I("got available Emergency Record\n");
+    LOG_I("EmergencyHandler: got available Record\n");
   }
   else {
-    LOG_I("no available Emergency Record\n");
+    LOG_I("EmergencyHandler: no available Record\n");
   }
 
   host_hmi.register_callback(CMD_SET_JOB_CTRL, CMD_ID_JOB_CTRL_REQ_POWERLOSS_INFO, this,
@@ -141,7 +141,7 @@ bool EmergencyHandler::check_record() {
   // to check emergency stop button earlier to raise exception, we need to initialize emergency handle
   // before scan modules.
 
-  LOG_I("powerloss pos: X%.3f, Y%.3f, Z%.3f, I%.3f, J%3.f\n", jenv->current_pos.x,
+  LOG_I("EmergencyHandler: powerloss pos: X%.3f, Y%.3f, Z%.3f, I%.3f, J%3.f\n", jenv->current_pos.x,
           jenv->current_pos.y, jenv->current_pos.z, jenv->current_pos.i, jenv->current_pos.j);
 
   return true;
@@ -157,7 +157,7 @@ void EmergencyHandler::prepare_flash() {
 
   if ((*(uint32_t *)(ENV_START_IN_FLASH) == 0xFFFFFFFF) &&
   (*(uint32_t *)(ENV_VALID_FLAG_ADDR_FLASH) == 0xFFFFFFFF)) {
-    LOG_I("flash has been ready\n");
+    LOG_I("EmergencyHandler: flash has been ready\n");
     return;
   }
 
@@ -172,20 +172,20 @@ void EmergencyHandler::prepare_flash() {
     enable_all_interrupts();
 
     if (ret != E_SUCCESS) {
-      LOG_E("failed to erase flash: ret=%u\n", ret);
+      LOG_E("EmergencyHandler: failed to erase flash: ret=%u\n", ret);
     }
 
     vTaskDelay(pdMS_TO_TICKS(500));
 
     if (*(uint32_t *)(ENV_START_IN_FLASH) != 0xFFFFFFFF) {
-      LOG_W("didn't erase flash\n");
+      LOG_W("EmergencyHandler: didn't erase flash\n");
     }
     else
       break;
   } while (--timeout > 0);
 
   if (timeout <= 0) {
-    LOG_W("failed to erase flash!\n");
+    LOG_W("EmergencyHandler: failed to erase flash!\n");
   }
 
   record_avail = false;
@@ -302,12 +302,6 @@ void EmergencyHandler::job_cb_notify_emergency_stop(void *p, uint8_t result) {
 }
 
 
-#define HMI_RET_NO_EMERGENCY_RECORD         (207)
-#define HMI_RET_INVALID_EMERGENCY_RECORD    (208)
-struct __packed PowerlossInfo {
-  uint16_t md5_len;
-
-};
 err_code_t EmergencyHandler::hmi_cb_check_recovery_info(void *obj, sacp_hmi_message_t *msg) {
   EmergencyHandler &handler = *(EmergencyHandler *)obj;
   JobEnv *job_env = (JobEnv *)(&handler.env[0]);
@@ -315,9 +309,25 @@ err_code_t EmergencyHandler::hmi_cb_check_recovery_info(void *obj, sacp_hmi_mess
   uint16_t *str_len;
   uint8_t *buff;
 
-  LOG_I("hmi_cb_check_recovery_info\n");
+  LOG_I("EmergencyHandler: hmi_cb_check_recovery_info\n");
 
-  buff = msg->data + 1;
+  if (!handler.record_avail) {
+    LOG_E("EmergencyHandler: recovery record invalid\n");
+    msg->data[0] = E_JOB_POWER_LOSE_CHECK_FAILURE;
+    return host_hmi.send_ack(msg);
+  }
+
+  if (job_env->type != smprinter.get_toolhead_type()) {
+    // we won't check toolhead type in bootup because we have scanned modules at that time
+    handler.record_avail = false;
+    LOG_E("EmergencyHandler: toolhead in emergency record is not match with detected!\n");
+    msg->data[0] = E_JOB_POWER_LOSE_CHECK_FAILURE;
+    return host_hmi.send_ack(msg);
+  }
+
+
+  buff = msg->data;
+  *buff++ = E_SUCCESS;
 
   str_len = (uint16_t *)buff;
   *str_len = GCODE_MD5_LENGTH;
@@ -344,14 +354,6 @@ err_code_t EmergencyHandler::hmi_cb_check_recovery_info(void *obj, sacp_hmi_mess
   msg->length = (buff - msg->data);
   LOG_I("data len: %u\n", msg->length);
 
-  if (handler.record_avail) {
-    msg->data[0] = E_SUCCESS;
-  }
-  else {
-    LOG_I("recovery record invalid\n");
-    msg->data[0] = HMI_RET_NO_EMERGENCY_RECORD;
-  }
-
   return host_hmi.send_ack(msg);
 }
 
@@ -364,21 +366,21 @@ err_code_t EmergencyHandler::hmi_cb_req_recovery_job(void *obj, sacp_hmi_message
   uint16_t *str_len;
   SystemStatus ret_sta;
 
-  LOG_I("hmi_cb_req_recovery_job\n");
+  LOG_I("EmergencyHandler: hmi_cb_req_recovery_job\n");
 
   if (!handler.record_avail) {
-    LOG_I("record unavailable\n");
-    return host_hmi.send_ack(msg, HMI_RET_INVALID_EMERGENCY_RECORD);
+    LOG_I("EmergencyHandler: record unavailable\n");
+    return host_hmi.send_ack(msg, E_JOB_IVALID_POWER_LOSE_DATA);
   }
 
   if (job_env->type != smprinter.get_toolhead_type()) {
-    LOG_E("toolhead is not same with previous power on\n");
+    LOG_E("EmergencyHandler: toolhead is not same with previous power on\n");
     return host_hmi.send_ack(msg, E_INVALID_STATE);
   }
 
   // check if we can recovery in current status
   if (smprinter.get_sys_status() != SYSTEM_STATUS_IDLE) {
-    LOG_E("current is not in IDLE\n");
+    LOG_E("EmergencyHandler: current is not in IDLE\n");
     return host_hmi.send_ack(msg, E_INVALID_STATE);
   }
 
@@ -390,7 +392,7 @@ err_code_t EmergencyHandler::hmi_cb_req_recovery_job(void *obj, sacp_hmi_message
   // check file info from HMI
   str_len = (uint16_t *)msg->data;
   if (*str_len != GCODE_MD5_LENGTH) {
-    LOG_E("MD5 len[%u] is uncorrect[%u]\n", *str_len, GCODE_MD5_LENGTH);
+    LOG_E("EmergencyHandler: MD5 len[%u] is uncorrect[%u]\n", *str_len, GCODE_MD5_LENGTH);
     return host_hmi.send_ack(msg, E_PARAM);
   }
 
@@ -404,7 +406,8 @@ err_code_t EmergencyHandler::hmi_cb_req_recovery_job(void *obj, sacp_hmi_message
 
   str_len = (uint16_t *)(msg->data + index);
   if (*str_len != (strlen((char *)(env_file_info->name)))) {
-    LOG_E("recv name len[%u] is uncorrect, env[%u]\n", *str_len, strlen((char *)(env_file_info->name)));
+    LOG_E("EmergencyHandler: recv name len[%u] is uncorrect, env[%u]\n",
+          *str_len, strlen((char *)(env_file_info->name)));
     return host_hmi.send_ack(msg, E_PARAM);
   }
 
@@ -417,11 +420,11 @@ err_code_t EmergencyHandler::hmi_cb_req_recovery_job(void *obj, sacp_hmi_message
   }
 
   if (smprinter.set_sys_status(SYSTEM_STATUS_RECOVERING, &ret_sta) != E_SUCCESS) {
-    LOG_E("failed to enter SYSTEM_STATUS_RECOVERING at %u\n", ret_sta);
+    LOG_E("EmergencyHandler: failed to enter SYSTEM_STATUS_RECOVERING at %u\n", ret_sta);
     return host_hmi.send_ack(msg, E_INVALID_STATE);
   }
 
-  LOG_I("recover pos: X%.3f, Y%.3f, Z%.3f, I%.3f, J%3.f\n", job_env->current_pos.x,
+  LOG_I("EmergencyHandler: recover pos: X%.3f, Y%.3f, Z%.3f, I%.3f, J%3.f\n", job_env->current_pos.x,
           job_env->current_pos.y, job_env->current_pos.z, job_env->current_pos.i, job_env->current_pos.j);
 
   uint32_t next_ms;
@@ -539,12 +542,11 @@ void EmergencyHandler::background() {
 
     if (smprinter.set_sys_status(SYSTEM_STATUS_IDLE, NULL) != E_SUCCESS) {
       LOG_E("failed to set system to SYSTEM_STATUS_IDLE\n");
-      return;
     }
 
     reboot();
     vTaskSuspendAll();
-    LOG_E("waiting to reboot!\n"); 
+    LOG_E("waiting to reboot!\n");
     while(1);
 
     // LOG_I("recover from SYSTEM_STATUS_EMERGENCY_STOP, rescan modules!\n");

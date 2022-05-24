@@ -137,10 +137,9 @@ bool EmergencyHandler::check_record() {
   }
 
   jenv = (JobEnv *)env;
-  if (jenv->type != smprinter.get_toolhead_type()) {
-    LOG_E("toolhead type in record is not same with one detected now!\n");
-    return false;
-  }
+  // won't check toohead type here, because now we have not initialized modules.
+  // to check emergency stop button earlier to raise exception, we need to initialize emergency handle
+  // before scan modules.
 
   LOG_I("powerloss pos: X%.3f, Y%.3f, Z%.3f, I%.3f, J%3.f\n", jenv->current_pos.x,
           jenv->current_pos.y, jenv->current_pos.z, jenv->current_pos.i, jenv->current_pos.j);
@@ -544,6 +543,9 @@ void EmergencyHandler::background() {
     }
 
     reboot();
+    vTaskSuspendAll();
+    LOG_E("waiting to reboot!\n"); 
+    while(1);
 
     // LOG_I("recover from SYSTEM_STATUS_EMERGENCY_STOP, rescan modules!\n");
     // module_svc.scan_modules();

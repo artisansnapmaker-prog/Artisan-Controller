@@ -3,6 +3,8 @@
 #include "../common/debug.h"
 #include "host/sacp_hmi.h"
 
+#include "../HAL/core.h"
+
 void GcodeSuite::M1999() {
-  host_hmi.test_interface(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_REBOOT, NULL, 0);
+  reboot();  
 }

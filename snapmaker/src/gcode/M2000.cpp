@@ -621,6 +621,12 @@ void GcodeSuite::M2000() {
         }
         break;
 
+      case 15:
+        {
+          LOG_I("M2000 F15\n");
+        }
+        break;
+
       case 100:
         {
           ToolHeadFDM *fdm = NULL;

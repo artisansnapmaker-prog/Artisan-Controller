@@ -69,8 +69,9 @@ enum GcodeState : uint8_t {
 #if (SNAP_DEBUG)
 
 // log buffer size, max length for one debug massage
-#define BOOT_LOG_BUFFER_SIZE        (20*1024)
+#define BOOT_LOG_BUFFER_SIZE        (10*1024)
 #define SNAP_SINGLE_LOG_BUFFER_SIZE (256)
+#define SACP_LOG_SIZE               (40)
 
 #define SNAP_TRACE_STR    "SNAP_TRACE: "
 #define SNAP_INFO_STR     "SNAP_INFO: "
@@ -94,12 +95,16 @@ struct SnapDebugInfo {
 };
 
 typedef struct {
-  bool is_need_to_send;
   unsigned char sacp_msg_buffer[SNAP_SINGLE_LOG_BUFFER_SIZE+4];
   sacp_hmi_message_t msg;
-}sacp_log_queue_t;
+}sacp_log_t;
 
-#define SACP_LOG_QUEUE_SIZE 2
+typedef struct {
+  uint8_t read;
+  uint8_t write;
+  uint8_t size;
+  sacp_log_t *queue;
+}sacp_log_ring_queue_t;
 
 class SnapDebug {
   public:
@@ -109,11 +114,6 @@ class SnapDebug {
         subscript_info_array[i].is_occupied = false;
         subscript_info_array[i].peer = SACP_HOST_ID_INVALIDE;
         subscript_info_array[i].ch = SACP_HMI_CH_INVALID;
-      }
-
-      for (uint32_t i = 0; i < SACP_LOG_QUEUE_SIZE; i++) {
-        sacp_log_queue[i].is_need_to_send = false;
-        sacp_log_queue[i].msg.data = sacp_log_queue[i].sacp_msg_buffer;
       }
     }
     void Log(SnapDebugLevel level, const char *fmt, ...);
@@ -141,7 +141,6 @@ class SnapDebug {
     SemaphoreHandle_t lock;
     bool is_boot_log;
     debug_subscript_info_t subscript_info_array[3];
-    sacp_log_queue_t sacp_log_queue[SACP_LOG_QUEUE_SIZE];
 };
 
 // interface for external use

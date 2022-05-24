@@ -44,8 +44,59 @@ static char single_log_buf[SNAP_SINGLE_LOG_BUFFER_SIZE];
 static char boot_log_buf[BOOT_LOG_BUFFER_SIZE];
 static uint16_t boot_log_buf_wirte_index = 0;
 
+static sacp_log_t sacp_log_array[SACP_LOG_SIZE];
+static sacp_log_ring_queue_t sacp_log_queue;
+
+static void sacp_log_queue_init() {
+  sacp_log_queue.read = 0;
+  sacp_log_queue.write = 0;
+  sacp_log_queue.size = SACP_LOG_SIZE;
+  sacp_log_queue.queue = sacp_log_array;
+
+  for (uint32_t i = 0; i < SACP_LOG_SIZE; i++) {
+    sacp_log_array[i].msg.data = sacp_log_array[i].sacp_msg_buffer;
+  }
+}
+
+static sacp_log_t * write_sacp_log_queue() {
+  sacp_log_t * need_to_write = NULL;
+
+  if (sacp_log_queue.write + 1 == SACP_LOG_SIZE) {
+    if (sacp_log_queue.read != 0) {
+      need_to_write = &sacp_log_queue.queue[sacp_log_queue.write];
+      sacp_log_queue.write = 0;
+    } else {
+      need_to_write = NULL;
+    }
+  } else if (sacp_log_queue.write + 1 != sacp_log_queue.read) {
+    need_to_write = &sacp_log_queue.queue[sacp_log_queue.write];
+    sacp_log_queue.write++;
+  } else if (sacp_log_queue.write + 1 == sacp_log_queue.read) {
+    need_to_write = NULL;
+  }
+
+  return need_to_write;
+}
+
+static sacp_log_t * read_sacp_log_queue() {
+  sacp_log_t * need_to_read = NULL;
+
+  if (sacp_log_queue.read != sacp_log_queue.write) {
+    need_to_read = &sacp_log_queue.queue[sacp_log_queue.read];
+    sacp_log_queue.read++;
+    if (sacp_log_queue.read == SACP_LOG_SIZE) {
+      sacp_log_queue.read = 0;
+    }
+  } else {
+    need_to_read = NULL;
+  }
+
+  return need_to_read;
+}
+
 void SnapDebug::init() {
   lock = xSemaphoreCreateMutex();
+  sacp_log_queue_init();
 }
 
 void SnapDebug::post_init() {
@@ -192,14 +243,29 @@ void SnapDebug::send_log_to_host(char *string, SnapDebugLevel level/* = SNAP_DEB
 
   {
     uint16_t index = 0;
-    sacp_log_queue_t *sacp_log = NULL;
-    for (uint32_t i = 0; i < SACP_LOG_QUEUE_SIZE; i++) {
-      if (sacp_log_queue[i].is_need_to_send == false) {
-        sacp_log_queue[i].is_need_to_send = true;
-        sacp_log = &sacp_log_queue[i];
-        break;
+    sacp_log_t *sacp_log = NULL;
+    bool need_to_send_host = false;
+    uint8_t ch;
+    uint32_t peer;
+
+    for (uint32_t i = 0; i < 3; i++) {
+      if ((subscript_info_array[i].is_occupied == true) && (subscript_info_array[i].ch == SACP_HMI_CH_SCREEN)) {
+        ch = SACP_HMI_CH_SCREEN;
+        if ((subscript_info_array[i].peer == SACP_HOST_ID_LUBAN) && (level > pc_msg_level)) {
+          peer = SACP_HOST_ID_LUBAN;
+          need_to_send_host = true;
+        } else if ((subscript_info_array[i].peer == SACP_HOST_ID_SCREEN) && (level > sc_msg_level)) {
+          peer = SACP_HOST_ID_SCREEN;
+          need_to_send_host = true;
+        }
       }
     }
+
+    if (need_to_send_host == false) {
+      goto EXIT;
+    }
+
+    sacp_log = write_sacp_log_queue();
 
     if (sacp_log == NULL) {
       goto EXIT;
@@ -224,19 +290,8 @@ void SnapDebug::send_log_to_host(char *string, SnapDebugLevel level/* = SNAP_DEB
     sacp_log->msg.cmd_id  = DEBUG_SUBSCRIPT_CMD_ID_LOG_TRANS;
     sacp_log->msg.attr    = SACP_MESSAGE_ATTR_ACK;
     sacp_log->msg.length  = index;
-
-    for (uint32_t i = 0; i < 3; i++) {
-      if ((subscript_info_array[i].is_occupied == true) && (subscript_info_array[i].ch == SACP_HMI_CH_SCREEN)) {
-        sacp_log->msg.ch = SACP_HMI_CH_SCREEN;
-        if ((subscript_info_array[i].peer == SACP_HOST_ID_LUBAN) && (level > pc_msg_level)) {
-          sacp_log->msg.peer = SACP_HOST_ID_LUBAN;
-          sacp_log->is_need_to_send = true;
-        } else if ((subscript_info_array[i].peer == SACP_HOST_ID_SCREEN) && (level > sc_msg_level)) {
-          sacp_log->msg.peer = SACP_HOST_ID_SCREEN;
-          sacp_log->is_need_to_send = true;
-        }
-      }
-    }
+    sacp_log->msg.peer = peer;
+    sacp_log->msg.ch = ch;
   }
 
 EXIT:
@@ -262,14 +317,8 @@ void SnapDebug::send_log_to_console_with_sacp_protocol(char *string) {
     return;
   }
 
-  sacp_log_queue_t *sacp_log = NULL;
-  for (uint32_t i = 0; i < SACP_LOG_QUEUE_SIZE; i++) {
-    if (sacp_log_queue[i].is_need_to_send == false) {
-      sacp_log_queue[i].is_need_to_send = true;
-      sacp_log = &sacp_log_queue[i];
-      break;
-    }
-  }
+  sacp_log_t *sacp_log = NULL;
+  sacp_log = write_sacp_log_queue();
 
   if (sacp_log == NULL) {
     return;
@@ -296,8 +345,6 @@ void SnapDebug::send_log_to_console_with_sacp_protocol(char *string) {
   sacp_log->msg.length  = index;
   sacp_log->msg.peer = SACP_HOST_ID_LUBAN;
   sacp_log->msg.ch   = SACP_HMI_CH_PC;
-
-  sacp_log->is_need_to_send = true;
 }
 
 void SnapDebug::send_log_to_console_with_origin_protocol(char *string) {
@@ -313,12 +360,26 @@ void SnapDebug::send_log_to_console(char *string) {
 }
 
 void SnapDebug::send_sacp_log_routine() {
-  for (uint32_t i = 0; i < SACP_LOG_QUEUE_SIZE; i++) {
-    if (sacp_log_queue[i].is_need_to_send == true) {
-      sacp_log_queue[i].is_need_to_send = false;
-      host_hmi.send(&sacp_log_queue[i].msg);
+  BaseType_t ret = pdFAIL;
+
+  if (xTaskGetSchedulerState() == taskSCHEDULER_RUNNING) {
+    if ((ret = xSemaphoreTake(lock, pdMS_TO_TICKS(10))) != pdPASS) {
+      return;
     }
   }
+
+  sacp_log_t *sacp_log = NULL;
+  sacp_log = read_sacp_log_queue();
+
+  if (ret != pdFAIL) {
+    xSemaphoreGive(lock);
+  }
+
+  if (sacp_log == NULL) {
+    return;
+  }
+
+  host_hmi.send(&sacp_log->msg);
 }
 
 // output debug message, will not output message whose level

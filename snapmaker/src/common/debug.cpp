@@ -360,20 +360,8 @@ void SnapDebug::send_log_to_console(char *string) {
 }
 
 void SnapDebug::send_sacp_log_routine() {
-  BaseType_t ret = pdFAIL;
-
-  if (xTaskGetSchedulerState() == taskSCHEDULER_RUNNING) {
-    if ((ret = xSemaphoreTake(lock, pdMS_TO_TICKS(10))) != pdPASS) {
-      return;
-    }
-  }
-
   sacp_log_t *sacp_log = NULL;
   sacp_log = read_sacp_log_queue();
-
-  if (ret != pdFAIL) {
-    xSemaphoreGive(lock);
-  }
 
   if (sacp_log == NULL) {
     return;

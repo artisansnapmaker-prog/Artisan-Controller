@@ -1086,7 +1086,7 @@ void ToolHeadFDM::report_extruder_info(uint8_t *data) {
   if (extruder_state) {
     if (((fdm_state >> FDM_FAULT_EXTRUDER_STATE) & 0x01) == 0) {
       fdm_exception_trigger(FDM_FAULT_EXTRUDER_STATE);
-      system_svc.raise_exception(get_device_id(), FDM_EXCEP_STA_EXTRUDER_STATE_ERROR, EXCEP_ACT_PAUSE_WORKING);
+      system_svc.raise_exception(get_device_id(), FDM_EXCEP_STA_EXTRUDER_STATE_ERROR);
     }
   } else {
     if (((fdm_state >> FDM_FAULT_EXTRUDER_STATE) & 0x01) == 1) {
@@ -1941,7 +1941,7 @@ void ToolHeadFDM::fdm_exception_trigger(fdm_fault_e fault) {
     switch (fault) {
       case FDM_FAULT_EXTRUDER_STATE:
         LOG_I("extruder fault request pause\n");
-        job_ctrl_svc.req_pause(PAUSE_WRONG_EXTRUDER, NULL, NULL);
+        // job_ctrl_svc.req_pause(PAUSE_WRONG_EXTRUDER, NULL, NULL);
         break;
       case FDM_FAULT_NOZZLE_IDENTIFY:
         LOG_I("nozzle fault request pause\n");

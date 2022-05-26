@@ -192,6 +192,7 @@ ack_hmi:
   if (actions & EXCEP_ACT_STOP_WORKING) {
     if (smprinter.on_working()) {
       job_ctrl_svc.req_stop(STOP_EXCEPTION, SACP_JOB_PAUSE_ISSUE_RET_EXCEPTION, NULL, NULL);
+      taskYIELD();
     }
     else {
       LOG_W("SystemService: not in working, cannot stop printer!, excep:[%u, %u]\n", owner, state);
@@ -202,6 +203,7 @@ ack_hmi:
         // normal printing
         // pause it firsly
         job_ctrl_svc.req_pause(PAUSE_EXCEPTION, NULL, NULL);
+        taskYIELD();
         LOG_E("SystemService: pause working as exception to get env!\n");
         // get env and save it to emergency record
         JobEnv *env = job_ctrl_svc.get_env();
@@ -209,11 +211,13 @@ ack_hmi:
         LOG_E("SystemService: saved env!\n");
         // then stop work
         job_ctrl_svc.req_stop(STOP_EXCEPTION, SACP_JOB_PAUSE_ISSUE_RET_EXCEPTION, NULL, NULL);
+        taskYIELD();
         LOG_E("SystemService: req_stop!\n");
     }
     else if (smprinter.on_printing()) {
       // but if printer start working from calibraion, not allow be paused, just stop it
       job_ctrl_svc.req_stop(STOP_EXCEPTION, SACP_JOB_PAUSE_ISSUE_RET_EXCEPTION, NULL, NULL);
+      taskYIELD();
       LOG_E("SystemService: stop working as exception!\n");
     }
     else {
@@ -225,11 +229,13 @@ ack_hmi:
     if (smprinter.get_sys_status() == SYSTEM_STATUS_PRINTING) {
       LOG_E("SystemService: pause working as exception!\n");
       job_ctrl_svc.req_pause(PAUSE_EXCEPTION, NULL, NULL);
+      taskYIELD();
     }
     else if (smprinter.on_printing()) {
       LOG_E("SystemService: stop calibration printing as exception!\n");
       // but if printer start working from calibraion, not allow be paused, just stop it
       job_ctrl_svc.req_stop(STOP_EXCEPTION, SACP_JOB_PAUSE_ISSUE_RET_EXCEPTION, NULL, NULL);
+      taskYIELD();
     }
     else {
       LOG_W("SystemService: not in working, cannot pause printer!, excep:[%u, %u]\n", owner, state);

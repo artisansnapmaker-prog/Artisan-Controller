@@ -508,17 +508,17 @@ void EmergencyHandler::background() {
 
   if (button_state != read_button()) {
     button_state = read_button();
-    if (button_state == PIN_STATE_TRIGGERED && smprinter.on_working()) {
-      // stop job firstly
-      req_stop_job();
-      // release CPU to make sure job ctrl to stop job
-      taskYIELD();
-      return;
-    }
     job_cb_notify_emergency_stop(&msg_notify_stop, E_SUCCESS);
+
+    if (button_state != PIN_STATE_TRIGGERED) {
+      reboot();
+      vTaskSuspendAll();
+      LOG_E("waiting to reboot!\n");
+      while(1);
+    }
   }
 
-  // then set system into SYSTEM_STATUS_EMERGENCY_STOP
+  // set system into SYSTEM_STATUS_EMERGENCY_STOP after stopping job
   if (button_state == PIN_STATE_TRIGGERED && !smprinter.on_working() &&
       smprinter.get_sys_status() != SYSTEM_STATUS_EMERGENCY_STOP &&
       smprinter.get_sys_status() != SYSTEM_STATUS_STOPING) {
@@ -528,6 +528,9 @@ void EmergencyHandler::background() {
     module_svc.emergency_stop_all();
   }
 
+  // for now we won't recover system without reboot, so no need to do recover logical
+  // but just keep the code if we change the mechanism
+  #if 0
   if (button_state != PIN_STATE_TRIGGERED &&
         (smprinter.get_sys_status() == SYSTEM_STATUS_EMERGENCY_STOP)) {
     // when enable power again, maybe trigger powerloss, so we keep system status
@@ -544,14 +547,10 @@ void EmergencyHandler::background() {
       LOG_E("failed to set system to SYSTEM_STATUS_IDLE\n");
     }
 
-    reboot();
-    vTaskSuspendAll();
-    LOG_E("waiting to reboot!\n");
-    while(1);
-
     // LOG_I("recover from SYSTEM_STATUS_EMERGENCY_STOP, rescan modules!\n");
     // module_svc.scan_modules();
   }
+  #endif
 }
 
 

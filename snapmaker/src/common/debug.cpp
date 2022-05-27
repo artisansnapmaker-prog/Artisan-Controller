@@ -96,6 +96,8 @@ static sacp_log_t * read_sacp_log_queue() {
 
 void SnapDebug::init() {
   lock = xSemaphoreCreateMutex();
+  host_log_queue_lock = xSemaphoreCreateMutex();
+  boot_log_buffer_lock = xSemaphoreCreateMutex();
   sacp_log_queue_init();
 }
 
@@ -228,11 +230,11 @@ void SnapDebug::send_log_to_boot_log_buffer(char *string) {
 }
 
 void SnapDebug::send_log_to_host(char *string, SnapDebugLevel level/* = SNAP_DEBUG_LEVEL_INFO*/) {
-  if (is_boot_log == true) {
-    BaseType_t ret = pdFAIL;
+  BaseType_t ret = pdFAIL;
 
+  if (is_boot_log == true) {
     if (xTaskGetSchedulerState() == taskSCHEDULER_RUNNING) {
-      if ((ret = xSemaphoreTake(lock, pdMS_TO_TICKS(10))) != pdPASS) {
+      if ((ret = xSemaphoreTake(boot_log_buffer_lock, pdMS_TO_TICKS(10))) != pdPASS) {
         return;
       }
     }
@@ -240,7 +242,7 @@ void SnapDebug::send_log_to_host(char *string, SnapDebugLevel level/* = SNAP_DEB
     send_log_to_boot_log_buffer(string);
 
     if (ret != pdFAIL) {
-      xSemaphoreGive(lock);
+      xSemaphoreGive(boot_log_buffer_lock);
     }
 
     goto EXIT;
@@ -249,6 +251,7 @@ void SnapDebug::send_log_to_host(char *string, SnapDebugLevel level/* = SNAP_DEB
   {
     uint16_t index = 0;
     sacp_log_t *sacp_log = NULL;
+    bool need_to_send_host;
     uint8_t ch = 0;
     uint32_t peer = 2;
 
@@ -271,7 +274,17 @@ void SnapDebug::send_log_to_host(char *string, SnapDebugLevel level/* = SNAP_DEB
       goto EXIT;
     }
 
+    if (xTaskGetSchedulerState() == taskSCHEDULER_RUNNING) {
+      if ((ret = xSemaphoreTake(host_log_queue_lock, pdMS_TO_TICKS(10))) != pdPASS) {
+        return;
+      }
+    }
+
     sacp_log = write_sacp_log_queue();
+
+    if (ret != pdFAIL) {
+      xSemaphoreGive(host_log_queue_lock);
+    }
 
     if (sacp_log == NULL) {
       goto EXIT;
@@ -322,7 +335,19 @@ void SnapDebug::send_log_to_console_with_sacp_protocol(char *string) {
   }
 
   sacp_log_t *sacp_log = NULL;
+
+  BaseType_t ret = pdFAIL;
+  if (xTaskGetSchedulerState() == taskSCHEDULER_RUNNING) {
+    if ((ret = xSemaphoreTake(host_log_queue_lock, pdMS_TO_TICKS(10))) != pdPASS) {
+      return;
+    }
+  }
+
   sacp_log = write_sacp_log_queue();
+
+  if (ret != pdFAIL) {
+    xSemaphoreGive(host_log_queue_lock);
+  }
 
   if (sacp_log == NULL) {
     return;
@@ -401,13 +426,13 @@ void SnapDebug::Log(SnapDebugLevel level, const char *fmt, ...) {
 
   va_end(args);
 
+  if (ret != pdFAIL) {
+    xSemaphoreGive(lock);
+  }
+
   // send log to console
   if (level >= pc_msg_level) {
     send_log_to_console(single_log_buf);
-  }
-
-  if (ret != pdFAIL) {
-    xSemaphoreGive(lock);
   }
 
   send_log_to_host(single_log_buf, level);

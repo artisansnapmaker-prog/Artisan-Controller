@@ -804,10 +804,14 @@ err_code_t drybox_callback_routine(void *obj) {
   DryBox &drybox = *(DryBox *)obj;
 
   if (drybox.check_online() == false) {
-    LOG_E("drybox offline\n");
-    drybox.is_drybox_online = false;
-    drybox.set_status(MODULE_STATUS_OFFLINE);
-    system_svc.raise_exception(drybox.get_device_id(), DRYBOX_EXCEP_STA_OFFLINE);
+    if (drybox.is_drybox_online == true) {
+      LOG_E("drybox offline\n");
+      drybox.is_drybox_online = false;
+      drybox.set_status(MODULE_STATUS_OFFLINE);
+      if (smprinter.get_sys_status() != SYSTEM_STATUS_MODULE_UPGRADE) {
+        system_svc.raise_exception(drybox.get_device_id(), DRYBOX_EXCEP_STA_OFFLINE);
+      }
+    }
   } else {
     if (drybox.is_drybox_online == false) {
       LOG_E("drybox resume online\n");

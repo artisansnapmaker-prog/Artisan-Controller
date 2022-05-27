@@ -2053,10 +2053,10 @@ void ToolHeadFDM::set_axis_steps_per_unit(float value) {
 
   SnapmakerSettings *smsettings = smprinter.get_settings();
 
-  if (device_id == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
+  if (device_id == MODULE_DEVICE_ID_FDM_1EXTRUDER_2019) {
     single_extruder_steps_per_unit = value;
     smsettings->fdm_settings.single_extruder_steps_per_unit = value;
-  } else if (device_id == MODULE_DEVICE_ID_FDM_1EXTRUDER_2019) {
+  } else if (device_id == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
     dual_extruder_steps_per_unit[0] = value;
     dual_extruder_steps_per_unit[1] = value;
     smsettings->fdm_settings.dual_extruder_steps_per_unit[0] = value;
@@ -2072,7 +2072,7 @@ void ToolHeadFDM::report_steps_per_unit() {
   if (device_id == MODULE_DEVICE_ID_FDM_1EXTRUDER_2019) {
     LOG_I("single extruder steps per unit: %f\n", single_extruder_steps_per_unit);
   } else if (device_id == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
-    LOG_I("dual extruder steps per unit: %f\n", dual_extruder_steps_per_unit[0]);
+    LOG_I("dual extruder steps per unit: %f, %f\n", dual_extruder_steps_per_unit[0], dual_extruder_steps_per_unit[1]);
   }
 }
 

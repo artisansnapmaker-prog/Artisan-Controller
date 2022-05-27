@@ -216,37 +216,41 @@ void SnapDebug::flush_boot_log(uint32_t peer) {
 }
 
 void SnapDebug::send_log_to_boot_log_buffer(char *string) {
-  uint16_t string_length = strlen(string);
+  uint16_t string_length = strlen(string) + 1;
   uint16_t remain_length = BOOT_LOG_BUFFER_SIZE - boot_log_buf_wirte_index;
   uint16_t store_length;
 
   if (remain_length > 0) {
     store_length = string_length < remain_length ? string_length : remain_length;
-    memcpy((void *)&boot_log_buf, string, store_length);
+    memcpy((void *)&boot_log_buf[boot_log_buf_wirte_index], string, store_length);
     boot_log_buf_wirte_index += store_length;
   }
 }
 
 void SnapDebug::send_log_to_host(char *string, SnapDebugLevel level/* = SNAP_DEBUG_LEVEL_INFO*/) {
-  BaseType_t ret = pdFAIL;
-
-  if (xTaskGetSchedulerState() == taskSCHEDULER_RUNNING) {
-    if ((ret = xSemaphoreTake(lock, pdMS_TO_TICKS(10))) != pdPASS) {
-      return;
-    }
-  }
-
   if (is_boot_log == true) {
+    BaseType_t ret = pdFAIL;
+
+    if (xTaskGetSchedulerState() == taskSCHEDULER_RUNNING) {
+      if ((ret = xSemaphoreTake(lock, pdMS_TO_TICKS(10))) != pdPASS) {
+        return;
+      }
+    }
+
     send_log_to_boot_log_buffer(string);
+
+    if (ret != pdFAIL) {
+      xSemaphoreGive(lock);
+    }
+
     goto EXIT;
   }
 
   {
     uint16_t index = 0;
     sacp_log_t *sacp_log = NULL;
-    bool need_to_send_host = false;
-    uint8_t ch;
-    uint32_t peer;
+    uint8_t ch = 0;
+    uint32_t peer = 2;
 
     for (uint32_t i = 0; i < 3; i++) {
       if ((subscript_info_array[i].is_occupied == true) && (subscript_info_array[i].ch == SACP_HMI_CH_SCREEN)) {
@@ -254,9 +258,11 @@ void SnapDebug::send_log_to_host(char *string, SnapDebugLevel level/* = SNAP_DEB
         if ((subscript_info_array[i].peer == SACP_HOST_ID_LUBAN) && (level > pc_msg_level)) {
           peer = SACP_HOST_ID_LUBAN;
           need_to_send_host = true;
+          break;
         } else if ((subscript_info_array[i].peer == SACP_HOST_ID_SCREEN) && (level > sc_msg_level)) {
           peer = SACP_HOST_ID_SCREEN;
           need_to_send_host = true;
+          break;
         }
       }
     }
@@ -295,9 +301,7 @@ void SnapDebug::send_log_to_host(char *string, SnapDebugLevel level/* = SNAP_DEB
   }
 
 EXIT:
-  if (ret != pdFAIL) {
-    xSemaphoreGive(lock);
-  }
+  return;
 }
 
 void SnapDebug::send_log_to_console_with_sacp_protocol(char *string) {

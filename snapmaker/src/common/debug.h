@@ -115,6 +115,8 @@ class SnapDebug {
         subscript_info_array[i].peer = SACP_HOST_ID_INVALIDE;
         subscript_info_array[i].ch = SACP_HMI_CH_INVALID;
       }
+
+      need_to_send_host = false;
     }
     void Log(SnapDebugLevel level, const char *fmt, ...);
 
@@ -141,6 +143,7 @@ class SnapDebug {
     SemaphoreHandle_t lock;
     bool is_boot_log;
     debug_subscript_info_t subscript_info_array[3];
+    bool need_to_send_host;
 };
 
 // interface for external use

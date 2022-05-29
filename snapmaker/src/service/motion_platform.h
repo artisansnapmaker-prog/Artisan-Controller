@@ -246,6 +246,8 @@ class MotionPlatformService {
 
     void do_quickstop();
 
+    float get_motherboard_current_temp(uint8_t index);
+
   private:
     MessageBufferHandle_t gcode_queue;
     xSemaphoreHandle  marlin_signal;

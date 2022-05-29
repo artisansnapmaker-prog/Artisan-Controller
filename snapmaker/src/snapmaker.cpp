@@ -346,6 +346,30 @@ err_code_t SnapmakerPrinter::hmi_cb_do_factory_reset(void *obj, sacp_hmi_message
   return host_hmi.send_ack(msg, ret);
 }
 
+
+err_code_t SnapmakerPrinter::hmi_cb_get_board_temp(void *obj, sacp_hmi_message_t *msg) {
+  int32_t *p;
+
+  LOG_I("hmi_cb_get_board_temp\n");
+
+  msg->data[0] = E_SUCCESS;
+
+  // array
+  msg->data[1] = 1;
+
+  // info
+  // index
+  msg->data[2] = 0;
+  p = (int32_t *)(msg->data + 3);
+
+  *p = (int32_t)(motion_platform_svc.get_motherboard_current_temp(0) * 1000);
+
+  msg->length = 2 + 5 * 1;
+
+  return host_hmi.send_ack(msg);
+ }
+
+
 err_code_t SnapmakerPrinter::hmi_cb_set_machine_enter_replace_mode(void *obj, sacp_hmi_message_t *msg) {
   err_code_t ret = E_SUCCESS;
   SystemStatus ret_status = SYSTEM_STATUS_IDLE;
@@ -479,6 +503,9 @@ static void system_thread(void *p) {
 
   host_hmi.register_callback(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_ENTRY_REPLACE_MODE,
       (void *)&smprinter, SnapmakerPrinter::hmi_cb_set_machine_enter_replace_mode);
+
+  host_hmi.register_callback(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_GET_BOARD_TEMP,
+      (void *)&smprinter, SnapmakerPrinter::hmi_cb_get_board_temp);
 
   smprinter.check_system_voltage();
   smprinter.get_hw_version();

@@ -1296,3 +1296,11 @@ void MotionPlatformService::run() {
 void MotionPlatformService::do_quickstop() {
   quickstop_stepper();
 }
+
+
+float MotionPlatformService::get_motherboard_current_temp(uint8_t index) {
+  if (index == 0)
+    return thermalManager.degBoard();
+  else
+    return 0;
+}

@@ -140,8 +140,21 @@ enum SACPHostID {
   SACP_HOST_ID_CONTROLLER,
   SACP_HOST_ID_SCREEN,
   SACP_HOST_ID_ESP32,
+  SACP_HOST_ID_TESTER,
+  SACP_HOST_ID_MAX,
 
   SACP_HOST_ID_INVALIDE = 0xffffffff,
+};
+
+enum SACPChannel {
+  SACP_CH_SCREEN,
+  SACP_CH_PC,
+  SACP_CH_TESTER = SACP_CH_PC,
+  SACP_CH_CAMERA,
+
+  SACP_CH_MAX,
+
+  SACP_CH_INVALID,
 };
 
 enum SACPVerion {
@@ -299,6 +312,8 @@ class HostSACP: public HostBase {
     // host id
     uint32_t host_id;
 
+    static sacp_route_table_t static_route[SACP_HOST_ID_MAX];
 };
+
 
 #endif  // #ifndef SNAPMAKER_HOST_SACP_H_

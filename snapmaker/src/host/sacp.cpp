@@ -1,5 +1,15 @@
 #include "sacp.h"
 
+
+sacp_route_table_t HostSACP::static_route[SACP_HOST_ID_MAX] = {
+  {SACP_HOST_ID_LUBAN,      SACP_CH_PC,       SACP_VER_1, SACP_ROUTE_STA_ONLINE},
+  {SACP_HOST_ID_CONTROLLER, SACP_CH_INVALID,  SACP_VER_1, SACP_ROUTE_STA_ONLINE},
+  {SACP_HOST_ID_SCREEN,     SACP_CH_SCREEN,   SACP_VER_1, SACP_ROUTE_STA_ONLINE},
+  {SACP_HOST_ID_ESP32,      SACP_CH_CAMERA,   SACP_VER_1, SACP_ROUTE_STA_ONLINE},
+  {SACP_HOST_ID_TESTER,     SACP_CH_TESTER,   SACP_VER_1, SACP_ROUTE_STA_ONLINE},
+};
+
+
 uint16_t HostSACP::calculate_checksum(uint8_t *buffer, uint16_t length) {
   uint32_t volatile checksum = 0;
 

@@ -92,7 +92,7 @@ err_code_t HostSACPHMI::init(TaskHandle_t event_task, SemaphoreHandle_t recv_sig
 }
 
 
-err_code_t HostSACPHMI::add_channel(SACPHMIChannel ch, LinkUART *link) {
+err_code_t HostSACPHMI::add_channel(SACPChannel ch, LinkUART *link) {
   if (ch >= SACP_HMI_CH_MAX) {
     return E_PARAM;
   }
@@ -680,7 +680,7 @@ err_code_t HostSACPHMI::parse_packets(sacp_channel_t &channel) {
     ret = E_SUCCESS;
 
     if (parser.ver == SACP_VER_1) {
-      // length doesn't include the two bytes checksum
+      // length include the two bytes checksum
       parser.length += SACP_V1_FRONT_HEADER_SIZE;
       parser.status = SACP_PARSER_STA_GOT_MESSAGE;
     }
@@ -841,6 +841,34 @@ void HostSACPHMI::record_new_route(uint32_t peer, uint8_t ch, uint8_t ver) {
   }
 }
 
+
+err_code_t HostSACPHMI::forward_message(uint32_t id, uint8_t *pdu, uint32_t length) {
+  if (id >= SACP_HOST_ID_MAX || !pdu || length > SACP_PDU_MAX_SIZE) {
+    LOG_E("invalid parameters for forwarding message!");
+    return E_PARAM;
+  }
+
+  if (static_route[id].ch >= SACP_HMI_CH_MAX) {
+    LOG_E("invalid channel of static route!");
+    return E_PARAM;
+  }
+
+  sacp_channel_t &channel = channels[static_route[id].ch];
+
+  LOG_I("will forward cmd[%x:%x] to host[%u] in ch[%u]\n", pdu[SACP_V1_FRAME_INDEX_CMD_SET],
+        pdu[SACP_V1_FRAME_INDEX_CMD_ID], pdu[SACP_V1_FRAME_INDEX_RECV_ID], static_route[id].ch);
+
+  // TODO: some bugs in write_multi() to be fix, so use write() to send data
+  xSemaphoreTake(channel.lock, portMAX_DELAY);
+  for (uint32_t i = 0; i < length; i++) {
+    channel.link->write(pdu[i]);
+  }
+  xSemaphoreGive(channel.lock);
+
+  return E_SUCCESS;
+}
+
+
 void HostSACPHMI::handle_receive() {
   MessageBufferHandle_t tmp_queue = NULL;
   MessageBufferHandle_t event_queue = NULL;
@@ -862,7 +890,8 @@ void HostSACPHMI::handle_receive() {
         LOG_E("recv id of msg[%x, %x] isn't me!\n", parser_buff[SACP_V1_FRAME_INDEX_CMD_SET],
             parser_buff[SACP_V1_FRAME_INDEX_CMD_ID]);
 
-        // TODO: forward message
+        // forward message
+        forward_message(parser_buff[SACP_V1_FRAME_INDEX_RECV_ID], parser_buff, buffer_len);
       }
     }
 

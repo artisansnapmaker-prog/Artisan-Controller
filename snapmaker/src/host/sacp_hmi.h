@@ -64,15 +64,12 @@ typedef struct {
 #define SACP_HMI_WAITING_NODE_MAX (4)
 #define SACP_V1_CMD_SET_MAX (0x100)
 
-enum SACPHMIChannel {
-  SACP_HMI_CH_SCREEN,
-  SACP_HMI_CH_PC,
-  SACP_HMI_CH_CAMERA,
+#define SACP_HMI_CH_SCREEN  SACP_CH_SCREEN
+#define SACP_HMI_CH_PC      SACP_CH_PC
+#define SACP_HMI_CH_CAMERA  SACP_CH_CAMERA
+#define SACP_HMI_CH_MAX     SACP_CH_MAX
+#define SACP_HMI_CH_INVALID SACP_CH_INVALID
 
-  SACP_HMI_CH_MAX,
-
-  SACP_HMI_CH_INVALID,
-};
 
 #define SACP_ROUTE_TABLE_DYNAMIC_MAX      (8)
 #define SACP_ROUTE_TABLE_HANDLE_MAX       (4)
@@ -180,8 +177,8 @@ class HostSACPHMI: public HostSACP {
     void handle_receive();
     void handle_events();
 
-    err_code_t add_channel(SACPHMIChannel ch, LinkUART *link);
-    sacp_channel_t *get_channel(SACPHMIChannel ch) {
+    err_code_t add_channel(SACPChannel ch, LinkUART *link);
+    sacp_channel_t *get_channel(SACPChannel ch) {
       return &channels[ch];
     }
 
@@ -201,6 +198,8 @@ class HostSACPHMI: public HostSACP {
     MessageBufferHandle_t get_event_queue_by_thread();
 
     void record_new_route(uint32_t peer, uint8_t ch, uint8_t ver);
+
+    err_code_t forward_message(uint32_t id, uint8_t *pdu, uint32_t length);
 
   // private properties
   private:

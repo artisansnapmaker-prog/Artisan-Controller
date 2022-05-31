@@ -390,6 +390,13 @@ void GcodeSuite::G28() {
       constexpr bool doZ = false;
     #endif
 
+    #if MB_SNAPMAKER
+      if (doX || doY || doZ) {
+        smprinter.right_extruder_move_to_destination(GO_HOME);
+        smprinter.tool_change(0);
+      }
+    #endif
+
     TERN_(HOME_Z_FIRST, if (doZ) homeaxis(Z_AXIS));
     #if MB_SNAPMAKER
       if (doZ) {
@@ -433,12 +440,7 @@ void GcodeSuite::G28() {
         idex_set_parked();
 
       #else
-
-        smprinter.tool_change(0);
-        smprinter.set_extruder_check_state(EXTRUDER_STATUS_IDLE);
         homeaxis(X_AXIS);
-        smprinter.set_extruder_check_state(EXTRUDER_STATUS_CHECK);
-
       #endif
     }
 

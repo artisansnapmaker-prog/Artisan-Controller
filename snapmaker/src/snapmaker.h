@@ -511,6 +511,12 @@ class SnapmakerPrinter
       }
     }
 
+    void right_extruder_move_to_destination(move_type_e type, float destination = 0) {
+      if (fdm) {
+        fdm->right_extruder_move_to_destination(type, destination);
+      }
+    }
+
     // LASER
     void set_laser_fan_speed(uint16_t speed) {}
 

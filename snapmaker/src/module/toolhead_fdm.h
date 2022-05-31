@@ -163,6 +163,12 @@ typedef struct {
   int16_t target_temp[EXTRUDERS];
 } __attribute__((packed)) fdm_recovery_data_t;
 
+typedef enum {
+  GO_HOME,
+  MOVE_SYNC,
+  MOVE_ASYNC,
+}move_type_e;
+
 class ToolHeadFDM: public ModuleBase {
   // public methods
   public:
@@ -263,6 +269,7 @@ class ToolHeadFDM: public ModuleBase {
     void report_nozzle_type();
     void set_axis_steps_per_unit(float value);
     void report_steps_per_unit();
+    err_code_t right_extruder_move_to_destination(move_type_e type, float destination/* = 0*/);
 
   // private methods
   private:

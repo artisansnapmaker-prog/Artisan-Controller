@@ -44,6 +44,7 @@ static module_func_prio_t prio_map_dual_extruder[] = {
   {MODULE_FUNC_REPORT_HOTEND_OFFSET, MODULE_FUNC_PRIORITY_LOW},
   {MODULE_FUNC_SET_PROBE_SENSOR_COMPENSATION, MODULE_FUNC_PRIORITY_LOW},
   {MODULE_FUNC_REPORT_PROBE_SENSOR_COMPENSATION, MODULE_FUNC_PRIORITY_LOW},
+  {MODULE_FUNC_MOVE_TO_DEST, MODULE_FUNC_PRIORITY_LOW},
 
   // must set the last element as below !!!!
   {MODULE_FUNCTION_ID_INVALID, MODULE_FUNCTION_PRIORITY_INVALID}
@@ -1404,7 +1405,7 @@ err_code_t ToolHeadFDM::tool_change(uint8_t new_tool, bool z_compensation/*=true
   float hotend_offset_tmp[3][EXTRUDERS] = {0};
   memset(hotend_offset_tmp, 0, sizeof(hotend_offset_tmp));
   memcpy(hotend_offset_tmp, hotend_offset, sizeof(hotend_offset));
-  LOG_I("hotend_offset, x: %f, y: %f, z: %f\n", hotend_offset[X_AXIS][1], hotend_offset[Y_AXIS][1], hotend_offset[Z_AXIS][1]);
+  // LOG_I("hotend_offset, x: %f, y: %f, z: %f\n", hotend_offset[X_AXIS][1], hotend_offset[Y_AXIS][1], hotend_offset[Z_AXIS][1]);
 
   err_code_t ret = E_SUCCESS;
   if (new_tool > EXTRUDERS) {
@@ -1416,7 +1417,7 @@ err_code_t ToolHeadFDM::tool_change(uint8_t new_tool, bool z_compensation/*=true
   target_extruder = new_tool;
 
   if (!motion_platform_svc.is_all_axes_homed()) {
-    LOG_E("need go home before ");
+    LOG_E("need go home before tool change\n");
     ret = E_FAILURE;
     goto EXIT;
   }
@@ -1442,34 +1443,27 @@ err_code_t ToolHeadFDM::tool_change(uint8_t new_tool, bool z_compensation/*=true
     motion_platform_svc.moveto_z(motion_platform_svc.get_current_position(Z_AXIS) + TOOL_CHANGE_RAISE_SPACE, 10);
 
     extruder_status_check_ctrl(EXTRUDER_STATUS_IDLE);
+    switch_extruder(new_tool);
+
     motion_platform_svc.update_position_from_platform();
     motion_platform_svc.sm_destination_position[X_AXIS] = motion_platform_svc.sm_current_position[X_AXIS];
     motion_platform_svc.sm_destination_position[Y_AXIS] = motion_platform_svc.sm_current_position[Y_AXIS];
     motion_platform_svc.sm_destination_position[Z_AXIS] = motion_platform_svc.sm_current_position[Z_AXIS];
 
-    SERIAL_ECHOLNPGM("dest_x: ", motion_platform_svc.sm_destination_position[X_AXIS], "dest_y: ", motion_platform_svc.sm_destination_position[Y_AXIS], "dest_z: ", motion_platform_svc.sm_destination_position[Z_AXIS]);
-
-    // performing extruder switch
-    if (new_tool == 0) {
-      motion_platform_svc.moveto_x(motion_platform_svc.get_soft_endstop_min(X_AXIS), 200);
-    } else if (new_tool == 1) {
-      motion_platform_svc.moveto_x(motion_platform_svc.get_soft_endstop_max(X_AXIS), 200);
-    }
-
     motion_platform_svc.update_soft_endstops(X_AXIS, active_extruder, new_tool);
     motion_platform_svc.update_soft_endstops(Y_AXIS, active_extruder, new_tool);
-    LOG_I("soft_endstop_x_min: %f\n", motion_platform_svc.get_soft_endstop_min(X_AXIS));
-    LOG_I("soft_endstop_x_max: %f\n", motion_platform_svc.get_soft_endstop_max(X_AXIS));
-    LOG_I("soft_endstop_y_min: %f\n", motion_platform_svc.get_soft_endstop_min(Y_AXIS));
-    LOG_I("soft_endstop_y_max: %f\n", motion_platform_svc.get_soft_endstop_max(Y_AXIS));
+    // LOG_I("soft_endstop_x_min: %f\n", motion_platform_svc.get_soft_endstop_min(X_AXIS));
+    // LOG_I("soft_endstop_x_max: %f\n", motion_platform_svc.get_soft_endstop_max(X_AXIS));
+    // LOG_I("soft_endstop_y_min: %f\n", motion_platform_svc.get_soft_endstop_min(Y_AXIS));
+    // LOG_I("soft_endstop_y_max: %f\n", motion_platform_svc.get_soft_endstop_max(Y_AXIS));
 
     float xdiff = hotend_offset_tmp[X_AXIS][new_tool] - hotend_offset_tmp[X_AXIS][active_extruder];
     float ydiff = hotend_offset_tmp[Y_AXIS][new_tool] - hotend_offset_tmp[Y_AXIS][active_extruder];
     float zdiff = hotend_offset_tmp[Z_AXIS][new_tool] - hotend_offset_tmp[Z_AXIS][active_extruder];
-    LOG_I("hotend_offset_y%d: %f\n", new_tool, hotend_offset_tmp[Y_AXIS][new_tool]);
-    LOG_I("hotend_offset_y%d: %f\n", active_extruder, hotend_offset_tmp[Y_AXIS][active_extruder]);
-    LOG_I("hotend_offset_z%d: %f\n", new_tool, hotend_offset_tmp[Z_AXIS][new_tool]);
-    LOG_I("hotend_offset_z%d: %f\n", active_extruder, hotend_offset_tmp[Z_AXIS][active_extruder]);
+    // LOG_I("hotend_offset_y%d: %f\n", new_tool, hotend_offset_tmp[Y_AXIS][new_tool]);
+    // LOG_I("hotend_offset_y%d: %f\n", active_extruder, hotend_offset_tmp[Y_AXIS][active_extruder]);
+    // LOG_I("hotend_offset_z%d: %f\n", new_tool, hotend_offset_tmp[Z_AXIS][new_tool]);
+    // LOG_I("hotend_offset_z%d: %f\n", active_extruder, hotend_offset_tmp[Z_AXIS][active_extruder]);
     motion_platform_svc.sm_current_position[X_AXIS] += xdiff;
     motion_platform_svc.sm_current_position[Y_AXIS] += ydiff;
     motion_platform_svc.sm_current_position[Z_AXIS] += zdiff;
@@ -1486,7 +1480,6 @@ err_code_t ToolHeadFDM::tool_change(uint8_t new_tool, bool z_compensation/*=true
 
     active_extruder = new_tool;
     motion_platform_svc.update_active_extruder_to_platform(active_extruder);
-    switch_extruder(active_extruder);
     extruder_status_check_ctrl(EXTRUDER_STATUS_CHECK);
 
     bedlevel_svc.apply_live_z_offset(active_extruder);
@@ -2076,3 +2069,48 @@ void ToolHeadFDM::report_steps_per_unit() {
   }
 }
 
+err_code_t ToolHeadFDM::right_extruder_move_to_destination(move_type_e type, float destination/* = 0*/) {
+  err_code_t ret;
+  smcan_message_t msg;
+  uint8_t buffer[5];
+  uint8_t recv_buf[8];
+  uint8_t recv_len = 8;
+  int32_t scaled_dest;
+  scaled_dest = (int32_t)(destination * 1000);
+
+  msg.id = get_message_id(MODULE_FUNC_MOVE_TO_DEST);
+  if (msg.id == MODULE_MESSAGE_ID_INVALID) {
+    LOG_E("invalid message to move extruder\n");
+    return E_FAILURE;
+  }
+
+  buffer[0] = (uint8_t)type;
+  buffer[1] = (scaled_dest >> 24) & 0xff;
+  buffer[2] = (scaled_dest >> 16) & 0xff;
+  buffer[3] = (scaled_dest >> 8) & 0xff;
+  buffer[4] = scaled_dest & 0xff;
+
+  msg.ch     = get_channel();
+  msg.data   = buffer;
+  msg.length = 5;
+
+  switch (type) {
+    case GO_HOME:
+    case MOVE_SYNC:
+      ret = host_can_rou.send_sync(&msg, recv_buf, &recv_len, 20000, 1);
+      break;
+    case MOVE_ASYNC:
+      ret = host_can_rou.send(&msg);
+      break;
+    default:
+      ret = E_FAILURE;
+      break;
+  }
+
+  if (ret != E_SUCCESS) {
+    LOG_E("failed to move extruder, ret: %u\n", ret);
+    return ret;
+  }
+
+  return E_SUCCESS;
+}

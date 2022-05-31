@@ -213,6 +213,7 @@ enum ModuleFunctionID {
   MODULE_FUNC_REPORT_MOTOR_SELF_INFO      ,  // 53
   MODULE_FUNC_REPORT_COVER_STATE          ,  // 54
   MODULE_FUNC_REPORT_DRYBOX_STATE         ,  // 55
+  MODULE_FUNC_MOVE_TO_DEST                ,  // 56
 
   MODULE_FUNC_MAX
 };

@@ -1327,6 +1327,8 @@ err_code_t ToolHeadFDM::switch_extruder(uint8_t e) {
   err_code_t ret;
   smcan_message_t msg;
   uint8_t buffer[1];
+  uint8_t recv_buf[8];
+  uint8_t recv_len = 8;
 
   msg.id = get_message_id(MODULE_FUNC_SWITCH_EXTRUDER);
     if (msg.id == MODULE_MESSAGE_ID_INVALID) {
@@ -1338,7 +1340,8 @@ err_code_t ToolHeadFDM::switch_extruder(uint8_t e) {
   msg.ch     = get_channel();
   msg.data   = buffer;
   msg.length = 1;
-  ret = host_can_rou.send(&msg);
+  // ret = host_can_rou.send(&msg);
+  ret = host_can_rou.send_sync(&msg, recv_buf, &recv_len, 5000, 1);
 
   if (ret != E_SUCCESS) {
     LOG_E("failed to switch extruder, ret: %u\n", ret);
@@ -1432,18 +1435,30 @@ err_code_t ToolHeadFDM::tool_change(uint8_t new_tool, bool z_compensation/*=true
     // clear current live_z_offset
     bedlevel_svc.unapply_live_z_offset(active_extruder);
 
+    // confirm of safety distance for x-axis nozzle swtiching
     motion_platform_svc.update_position_from_platform();
-    if ((new_tool == 1) && (motion_platform_svc.sm_current_position[X_AXIS] < motion_platform_svc.get_soft_endstop_min(X_AXIS) + 35)) {
-      motion_platform_svc.moveto_x(motion_platform_svc.get_soft_endstop_min(X_AXIS) + DUAL_EXTRUDER_SAFE_SPACE_MIN_X, 50);
-    } else if ((new_tool == 0) && (motion_platform_svc.sm_current_position[X_AXIS] > motion_platform_svc.get_soft_endstop_max(X_AXIS) - 35)) {
-      motion_platform_svc.moveto_x(motion_platform_svc.get_soft_endstop_max(X_AXIS) - DUAL_EXTRUDER_SAFE_SPACE_MAX_X, 50);
+    if ((new_tool == 1) && (motion_platform_svc.sm_current_position[X_AXIS] < motion_platform_svc.get_soft_endstop_min(X_AXIS) + hotend_offset_tmp[X_AXIS][1])) {
+      motion_platform_svc.moveto_x(motion_platform_svc.get_soft_endstop_min(X_AXIS) + hotend_offset_tmp[X_AXIS][1], 50);
+    } else if ((new_tool == 0) && (motion_platform_svc.sm_current_position[X_AXIS] > motion_platform_svc.get_soft_endstop_max(X_AXIS) - hotend_offset_tmp[X_AXIS][1])) {
+      motion_platform_svc.moveto_x(motion_platform_svc.get_soft_endstop_max(X_AXIS) - hotend_offset_tmp[X_AXIS][1], 50);
+    }
+
+    // confirm of safety distance for y-axis nozzle switching
+    motion_platform_svc.update_position_from_platform();
+    if ((new_tool == 1) && (motion_platform_svc.sm_current_position[Y_AXIS] < motion_platform_svc.get_soft_endstop_min(Y_AXIS) + hotend_offset_tmp[Y_AXIS][1])) {
+      motion_platform_svc.moveto_y(motion_platform_svc.get_soft_endstop_min(Y_AXIS) + hotend_offset_tmp[Y_AXIS][1], 50);
+    } else if ((new_tool == 0) && (motion_platform_svc.sm_current_position[Y_AXIS] > motion_platform_svc.get_soft_endstop_max(Y_AXIS) - hotend_offset_tmp[Y_AXIS][1])) {
+      motion_platform_svc.moveto_y(motion_platform_svc.get_soft_endstop_max(Y_AXIS) - hotend_offset_tmp[Y_AXIS][1], 50);
     }
 
     // z raise
     motion_platform_svc.moveto_z(motion_platform_svc.get_current_position(Z_AXIS) + TOOL_CHANGE_RAISE_SPACE, 10);
 
-    extruder_status_check_ctrl(EXTRUDER_STATUS_IDLE);
-    switch_extruder(new_tool);
+    if (new_tool == 0) {
+      extruder_status_check_ctrl(EXTRUDER_STATUS_IDLE);
+      switch_extruder(new_tool);
+      extruder_status_check_ctrl(EXTRUDER_STATUS_CHECK);
+    }
 
     motion_platform_svc.update_position_from_platform();
     motion_platform_svc.sm_destination_position[X_AXIS] = motion_platform_svc.sm_current_position[X_AXIS];
@@ -1480,7 +1495,12 @@ err_code_t ToolHeadFDM::tool_change(uint8_t new_tool, bool z_compensation/*=true
 
     active_extruder = new_tool;
     motion_platform_svc.update_active_extruder_to_platform(active_extruder);
-    extruder_status_check_ctrl(EXTRUDER_STATUS_CHECK);
+
+    if (new_tool == 1) {
+      extruder_status_check_ctrl(EXTRUDER_STATUS_IDLE);
+      switch_extruder(new_tool);
+      extruder_status_check_ctrl(EXTRUDER_STATUS_CHECK);
+    }
 
     bedlevel_svc.apply_live_z_offset(active_extruder);
 
@@ -1933,7 +1953,7 @@ void ToolHeadFDM::fdm_exception_trigger(fdm_fault_e fault) {
   // if (system_state == SYSTEM_STATUS_PRINTING || system_state == SYSTEM_STATUS_XY_CALIBRATING_PRINTING) {
     switch (fault) {
       case FDM_FAULT_EXTRUDER_STATE:
-        LOG_I("extruder fault request pause\n");
+        // LOG_I("extruder fault request pause\n");
         // job_ctrl_svc.req_pause(PAUSE_WRONG_EXTRUDER, NULL, NULL);
         break;
       case FDM_FAULT_NOZZLE_IDENTIFY:

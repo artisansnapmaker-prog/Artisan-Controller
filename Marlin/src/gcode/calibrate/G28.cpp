@@ -392,8 +392,12 @@ void GcodeSuite::G28() {
 
     #if MB_SNAPMAKER
       if (doX || doY || doZ) {
-        smprinter.right_extruder_move_to_destination(GO_HOME);
-        smprinter.tool_change(0);
+        if (smprinter.get_toolhead_type() == TH_TYPE_3DP) {
+          do_blocking_move_to_z(current_position[Z_AXIS] + 2, 10);
+          planner.synchronize();
+          smprinter.right_extruder_move_to_destination(GO_HOME);
+          smprinter.tool_change(0);
+        }
       }
     #endif
 
@@ -537,6 +541,10 @@ void GcodeSuite::G28() {
 
   #if MB_SNAPMAKER
     if (smprinter.get_toolhead_type() == TH_TYPE_3DP) {
+      if (!doZ && (doX || doY)) {
+        do_blocking_move_to_z(current_position[Z_AXIS] - 2, 10);
+        planner.synchronize();
+      }
       TERN_(CAN_SET_LEVELING_AFTER_G28, if (leveling_restore_state) set_bed_leveling_enabled());
     }
   #endif

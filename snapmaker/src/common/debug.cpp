@@ -131,8 +131,7 @@ void SnapDebug::hmi_subscribe_log_trans_notify_cb(void *obj, uint32_t peer, uint
 
   if (type == (uint8_t)SACP_SUBS_NOTIFY_TYPE_SUBSCRIBE) {
     for (uint32_t i = 0; i < 3; i++) {
-      if ((snapdebug.subscript_info_array[i].peer != peer || snapdebug.subscript_info_array[i].ch != ch) &&
-          (snapdebug.subscript_info_array[i].is_occupied == false)) {
+      if (snapdebug.subscript_info_array[i].is_occupied == false) {
         snapdebug.subscript_info_array[i].is_occupied = true;
         snapdebug.subscript_info_array[i].peer = peer;
         snapdebug.subscript_info_array[i].ch = ch;

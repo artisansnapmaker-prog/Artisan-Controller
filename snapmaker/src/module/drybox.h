@@ -23,7 +23,7 @@
 
 #include "base.h"
 
-#define ENABLE_DRYBOX_INTERRUPT_LOG
+// #define ENABLE_DRYBOX_INTERRUPT_LOG
 
 #define CHECK_ONLINE_TIMEOUT  5000
 

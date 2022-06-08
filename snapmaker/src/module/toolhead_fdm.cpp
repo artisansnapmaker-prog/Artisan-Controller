@@ -159,6 +159,9 @@ err_code_t ToolHeadFDM::single_extruder_post_init() {
     return E_HARDWARE;
   }
 
+  hotend_type[0] = 0;
+  hotend_diameter[0] = 0.4;
+
   hotend_pid_sync();
   probe_state_sync();
   filament_state_sync();

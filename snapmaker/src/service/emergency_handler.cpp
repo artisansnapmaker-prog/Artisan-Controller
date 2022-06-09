@@ -52,6 +52,11 @@ static void interrupt_cb_stop_button() {
 }
 
 static void interrupt_cb_power_loss() {
+  // show red LED whatever if powerloss appear
+  digitalWrite(LED_GREEN_PIN, LOW);
+  digitalWrite(LED_BLUE_PIN, LOW);
+  digitalWrite(LED_RED_PIN, HIGH);
+
   // won't handle powerloss if system is in SYSTEM_STATUS_EMERGENCY_STOP
   if (smprinter.get_sys_status() == SYSTEM_STATUS_EMERGENCY_STOP)
     return;
@@ -199,10 +204,6 @@ void EmergencyHandler::power_loss() {
   JobEnv   *job_env;
   uint32_t *flag = NULL, *checksum_addr = NULL;
   volatile uint32_t checksum;
-
-  digitalWrite(LED_GREEN_PIN, LOW);
-  digitalWrite(LED_BLUE_PIN, LOW);
-  digitalWrite(LED_RED_PIN, HIGH);
 
   // - disable All ISR
   disable_all_interrupts();

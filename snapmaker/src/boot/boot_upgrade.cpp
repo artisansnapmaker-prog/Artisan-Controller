@@ -52,12 +52,11 @@ bool upgrade_app_fw_checksum(void);
 upgrade_info_t upgrade_info;
 
 const cmd_fun_item_t cmd_tab[] = {
-  
+
   {CMD_SET_SYSTEM,     CMD_ID_MACHIN_INFO,    cmd_get_sys_info},
   {CMD_SET_UPGRADE,    CMD_ID_UPGRADE_START,  cmd_upgrade_start},
   {CMD_SET_UPGRADE,    CMD_ID_UPGRADE_TRANS,  cmd_upgrade_trans},
   {CMD_SET_UPGRADE,    CMD_ID_UPGRADE_END,    cmd_upgrade_end},
-
 };
 
 
@@ -69,9 +68,9 @@ const cmd_fun_item_t cmd_tab[] = {
 /********************************************************************************/
 // FUN DEF
 /********************************************************************************/
-void upgrade_init(pack_info_t *boot_info, 
-              flash_partition_t *boot_data_partition, 
-              flash_partition_t *app_partition) 
+void upgrade_init(pack_info_t *boot_info,
+              flash_partition_t *boot_data_partition,
+              flash_partition_t *app_partition)
 {
   upgrade_info.boot_info = boot_info;
   upgrade_info.boot_data_partition = boot_data_partition;
@@ -144,7 +143,7 @@ void cmd_proc(uint8_t *pl, uint32_t len, uint8_t *out, uint32_t &out_len) {
 
 cmd_pf_t find_executor(uint8_t cmd_set, uint8_t cmd_id) {
   for(uint32_t i = 0; i < TAB_SIZE(cmd_tab, cmd_fun_item_t); i++) {
-    if (cmd_set == cmd_tab[i].cmd_set && 
+    if (cmd_set == cmd_tab[i].cmd_set &&
         cmd_id == cmd_tab[i].cmd_id) {
           return cmd_tab[i].executor;
         }
@@ -173,7 +172,7 @@ void cmd_get_sys_info(uint8_t *pl, uint32_t len, uint8_t *out, uint32_t &out_len
 
 void cmd_upgrade_start(uint8_t *pl, uint32_t len, uint8_t *out, uint32_t &out_len) {
   Serial.println("cmd_upgrade_start");
-  
+
   if (len < CMD_START_MIN_LEN) {
     Serial.print("upgrade start request len error, expected ");
     Serial.print(CMD_START_MIN_LEN);
@@ -228,6 +227,7 @@ void cmd_upgrade_start(uint8_t *pl, uint32_t len, uint8_t *out, uint32_t &out_le
   trans_req_try = 0;
   last_trans_req_ms = millis();
   upgrade_info.boot_info->upgrade_state = UPGRADE_STATE_START;
+  show_status_led(LED_STATUS_RECV_UPGRADE_REQ);
 
   out[0] = CMD_SET_UPGRADE;
   out[1] = CMD_ID_UPGRADE_START;
@@ -334,7 +334,7 @@ void upgrade_trans_req(void) {
   sacp_msg.peer = upgrade_info.boot_info->peer;
   sacp_msg.sender = SACP_HOST_ID_CONTROLLER;
   sacp_msg.seq = seq++;
-  sacp_msg.payload[0] = CMD_SET_UPGRADE; 
+  sacp_msg.payload[0] = CMD_SET_UPGRADE;
   sacp_msg.payload[1] = CMD_ID_UPGRADE_TRANS;
   sacp_msg.payload[2] = upgrade_info.offset & 0xFF;
   sacp_msg.payload[3] = (upgrade_info.offset>>8) & 0xFF;
@@ -344,7 +344,7 @@ void upgrade_trans_req(void) {
   sacp_msg.payload[7] = (UPGRADE_TRANS_PACK_SIZE>>8) & 0xFF;
   sacp_msg.payload_len = 8;
   frame_len = 64;
-  
+
   Serial.print("request offset ");
   Serial.print(upgrade_info.offset);
   Serial.print(" buffer size ");
@@ -367,12 +367,12 @@ void upgrade_end_req(void) {
   sacp_msg.peer = upgrade_info.boot_info->peer;
   sacp_msg.sender = SACP_HOST_ID_CONTROLLER;
   sacp_msg.seq = seq++;
-  sacp_msg.payload[0] = CMD_SET_UPGRADE; 
+  sacp_msg.payload[0] = CMD_SET_UPGRADE;
   sacp_msg.payload[1] = CMD_ID_UPGRADE_END;
   sacp_msg.payload[2] = end_ret;
   sacp_msg.payload_len = 3;
   frame_len = 64;
-  
+
   protocol_build_pack(sacp_msg, send_frame, frame_len);
   send((link_ch_e)upgrade_info.boot_info->link_ch, send_frame, frame_len);
 
@@ -389,7 +389,7 @@ void upgrade_err_req(uint8_t err_code) {
   sacp_msg.peer = upgrade_info.boot_info->peer;
   sacp_msg.sender = SACP_HOST_ID_CONTROLLER;
   sacp_msg.seq = seq++;
-  sacp_msg.payload[0] = CMD_SET_UPGRADE; 
+  sacp_msg.payload[0] = CMD_SET_UPGRADE;
   sacp_msg.payload[1] = CMD_ID_UPGRADE_ERR;
   sacp_msg.payload[2] = err_code;
   sacp_msg.payload_len = 3;

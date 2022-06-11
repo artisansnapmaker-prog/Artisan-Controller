@@ -64,6 +64,14 @@ enum UpdatePackType{
   ESP32_FW = 5,
 };
 
+enum StatusLED {
+  LED_STATUS_NORNAL,
+  LED_STATUS_WAITING_UPGRADE,
+  LED_STATUS_CHECK_ERROR,
+  LED_STATUS_RECV_UPGRADE_REQ,
+  LED_STATUS_RECEIVING_FW,
+};
+
 typedef enum {
   LINK_CH_PC = 0,
   LINK_CH_SC = 1,
@@ -85,7 +93,7 @@ typedef struct{
   uint32_t fw_runaddr;
   uint8_t peer;
   uint8_t link_ch;
-  uint32_t boot_data_checksum; 
+  uint32_t boot_data_checksum;
 } pack_info_t;
 #pragma pack()
 
@@ -111,6 +119,7 @@ bool application_fw_valid(uint32_t checksum, uint8_t *app_fw_start, uint32_t app
 bool set_boot_upgrade_state_and_flush_to_flash(UpdateState s);
 bool boot_info_flush_to_flash(void);
 size_t send(link_ch_e ch, uint8_t *buf, uint32_t len);
+void show_status_led(StatusLED sta);
 
 
 #endif  // SNAPMAKER_BOOT_H_

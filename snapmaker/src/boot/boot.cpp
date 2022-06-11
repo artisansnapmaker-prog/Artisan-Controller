@@ -5,10 +5,18 @@
 #include "boot_upgrade.h"
 #include "boot.h"
 
-
 #define PC_Serial           (Serial)
 #define SC_Serial           (Serial2)
 
+#define LED_RED_PIN         PB9
+#define LED_GREEN_PIN       PA5
+#define LED_BLUE_PIN        PA8
+#define LED_ON              (HIGH)
+#define LED_OFF             (LOW)
+
+#define CONTROLLER_FAN_PIN  PB8
+
+#define LED_STATUS_TIMER_PERIOD_FW_TRANS  (200) // 200ms
 
 /********************************************************************************/
 // LOCAL VAR
@@ -36,13 +44,104 @@ void jump_to(uint32_t addr);
 /********************************************************************************/
 // FUN DEF
 /********************************************************************************/
+void setup_default_io() {
+  // disable FAN
+  pinMode(CONTROLLER_FAN_PIN, OUTPUT);
+  digitalWrite(LED_BLUE_PIN, LOW);
+}
+
+void show_status_led(StatusLED sta) {
+  switch (sta) {
+  case LED_STATUS_NORNAL: // blue
+    digitalWrite(LED_RED_PIN, LED_OFF);
+    digitalWrite(LED_GREEN_PIN, LED_OFF);
+    digitalWrite(LED_BLUE_PIN, LED_ON);
+    break;
+
+  case LED_STATUS_WAITING_UPGRADE:  // blue, flash
+    digitalWrite(LED_RED_PIN, LED_OFF);
+    digitalWrite(LED_GREEN_PIN, LED_OFF);
+    digitalWrite(LED_BLUE_PIN, LED_ON);
+    break;
+
+  case LED_STATUS_CHECK_ERROR:  // yellow
+    digitalWrite(LED_RED_PIN, LED_ON);
+    digitalWrite(LED_GREEN_PIN, LED_ON);
+    digitalWrite(LED_BLUE_PIN, LED_OFF);
+    break;
+
+  case LED_STATUS_RECV_UPGRADE_REQ:  // green
+    digitalWrite(LED_RED_PIN, LED_OFF);
+    digitalWrite(LED_GREEN_PIN, LED_ON);
+    digitalWrite(LED_BLUE_PIN, LED_OFF);
+    break;
+
+  case LED_STATUS_RECEIVING_FW:  // green, flash
+    digitalWrite(LED_RED_PIN, LED_OFF);
+    digitalWrite(LED_GREEN_PIN, LED_ON);
+    digitalWrite(LED_BLUE_PIN, LED_OFF);
+    break;
+
+  default:
+    digitalWrite(LED_RED_PIN, LED_OFF);
+    digitalWrite(LED_GREEN_PIN, LED_OFF);
+    digitalWrite(LED_BLUE_PIN, LED_OFF);
+    break;
+  }
+}
+
+void toggle_status_led(StatusLED sta) {
+  switch (sta) {
+  case LED_STATUS_NORNAL: // blue
+    break;
+
+  case LED_STATUS_WAITING_UPGRADE:  // blue, flash
+    digitalWrite(LED_RED_PIN, LED_OFF);
+    digitalWrite(LED_GREEN_PIN, LED_OFF);
+    digitalToggle(LED_BLUE_PIN);
+    break;
+
+  case LED_STATUS_CHECK_ERROR:  // yellow
+    digitalToggle(LED_RED_PIN);
+    digitalToggle(LED_GREEN_PIN);
+    digitalWrite(LED_BLUE_PIN, LED_OFF);
+    break;
+
+  case LED_STATUS_RECV_UPGRADE_REQ:  // green
+    break;
+
+  case LED_STATUS_RECEIVING_FW:  // green, flash
+    digitalToggle(LED_GREEN_PIN);
+    digitalWrite(LED_RED_PIN, LED_OFF);
+    digitalWrite(LED_BLUE_PIN, LED_OFF);
+    break;
+
+  default:
+    break;
+  }
+}
+
+void setup_status_led(void) {
+  // configure LED pins
+  pinMode(LED_RED_PIN, OUTPUT);
+  pinMode(LED_GREEN_PIN, OUTPUT);
+  pinMode(LED_BLUE_PIN, OUTPUT);
+
+  digitalWrite(LED_RED_PIN, LED_OFF);
+  digitalWrite(LED_GREEN_PIN, LED_OFF);
+  digitalWrite(LED_BLUE_PIN, LED_OFF);
+
+  // show blue LED by default
+  show_status_led(LED_STATUS_NORNAL);
+}
+
 bool boot_info_flush_to_flash(void) {
   boot_info.boot_data_checksum = calculate_checksum((uint8_t *)&boot_info, sizeof(pack_info_t) - 4);
   return write_boot_info(&boot_info);
 }
 
 bool set_boot_upgrade_state_and_flush_to_flash(UpdateState s) {
-  boot_info.upgrade_state = s;  
+  boot_info.upgrade_state = s;
   return boot_info_flush_to_flash();
 }
 
@@ -65,7 +164,7 @@ void print_boot_info(pack_info_t *pi) {
   ms = (char *)pi->magic_str;
   ms[BOOT_PACK_MAGIC_STR_LEN - 1] = 0;
   Serial.println(F(ms));
-  
+
   Serial.print("protocol ver: ");
   Serial.println(pi->protocol_ver);
 
@@ -140,7 +239,7 @@ bool write_boot_info(pack_info_t *pi) {
 }
 
 void boot_loop(void) {
-  
+
   static uint32_t tick_ms = millis();
   static uint32_t count_down_second = BOOT_DELAY_SECODE;
 
@@ -160,6 +259,7 @@ void boot_loop(void) {
       Serial.println(boot_info.fw_runaddr, HEX);
       jump_to(boot_info.fw_runaddr);
     }
+    toggle_status_led(LED_STATUS_WAITING_UPGRADE);
   }
 
   // Updating and boot
@@ -247,7 +347,7 @@ void jump_to(uint32_t addr)
 {
   Serial.end();
   __disable_irq();
-  uint32_t jump_addr = *(__IO uint32_t*)(addr+4); 
+  uint32_t jump_addr = *(__IO uint32_t*)(addr+4);
   pf p = (pf)jump_addr;
   __set_MSP(*(__IO uint32_t*)addr);
   p();
@@ -258,9 +358,13 @@ void setup() {
   PC_Serial.begin(115200);
   SC_Serial.begin(115200);
   Serial.println(F(BOOT_DATA_DEFAULT_MAGIC_STR));
+
+  setup_status_led();
+  setup_default_io();
 }
 
 void loop() {
+  uint32_t status_led_timer_fw_trans = millis();
   load_boot_info(&boot_info);
   if (boot_info_check(&boot_info)) {
     print_boot_info(&boot_info);
@@ -313,7 +417,8 @@ void loop() {
     }
   }
   else {
-    Serial.println("boot data ivalid, wait for upgrade\r\n");
+    Serial.println("boot data invalid, wait for upgrade\r\n");
+    show_status_led(LED_STATUS_CHECK_ERROR);
     boot_info.upgrade_state = UPGRADE_STATE_WAIT;
   }
 
@@ -326,5 +431,14 @@ void loop() {
     boot_loop();
     protocol_loop();
     upgrade_loop();
+    if (boot_info.upgrade_state == UPGRADE_STATE_TRANS) {
+      if ((int)(status_led_timer_fw_trans - millis()) < 0) {
+        toggle_status_led(LED_STATUS_RECEIVING_FW);
+        status_led_timer_fw_trans = millis() + LED_STATUS_TIMER_PERIOD_FW_TRANS;
+      }
+    }
+    else {
+      status_led_timer_fw_trans = millis();
+    }
   }
 }

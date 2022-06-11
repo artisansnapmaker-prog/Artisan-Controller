@@ -42,8 +42,8 @@
 // MICRO DEF
 /********************************************************************************/
 #define SACP_FRAME_MAX_SIZE           (2048)
-#define HEADER_1                      (0xAA)  
-#define HEADER_2                      (0x55)  
+#define HEADER_1                      (0xAA)
+#define HEADER_2                      (0x55)
 #define CMD_CODE_POS                  (0)
 #define SEQ_POS                       (1)
 #define HEADER_LEN                    (7)

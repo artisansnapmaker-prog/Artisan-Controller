@@ -80,6 +80,7 @@
 #include "stepper.h"
 
 Stepper stepper; // Singleton
+uint8_t E_ENABLE_ON = 1;
 
 #define BABYSTEPPING_EXTRA_DIR_WAIT
 
@@ -1662,7 +1663,7 @@ void Stepper::pulse_phase_isr() {
       motion_platform_svc.add_stepper_offset(current_block->e_stepper_offset * step_events_completed / step_event_count);
       #endif
       discard_current_block();
-    } 
+    }
     #if MB_SNAPMAKER
     // motion_platform_svc.stepper_quickstop_finish();
     // motion_platform_svc.stepper_quickstop_cb();

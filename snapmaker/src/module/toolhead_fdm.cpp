@@ -166,6 +166,7 @@ err_code_t ToolHeadFDM::single_extruder_post_init() {
   probe_state_sync();
   filament_state_sync();
 
+  motion_platform_svc.set_e_axis_enable_on_state(0);
   motion_platform_svc.set_steps_per_unit(single_extruder_steps_per_unit, E_AXIS);
   motion_platform_svc.set_home_offset(-4.3, 0, 0);
   motion_platform_svc.set_hotend_maxtemp(0, 275);
@@ -287,6 +288,7 @@ err_code_t ToolHeadFDM::dual_extruder_post_init() {
   hotend_offset_sync();
   z_compensation_sync();
 
+  motion_platform_svc.set_e_axis_enable_on_state(1);
   motion_platform_svc.set_steps_per_unit(dual_extruder_steps_per_unit[0], E_AXIS);
   motion_platform_svc.set_home_offset(-40, 0, 0);
   motion_platform_svc.set_hotend_maxtemp(0, 315);

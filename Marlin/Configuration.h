@@ -1323,7 +1323,8 @@
 #define X_ENABLE_ON 0
 #define Y_ENABLE_ON 0
 #define Z_ENABLE_ON 0
-#define E_ENABLE_ON 0 // For all extruders
+// #define E_ENABLE_ON 1 // For all extruders
+extern uint8_t E_ENABLE_ON;
 #define I_ENABLE_ON 0
 #define J_ENABLE_ON 0
 //#define K_ENABLE_ON 0

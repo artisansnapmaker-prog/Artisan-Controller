@@ -710,6 +710,18 @@ void MotionPlatformService::set_leveling_grids(uint8_t grids) {
   GRID_MAX_CELLS_X  = GRID_MAX_POINTS_X - 1;
   GRID_MAX_CELLS_Y  = GRID_MAX_POINTS_Y - 1;
 
+  if (smprinter.fdm->get_device_id() == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
+    startx = 49.695;
+    endx   = 349.298;
+    starty = 47;
+    endy   = 347;
+  } else if (smprinter.fdm->get_device_id() == MODULE_DEVICE_ID_FDM_1EXTRUDER_2019) {
+    startx = 49.7;
+    endx   = 349.6;
+    starty = 41;
+    endy   = 342.6;
+  }
+
   LOG_I("startx: %f, endx: %f, starty: %f, endy: %f\n", startx, endx, starty, endy);
 
   bilinear_grid_spacing[X_AXIS] = (endx - startx) / (GRID_MAX_POINTS_X - 1);

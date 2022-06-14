@@ -167,7 +167,7 @@ err_code_t ToolHeadFDM::single_extruder_post_init() {
   filament_state_sync();
 
   motion_platform_svc.set_steps_per_unit(single_extruder_steps_per_unit, E_AXIS);
-  motion_platform_svc.set_home_offset(-27.5, -21, 0);
+  motion_platform_svc.set_home_offset(-4.3, 0, 0);
   motion_platform_svc.set_hotend_maxtemp(0, 275);
   motion_platform_svc.pins_post_init();
   extruders_feedrate_percentage[0] = motion_platform_svc.get_feedrate_percentage();

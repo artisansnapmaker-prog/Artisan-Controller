@@ -117,7 +117,7 @@ err_code_t SystemService::raise_exception(uint16_t owner, uint8_t state, uint32_
   // check if same exception exist
   for (i = 0; i < EXCEPTION_STATIC_SIZE; i++) {
     if (nodes[i].owner == owner && nodes[i].state == state) {
-      LOG_W("same exception has raised! won't raised again!\n");
+      // LOG_W("same exception has raised! won't raised again!\n");
       return E_SUCCESS;
     }
   }

@@ -2121,6 +2121,10 @@ err_code_t ToolHeadFDM::right_extruder_move_to_destination(move_type_e type, flo
     case GO_HOME:
     case MOVE_SYNC:
       ret = host_can_rou.send_sync(&msg, recv_buf, &recv_len, 20000, 1);
+      // LOG_I("recv, move type: %d, move result: %d\n", recv_buf[0], recv_buf[1]);
+      if (recv_buf[1] != 0) {
+        ret = E_HARDWARE;
+      }
       break;
     case MOVE_ASYNC:
       ret = host_can_rou.send(&msg);
@@ -2132,8 +2136,7 @@ err_code_t ToolHeadFDM::right_extruder_move_to_destination(move_type_e type, flo
 
   if (ret != E_SUCCESS) {
     LOG_E("failed to move extruder, ret: %u\n", ret);
-    return ret;
   }
 
-  return E_SUCCESS;
+  return ret;
 }

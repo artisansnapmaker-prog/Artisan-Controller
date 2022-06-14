@@ -392,10 +392,14 @@ void GcodeSuite::G28() {
 
     #if MB_SNAPMAKER
       if (doX || doY || doZ) {
-        if (smprinter.get_toolhead_type() == TH_TYPE_3DP) {
+        if (smprinter.fdm->get_device_id() == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
           do_blocking_move_to_z(current_position[Z_AXIS] + 2, 10);
           planner.synchronize();
-          smprinter.right_extruder_move_to_destination(GO_HOME);
+          if (smprinter.right_extruder_move_to_destination(GO_HOME) != E_SUCCESS) {
+            LOG_I("right extruder go home failed\n");
+            smprinter.raise_exception(SM_EXCEP_OWNER_TOOLHEAD, FDM_EXCEP_STA_EXTRUDER_HOME_FAILED);
+            return;
+          }
           smprinter.tool_change(0);
         }
       }
@@ -540,11 +544,14 @@ void GcodeSuite::G28() {
   TERN_(DELTA_HOME_TO_SAFE_ZONE, do_blocking_move_to_z(delta_clip_start_height));
 
   #if MB_SNAPMAKER
-    if (smprinter.get_toolhead_type() == TH_TYPE_3DP) {
+    if (smprinter.fdm->get_device_id() == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
       if (!doZ && (doX || doY)) {
         do_blocking_move_to_z(current_position[Z_AXIS] - 2, 10);
         planner.synchronize();
       }
+    }
+
+    if (smprinter.get_toolhead_type() == TH_TYPE_3DP) {
       TERN_(CAN_SET_LEVELING_AFTER_G28, if (leveling_restore_state) set_bed_leveling_enabled());
     }
   #endif

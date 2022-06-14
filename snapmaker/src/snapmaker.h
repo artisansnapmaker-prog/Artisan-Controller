@@ -225,6 +225,7 @@ enum FDMExceptionState {
   FDM_EXCEP_STA_EXTRUDER_STATE_ERROR,
   FDM_EXCEP_STA_PROBE_ERROR,
   FDM_EXCEP_STA_PORT_ERROR,
+  FDM_EXCEP_STA_EXTRUDER_HOME_FAILED,
 };
 
 // exception state for heated Bed
@@ -511,10 +512,12 @@ class SnapmakerPrinter
       }
     }
 
-    void right_extruder_move_to_destination(move_type_e type, float destination = 0) {
+    err_code_t right_extruder_move_to_destination(move_type_e type, float destination = 0) {
       if (fdm) {
-        fdm->right_extruder_move_to_destination(type, destination);
+        return fdm->right_extruder_move_to_destination(type, destination);
       }
+
+      return E_HARDWARE;
     }
 
     // LASER

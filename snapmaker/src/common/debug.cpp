@@ -256,19 +256,20 @@ void SnapDebug::send_log_to_host(char *string, SnapDebugLevel level/* = SNAP_DEB
     sacp_log_t *sacp_log = NULL;
     bool need_to_send_host;
     uint8_t ch = 0;
-    uint32_t peer = 2;
+    peer_luban = 0xffffffff;
+    peer_screen = 0xffffffff;
 
     for (uint32_t i = 0; i < 3; i++) {
       if ((subscript_info_array[i].is_occupied == true) && (subscript_info_array[i].ch == SACP_HMI_CH_SCREEN)) {
         ch = SACP_HMI_CH_SCREEN;
-        if ((subscript_info_array[i].peer == SACP_HOST_ID_LUBAN) && (level > pc_msg_level)) {
-          peer = SACP_HOST_ID_LUBAN;
+        if ((subscript_info_array[i].peer == SACP_HOST_ID_LUBAN) && (level >= pc_msg_level)) {
+          peer_luban = SACP_HOST_ID_LUBAN;
           need_to_send_host = true;
-          break;
-        } else if ((subscript_info_array[i].peer == SACP_HOST_ID_SCREEN) && (level > sc_msg_level)) {
-          peer = SACP_HOST_ID_SCREEN;
+        }
+
+        if ((subscript_info_array[i].peer == SACP_HOST_ID_SCREEN) && (level >= sc_msg_level)) {
+          peer_screen = SACP_HOST_ID_SCREEN;
           need_to_send_host = true;
-          break;
         }
       }
     }
@@ -312,7 +313,9 @@ void SnapDebug::send_log_to_host(char *string, SnapDebugLevel level/* = SNAP_DEB
     sacp_log->msg.cmd_id  = DEBUG_SUBSCRIPT_CMD_ID_LOG_TRANS;
     sacp_log->msg.attr    = SACP_MESSAGE_ATTR_ACK;
     sacp_log->msg.length  = index;
-    sacp_log->msg.peer = peer;
+    // sacp_log->msg.peer = peer;
+    sacp_log->peer[0] = peer_luban;
+    sacp_log->peer[1] = peer_screen;
     sacp_log->msg.ch = ch;
   }
 
@@ -377,6 +380,8 @@ void SnapDebug::send_log_to_console_with_sacp_protocol(char *string) {
   sacp_log->msg.length  = index;
   sacp_log->msg.peer = SACP_HOST_ID_LUBAN;
   sacp_log->msg.ch   = SACP_HMI_CH_PC;
+  sacp_log->peer[0]  = SACP_HOST_ID_LUBAN;
+  sacp_log->peer[1]  = 0xffffffff;
 }
 
 void SnapDebug::send_log_to_console_with_origin_protocol(char *string) {
@@ -399,7 +404,12 @@ void SnapDebug::send_sacp_log_routine() {
     return;
   }
 
-  host_hmi.send(&sacp_log->msg);
+  for (uint32_t i = 0; i < 2; i++) {
+    if (sacp_log->peer[i] != 0xffffffff) {
+      sacp_log->msg.peer = sacp_log->peer[i];
+      host_hmi.send(&sacp_log->msg);
+    }
+  }
 }
 
 // output debug message, will not output message whose level

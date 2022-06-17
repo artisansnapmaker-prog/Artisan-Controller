@@ -95,6 +95,7 @@ struct SnapDebugInfo {
 };
 
 typedef struct {
+  uint32_t peer[2];
   unsigned char sacp_msg_buffer[SNAP_SINGLE_LOG_BUFFER_SIZE+4];
   sacp_hmi_message_t msg;
 }sacp_log_t;
@@ -143,6 +144,8 @@ class SnapDebug {
     SemaphoreHandle_t boot_log_buffer_lock;
     bool is_boot_log;
     debug_subscript_info_t subscript_info_array[3];
+    volatile uint32_t peer_screen;
+    volatile uint32_t peer_luban;
 };
 
 // interface for external use

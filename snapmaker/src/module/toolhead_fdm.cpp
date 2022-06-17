@@ -1973,6 +1973,9 @@ void ToolHeadFDM::fdm_exception_trigger(fdm_fault_e fault) {
         LOG_I("filament out request pause\n");
         job_ctrl_svc.req_pause(PAUSE_FILM_RUNOUT, NULL, NULL);
         break;
+      case FDM_FAULT_EXTRUDER_HOME_FAILED:
+        LOG_I("extruder go home failed\n");
+        break;
     }
   // }
 }
@@ -2122,10 +2125,14 @@ err_code_t ToolHeadFDM::right_extruder_move_to_destination(move_type_e type, flo
   switch (type) {
     case GO_HOME:
     case MOVE_SYNC:
+      recv_buf[1] = 0xff;
       ret = host_can_rou.send_sync(&msg, recv_buf, &recv_len, 20000, 1);
       // LOG_I("recv, move type: %d, move result: %d\n", recv_buf[0], recv_buf[1]);
       if (recv_buf[1] != 0) {
         ret = E_HARDWARE;
+        fdm_exception_trigger(FDM_FAULT_EXTRUDER_HOME_FAILED);
+      } else {
+        fdm_exception_clear(FDM_FAULT_EXTRUDER_HOME_FAILED);
       }
       break;
     case MOVE_ASYNC:
@@ -2141,4 +2148,12 @@ err_code_t ToolHeadFDM::right_extruder_move_to_destination(move_type_e type, flo
   }
 
   return ret;
+}
+
+uint8_t ToolHeadFDM::get_specified_fdm_state(fdm_fault_e fault) {
+  if ((fdm_state >> fault) & 0x01) {
+    return 1;
+  } else {
+    return 0;
+  }
 }

@@ -145,6 +145,7 @@ typedef enum {
   FDM_FAULT_NOZZLE_IDENTIFY,
   FDM_FAULT_NOZZLE_TEMP,
   FDM_FAULT_FILAMENT,
+  FDM_FAULT_EXTRUDER_HOME_FAILED,
 }fdm_fault_e;
 
 typedef enum {
@@ -262,6 +263,7 @@ class ToolHeadFDM: public ModuleBase {
     float *get_hotend_pid(uint8_t e) { return pid; }
     void fdm_exception_trigger(fdm_fault_e fault);
     void fdm_exception_clear(fdm_fault_e fault);
+    uint8_t get_specified_fdm_state(fdm_fault_e fault);
     void show_fdm_info();
     void delay_turnoff_heating_process();
     void dual_extruder_process_after_z_homed();

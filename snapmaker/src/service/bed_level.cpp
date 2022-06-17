@@ -386,6 +386,10 @@ static err_code_t hmi_req_callback_bed_position_detection(void *obj, sacp_hmi_me
 
       if (!motion_platform_svc.is_all_axes_homed()) {
         motion_platform_svc.run_gcode((char *)"G28", true);
+        if (smprinter.fdm->get_specified_fdm_state(FDM_FAULT_EXTRUDER_HOME_FAILED) == 1) {
+          ret = E_FAILURE;
+          goto EXIT;
+        }
       }
 
       smprinter.fdm->tool_change(0);
@@ -483,6 +487,10 @@ static err_code_t hmi_req_callback_probe_sensor_calibration(void *obj, sacp_hmi_
 
       if (!motion_platform_svc.is_all_axes_homed()) {
         motion_platform_svc.run_gcode((char *)"G28", true);
+        if (smprinter.fdm->get_specified_fdm_state(FDM_FAULT_EXTRUDER_HOME_FAILED) == 1) {
+          ret = E_FAILURE;
+          goto EXIT;
+        }
       }
 
       smprinter.fdm->tool_change(0);
@@ -731,6 +739,9 @@ err_code_t BedLevelService::start_manual_bed_leveling(uint8_t grids) {
   // go home
   if (!motion_platform_svc.is_all_axes_homed()) {
     motion_platform_svc.run_gcode((char *)"G28", true);
+    if (smprinter.fdm->get_specified_fdm_state(FDM_FAULT_EXTRUDER_HOME_FAILED) == 1) {
+      return E_FAILURE;
+    }
   }
 
   smprinter.fdm->tool_change(0);
@@ -823,6 +834,10 @@ err_code_t BedLevelService::start_auto_bed_leveling(uint8_t grids) {
 
   if (!motion_platform_svc.is_all_axes_homed()) {
     motion_platform_svc.run_gcode((char *)"G28", true);
+    if (smprinter.fdm->get_specified_fdm_state(FDM_FAULT_EXTRUDER_HOME_FAILED) == 1) {
+      ret = E_FAILURE;
+      goto EXIT;
+    }
   }
 
   smprinter.fdm->tool_change(0);

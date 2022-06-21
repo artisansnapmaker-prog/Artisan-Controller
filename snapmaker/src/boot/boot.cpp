@@ -18,6 +18,16 @@
 
 #define LED_STATUS_TIMER_PERIOD_FW_TRANS  (200) // 200ms
 
+typedef struct __packed ProductionSN {
+  char sn[30];  // include \0
+  uint16_t checksum;
+  char sn_backup[30];  // include \0
+  uint16_t checksum_backup;
+} production_sn_t;
+
+#define ADDR_CONTROLLER_SN  (0x8007FFC)
+#define ADDR_PRODUCTION_SN  (0x8007FBC)
+
 /********************************************************************************/
 // LOCAL VAR
 /********************************************************************************/
@@ -210,6 +220,15 @@ void print_boot_info(pack_info_t *pi) {
 
   Serial.print(F("boot data checksum: "));
   Serial.println(pi->boot_data_checksum, HEX);
+
+  Serial.print(F("controller SN: 0x"));
+  Serial.println(*(uint32_t *)(ADDR_CONTROLLER_SN), HEX);
+
+  production_sn_t *psn = (production_sn_t *)(ADDR_PRODUCTION_SN);
+  Serial.print(F("Production SN: "));
+  Serial.println(psn->sn);
+  Serial.print(F("Production SN: "));
+  Serial.println(psn->sn_backup);
 }
 
 bool application_fw_valid(uint32_t checksum, uint8_t *app_fw_start, uint32_t app_fw_len) {

@@ -1888,7 +1888,8 @@ void ToolHeadFDM::prepare_to_start_a_new_print_job(void) {
 err_code_t ToolHeadFDM::prepare_start(void) {
   err_code_t ret = E_SUCCESS;
   LOG_I("fdm_fault_state: %d, fdm_state: %d\n", fdm_state, get_status());
-  if ((fdm_state == 0) && (get_status() == MODULE_STATUS_NORMAL)) {
+  uint32_t fdm_state_tmp = fdm_state & ~(1 << FDM_FAULT_EXTRUDER_STATE);
+  if ((fdm_state_tmp == 0) && (get_status() == MODULE_STATUS_NORMAL)) {
     ret = E_SUCCESS;
     return ret;
   }

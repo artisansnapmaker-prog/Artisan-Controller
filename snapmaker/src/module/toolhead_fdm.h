@@ -45,7 +45,7 @@
 #define DUAL_EXTRUDER_SAFE_SPACE_MAX_Z          6
 #define TOOL_CHANGE_RAISE_SPACE                 1
 
-#define DEFAULT_HOTEND_OFFSET_X                 25.6
+#define DEFAULT_HOTEND_OFFSET_X                 26
 #define DEFAULT_HOTEND_OFFSET_Y                 0
 #define DEFAULT_HOTEND_OFFSET_Z                 -1.5
 #define BIAS_HOTEND_OFFSET_X                    1.2

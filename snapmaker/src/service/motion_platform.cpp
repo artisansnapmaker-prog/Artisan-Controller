@@ -711,10 +711,10 @@ void MotionPlatformService::set_leveling_grids(uint8_t grids) {
   GRID_MAX_CELLS_Y  = GRID_MAX_POINTS_Y - 1;
 
   if (smprinter.fdm->get_device_id() == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
-    startx = 49.695;
-    endx   = 349.298;
-    starty = 47;
-    endy   = 347;
+    startx = 49.497;
+    endx   = 349.091;
+    starty = 49.406;
+    endy   = 350.305;
   } else if (smprinter.fdm->get_device_id() == MODULE_DEVICE_ID_FDM_1EXTRUDER_2019) {
     startx = 49.7;
     endx   = 349.6;

@@ -190,8 +190,16 @@ def main(argv=None):
 
         f = open(of, 'wb')
         f.write(boot_fw)
+        f.flush()
 
-        f.seek(1024 * 32)
+        cur_pos = f.tell()
+        print("end of bootloader: {:#X}".format(cur_pos + 0x8000000))
+        padding_len = 1024 * 32 - cur_pos
+        print("padding length: {} bytes".format(padding_len))
+        for i in range(padding_len):
+          f.write(b'\xff')
+
+        #f.seek(1024 * 32)
         f.write(head)
 
         f.seek(RUNADDR - 0x08000000)

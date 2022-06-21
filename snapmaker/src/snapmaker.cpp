@@ -165,6 +165,14 @@ typedef struct __packed MachineInfo {
   char     fw_ver[0];
 } machine_info_t;
 
+typedef struct __packed ProductionSN {
+  uint16_t str_len;
+  char     sn[0];
+} production_sn_t;
+
+#define ADDR_PRODUCTION_SN  (0x8007FE0)
+#define ADDR_CONTROLLER_SN  (0x8007FFC)
+
 #define PC_PORT_PROTOCOL_GCODE  (0)
 #define PC_PORT_PROTOCOL_SACP   (1)
 #define PC_PORT_PROTOCOL_MAX    (PC_PORT_PROTOCOL_SACP)
@@ -208,12 +216,13 @@ err_code_t SnapmakerPrinter::hmi_cb_get_machine_info(void *obj, sacp_hmi_message
   int i = 0;
 
   machine_info_t *info = (machine_info_t *)(msg->data + 1);
+  production_sn_t *psn;
 
   msg->data[0] = E_SUCCESS;
 
   info->model      = (uint8_t)printer->model;
   info->hw_ver     = printer->hw_ver;
-  info->sn         = 0;
+  info->sn         = *(uint32_t *)(ADDR_CONTROLLER_SN);
 
   for (; i < 32; i++) {
     info->fw_ver[i] = ver[i];
@@ -223,7 +232,12 @@ err_code_t SnapmakerPrinter::hmi_cb_get_machine_info(void *obj, sacp_hmi_message
 
   info->fw_ver_len = i;
 
-  msg->length = sizeof(machine_info_t) + i + 1;
+  // product serial number
+  psn = (production_sn_t *)(msg->data + 1 + sizeof(machine_info_t) + i);
+  psn->str_len = 21;
+  strncpy(psn->sn, "12345678901234567890", 21);
+
+  msg->length = sizeof(machine_info_t) + i + 1 + 23;
 
   LOG_I("report machine info, len[0x%x]\n", msg->length);
 

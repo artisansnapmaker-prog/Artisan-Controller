@@ -1459,6 +1459,10 @@ void SnapmakerPrinter::reset_settings() {
   settings.fdm_settings.single_extruder_steps_per_unit  = SINGLE_EXTRUDER_STEPS_PER_UNIT_DEFAULT;
   settings.fdm_settings.dual_extruder_steps_per_unit[0] = DUAL_EXTRUDER_STEPS_PER_UNIT_DEFAULT;
   settings.fdm_settings.dual_extruder_steps_per_unit[1] = DUAL_EXTRUDER_STEPS_PER_UNIT_DEFAULT;
+  if (fdm) {
+    fdm->reset_e_steps_per_unit();
+    fdm->reset_home_offset();
+  }
 
   // reset your settings
 

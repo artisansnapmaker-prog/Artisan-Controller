@@ -272,6 +272,8 @@ class ToolHeadFDM: public ModuleBase {
     void set_axis_steps_per_unit(float value);
     void report_steps_per_unit();
     err_code_t right_extruder_move_to_destination(move_type_e type, float destination/* = 0*/);
+    void reset_e_steps_per_unit();
+    void reset_home_offset();
 
   // private methods
   private:

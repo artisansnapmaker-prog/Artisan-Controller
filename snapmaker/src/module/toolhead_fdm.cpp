@@ -2158,3 +2158,24 @@ uint8_t ToolHeadFDM::get_specified_fdm_state(fdm_fault_e fault) {
     return 0;
   }
 }
+
+void ToolHeadFDM::reset_e_steps_per_unit() {
+  uint16_t device_id = get_device_id();
+  if (device_id == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
+    dual_extruder_steps_per_unit[0] = DUAL_EXTRUDER_STEPS_PER_UNIT_DEFAULT;
+    dual_extruder_steps_per_unit[1] = DUAL_EXTRUDER_STEPS_PER_UNIT_DEFAULT;
+    motion_platform_svc.set_steps_per_unit(dual_extruder_steps_per_unit[0], E_AXIS);
+  } else if (device_id == MODULE_DEVICE_ID_FDM_1EXTRUDER_2019) {
+    single_extruder_steps_per_unit = SINGLE_EXTRUDER_STEPS_PER_UNIT_DEFAULT;
+    motion_platform_svc.set_steps_per_unit(single_extruder_steps_per_unit, E_AXIS);
+  }
+}
+
+void ToolHeadFDM::reset_home_offset() {
+  uint16_t device_id = get_device_id();
+  if (device_id == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
+    motion_platform_svc.set_home_offset(-31.601, -5.594, 0);
+  } else if (device_id == MODULE_DEVICE_ID_FDM_1EXTRUDER_2019) {
+    motion_platform_svc.set_home_offset(-4.3, 0, 0);
+  }
+}

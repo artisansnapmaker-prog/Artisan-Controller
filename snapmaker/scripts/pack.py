@@ -1,213 +1,123 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-
-' fms '
-__author__ = '747'
-
-from enum import Enum
-import argparse
-import time
-import ntpath
+import sys
 import os
+import re, datetime
+from os.path import join
+Import("env", "projenv")
+
+def pack_raw_bootloader_app(source, target, env):
+  print("===== snapmaker pack =====")
+  # os.system("pio run -t pack")
+  project_dir = projenv.get("PROJECT_DIR")
+  pack_script = join(project_dir, 'snapmaker', 'scripts', 'pack_for_programming.py')
+
+  release_dir = join(project_dir, "release")
+  if not os.path.exists(release_dir):
+    os.mkdir(release_dir)
+
+  PIOENV = projenv.get("PIOENV")
+  if PIOENV.endswith('_boot'):
+    APP_PIOENV = PIOENV[:-5]
+    BOOT_PIOENV = PIOENV
+  else:
+    APP_PIOENV = PIOENV
+    BOOT_PIOENV = PIOENV + '_boot'
+
+  app_fw_bin = join(projenv.get("PROJECT_BUILD_DIR"), APP_PIOENV, projenv.get("PROGNAME") + '.bin')
+  boot_fw_bin = join(projenv.get("PROJECT_BUILD_DIR"), BOOT_PIOENV, projenv.get("PROGNAME") + '.bin')
+  os.system("python {0} -a {1} -b {2} -o {3}".format(pack_script, app_fw_bin, boot_fw_bin, release_dir))
 
 
-def crc32(data):
-  checksum = 0
-  l = len(data)
+def pack_minor_app(source, target, env):
+  PIOENV = projenv.get("PIOENV")
+  if PIOENV.endswith('_boot'):
+    print("You are build bootloader, won't package bin for HMI")
+    return
 
-  for j in range(0, (int)(l / 2) * 2, 2):
-    checksum += ((data[j]<<8) | data[j+1])
+  project_dir = projenv.get("PROJECT_DIR")
+  release_dir = join(project_dir, "release")
+  if not os.path.exists(release_dir):
+    os.mkdir(release_dir)
 
-  if (l % 2):
-    checksum += data[l - 1]
+  # get version from Marlin\src\inc\Version.h
+  with open(join(project_dir, 'Marlin', 'src', 'inc','Version.h'), 'r', encoding='utf-8') as version_file:
+      lines = version_file.readlines()
 
-  checksum = checksum & 0xFFFFFFFF
-  checksum = ~checksum
-  checksum = checksum & 0xFFFFFFFF
-  return checksum
+  version = None
+  pattern = r"V\d+\.\d+\.\d+"
+  for line in lines:
+      match_obj = re.search(pattern, line, re.I)
+      if match_obj:
+          version = match_obj[0]
+          break
 
-def crc16(data):
-  checksum = 0
-  l = len(data)
+  if not version:
+    print("cannot get app version from Marlin\src\inc\Version.h")
+    print("won't use default version: V0.0.0-2201")
+    version = "V0.0.0"
+  else:
+    print("got app version: {}".format(version))
 
-  for j in range(0, (int)(l / 2) * 2, 2):
-    checksum += ((data[j]<<8) | data[j+1])
+  app_fw_bin = join(projenv.get("PROJECT_BUILD_DIR"), PIOENV, projenv.get("PROGNAME") + '.bin')
 
-  if (l % 2):
-    checksum += data[l - 1]
+  date = datetime.datetime.today().strftime('%Y%m%d')
+  minor_bin = join(release_dir, "A400_MC_{}_{}.bin".format(version, date))
+  if os.path.exists(minor_bin):
+    try:
+      os.remove("{}.old".format(minor_bin))
+    except Exception:
+      pass
+    os.rename(minor_bin, "{}.old".format(minor_bin))
 
-  while checksum > 0xFFFF:
-    checksum = ((checksum >> 16) & 0xFFFF) + (checksum & 0xFFFF)
+  print("app raw bin: {}".format(app_fw_bin))
+  print("min bin name: {}".format(minor_bin))
+  # tools\ota_python\gen_header.py
+  pack_script = join(project_dir, 'tools', 'ota_python', 'gen_header.py')
+  os.system("python {} -t 2 -f {} -c 1 -v {} -o {}".format(pack_script, app_fw_bin, version, minor_bin))
 
-  checksum = checksum & 0xFFFF;
-  checksum = ~checksum
-  checksum = checksum & 0xFFFF;
 
-  return checksum
+def pack_major_app(source, target, env):
+  PIOENV = projenv.get("PIOENV")
+  if PIOENV.endswith('_boot'):
+    print("You are build bootloader, won't package bin for HMI")
+    return
 
-class packet_type(Enum):
-  SM2_CTRL_FW = 0x0001
-  A400_CTRL_FW = 0x0002
-  J1_CTRL_FW = 0x0003
-  SM2_MODULE_FW = 0x0004
-  ESP32_MODULE_FW = 0x0005
+  project_dir = projenv.get("PROJECT_DIR")
+  release_dir = join(project_dir, "release")
+  if not os.path.exists(release_dir):
+    print("release dir not found! please make minor image firstly!!!")
+    return
 
-class ugr_ctrl_flag(Enum):
-  UGR_NORMAL = 0x00
-  UGR_FORCE = 0x01
+  # get version from Marlin\src\inc\Version.h
+  with open(join(project_dir, 'Marlin', 'src', 'inc','Version.h'), 'r', encoding='utf-8') as version_file:
+      lines = version_file.readlines()
 
-class ugr_status(Enum):
-  UGR_STATUS_FIRST_BURN = 0xAA00
-  UGR_STATUS_FIRST_WAIT = 0xAA01
-  UGR_STATUS_FIRST_START = 0xAA02
-  UGR_STATUS_FIRST_TRANS = 0xAA03
-  UGR_STATUS_FIRST_END = 0xAA04
-  UGR_STATUS_FIRST_JUMP_APP = 0xAA05
+  version = None
+  pattern = r"V\d+\.\d+\.\d+"
+  for line in lines:
+      match_obj = re.search(pattern, line, re.I)
+      if match_obj:
+          version = match_obj[0]
+          break
 
-class packet:
-  def __init__(self, bin, p_type, ctrl_flag, ver, radr, s_id, e_id):
-    self.magic_string = "snapmaker update.bin"
-    self.protocol_ver = 0x01
-    self.pack_type = p_type
-    self.ugr_ctrl_flag = ctrl_flag
-    self.start_index = s_id
-    self.end_index = e_id
-    self.fw_version = ver
-    self.timestamp = "2022.04.28:18:03:01"
-    self.ugr_status = 0xAA00
-    self.fw_lenght = len(bin)
-    self.fw_checksum = crc32(bin)
-    print("%x" % self.fw_checksum)
-    self.fw_runaddr = radr
-    self.channel = 0
-    self.peer = 0
-    self.packet_checksum = 0
-    self.bin = bin
+  if not version:
+    print("cannot get app version from Marlin\src\inc\Version.h")
+    print("won't use default version: V0.0.0-2201")
+    version = "V0.0.0"
+  else:
+    print("got app version: {}".format(version))
 
-  def gen(self):
-    payload = bytearray(0)
-    payload.extend(bytes(self.magic_string, encoding="utf-8"))
-    payload.append(0x00)
-    payload.append(self.protocol_ver & 0xFF)
-    payload.extend(self.pack_type.to_bytes(2, 'little'))
-    payload.append(self.ugr_ctrl_flag & 0xFF)
-    payload.extend(self.start_index.to_bytes(2, 'little'))
-    payload.extend(self.end_index.to_bytes(2, 'little'))
-    
-    b = bytearray(self.fw_version, encoding="utf-8")
-    print(b)
-    l = len(b)
-    for i in range(l, 32):
-      b.append(0)
-    payload.extend(b)
-    print(b)
+  date = datetime.datetime.today().strftime('%Y%m%d')
+  minor_bin = join(release_dir, "A400_MC_{}_{}.bin".format(version, date))
+  if not os.path.exists(minor_bin):
+    print("cannot found minor image: {} !!!".format(minor_bin))
+    print("please make minor inmage firstly!!!")
+    return
 
-    b = bytearray(self.timestamp, encoding="utf-8")
-    print(b)
-    l = len(b)
-    for i in range(l, 20):
-      b.append(0)
-    payload.extend(b)
-    print(b)
+  pack_script = join(project_dir, 'snapmaker', 'scripts', 'pack_for_hmi.py')
+  os.system("python {} -c {} -v {}".format(pack_script, minor_bin, version))
 
-    payload.extend(self.ugr_status.to_bytes(2, 'little'))
-    payload.extend(self.fw_lenght.to_bytes(4, 'little'))
-    if self.fw_checksum < 0:
-      payload.extend(self.fw_checksum.to_bytes(4, 'little', signed=True))
-    else:
-      payload.extend(self.fw_checksum.to_bytes(4, 'little'))
-    payload.extend(self.fw_runaddr.to_bytes(4, 'little'))
-    payload.append(self.channel & 0xFF)
-    payload.append(self.peer & 0xFF)
-    self.packet_checksum = crc32(payload)
-    payload.extend(self.packet_checksum.to_bytes(4, 'little'))
-    
-    l = len(payload)
-    b = bytearray(0)
-    for i in range(l, 256):
-      b.append(0)
-    payload.extend(b)
-    
-    return payload
 
-VER = "V1.1.0"
-FLAG = 0
-RUNADDR = 0x08010000
-START_ID = 0
-END_ID = 0
+env.AddPostAction("$BUILD_DIR/${PROGNAME}.bin", pack_raw_bootloader_app)
+env.AddPostAction("$BUILD_DIR/${PROGNAME}.bin", pack_minor_app)
+env.AddPostAction("$BUILD_DIR/${PROGNAME}.bin", pack_major_app)
 
-def main(argv=None):
-    parser = argparse.ArgumentParser("Package firmware for A400")
-
-    parser.add_argument('-d', '--dir',
-                        help="specify top directory of project",
-                        type=str,
-                        default=None)
-
-    parser.add_argument('-a', '--application',
-                        help="specify raw binary image of application",
-                        type=str,
-                        default=None)
-
-    parser.add_argument('-v', '--version',
-                        help="specify version of application",
-                        type=str,
-                        default=None)
-
-    parser.add_argument('-b', '--boot',
-                        help="specify raw binary image of boot",
-                        type=str,
-                        default=None)
-
-    parser.add_argument('-o', '--out',
-                        help="specify raw binary image of boot",
-                        type=str,
-                        default=None)
-
-    args = parser.parse_args()
-
-    if args.application == None or args.boot == None:
-      return
-
-    print("boot: " + args.boot)
-    print("application: " + args.application)
-    of = args.out + "\A400_BOOT_APP.bin"
-    print("output: " + of)
-
-    if os.path.exists(args.boot) and os.path.exists(args.application):
-      with open(args.boot, 'rb') as bf, open(args.application,'rb') as af:
-        boot_fw = bf.read()
-        print("boot file lenght %d" % len(boot_fw))
-
-        app_fw = af.read()
-        print("file lenght %d" % len(app_fw))
-
-        pt = packet(app_fw, 2, 0, VER, RUNADDR, START_ID, END_ID)
-        head = pt.gen()
-
-        hex_str = " ".join(["{:02x}".format(x) for x in head])
-        print(hex_str)
-
-        f = open(of, 'wb')
-        f.write(boot_fw)
-        f.flush()
-
-        cur_pos = f.tell()
-        print("end of bootloader: {:#X}".format(cur_pos + 0x8000000))
-        padding_len = 1024 * 32 - cur_pos
-        print("padding length: {} bytes".format(padding_len))
-        for i in range(padding_len):
-          f.write(b'\xff')
-
-        #f.seek(1024 * 32)
-        f.write(head)
-
-        f.seek(RUNADDR - 0x08000000)
-        f.write(app_fw)
-
-        f.close()
-    else:
-      print("Files not ready!!!")
-
-if __name__=='__main__':
-    main()

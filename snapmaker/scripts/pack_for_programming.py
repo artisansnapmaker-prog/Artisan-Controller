@@ -8,6 +8,7 @@ from enum import Enum
 import argparse
 import time
 import ntpath
+import os
 
 
 def crc32(data):
@@ -129,65 +130,84 @@ class packet:
 
     return payload
 
-
 VER = "V1.1.0"
 FLAG = 0
 RUNADDR = 0x08010000
 START_ID = 0
-END_ID = 23
-O_NAME=None
-parser = argparse.ArgumentParser(description="gen_header")
-parser.add_argument('--file', '-f', help='bin file name')
-parser.add_argument('--type', '-t', help='packet type, 1: SM2 CONTROLER, 2: A400 CONTROLER, 3: J1 CONTROLER, 4: SM2 MODUEL, 5: ESP32 MODUEL')
-parser.add_argument('--ver',  '-v', help='version')
-parser.add_argument('--flag', '-c', help='upgrade control flag, 0 for normal, 1 for force')
-parser.add_argument('--radr', '-a', help='firmware run address')
-parser.add_argument('--output', '-o', help='output file name')
-args = parser.parse_args()
+END_ID = 0
 
-try:
-  FILE = args.file
-  TYPE = int(args.type)
-  O_NAME = args.output
-except:
-  print("unsupported param")
-  while True:
-    time.sleep(1)
+def main(argv=None):
+    parser = argparse.ArgumentParser("Package firmware for A400")
 
-try:
-  VER = args.ver
-  FLAG = int(args.flag)
-  RUNADDR = int(args.radr)
-except:
-  pass
+    parser.add_argument('-d', '--dir',
+                        help="specify top directory of project",
+                        type=str,
+                        default=None)
 
-print("======== INFORMATION ======")
-print("flie: " + FILE)
-print("type: %d" % TYPE)
-print("ver: " + VER)
-print("flag %d: " % FLAG)
-print("output file: {}".format(O_NAME))
+    parser.add_argument('-a', '--application',
+                        help="specify raw binary image of application",
+                        type=str,
+                        default=None)
 
+    parser.add_argument('-v', '--version',
+                        help="specify version of application",
+                        type=str,
+                        default=None)
 
-# _(self, bin, p_type, ctrl_flag, ver, radr):
-f = open(FILE, 'rb')
-bin = f.read()
-print("file lenght %d" % len(bin))
+    parser.add_argument('-b', '--boot',
+                        help="specify raw binary image of boot",
+                        type=str,
+                        default=None)
 
-pt = packet(bin, TYPE, FLAG, VER, RUNADDR, START_ID, END_ID)
-head = pt.gen()
+    parser.add_argument('-o', '--out',
+                        help="specify output directory of image",
+                        type=str,
+                        default=None)
 
-hex_str = " ".join(["{:02x}".format(x) for x in head])
-print(hex_str)
+    args = parser.parse_args()
 
-if isinstance(O_NAME, str):
-  of = O_NAME
-else:
-  of = ntpath.basename(FILE) + ".pack"
+    if args.application == None or args.boot == None:
+      return
 
-f = open(of, 'wb')
-f.write(head)
-f.write(bin)
+    print("boot: " + args.boot)
+    print("application: " + args.application)
+    of = args.out + "\A400_BOOT_APP.bin"
+    print("output: " + of)
+
+    if os.path.exists(args.boot) and os.path.exists(args.application):
+      with open(args.boot, 'rb') as bf, open(args.application,'rb') as af:
+        boot_fw = bf.read()
+        print("boot file lenght %d" % len(boot_fw))
+
+        app_fw = af.read()
+        print("file lenght %d" % len(app_fw))
+
+        pt = packet(app_fw, 2, 0, VER, RUNADDR, START_ID, END_ID)
+        head = pt.gen()
+
+        hex_str = " ".join(["{:02x}".format(x) for x in head])
+        print(hex_str)
+
+        f = open(of, 'wb')
+        f.write(boot_fw)
+        f.flush()
+
+        cur_pos = f.tell()
+        print("end of bootloader: {:#X}".format(cur_pos + 0x8000000))
+        padding_len = 1024 * 32 - cur_pos
+        print("padding length: {} bytes".format(padding_len))
+        for i in range(padding_len):
+          f.write(b'\xff')
+
+        #f.seek(1024 * 32)
+        f.write(head)
+
+        f.seek(RUNADDR - 0x08000000)
+        f.write(app_fw)
+
+        f.close()
+    else:
+      print("Files not ready!!!")
 
 if __name__=='__main__':
-    pass
+    main()

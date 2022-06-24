@@ -314,16 +314,14 @@ err_code_t EmergencyHandler::hmi_cb_check_recovery_info(void *obj, sacp_hmi_mess
 
   if (!handler.record_avail) {
     LOG_E("EmergencyHandler: recovery record invalid\n");
-    msg->data[0] = E_JOB_POWER_LOSE_CHECK_FAILURE;
-    return host_hmi.send_ack(msg);
+    return host_hmi.send_ack(msg, E_JOB_POWER_LOSE_CHECK_FAILURE);
   }
 
   if (job_env->type != smprinter.get_toolhead_type()) {
     // we won't check toolhead type in bootup because we have scanned modules at that time
     handler.record_avail = false;
     LOG_E("EmergencyHandler: toolhead in emergency record is not match with detected!\n");
-    msg->data[0] = E_JOB_POWER_LOSE_CHECK_FAILURE;
-    return host_hmi.send_ack(msg);
+    return host_hmi.send_ack(msg, E_JOB_POWER_LOSE_CHECK_FAILURE);
   }
 
 

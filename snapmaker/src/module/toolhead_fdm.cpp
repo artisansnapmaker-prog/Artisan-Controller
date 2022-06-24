@@ -45,6 +45,8 @@ static module_func_prio_t prio_map_dual_extruder[] = {
   {MODULE_FUNC_SET_PROBE_SENSOR_COMPENSATION, MODULE_FUNC_PRIORITY_LOW},
   {MODULE_FUNC_REPORT_PROBE_SENSOR_COMPENSATION, MODULE_FUNC_PRIORITY_LOW},
   {MODULE_FUNC_MOVE_TO_DEST, MODULE_FUNC_PRIORITY_LOW},
+  {MODULE_FUNC_SET_RIGHT_EXTRUDER_POS, MODULE_FUNC_PRIORITY_LOW},
+  {MODULE_FUNC_REPORT_RIGHT_EXTRUDER_POS, MODULE_FUNC_PRIORITY_LOW},
 
   // must set the last element as below !!!!
   {MODULE_FUNCTION_ID_INVALID, MODULE_FUNCTION_PRIORITY_INVALID}
@@ -74,6 +76,7 @@ static void fdm_callback_hotend_type(void *obj, uint8_t *data, uint8_t length);
 static void fdm_callback_extruder_info(void *obj, uint8_t *data, uint8_t length);
 static void fdm_callback_report_hotend_offset(void *obj, uint8_t *data, uint8_t length);
 static void fdm_callback_report_probe_sensor_compensation(void *obj, uint8_t *data, uint8_t length);
+static void fdm_callback_report_right_extruder_pos(void *obj, uint8_t *data, uint8_t length);
 
 err_code_t ToolHeadFDM::pre_init() {
   // must set the function priority map in pre_init() !!!!!
@@ -266,6 +269,14 @@ err_code_t ToolHeadFDM::dual_extruder_post_init() {
     return E_FAILURE;
   }
 
+  msg_id = get_message_id(MODULE_FUNC_REPORT_RIGHT_EXTRUDER_POS);
+  if (msg_id == MODULE_MESSAGE_ID_INVALID) {
+    return E_FAILURE;
+  }
+  if (host_can_rou.register_callback(msg_id, (void *)this, fdm_callback_report_right_extruder_pos) != E_SUCCESS) {
+    return E_FAILURE;
+  }
+
   if (MODULE_DEVICE_ID_INVALID == get_device_id()) {
     return E_FAILURE;
   }
@@ -287,6 +298,7 @@ err_code_t ToolHeadFDM::dual_extruder_post_init() {
   filament_state_sync();
   hotend_offset_sync();
   z_compensation_sync();
+  right_extruder_pos_sync();
 
   motion_platform_svc.set_e_axis_enable_on_state(1);
   motion_platform_svc.set_steps_per_unit(dual_extruder_steps_per_unit[0], E_AXIS);
@@ -832,6 +844,13 @@ static void fdm_callback_report_probe_sensor_compensation(void *obj, uint8_t *da
   LOG_I("extruder: %d, compensation: %f\n", e, compensation);
 }
 
+static void fdm_callback_report_right_extruder_pos(void *obj, uint8_t *data, uint8_t length) {
+  float raise_for_home_pos = (float)(data[0] << 24 | data[1] << 16 | data[2] << 8 | data[3]) / 1000;
+  float z_max_pos = (float)(data[4] << 24 | data[5] << 16 | data[6] << 8 | data[7]) / 1000;
+
+  LOG_I("raise_for_home_pos: %f, z_max_pos: %f\n", raise_for_home_pos, z_max_pos);
+}
+
 err_code_t ToolHeadFDM::probe_state_sync() {
   err_code_t ret;
   smcan_message_t msg;
@@ -964,6 +983,29 @@ err_code_t ToolHeadFDM::hotend_pid_sync() {
 
   if (ret != E_SUCCESS) {
     LOG_E("failed to get hotend pid, ret: %u\n", ret);
+    return ret;
+  }
+
+  return E_SUCCESS;
+}
+
+err_code_t ToolHeadFDM::right_extruder_pos_sync() {
+  err_code_t ret;
+  smcan_message_t msg;
+
+  msg.id = get_message_id(MODULE_FUNC_REPORT_RIGHT_EXTRUDER_POS);
+    if (msg.id == MODULE_MESSAGE_ID_INVALID) {
+    LOG_E("invalid message to get right extruder pos\n");
+    return E_FAILURE;
+  }
+
+  msg.ch     = get_channel();
+  msg.data   = NULL;
+  msg.length = 0;
+  ret = host_can_rou.send(&msg);
+
+  if (ret != E_SUCCESS) {
+    LOG_E("failed to get right extruder pos, ret: %u\n", ret);
     return ret;
   }
 
@@ -2178,4 +2220,41 @@ void ToolHeadFDM::reset_home_offset() {
   } else if (device_id == MODULE_DEVICE_ID_FDM_1EXTRUDER_2019) {
     motion_platform_svc.set_home_offset(-4.3, 0, 0);
   }
+}
+
+err_code_t ToolHeadFDM::set_right_extruder_pos(float raise_for_home_pos, float z_max_pos) {
+  err_code_t ret = E_SUCCESS;
+  smcan_message_t msg;
+  uint8_t buffer[8];
+  uint8_t index = 0;
+
+  msg.id = get_message_id(MODULE_FUNC_SET_RIGHT_EXTRUDER_POS);
+    if (msg.id == MODULE_MESSAGE_ID_INVALID) {
+    LOG_E("invalid message to set right extruder pos\n");
+    return E_FAILURE;
+  }
+
+  LOG_I("set raise for home pos: %f, z_max_pos: %f\n", raise_for_home_pos, z_max_pos);
+  uint32_t raise_for_home_pos_scaled = raise_for_home_pos * 1000;
+  uint32_t z_max_pos_scaled = z_max_pos * 1000;
+  index = 0;
+  buffer[index++]  = (raise_for_home_pos_scaled >> 24) & 0xff;
+  buffer[index++]  = (raise_for_home_pos_scaled >> 16) & 0xff;
+  buffer[index++]  = (raise_for_home_pos_scaled >> 8) & 0xff;
+  buffer[index++]  = raise_for_home_pos_scaled & 0xff;
+  buffer[index++]  = (z_max_pos_scaled >> 24) & 0xff;
+  buffer[index++]  = (z_max_pos_scaled >> 16) & 0xff;
+  buffer[index++]  = (z_max_pos_scaled >> 8) & 0xff;
+  buffer[index++]  = z_max_pos_scaled & 0xff;
+  msg.ch     = get_channel();
+  msg.data   = buffer;
+  msg.length = index;
+  ret = host_can_rou.send(&msg);
+
+  if (ret != E_SUCCESS) {
+    LOG_E("failed to set z position, ret: %u\n", ret);
+    return ret;
+  }
+
+  return ret;
 }

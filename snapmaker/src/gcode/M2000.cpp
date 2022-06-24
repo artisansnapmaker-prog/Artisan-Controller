@@ -627,6 +627,25 @@ void GcodeSuite::M2000() {
         }
         break;
 
+      case 16:
+        {
+          ToolHeadFDM *fdm = NULL;
+          fdm = (ToolHeadFDM *)module_svc.get_module(MODULE_DEVICE_ID_FDM_2EXTRUDER_2021, 0);
+          float t = (float)parser.byteval('T', (float)3.3);
+          float p = (float)parser.intval('P', (float)5);
+
+          fdm->set_right_extruder_pos(t, p);
+        }
+        break;
+
+      case 17:
+        {
+          ToolHeadFDM *fdm = NULL;
+          fdm = (ToolHeadFDM *)module_svc.get_module(MODULE_DEVICE_ID_FDM_2EXTRUDER_2021, 0);
+          fdm->right_extruder_pos_sync();
+        }
+        break;
+
       case 100:
         {
           ToolHeadFDM *fdm = NULL;

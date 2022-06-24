@@ -219,6 +219,7 @@ class ToolHeadFDM: public ModuleBase {
     err_code_t hotend_offset_sync();
     err_code_t z_compensation_sync();
     err_code_t hotend_pid_sync();
+    err_code_t right_extruder_pos_sync();
     void set_probe_state(uint8_t state[]);
     void set_probe_state(probe_sensor_t sensor, uint8_t state);
     void report_pid(uint8_t *data);
@@ -274,6 +275,7 @@ class ToolHeadFDM: public ModuleBase {
     err_code_t right_extruder_move_to_destination(move_type_e type, float destination/* = 0*/);
     void reset_e_steps_per_unit();
     void reset_home_offset();
+    err_code_t set_right_extruder_pos(float raise_for_home_pos, float z_max_pos);
 
   // private methods
   private:

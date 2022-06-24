@@ -283,11 +283,11 @@ err_code_t ClientNode::issue_client(uint8_t id, uint8_t issue_ret) {
   tx_buf[0] = issue_ret;
 
   if (E_SUCCESS != host_hmi.send_sync(&msg, rx_buf, &rx_len, 100, 3)) {
-    LOG_E("Client node: Issue failure\r\n");
+    LOG_E("Client node: Issue failure, failed to send msg\r\n");
     return E_FAILURE;
   }
   if (E_SUCCESS != rx_buf[0]) {
-    LOG_E("Client node: Issue failure\r\n");
+    LOG_E("Client node: Issue failure, result is not success\r\n");
     return E_FAILURE;
   }
 
@@ -590,7 +590,7 @@ err_code_t ClientNode::req_stop_job(ClientNode *client, sacp_hmi_message_t* msg)
   }
   *msg_cp = *msg;
   // ret = job_ctrl_svc.req_stop(STOP_CLIENT_REQ, SACP_JOB_PAUSE_ISSUE_RET_STOP_CLIENT_REQ, job_req_stop_cb, msg_cp);
-  ret = job_ctrl_svc.req_stop(STOP_CLIENT_REQ, SACP_JOB_PAUSE_ISSUE_RET_FINISH, job_request_cb, msg_cp);
+  ret = job_ctrl_svc.req_stop(STOP_CLIENT_REQ, SACP_JOB_PAUSE_ISSUE_RET_STOP_CLIENT_REQ, job_request_cb, msg_cp);
   if (E_SUCCESS != ret) {
     free_sacp_msg_node(msg_cp);
     return host_hmi.send_ack(msg, ret);

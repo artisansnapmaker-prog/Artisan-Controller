@@ -913,7 +913,7 @@ void JobCtrl::do_stop(struct JobCtrlReqInfo &jri) {
       motion_platform_svc.req_quickstop();
       // smprinter.set_sys_status(SYSTEM_STATUS_IDLE, NULL);
       DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, E_SUCCESS);
-      _issue_ret_rb.insert_one(jri.req_data.req_stop_data.reason);
+      _issue_ret_rb.insert_one(SACP_JOB_PAUSE_ISSUE_RET_EMERGENCY_STOP);
       // return quickly
       return;
 

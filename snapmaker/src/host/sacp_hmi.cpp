@@ -892,6 +892,8 @@ void HostSACPHMI::handle_receive() {
 
         // forward message
         forward_message(parser_buff[SACP_V1_FRAME_INDEX_RECV_ID], parser_buff, buffer_len);
+        channels[i].parser.status = SACP_PARSER_STA_IDLE;
+        continue;
       }
     }
 

@@ -55,7 +55,7 @@
 #define CHECK_ONLINE_TIMEOUT  5000
 
 #define SINGLE_EXTRUDER_STEPS_PER_UNIT_DEFAULT  212.21
-#define DUAL_EXTRUDER_STEPS_PER_UNIT_DEFAULT    682
+#define DUAL_EXTRUDER_STEPS_PER_UNIT_DEFAULT    667.222
 
 
 /****************************************************************************************

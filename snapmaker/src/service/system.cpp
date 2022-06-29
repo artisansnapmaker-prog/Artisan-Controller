@@ -327,7 +327,7 @@ err_code_t SystemService::clear_exception(uint16_t owner, uint8_t state) {
 
   if (i >= EXCEPTION_STATIC_SIZE) {
     if (!dynamic_nodes) {
-      LOG_E("clear_exception: exception[%u, %u] doesn't exist!\n", owner, state);
+      LOG_W("clear_exception: exception[%u, %u] doesn't exist!\n", owner, state);
       return E_PARAM;
     }
 
@@ -343,7 +343,7 @@ err_code_t SystemService::clear_exception(uint16_t owner, uint8_t state) {
     }
 
     if (j >= EXCEPTION_STATIC_SIZE) {
-      LOG_E("clear_exception: exception[%u, %u] doesn't exist!\n", owner, state);
+      LOG_W("clear_exception: exception[%u, %u] doesn't exist!\n", owner, state);
       return E_PARAM;
     }
   }

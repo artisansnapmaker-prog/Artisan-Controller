@@ -384,6 +384,12 @@ void GcodeSuite::G28() {
                  doI = home_all || homeI, doJ = home_all || homeJ, doK = home_all || homeK
                );
 
+    // try clearing exception firstly, if home failed, will raise exception. by Scott Huang
+    #if MB_SNAPMAKER
+      if (doX || doY || doZ || doI || doJ)
+        smprinter.clear_exception(SM_EXCEP_OWNER_SYSTEM, CONTROLLER_EXCEP_STA_HOME_FAILED);
+    #endif
+
     #if HAS_Z_AXIS
       UNUSED(needZ); UNUSED(homeZZ);
     #else
@@ -397,8 +403,11 @@ void GcodeSuite::G28() {
           planner.synchronize();
           if (smprinter.right_extruder_move_to_destination(GO_HOME) != E_SUCCESS) {
             LOG_I("right extruder go home failed\n");
-            smprinter.raise_exception(SM_EXCEP_OWNER_TOOLHEAD, FDM_EXCEP_STA_EXTRUDER_HOME_FAILED);
+            smprinter.raise_exception(SM_EXCEP_OWNER_TOOLHEAD, FDM_EXCEP_STA_EXTRUDER_HOME_FAILED, EXCEP_ACT_STOP_WITH_RECOVERY);
             return;
+          }
+          else {
+            smprinter.clear_exception(SM_EXCEP_OWNER_TOOLHEAD, FDM_EXCEP_STA_EXTRUDER_HOME_FAILED);
           }
           smprinter.tool_change(0);
         }

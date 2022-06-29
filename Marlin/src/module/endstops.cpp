@@ -391,7 +391,7 @@ void Endstops::not_homing() {
   void Endstops::validate_homing_move() {
     if (trigger_state()) hit_on_purpose();
     #if MB_SNAPMAKER
-    else smprinter.raise_exception(SM_EXCEP_OWNER_SYSTEM, CONTROLLER_EXCEP_STA_HOME_FAILED);
+    else smprinter.raise_exception(SM_EXCEP_OWNER_SYSTEM, CONTROLLER_EXCEP_STA_HOME_FAILED, EXCEP_ACT_STOP_WITH_RECOVERY);
     #else
     else kill(GET_TEXT_F(MSG_KILL_HOMING_FAILED));
     #endif

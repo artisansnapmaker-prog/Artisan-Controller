@@ -1898,13 +1898,13 @@ err_code_t ToolHeadFDM::standby(void) {
   enum SystemStatus status = smprinter.get_sys_status();
   if (status == SYSTEM_STATUS_STOPING) {
     if (get_device_id() == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
-      set_hotend_temp(0, 0);
-      set_hotend_temp(0, 1);
+      motion_platform_svc.set_hotend_temp(0, 0);
+      motion_platform_svc.set_hotend_temp(0, 1);
       set_fan_speed(0, 0);
       set_fan_speed(1, 0);
       set_fan_speed(2, 0);
     } else if (get_device_id() == MODULE_DEVICE_ID_FDM_1EXTRUDER_2019) {
-      set_hotend_temp(0, 0);
+      motion_platform_svc.set_hotend_temp(0, 0);
       set_fan_speed(0, 0);
       set_fan_speed(1, 0);
     }
@@ -2050,12 +2050,12 @@ void ToolHeadFDM::delay_turnoff_heating_process() {
     if (turnoff_heating_time_elapsed + DELAY_TURNOFF_TIME_MS < motion_platform_svc.get_millis()) {
       LOG_I("delay turn off heater\n");
       if (device_id == MODULE_DEVICE_ID_FDM_1EXTRUDER_2019) {
-        set_hotend_temp(0, 0);
+        motion_platform_svc.set_hotend_temp(0, 0);
         set_fan_speed(0, 0);
         set_fan_speed(1, 0);
       } else if (device_id == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
-        set_hotend_temp(0, 0);
-        set_hotend_temp(0, 1);
+        motion_platform_svc.set_hotend_temp(0, 0);
+        motion_platform_svc.set_hotend_temp(0, 1);
         set_fan_speed(0, 0);
         set_fan_speed(1, 0);
         set_fan_speed(2, 0);

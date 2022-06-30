@@ -1101,11 +1101,13 @@ void Temperature::max_temp_error(const heater_id_t heater_id) {
     break;
 
   case H_E0:
-    smprinter.raise_exception(SM_EXCEP_OWNER_TOOLHEAD, FDM_EXCEP_STA_OVERTEMP_ERROR_E0, EXCEP_ACT_PAUSE_WORKING);
+    smprinter.raise_exception(SM_EXCEP_OWNER_TOOLHEAD, FDM_EXCEP_STA_OVERTEMP_ERROR_E0,
+                              EXCEP_ACT_PAUSE_WORKING | EXCEP_ACT_DISABLE_HEATING_HOTEND);
     break;
 
   case H_E1:
-    smprinter.raise_exception(SM_EXCEP_OWNER_TOOLHEAD, FDM_EXCEP_STA_OVERTEMP_ERROR_E1, EXCEP_ACT_PAUSE_WORKING);
+    smprinter.raise_exception(SM_EXCEP_OWNER_TOOLHEAD, FDM_EXCEP_STA_OVERTEMP_ERROR_E1,
+                              EXCEP_ACT_PAUSE_WORKING | EXCEP_ACT_DISABLE_HEATING_HOTEND);
     break;
 
   default:
@@ -2711,13 +2713,13 @@ void Temperature::init() {
         _temp_error(heater_id, FPSTR(str_t_thermal_runaway), GET_TEXT_F(MSG_THERMAL_RUNAWAY));
         #if MB_SNAPMAKER
         if (heater_id == H_CHAMBER)
-          smprinter.raise_exception(SM_EXCEP_OWNER_BED, BED_EXCEP_STA_THERMAL_RUNAWAY_ZONE1, EXCEP_ACT_PAUSE_WORKING);
+          smprinter.raise_exception(SM_EXCEP_OWNER_BED, BED_EXCEP_STA_THERMAL_RUNAWAY_ZONE1, EXCEP_ACT_PAUSE_WORKING | EXCEP_ACT_DISABLE_HEATING_BED);
         if (heater_id == H_BED)
-          smprinter.raise_exception(SM_EXCEP_OWNER_BED, BED_EXCEP_STA_THERMAL_RUNAWAY_ZONE0, EXCEP_ACT_PAUSE_WORKING);
+          smprinter.raise_exception(SM_EXCEP_OWNER_BED, BED_EXCEP_STA_THERMAL_RUNAWAY_ZONE0, EXCEP_ACT_PAUSE_WORKING | EXCEP_ACT_DISABLE_HEATING_BED);
         if (heater_id == H_E0)
-          smprinter.raise_exception(SM_EXCEP_OWNER_TOOLHEAD, FDM_EXCEP_STA_THERMAL_RUNAWAY_E0, EXCEP_ACT_PAUSE_WORKING);
+          smprinter.raise_exception(SM_EXCEP_OWNER_TOOLHEAD, FDM_EXCEP_STA_THERMAL_RUNAWAY_E0, EXCEP_ACT_PAUSE_WORKING | EXCEP_ACT_DISABLE_HEATING_HOTEND);
         if (heater_id == H_E1)
-          smprinter.raise_exception(SM_EXCEP_OWNER_TOOLHEAD, FDM_EXCEP_STA_THERMAL_RUNAWAY_E1, EXCEP_ACT_PAUSE_WORKING);
+          smprinter.raise_exception(SM_EXCEP_OWNER_TOOLHEAD, FDM_EXCEP_STA_THERMAL_RUNAWAY_E1, EXCEP_ACT_PAUSE_WORKING | EXCEP_ACT_DISABLE_HEATING_HOTEND);
         #endif
     }
   }

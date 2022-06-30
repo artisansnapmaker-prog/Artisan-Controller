@@ -616,7 +616,7 @@ void MotionPlatformService::set_relative_mode(bool rm) {
 }
 
 void MotionPlatformService::set_hotend_temp(int16_t temp, int e) {
-  thermalManager.setTargetHotend(temp, e);
+  thermalManager.setTargetHotend(temp, HID_E0 + e);
 }
 
 int16_t MotionPlatformService::get_bed_temp(int zone_index) {

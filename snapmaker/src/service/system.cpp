@@ -109,6 +109,7 @@ err_code_t SystemService::raise_exception(uint16_t owner, uint8_t state, uint32_
   int i = 0, j = 0;
   err_code_t ret = E_SUCCESS;
   uint8_t buffer[140];
+  bool same_exception = false;
 
   ExceptionInfo *info;
 
@@ -117,15 +118,27 @@ err_code_t SystemService::raise_exception(uint16_t owner, uint8_t state, uint32_
   // check if same exception exist
   for (i = 0; i < EXCEPTION_STATIC_SIZE; i++) {
     if (nodes[i].owner == owner && nodes[i].state == state) {
-      // LOG_W("same exception has raised! won't raised again!\n");
-      return E_SUCCESS;
+      LOG_I("owner[%u], state[%u] same exception has raised!\n", owner, state);
+      if ((nodes[i].ban | ban) != nodes[i].ban) {
+        lock_nodes();
+        nodes[i].ban |= ban;
+        unlock_nodes();
+      }
+      same_exception = true;
+      ret = E_SUCCESS;
     }
   }
 
   if (dynamic_nodes) {
     if (dynamic_nodes[i].owner == owner && dynamic_nodes[i].state == state) {
-      LOG_W("same exception has raised! won't raised again!\n");
-      return E_SUCCESS;
+      LOG_I("owner[%u], state[%u] same exception has raised!\n", owner, state);
+      if ((dynamic_nodes[i].ban | ban) != dynamic_nodes[i].ban) {
+        lock_nodes();
+        dynamic_nodes[i].ban |= ban;
+        unlock_nodes();
+      }
+      same_exception = true;
+      ret = E_SUCCESS;
     }
   }
 
@@ -134,6 +147,9 @@ err_code_t SystemService::raise_exception(uint16_t owner, uint8_t state, uint32_
   info->level = get_level(ban);
 
   bans |= ban;
+
+  if (same_exception)
+    goto ack_hmi;
 
   for (i = 0; i < EXCEPTION_STATIC_SIZE; i++) {
     if (nodes[i].owner == EXCEPTION_OWNER_INVALID) {
@@ -264,7 +280,8 @@ ack_hmi:
 
   buffer[4] = get_bans(&buffer[5], 140 - 5);
 
-  ret = notification_raise_exception(owner, state, buffer, buffer[4] + 5);
+  if (!same_exception)
+    ret = notification_raise_exception(owner, state, buffer, buffer[4] + 5);
 
   return ret;
 }

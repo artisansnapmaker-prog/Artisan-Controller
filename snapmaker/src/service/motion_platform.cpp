@@ -633,6 +633,10 @@ int16_t MotionPlatformService::get_bed_temp(int zone_index) {
 }
 
 void MotionPlatformService::set_bed_temp(int16_t temp, int zone_index) {
+  if (temp > 0 && !smprinter.allow_heating_bed()) {
+    LOG_E("[%s] The bed is not allowed to be heated\n", __FUNCTION__);
+    return;
+  }
   switch (zone_index) {
   case 0:
     thermalManager.setTargetBed(temp);

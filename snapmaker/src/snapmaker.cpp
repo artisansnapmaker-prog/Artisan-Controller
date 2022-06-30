@@ -859,11 +859,13 @@ void SnapmakerPrinter::security_check() {
       laser->set_power_limit(limit_power);
   }
 
-  if (thermalManager.get_bed_sw_detect() == 1) {
-    thermalManager.set_bed_sw_detect(2);
+  uint8_t err_sta = thermalManager.get_bed_error_sta();
+  if (err_sta >= 1 && err_sta <= 3) {
+    thermalManager.set_bed_error_sta(0xFF);
+    LOG_E("[%s] bed_error_sta: %d.\r\n", __FUNCTION__, err_sta);
     smprinter.raise_exception(SM_EXCEP_OWNER_BED, BED_EXCEP_STA_ERROR_MOS_SW_CTRL,
-                                EXCEP_ACT_PAUSE_WORKING | EXCEP_ACT_DISABLE_HEATING_BED | EXCEP_ACT_DISABLE_POWER_BED,\
-                                EXCEP_BAN_ENABLE_POWER_BED);
+                          EXCEP_ACT_PAUSE_WORKING | EXCEP_ACT_DISABLE_HEATING_BED | EXCEP_ACT_DISABLE_POWER_BED,
+                          EXCEP_BAN_ENABLE_POWER_BED | EXCEP_BAN_HEATING_BED);
   }
 }
 // API for puase

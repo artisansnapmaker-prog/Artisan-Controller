@@ -452,7 +452,7 @@ PGMSTR(str_t_heating_failed, STR_T_HEATING_FAILED);
 
   #if MB_SNAPMAKER
     bool Temperature::bed_inserted = false;
-    uint8_t Temperature::bed_sw_detect = 0;
+    uint8_t Temperature::bed_error_sta = 0;
   #endif
 #endif
 
@@ -3275,7 +3275,7 @@ void Temperature::isr() {
       #endif
 
       #if ENABLED(SNAPMAKER_DOUBLE_ZONE_BED)
-        if (bed_inserted && bed_sw_detect == 0) {
+        if (bed_inserted && bed_error_sta == 0) {
           if ((pwm_count_tmp > _BV(SOFT_PWM_SCALE)) && (smprinter.power_domains & POWER_DOMAIN_BED)) {
             bool bed_sw1 = READ(BED_SW1_DETECT);
             bool bed_sw2 = READ(BED_SW2_DETECT);
@@ -3285,20 +3285,20 @@ void Temperature::isr() {
               if (active_bed_index == 0 && soft_pwm_bed.count > (pwm_count_tmp + _BV(SOFT_PWM_SCALE))) {
                 if (bed_mos1 == false && bed_mos2 == true) {
                   if (!(bed_sw1 == false && bed_sw2 == true))
-                    bed_sw_detect = 1;
+                    bed_error_sta = 1;
                 }
               }
               else if (active_bed_index == 1 && soft_pwm_chamber.count > (pwm_count_tmp + _BV(SOFT_PWM_SCALE))){
                 if (bed_mos1 == true && bed_mos2 == false) {
                   if (!(bed_sw1 == true && bed_sw2 == false))
-                    bed_sw_detect = 1;
+                    bed_error_sta = 2;
                 }
               }
             }
             else {
               if (bed_mos1 == true && bed_mos2 == true) {
                 if (!(bed_sw1 == true && bed_sw2 == true))
-                    bed_sw_detect = 1;
+                    bed_error_sta = 3;
               }
             }
           }

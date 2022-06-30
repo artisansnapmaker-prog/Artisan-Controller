@@ -66,18 +66,26 @@ err_code_t hmi_set_bed_target_temp(void *obj, sacp_hmi_message_t *msg) {
   bed_index = msg->data[1];
   target_temp = *(int16_t *)(msg->data + 2);
 
+  LOG_I("bed_index: %d, target_temp: %d\n", bed_index, target_temp);
+
   #if DISABLED(SNAPMAKER_DOUBLE_ZONE_BED)
   bed_index = 0;  // index not considered if only one bed
   #endif
 
-  if (bed_index > 1)
-    result = E_PARAM;
+  if (target_temp > 0 && !smprinter.allow_heating_bed()) {
+    result = E_HARDWARE;
+    LOG_E("[%s] The bed is not allowed to be heated\n", __FUNCTION__);
+  }
   else {
     taskENTER_CRITICAL();
     if (bed_index == 0)
       thermalManager.setTargetBed(target_temp);
     else if (bed_index == 1)
       thermalManager.setTargetChamber(target_temp);
+    else {
+      thermalManager.setTargetBed(target_temp);
+      thermalManager.setTargetChamber(target_temp);
+    }
     taskEXIT_CRITICAL();
     result = E_SUCCESS;
   }

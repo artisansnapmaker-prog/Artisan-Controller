@@ -86,9 +86,13 @@ void GcodeSuite::M140_M190(const bool isM190) {
     if (parser.seen('T')) {
         target_bed = parser.has_value() ? (int16_t)parser.value_int() : -1;
         if (!WITHIN(target_bed, 0, 1) && target_bed != -1) {
-          SERIAL_ECHO("Invalid Bed Indev.");
+          LOG_E("Invalid Bed Indev.");
           return;
         }
+    }
+    if (temp > 0 && !smprinter.allow_heating_bed()) {
+      LOG_E("The bed is not allowed to be heated\n");
+      return;
     }
     if (target_bed == 0 || target_bed == -1) {
       thermalManager.setTargetBed(temp);

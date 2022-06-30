@@ -412,7 +412,7 @@ err_code_t SnapmakerPrinter::hmi_cb_set_machine_enter_replace_mode(void *obj, sa
   printer->disable_power_domain(domains);
 
   if ((ret = host_hmi.send_ack(msg, E_SUCCESS)) != E_SUCCESS) {
-    LOG_E("[%s] failed to tell screen the home state, ret[%u]\n", __FUNCTION__, ret);
+    LOG_E("[%s] failed to ack hmi, ret[%u]\n", __FUNCTION__, ret);
   }
   return ret;
 }

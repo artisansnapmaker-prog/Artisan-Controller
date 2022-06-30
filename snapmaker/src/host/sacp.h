@@ -48,8 +48,9 @@
 #define SACP_MESSAGE_ATTR_ACK        (0x00000001)
 
 // bit[31:8] is used to tell API some info
-#define SACP_MESSAGE_ATTR_SET_SEQ    (0x80000000) // indicates we want to use customize sequence to send message
-#define SACP_MESSAGE_ATTR_SET_VER    (0x40000000) // indicates we want to use customize sequence to send message
+#define SACP_MESSAGE_ATTR_SET_SEQ         (0x80000000) // user want to specify sequence for a request packet
+#define SACP_MESSAGE_ATTR_SET_VER         (0x40000000) // user want to specify version of protocol
+#define SACP_MESSAGE_ATTR_UPDATE_ACK_SEQ  (0x20000000) // user want to update sequence for an ACK packet
 
 // #defination for callback attribution
 #define SACP_CB_ATTR_ACK                     (0x00000001)

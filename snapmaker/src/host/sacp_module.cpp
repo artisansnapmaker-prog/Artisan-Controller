@@ -33,7 +33,7 @@ err_code_t HostSACPModule::register_callback(uint8_t cmd_id, void *obj, sacp_mod
   }
 
   if (i < SACP_MODULE_HANDLE_MAX) {
-    LOG_I("register cb for cmd: 0x%x\n", cmd_id);
+    LOG_I("register cb for cmd of CAN cfg: 0x%x\n", cmd_id);
     handles[i].cmd_id = cmd_id;
     handles[i].obj = obj;
     handles[i].cb = cb;

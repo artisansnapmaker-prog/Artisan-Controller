@@ -447,8 +447,12 @@ err_code_t HostSACPHMI::send(sacp_hmi_message_t *message) {
 
   sacp_channel_t &channel = channels[message->ch];
 
-  // won't update sequence when it is ACK or USERs want to set sequence by themself
-  if (!(message->attr & SACP_MESSAGE_ATTR_ACK) && !(message->attr & SACP_MESSAGE_ATTR_SET_SEQ)) {
+  // conditions which WILL NOT change sequence of message:
+  // 1. is an ACK, and user won't update the sequence,
+  //    generally sequence of ACK is same with its request except the publish message
+  // 2. user want to specify sequence of a request by themselves
+  if ((message->attr & SACP_MESSAGE_ATTR_ACK/* is ACK */ && message->attr & SACP_MESSAGE_ATTR_UPDATE_ACK_SEQ)
+      || (!(message->attr & SACP_MESSAGE_ATTR_ACK)/* is request*/ && !(message->attr & SACP_MESSAGE_ATTR_SET_SEQ))) {
     xSemaphoreTake(channel.lock, portMAX_DELAY);
     message->seq = channel.seq++;
     xSemaphoreGive(channel.lock);
@@ -1245,7 +1249,7 @@ static void subscription_timer_cb(TimerHandle_t timer) {
   msg.ch   = client->ch;
   msg.cmd_set = node->cmd_set;
   msg.cmd_id  = node->cmd_id;
-  msg.attr    = SACP_MESSAGE_ATTR_ACK;
+  msg.attr    = SACP_MESSAGE_ATTR_ACK | SACP_MESSAGE_ATTR_UPDATE_ACK_SEQ;
   msg.data    = buffer;
   msg.length  = index;
 

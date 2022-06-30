@@ -1087,17 +1087,30 @@ void Temperature::max_temp_error(const heater_id_t heater_id) {
   #if HAS_DWIN_E3V2_BASIC && (HAS_HOTEND || HAS_HEATED_BED)
     DWIN_Popup_Temperature(1);
   #endif
+
+  #if MB_SNAPMAKER
+    if (heater_id == H_BED || heater_id == H_CHAMBER) {
+      if (bed_inserted && bed_error_sta == 0 && (smprinter.power_domains & POWER_DOMAIN_BED)) {
+        bed_error_sta = 0xff;
+      }
+      else
+        return;
+    }
+  #endif
+
   _temp_error(heater_id, F(STR_T_MAXTEMP), GET_TEXT_F(MSG_ERR_MAXTEMP));
   #if MB_SNAPMAKER
   switch (heater_id) {
   case H_CHAMBER:
     smprinter.raise_exception(SM_EXCEP_OWNER_BED, BED_EXCEP_STA_OVERTEMP_ERROR_ZONE1,
-                                EXCEP_ACT_PAUSE_WORKING | EXCEP_ACT_DISABLE_HEATING_BED);
+                              EXCEP_ACT_PAUSE_WORKING | EXCEP_ACT_DISABLE_HEATING_BED | EXCEP_ACT_DISABLE_POWER_BED,
+                              EXCEP_BAN_ENABLE_POWER_BED | EXCEP_BAN_HEATING_BED);
     break;
 
   case H_BED:
     smprinter.raise_exception(SM_EXCEP_OWNER_BED, BED_EXCEP_STA_OVERTEMP_ERROR_ZONE0,
-                                EXCEP_ACT_PAUSE_WORKING | EXCEP_ACT_DISABLE_HEATING_BED);
+                              EXCEP_ACT_PAUSE_WORKING | EXCEP_ACT_DISABLE_HEATING_BED | EXCEP_ACT_DISABLE_POWER_BED,
+                              EXCEP_BAN_ENABLE_POWER_BED | EXCEP_BAN_HEATING_BED);
     break;
 
   case H_E0:

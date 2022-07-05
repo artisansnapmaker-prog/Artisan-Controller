@@ -452,7 +452,7 @@ err_code_t ToolHeadLaser::hmi_cb_do_manual_focusing(void *obj, sacp_hmi_message_
   message->length = 1;
   message->attr   = 0;
 
-  ret = host_hmi.send_sync(message, recv_buff, &recv_len, SACP_HMI_TIMEOUT_DEFAULT, SACP_HMI_RETRY_DEFAULT);
+  ret = host_hmi.send_sync(message, recv_buff, &recv_len);
   if (ret != E_SUCCESS) {
     LOG_E("failed to report manual_focusings, ret[%u]\n", ret);
   }
@@ -568,7 +568,7 @@ err_code_t ToolHeadLaser::hmi_cb_do_auto_focusing(void *obj, sacp_hmi_message_t 
   message->length = 1;
   message->attr   = 0;
 
-  ret = host_hmi.send_sync(message, recv_buff, &recv_len, SACP_HMI_TIMEOUT_DEFAULT, SACP_HMI_RETRY_DEFAULT);
+  ret = host_hmi.send_sync(message, recv_buff, &recv_len);
   if (ret != E_SUCCESS) {
     LOG_E("failed to report manual_focusings, ret[%u]\n", ret);
   }
@@ -1275,7 +1275,7 @@ err_code_t ToolHeadLaser::get_bt_mac() {
 
   memset(recv_buff, 0xff, recv_len);
 
-  if ((ret = host_hmi.send_sync_legacy(&msg, recv_buff, &recv_len, 500, 2)) != E_SUCCESS) {
+  if ((ret = host_hmi.send_sync_legacy(&msg, recv_buff, &recv_len)) != E_SUCCESS) {
     LOG_E("failed to get BT MAC, ret[%u], recv:\n", ret);
     is_getting = false;
     return ret;
@@ -1614,7 +1614,7 @@ err_code_t ToolHeadLaser::report_bt_mac(uint32_t peer, uint8_t ch) {
   }
   msg.length = len;
 
-  ret = host_hmi.send_sync(&msg, recv_buff, &recv_len, 1000, 3);
+  ret = host_hmi.send_sync(&msg, recv_buff, &recv_len);
   if (ret != E_SUCCESS) {
     LOG_E("failed to report BT MAC, ret[%u]\n", ret);
   }

@@ -282,7 +282,7 @@ err_code_t ClientNode::issue_client(uint8_t id, uint8_t issue_ret) {
   msg.attr = 0;
   tx_buf[0] = issue_ret;
 
-  if (E_SUCCESS != host_hmi.send_sync(&msg, rx_buf, &rx_len, 100, 3)) {
+  if (E_SUCCESS != host_hmi.send_sync(&msg, rx_buf, &rx_len)) {
     LOG_E("Client node: Issue failure, failed to send msg\r\n");
     return E_FAILURE;
   }
@@ -376,7 +376,7 @@ bool ClientNode::sacp_get_batch_gcode(req_batch_gcode_t &req_batch_gcode, res_ba
   _16_TO_LITTLE_STREAM(req_batch_gcode.buf_len, buf + 4);
   s_msg.length = 6;
   out_len = SEND_BUF_SIZE;
-  ret = host_hmi.send_sync(&s_msg, buf, &out_len, 2000, 2);
+  ret = host_hmi.send_sync(&s_msg, buf, &out_len);
   if (E_SUCCESS == ret) {
     if(out_len < 8){
       LOG_E("Client node: batch gcode response lenght error, must > 8, but get %d\r\n", out_len);

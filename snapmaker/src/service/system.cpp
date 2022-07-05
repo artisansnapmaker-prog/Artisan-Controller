@@ -312,7 +312,7 @@ err_code_t SystemService::notification_raise_exception(uint16_t owner, uint8_t s
 
     LOG_I("raise exception[%u,%u] to host[%u:%u]\n", owner, state, msg.peer, msg.ch);
 
-    ret = host_hmi.send_sync(&msg, recv_buff, &recv_len, SACP_HMI_TIMEOUT_DEFAULT, SACP_HMI_RETRY_DEFAULT);
+    ret = host_hmi.send_sync(&msg, recv_buff, &recv_len);
     if (ret != E_SUCCESS) {
       LOG_E("failted to notify raise exception[%u,%u] to host[%u:%u]\n", owner, state, msg.peer, msg.ch);
     }
@@ -489,7 +489,7 @@ err_code_t SystemService::notification_clear_exception(uint16_t owner, uint8_t s
 
     LOG_I("raise exception to host[%u:%u]\n", msg.peer, msg.ch);
 
-    ret = host_hmi.send_sync(&msg, recv_buff, &recv_len, SACP_HMI_TIMEOUT_DEFAULT, SACP_HMI_RETRY_DEFAULT);
+    ret = host_hmi.send_sync(&msg, recv_buff, &recv_len);
     if (ret != E_SUCCESS) {
       LOG_E("failted to notify clear exception[%u,%u] to host[%u:%u]\n", owner, state, msg.peer, msg.ch);
     }

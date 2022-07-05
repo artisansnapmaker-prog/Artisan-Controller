@@ -214,7 +214,16 @@ err_code_t HostSACPHMI::register_callback(uint8_t cmd_set, uint8_t cmd_id, void 
 }
 
 
-err_code_t HostSACPHMI::send_sync_legacy(sacp_hmi_message_t *message, uint8_t *out, uint16_t *out_len, uint32_t timeout, uint8_t retry) {
+/* send legacy message, there is only one bytes for command id in legacy messages
+ * parameters:
+ * message  - message to be sent
+ * out      - buffer to receive ACK from peer host
+ * out_len  - caller should specify the length of out buffer, and function will return the length of buffer received
+ * timeout  - time to wait ACK from peer host
+ * retry    - if peer doesn't ack us, will try to send request out again with 'retry' times
+*/
+err_code_t HostSACPHMI::send_sync_legacy(sacp_hmi_message_t *message, uint8_t *out, uint16_t *out_len,
+                                          uint32_t timeout/*=2000ms*/, uint8_t retry/*=2*/) {
   int node_index  = 0;
   size_t recv_len = 0;
   err_code_t ret  = E_SUCCESS;
@@ -256,6 +265,7 @@ err_code_t HostSACPHMI::send_sync_legacy(sacp_hmi_message_t *message, uint8_t *o
 
   xMessageBufferReset(waiting_nodes[node_index].queue);
 
+  retry++;
   for (; retry > 0; retry--) {
     if ((ret = send(message)) != E_SUCCESS) {
       LOG_I("send sync failed\n");
@@ -295,9 +305,10 @@ err_code_t HostSACPHMI::send_sync_legacy(sacp_hmi_message_t *message, uint8_t *o
  *  out_len - when you call this API, you should tell it the length of buffer 'out' with out_len.
  *            when you get the ACK save in 'out', out_len will be the length of ACK
  *  timeout - the timeout to wait ACK from peer, its has a default value in declaration
- *  retry   - indicate the API will try to send message to peer, default is 1, it couldn't be 0
+ *  retry   - if peer doesn't ack us, will try to send request out again with 'retry' times
 */
-err_code_t HostSACPHMI::send_sync(sacp_hmi_message_t *message, uint8_t *out, uint16_t *out_len, uint32_t timeout, uint8_t retry) {
+err_code_t HostSACPHMI::send_sync(sacp_hmi_message_t *message, uint8_t *out, uint16_t *out_len,
+                                  uint32_t timeout/*=2000ms*/, uint8_t retry/*=2*/) {
   int node_index  = 0;
   size_t recv_len = 0;
   err_code_t ret  = E_SUCCESS;
@@ -355,6 +366,7 @@ err_code_t HostSACPHMI::send_sync(sacp_hmi_message_t *message, uint8_t *out, uin
 
   xMessageBufferReset(waiting_nodes[node_index].queue);
 
+  retry++;
   for (; retry > 0; retry--) {
     if ((ret = send(message)) != E_SUCCESS) {
       LOG_I("send sync failed\n");

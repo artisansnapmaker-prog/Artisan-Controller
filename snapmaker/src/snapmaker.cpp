@@ -198,7 +198,7 @@ err_code_t SnapmakerPrinter::hmi_cb_request_reboot(void *obj, sacp_hmi_message_t
   msg->length = 0;
   msg->attr   = 0;
 
-  ret = host_hmi.send_sync(msg, recv_buffer, &recv_len, SACP_HMI_TIMEOUT_DEFAULT, SACP_HMI_RETRY_DEFAULT);
+  ret = host_hmi.send_sync(msg, recv_buffer, &recv_len);
   if (ret != E_SUCCESS) {
     LOG_E("failed to notify host that we will reboot!\n");
     return ret;

@@ -25,9 +25,6 @@
 #include "sacp.h"
 #include "../link/link_uart.h"
 
-#define SACP_HMI_TIMEOUT_DEFAULT  (3000)
-#define SACP_HMI_RETRY_DEFAULT    (3)
-
 typedef err_code_t (*sacp_hmi_callback)(void *obj, sacp_hmi_message_t *msg);
 
 typedef uint16_t (*sacp_hmi_subscribe_callback)(void *obj, uint8_t *buffer);
@@ -160,9 +157,11 @@ class HostSACPHMI: public HostSACP {
     err_code_t register_subscription(uint8_t cmd_set, uint8_t cmd_id, void *obj, sacp_hmi_subscribe_callback cb,
                                       sacp_hmi_subscribe_notify_cb notify_cb=NULL);
 
-    err_code_t send_sync_legacy(sacp_hmi_message_t *message, uint8_t *out, uint16_t *out_len, uint32_t timeout=100, uint8_t retry=1);
+    err_code_t send_sync_legacy(sacp_hmi_message_t *message, uint8_t *out, uint16_t *out_len,
+                                  uint32_t timeout=SACP_TIMEOUT_DEFAULT, uint8_t retry=SACP_RETRY_DEFAULT);
 
-    err_code_t send_sync(sacp_hmi_message_t *message, uint8_t *out, uint16_t *out_len, uint32_t timeout=100, uint8_t retry=1);
+    err_code_t send_sync(sacp_hmi_message_t *message, uint8_t *out, uint16_t *out_len,
+                                  uint32_t timeout=SACP_TIMEOUT_DEFAULT, uint8_t retry=SACP_RETRY_DEFAULT);
     err_code_t send(sacp_hmi_message_t *message);
     err_code_t send_ack(sacp_hmi_message_t *message) {
       message->attr |= SACP_MESSAGE_ATTR_ACK;

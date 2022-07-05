@@ -794,7 +794,19 @@ void MotionPlatformService::set_hotend_maxtemp(uint8_t e, int16_t temp) {
   }
 }
 
-
+void MotionPlatformService::set_pid(uint8_t index, float value) {
+  switch (index) {
+    case 0:
+      PID_PARAM(Kp, 0) = value;
+      break;
+    case 1:
+      PID_PARAM(Ki, 0) = value;
+      break;
+    case 2:
+      PID_PARAM(Kd, 0) = value;
+      break;
+  }
+}
 
 void MotionPlatformService::load_settings() {
   sync_z_values_from_platform();

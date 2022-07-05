@@ -212,6 +212,7 @@ class MotionPlatformService {
     bool bed_heatup_to_target(void);
     bool hotends_heatup_to_target(void);
     void set_hotend_maxtemp(uint8_t e, int16_t temp);
+    void set_pid(uint8_t index, float value);
 
     // fdm API
     bool runout_state(uint8_t extruder = 0) { return false; }

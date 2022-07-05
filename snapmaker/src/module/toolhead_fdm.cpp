@@ -1089,18 +1089,21 @@ void ToolHeadFDM::report_pid(uint8_t *data) {
         LOG_I("P: %f\n", val);
       #endif
       pid[0] = val;
+      motion_platform_svc.set_pid(0, val);
       break;
     case 1:
       #ifdef USE_FDM_INTERRUPT_LOG
       LOG_I("I: %f\n", val);
       #endif
       pid[1] = val;
+      motion_platform_svc.set_pid(1, val);
       break;
     case 2:
       #ifdef USE_FDM_INTERRUPT_LOG
         LOG_I("D: %f\n", val);
       #endif
       pid[2] = val;
+      motion_platform_svc.set_pid(2, val);
       break;
   }
 }

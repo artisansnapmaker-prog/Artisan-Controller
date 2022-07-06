@@ -1150,8 +1150,18 @@ void ToolHeadFDM::report_extruder_info(uint8_t *data) {
 
 void ToolHeadFDM::update_hotend_temp(uint8_t *data) {
   hotend_temp[0].current = data[0] << 8 | data[1];
+
+  if (data[2] == 1) {
+    motion_platform_svc.set_hotend_temp(0, 0);
+    system_svc.raise_exception(get_device_id(), FDM_EXCEP_STA_THERMAL_RUNAWAY_E0, EXCEP_ACT_STOP_WORKING | EXCEP_ACT_DISABLE_POWER_8P_TOOLHEAD);
+  }
+
   if (get_device_id() == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
     hotend_temp[1].current = data[4] << 8 | data[5];
+    if (data[6] == 1) {
+      motion_platform_svc.set_hotend_temp(0, 1);
+      system_svc.raise_exception(get_device_id(), FDM_EXCEP_STA_THERMAL_RUNAWAY_E1, EXCEP_ACT_STOP_WORKING | EXCEP_ACT_DISABLE_POWER_8P_TOOLHEAD);
+    }
   }
 
   last_recv_time = millis();

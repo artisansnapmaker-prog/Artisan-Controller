@@ -46,6 +46,12 @@ typedef enum {
 
   BEDLEVEL_REQ_CMD_ID_SUM                      = 11,               // Adding or deleting IDs requires changing this value
 
+  BEDLEVEL_REQ_CMD_ID_GOTO_PROBE_POINT_RESULT         = 0x0b,
+  BEDLEVEL_REQ_CMD_ID_EXIT_LEVEL_RESULT               = 0x0c,
+  BEDLEVEL_REQ_CMD_ID_BED_POSITION_DETECTION_RESULT   = 0x17,
+  BEDLEVEL_REQ_CMD_ID_PROBE_SENSOR_CALIBRATION_RESULT = 0x18,
+  BEDLEVEL_ERQ_CMD_ID_SET_LIVE_Z_OFFSET_RESULT        = 0x19,
+
   BEDLEVEL_CMD_ID_REPORT_BEDLEVEL_POINT        = 0xa1,
 
 }bedlevel_req_cmd_id_e;

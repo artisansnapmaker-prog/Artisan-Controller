@@ -536,21 +536,38 @@ EXIT:
 static err_code_t hmi_req_callback_switch_extruder(void *obj, sacp_hmi_message_t *msg) {
   ToolHeadFDM &fdm = *(ToolHeadFDM *)obj;
   err_code_t ret = E_SUCCESS;
+  uint16_t index = 0;
+  uint8_t  recv_buffer[4];
+  uint16_t recv_len = 4;
+  uint8_t temp_extruder;
 
-  if (msg->data[1] > fdm.get_extruders_count()) {
+  // get the data first
+  temp_extruder = msg->data[1];
+
+  // response to hmi first
+  index = 0;
+  msg->data[index++] = E_SUCCESS;
+  msg->length = index;
+  host_hmi.send_ack(msg);
+
+  if (temp_extruder > fdm.get_extruders_count()) {
     ret = E_PARAM;
     goto EXIT;
   }
 
-  LOG_I("switch to extruder: %d\n", msg->data[1]);
+  LOG_I("switch to extruder: %d\n", temp_extruder);
 
-  ret = fdm.tool_change(msg->data[1]);
+  ret = fdm.tool_change(temp_extruder);
 
 EXIT:
-  uint16_t index = 0;
+  // send request as the result of execution
+  index              = 0;
   msg->data[index++] = ret;
-  msg->length = index;
-  host_hmi.send_ack(msg);
+  msg->length        = index;
+  msg->cmd_set       = SACP_CMD_SET_FDM;
+  msg->cmd_id        = FDM_REQ_CMD_ID_SWITCH_EXTRUDER_RESULT;
+  msg->attr          = 0;
+  host_hmi.send_sync(msg, recv_buffer, &recv_len, 2000, 3);
   return ret;
 }
 
@@ -708,7 +725,11 @@ static err_code_t hmi_req_callback_extruder_motion(void *obj, sacp_hmi_message_t
   float retraction_length;
   float retraction_speed;
   int32_t tmp_data;
+  uint16_t index = 0;
+  uint8_t  recv_buffer[4];
+  uint16_t recv_len = 4;
 
+  // get the date first
   // movement type
   move_type = msg->data[1];
 
@@ -726,6 +747,13 @@ static err_code_t hmi_req_callback_extruder_motion(void *obj, sacp_hmi_message_t
   LOG_I("hmi request etruder move, movetype: %d, extrusion_length: %f, extrusion_speed: %f, retraction_length: %f, retraction_speed: %f\n", move_type, extrusion_length, extrusion_speed, retraction_length, retraction_speed);
 
   move_type = msg->data[1];
+
+  // response to hmi first
+  index = 0;
+  msg->data[index++] = E_SUCCESS;
+  msg->length = index;
+  host_hmi.send_ack(msg);
+
   if (move_type == 0) {
     motion_platform_svc.moveto_e(motion_platform_svc.get_current_position(E_AXIS) + extrusion_length, extrusion_speed);
     motion_platform_svc.moveto_e(motion_platform_svc.get_current_position(E_AXIS) - retraction_length, retraction_speed);
@@ -734,10 +762,14 @@ static err_code_t hmi_req_callback_extruder_motion(void *obj, sacp_hmi_message_t
     motion_platform_svc.moveto_e(motion_platform_svc.get_current_position(E_AXIS) + extrusion_length, extrusion_speed);
   }
 
-  uint16_t index = 0;
+  // send request as the result of execution
+  index              = 0;
   msg->data[index++] = E_SUCCESS;
-  msg->length = index;
-  host_hmi.send_ack(msg);
+  msg->length        = index;
+  msg->cmd_set       = SACP_CMD_SET_FDM;
+  msg->cmd_id        = FDM_REQ_CMD_ID_EXTRUDER_MOTION_RESULT;
+  msg->attr          = 0;
+  host_hmi.send_sync(msg, recv_buffer, &recv_len, 2000, 3);
   return E_SUCCESS;
 }
 

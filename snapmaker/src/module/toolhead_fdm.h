@@ -73,6 +73,10 @@ typedef enum {
   FDM_REQ_CMD_ID_CHANGE_NOZZLE_CTRL    = 10,
 
   FDM_REQ_CMD_ID_SUM                   = 9,      // Adding or deleting IDs requires changing this value
+
+
+  FDM_REQ_CMD_ID_SWITCH_EXTRUDER_RESULT = 0x0b,
+  FDM_REQ_CMD_ID_EXTRUDER_MOTION_RESULT = 0x0c,
 }fdm_req_cmd_id_e;
 
 typedef enum {

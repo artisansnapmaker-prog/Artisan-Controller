@@ -123,8 +123,12 @@ static err_code_t hmi_req_callback_start_level(void *obj, sacp_hmi_message_t *ms
   BedLevelService &bedlevel = *(BedLevelService *)obj;
   err_code_t ret = E_SUCCESS;
   uint8_t grid;
+  uint16_t index = 0;
 
   LOG_I("hmi request start bedlevel\n");
+
+  // get the data first
+  grid = msg->data[0];
 
   uint8_t mode = bedlevel.get_bedlevel_mode();
   if ((mode != BEDLEVEL_MODE_AUTO) && (mode != BEDLEVEL_MODE_MANUAL)) {
@@ -133,9 +137,6 @@ static err_code_t hmi_req_callback_start_level(void *obj, sacp_hmi_message_t *ms
     goto EXIT;
   }
 
-  // need to determine the current system status
-
-  grid = msg->data[0];
   if (grid < 2 && grid > 11) {
     ret = E_PARAM;
     goto EXIT;
@@ -154,9 +155,13 @@ static err_code_t hmi_req_callback_start_level(void *obj, sacp_hmi_message_t *ms
   }
 
 EXIT:
-  uint8_t index = 0;
+  // send request as the result of execution
+  index              = 0;
   msg->data[index++] = ret;
-  msg->length = index;
+  msg->length        = index;
+  msg->cmd_set       = SACP_CMD_SET_CALIBRATE_FDM;
+  msg->cmd_id        = BEDLEVEL_REQ_CMD_ID_START_LEVEL;
+  msg->attr          = 0;
   host_hmi.send_ack(msg);
   return ret;
 }
@@ -165,8 +170,20 @@ static err_code_t hmi_req_callback_goto_probe_point(void *obj, sacp_hmi_message_
   BedLevelService &bedlevel = *(BedLevelService *)obj;
   err_code_t ret;
   uint8_t point_index;
+  uint16_t index = 0;
+  uint8_t  recv_buffer[4];
+  uint16_t recv_len = 4;
 
   LOG_I("hmi request goto bedlevel point: %d\n", msg->data[0]);
+
+  // get the data first
+  point_index = msg->data[0];
+
+  // response to hmi first
+  index = 0;
+  msg->data[index++] = E_SUCCESS;
+  msg->length = index;
+  host_hmi.send_ack(msg);
 
   uint8_t mode = bedlevel.get_bedlevel_mode();
   if (mode != BEDLEVEL_MODE_MANUAL) {
@@ -174,16 +191,17 @@ static err_code_t hmi_req_callback_goto_probe_point(void *obj, sacp_hmi_message_
     goto EXIT;
   }
 
-  // need to determine the current system status
-
-  point_index = msg->data[0];
   ret = bedlevel.goto_leveling_point(point_index);
 
 EXIT:
-  uint8_t index = 0;
+  // send request as the result of execution
+  index              = 0;
   msg->data[index++] = ret;
-  msg->length = index;
-  host_hmi.send_ack(msg);
+  msg->length        = index;
+  msg->cmd_set       = SACP_CMD_SET_CALIBRATE_FDM;
+  msg->cmd_id        = BEDLEVEL_REQ_CMD_ID_GOTO_PROBE_POINT_RESULT;
+  msg->attr          = 0;
+  host_hmi.send_sync(msg, recv_buffer, &recv_len, 2000, 3);
   return ret;
 }
 
@@ -226,8 +244,17 @@ static err_code_t hmi_req_callback_exit_level(void *obj, sacp_hmi_message_t *msg
   uint8_t x_index, y_index;
   x_index = GRID_MAX_POINTS_X / 2;
   y_index = GRID_MAX_POINTS_Y / 2;
+  uint16_t index = 0;
+  uint8_t  recv_buffer[4];
+  uint16_t recv_len = 4;
 
   LOG_I("hmi request exit bedlevel mode\n");
+
+  // response to hmi first
+  index = 0;
+  msg->data[index++] = E_SUCCESS;
+  msg->length = index;
+  host_hmi.send_ack(msg);
 
   if (smprinter.get_sys_status() == SYSTEM_STATUS_IDLE) {
     ret = E_SUCCESS;
@@ -338,10 +365,14 @@ static err_code_t hmi_req_callback_exit_level(void *obj, sacp_hmi_message_t *msg
   smprinter.fdm->extruder_status_check_ctrl(EXTRUDER_STATUS_CHECK);
 
 EXIT:
-  uint8_t index = 0;
+  // send request as the result of execution
+  index              = 0;
   msg->data[index++] = ret;
-  msg->length = index;
-  host_hmi.send_ack(msg);
+  msg->length        = index;
+  msg->cmd_set       = SACP_CMD_SET_CALIBRATE_FDM;
+  msg->cmd_id        = BEDLEVEL_REQ_CMD_ID_EXIT_LEVEL_RESULT;
+  msg->attr          = 0;
+  host_hmi.send_sync(msg, recv_buffer, &recv_len, 2000, 3);
   return ret;
 }
 
@@ -366,9 +397,19 @@ static err_code_t hmi_req_callback_bed_position_detection(void *obj, sacp_hmi_me
   y_index = GRID_MAX_POINTS_Y / 2;
   x = _GET_MESH_X(x_index);
   y = _GET_MESH_Y(y_index);
+  uint16_t index = 0;
+  uint8_t  recv_buffer[4];
+  uint16_t recv_len = 4;
+
   SnapmakerSettings *smsettings = smprinter.get_settings();
 
   LOG_I("hmi request bed position detection\n");
+
+  // response to hmi first
+  index = 0;
+  msg->data[index++] = E_SUCCESS;
+  msg->length = index;
+  host_hmi.send_ack(msg);
 
   if ((bedlevel.get_bedlevel_mode() != BEDLEVEL_MODE_AUTO_BED_DETECTION) && (bedlevel.get_bedlevel_mode() != BEDLEVEL_MODE_MANUAL_BED_DETECTION)) {
     ret = E_FAILURE;
@@ -385,11 +426,8 @@ static err_code_t hmi_req_callback_bed_position_detection(void *obj, sacp_hmi_me
       motion_platform_svc.save_settings();
 
       if (!motion_platform_svc.is_all_axes_homed()) {
-        motion_platform_svc.run_gcode((char *)"G28", true);
-        if (smprinter.fdm->get_specified_fdm_state(FDM_FAULT_EXTRUDER_HOME_FAILED) == 1) {
-          ret = E_FAILURE;
-          goto EXIT;
-        }
+        ret = E_FAILURE;
+        goto EXIT;
       }
 
       smprinter.fdm->tool_change(0);
@@ -425,7 +463,8 @@ static err_code_t hmi_req_callback_bed_position_detection(void *obj, sacp_hmi_me
       motion_platform_svc.save_settings();
 
       if (!motion_platform_svc.is_all_axes_homed()) {
-        motion_platform_svc.run_gcode((char *)"G28", true);
+        ret = E_FAILURE;
+        goto EXIT;
       }
 
       smprinter.fdm->tool_change(0);
@@ -445,10 +484,14 @@ static err_code_t hmi_req_callback_bed_position_detection(void *obj, sacp_hmi_me
   }
 
 EXIT:
-  uint8_t index = 0;
+  // send request as the result of execution
+  index              = 0;
   msg->data[index++] = ret;
-  msg->length = index;
-  host_hmi.send_ack(msg);
+  msg->length        = index;
+  msg->cmd_set       = SACP_CMD_SET_CALIBRATE_FDM;
+  msg->cmd_id        = BEDLEVEL_REQ_CMD_ID_BED_POSITION_DETECTION_RESULT;
+  msg->attr          = 0;
+  host_hmi.send_sync(msg, recv_buffer, &recv_len, 2000, 3);
   return ret;
 }
 
@@ -458,7 +501,17 @@ static err_code_t hmi_req_callback_probe_sensor_calibration(void *obj, sacp_hmi_
   uint8_t action = msg->data[0];
   float x, y;
   uint8_t x_index, y_index;
+  uint16_t index = 0;
+  uint8_t  recv_buffer[4];
+  uint16_t recv_len = 4;
+
   SnapmakerSettings *smsettings = smprinter.get_settings();
+
+  // response to hmi first
+  index = 0;
+  msg->data[index++] = E_SUCCESS;
+  msg->length = index;
+  host_hmi.send_ack(msg);
 
   if (GRID_MAX_POINTS_X == 0 || GRID_MAX_POINTS_Y == 0 || bilinear_grid_spacing.x == 0 || bilinear_grid_spacing.y == 0) {
     motion_platform_svc.set_leveling_grids(3);
@@ -486,11 +539,8 @@ static err_code_t hmi_req_callback_probe_sensor_calibration(void *obj, sacp_hmi_
       motion_platform_svc.save_settings();
 
       if (!motion_platform_svc.is_all_axes_homed()) {
-        motion_platform_svc.run_gcode((char *)"G28", true);
-        if (smprinter.fdm->get_specified_fdm_state(FDM_FAULT_EXTRUDER_HOME_FAILED) == 1) {
-          ret = E_FAILURE;
-          goto EXIT;
-        }
+        ret = E_FAILURE;
+        goto EXIT;
       }
 
       smprinter.fdm->tool_change(0);
@@ -534,10 +584,14 @@ static err_code_t hmi_req_callback_probe_sensor_calibration(void *obj, sacp_hmi_
   }
 
 EXIT:
-  uint8_t index = 0;
+  // send request as the result of execution
+  index              = 0;
   msg->data[index++] = ret;
-  msg->length = index;
-  host_hmi.send_ack(msg);
+  msg->length        = index;
+  msg->cmd_set       = SACP_CMD_SET_CALIBRATE_FDM;
+  msg->cmd_id        = BEDLEVEL_REQ_CMD_ID_PROBE_SENSOR_CALIBRATION_RESULT;
+  msg->attr          = 0;
+  host_hmi.send_sync(msg, recv_buffer, &recv_len, 2000, 3);
   return ret;
 }
 
@@ -547,18 +601,26 @@ static err_code_t hmi_req_callback_set_live_z_offset(void *obj, sacp_hmi_message
   uint8_t e = msg->data[1];
   float offset;
   uint8_t index = 0;
+  uint8_t  recv_buffer[4];
+  uint16_t recv_len = 4;
   offset = (float)(msg->data[2] | (msg->data[3] << 8) | (msg->data[4] << 16) | (msg->data[5] << 24)) / 1000;
 
   LOG_I("hmi request set live z offset, e: %d, offset: %f\n", e, offset);
 
+  // response to hmi first
+  index = 0;
+  msg->data[index++] = E_SUCCESS;
+  msg->length = index;
+  host_hmi.send_ack(msg);
+
   if (ABS(offset) > LIVE_Z_OFFSET_LIMIT) {
-    ret = E_FAILURE;
+    ret = E_PARAM;
     LOG_I("offset exceed limit\n");
     goto EXIT;
   }
 
   if (bedlevel.get_bedlevel_mode() != BEDLEVEL_MODE_IDLE) {
-    ret = E_FAILURE;
+    ret = E_BUSY;
     LOG_I("can't set live z offset\n");
     goto EXIT;
   }
@@ -568,18 +630,26 @@ static err_code_t hmi_req_callback_set_live_z_offset(void *obj, sacp_hmi_message
     goto EXIT;
   }
 
-  index = 0;
+  // send request as the result of execution
+  index              = 0;
   msg->data[index++] = ret;
-  msg->length = index;
-  host_hmi.send_ack(msg);
+  msg->length        = index;
+  msg->cmd_set       = SACP_CMD_SET_CALIBRATE_FDM;
+  msg->cmd_id        = BEDLEVEL_ERQ_CMD_ID_SET_LIVE_Z_OFFSET_RESULT;
+  msg->attr          = 0;
+  host_hmi.send_sync(msg, recv_buffer, &recv_len, 2000, 3);
   bedlevel.set_live_z_offset(e, offset);
   return ret;
 
 EXIT:
-  index = 0;
+  // send request as the result of execution
+  index              = 0;
   msg->data[index++] = ret;
-  msg->length = index;
-  host_hmi.send_ack(msg);
+  msg->length        = index;
+  msg->cmd_set       = SACP_CMD_SET_CALIBRATE_FDM;
+  msg->cmd_id        = BEDLEVEL_ERQ_CMD_ID_SET_LIVE_Z_OFFSET_RESULT;
+  msg->attr          = 0;
+  host_hmi.send_sync(msg, recv_buffer, &recv_len, 2000, 3);
   return ret;
 }
 
@@ -738,10 +808,7 @@ err_code_t BedLevelService::start_manual_bed_leveling(uint8_t grids) {
 
   // go home
   if (!motion_platform_svc.is_all_axes_homed()) {
-    motion_platform_svc.run_gcode((char *)"G28", true);
-    if (smprinter.fdm->get_specified_fdm_state(FDM_FAULT_EXTRUDER_HOME_FAILED) == 1) {
-      return E_FAILURE;
-    }
+    return E_FAILURE;
   }
 
   smprinter.fdm->tool_change(0);
@@ -833,11 +900,8 @@ err_code_t BedLevelService::start_auto_bed_leveling(uint8_t grids) {
   motion_platform_svc.save_settings();
 
   if (!motion_platform_svc.is_all_axes_homed()) {
-    motion_platform_svc.run_gcode((char *)"G28", true);
-    if (smprinter.fdm->get_specified_fdm_state(FDM_FAULT_EXTRUDER_HOME_FAILED) == 1) {
-      ret = E_FAILURE;
-      goto EXIT;
-    }
+    ret = E_FAILURE;
+    goto EXIT;
   }
 
   smprinter.fdm->tool_change(0);

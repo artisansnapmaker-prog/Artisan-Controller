@@ -2193,44 +2193,57 @@ void Temperature::updateTemperaturesFromRawValues() {
   TERN_(HAS_POWER_MONITOR,     power_monitor.capture_values());
 
   #if HAS_HOTEND
-    static constexpr int8_t temp_dir[] = {
-      #if TEMP_SENSOR_IS_ANY_MAX_TC(0)
-        0
-      #else
-        TEMPDIR(0)
-      #endif
-      #if HAS_MULTI_HOTEND
-        #if TEMP_SENSOR_IS_ANY_MAX_TC(1)
-          , 0
+    #if !MB_SNAPMAKER
+      static constexpr int8_t temp_dir[] = {
+        #if TEMP_SENSOR_IS_ANY_MAX_TC(0)
+          0
         #else
-          , TEMPDIR(1)
+          TEMPDIR(0)
         #endif
-        #if HOTENDS > 2
-          #define _TEMPDIR(N) , TEMPDIR(N)
-          REPEAT_S(2, HOTENDS, _TEMPDIR)
+        #if HAS_MULTI_HOTEND
+          #if TEMP_SENSOR_IS_ANY_MAX_TC(1)
+            , 0
+          #else
+            , TEMPDIR(1)
+          #endif
+          #if HOTENDS > 2
+            #define _TEMPDIR(N) , TEMPDIR(N)
+            REPEAT_S(2, HOTENDS, _TEMPDIR)
+          #endif
         #endif
-      #endif
-    };
+      };
 
-    LOOP_L_N(e, COUNT(temp_dir)) {
-      const int8_t tdir = temp_dir[e];
-      if (tdir) {
-        const int16_t rawtemp = temp_hotend[e].raw * tdir; // normal direction, +rawtemp, else -rawtemp
-        if (rawtemp > temp_range[e].raw_max * tdir) max_temp_error((heater_id_t)e);
+      LOOP_L_N(e, COUNT(temp_dir)) {
+        const int8_t tdir = temp_dir[e];
+        if (tdir) {
+          const int16_t rawtemp = temp_hotend[e].raw * tdir; // normal direction, +rawtemp, else -rawtemp
+          if (rawtemp > temp_range[e].raw_max * tdir) max_temp_error((heater_id_t)e);
+
+          const bool heater_on = temp_hotend[e].target > 0;
+          if (heater_on && rawtemp < temp_range[e].raw_min * tdir && !is_preheating(e)) {
+            #if MAX_CONSECUTIVE_LOW_TEMPERATURE_ERROR_ALLOWED > 1
+              if (++consecutive_low_temperature_error[e] >= MAX_CONSECUTIVE_LOW_TEMPERATURE_ERROR_ALLOWED)
+            #endif
+                min_temp_error((heater_id_t)e);
+          }
+          #if MAX_CONSECUTIVE_LOW_TEMPERATURE_ERROR_ALLOWED > 1
+            else
+              consecutive_low_temperature_error[e] = 0;
+          #endif
+        }
+      }
+    #else
+      LOOP_L_N(e, EXTRUDERS) {
+        if (temp_hotend[e].celsius > temp_range[e].maxtemp) {
+          max_temp_error((heater_id_t)e);
+        }
 
         const bool heater_on = temp_hotend[e].target > 0;
-        if (heater_on && rawtemp < temp_range[e].raw_min * tdir && !is_preheating(e)) {
-          #if MAX_CONSECUTIVE_LOW_TEMPERATURE_ERROR_ALLOWED > 1
-            if (++consecutive_low_temperature_error[e] >= MAX_CONSECUTIVE_LOW_TEMPERATURE_ERROR_ALLOWED)
-          #endif
-              min_temp_error((heater_id_t)e);
+        if (heater_on && temp_hotend[e].celsius < temp_range[e].mintemp && !is_preheating(e)) {
+          min_temp_error((heater_id_t)e);
         }
-        #if MAX_CONSECUTIVE_LOW_TEMPERATURE_ERROR_ALLOWED > 1
-          else
-            consecutive_low_temperature_error[e] = 0;
-        #endif
       }
-    }
+    #endif
 
   #endif // HAS_HOTEND
 
@@ -2692,7 +2705,11 @@ void Temperature::init() {
 
       // When first heating, wait for the temperature to be reached then go to Stable state
       case TRFirstHeating:
-        if (current < running_temp) break;
+        #if !MB_SNAPMAKER
+          if (current < running_temp) break;
+        #else
+          if (current < running_temp - TEMP_WINDOW) break;
+        #endif
         state = TRStable;
 
       // While the temperature is stable watch for a bad temperature

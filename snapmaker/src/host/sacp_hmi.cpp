@@ -88,6 +88,31 @@ err_code_t HostSACPHMI::init(TaskHandle_t event_task, SemaphoreHandle_t recv_sig
     new_route_handle[i].obj = NULL;
   }
 
+  // init result cache manager
+  for (int i = 0; i < SACP_ROUTE_TABLE_DYNAMIC_MAX; i++) {
+    result_cache[i].peer      = SACP_HOST_INVALID;
+    result_cache[i].ch        = SACP_HMI_CH_MAX;
+    result_cache[i].cahced    = 0;
+    result_cache[i].last_seq  = 0;
+    result_cache[i].lock      = xSemaphoreCreateMutex();
+    configASSERT(result_cache[i].lock);
+    result_cache[i].write_index = 0;
+    for (int j = 0; j < SACP_ROUTE_RESULT_CACHE_MAX; j++)
+      result_cache[i].nodes[j] = NULL;
+  }
+
+  list_init(&result_cache_pool.head);
+  sacp_result_node_t *nodes = (sacp_result_node_t *)pvPortMalloc(sizeof(sacp_result_node_t) * \
+                              SACP_ROUTE_RESULT_CACHE_MAX * SACP_ROUTE_TABLE_DYNAMIC_MAX);
+  configASSERT(nodes);
+  for (int i = 0; i < SACP_ROUTE_RESULT_CACHE_MAX * SACP_ROUTE_TABLE_DYNAMIC_MAX; i++) {
+    list_add_tail(&nodes->node, &result_cache_pool.head);
+    nodes++;
+  }
+  result_cache_pool.free = SACP_ROUTE_RESULT_CACHE_MAX * SACP_ROUTE_TABLE_DYNAMIC_MAX;
+  result_cache_pool.lock = xSemaphoreCreateMutex();
+  configASSERT(result_cache_pool.lock);
+
   return E_SUCCESS;
 }
 
@@ -487,6 +512,12 @@ err_code_t HostSACPHMI::send(sacp_hmi_message_t *message) {
   }
   xSemaphoreGive(channel.lock);
 
+  // cache result of ACK for events with BLOCKED attribute
+  if (xTaskGetCurrentTaskHandle() == thandle_marlin || xTaskGetCurrentTaskHandle() == thandle_system) {
+    if (message->attr & SACP_MESSAGE_ATTR_ACK && !(message->attr & SACP_MESSAGE_ATTR_UPDATE_ACK_SEQ))
+      cache_result(message->peer, message->ch, message->seq, (message->length)? message->data[0] : E_FAILURE);
+  }
+
   return E_SUCCESS;
 
 #else
@@ -729,6 +760,8 @@ MessageBufferHandle_t HostSACPHMI::get_event_queue_by_cmd(uint8_t *buffer, uint8
   uint8_t cmd_set;
   uint16_t cmd_id;
   uint16_t length;
+  uint16_t seq = 0;
+  uint8_t  result;
   sacp_hmi_message_t msg;
   sacp_hmi_handle_t *handle = NULL;
 
@@ -753,6 +786,8 @@ MessageBufferHandle_t HostSACPHMI::get_event_queue_by_cmd(uint8_t *buffer, uint8
     return NULL;
   }
 
+  seq = buffer[SACP_V1_FRAME_INDEX_SEQ_H]<<8 | buffer[SACP_V1_FRAME_INDEX_SEQ_L];
+
   if (!cmd_set_handle[cmd_set] || cmd_set_handle_len[cmd_set] == 0) {
     LOG_E("nobody apply cmd set handle for cmd[%x:%x]\n", cmd_set, cmd_id);
     if (buffer[SACP_FRAME_INDEX_VER] != SACP_VER_1)
@@ -763,7 +798,7 @@ MessageBufferHandle_t HostSACPHMI::get_event_queue_by_cmd(uint8_t *buffer, uint8
     msg.cmd_set = cmd_set;
     msg.cmd_id  = cmd_id;
     msg.ver     = buffer[SACP_V1_FRAME_INDEX_VER];
-    msg.seq     = buffer[SACP_V1_FRAME_INDEX_SEQ_H]<<8 | buffer[SACP_V1_FRAME_INDEX_SEQ_L];
+    msg.seq     = seq;
     msg.ch      = channel;
 
     send_ack(&msg, E_INVALID_CMD_SET);
@@ -789,7 +824,7 @@ MessageBufferHandle_t HostSACPHMI::get_event_queue_by_cmd(uint8_t *buffer, uint8
     msg.cmd_set = cmd_set;
     msg.cmd_id  = cmd_id;
     msg.ver     = buffer[SACP_V1_FRAME_INDEX_VER];
-    msg.seq     = buffer[SACP_V1_FRAME_INDEX_SEQ_H]<<8 | buffer[SACP_V1_FRAME_INDEX_SEQ_L];
+    msg.seq     = seq;
     msg.ch      = channel;
 
     send_ack(&msg, E_INVALID_CMD_ID);
@@ -803,14 +838,30 @@ MessageBufferHandle_t HostSACPHMI::get_event_queue_by_cmd(uint8_t *buffer, uint8
   event_handle->length  = length;
 
   if (handle->cb_attr & SACP_CB_ATTR_BLOCKED_WITH_MOTION) {
-    return events_with_motion;
+    // check sequence
+    if (!is_retransmited_request(buffer[SACP_V1_FRAME_INDEX_SENDER_ID], channel, seq, &result))
+      return events_with_motion;
   }
   else if (handle->cb_attr & SACP_CB_ATTR_BLOCKED_WITHOUT_MOTION) {
-    return events_blocked_without_motion;
+    // check sequence
+    if (!is_retransmited_request(buffer[SACP_V1_FRAME_INDEX_SENDER_ID], channel, seq, &result))
+      return events_blocked_without_motion;
   }
   else {
     return events_normal;
   }
+
+  // to here, request we have
+  msg.peer    = buffer[SACP_V1_FRAME_INDEX_SENDER_ID];
+  msg.attr    = buffer[SACP_V1_FRAME_INDEX_ATTR];
+  msg.cmd_set = cmd_set;
+  msg.cmd_id  = cmd_id;
+  msg.ver     = event_handle->version;
+  msg.seq     = seq;
+  msg.ch      = event_handle->channel;
+
+  send_ack(&msg, result);
+  return NULL;
 }
 
 void HostSACPHMI::record_new_route(uint32_t peer, uint8_t ch, uint8_t ver) {
@@ -1462,3 +1513,127 @@ err_code_t HostSACPHMI::register_new_route_handle(void *obj, sacp_hmi_notify_new
 
   return E_SUCCESS;
 }
+
+void HostSACPHMI::cache_result(uint32_t id, uint8_t ch, uint16_t sequence, uint8_t result) {
+  sacp_result_node_t *result_node = NULL;
+  sacp_result_cache_t *cache_node = result_cache;
+  for (int i = 0; i < SACP_ROUTE_TABLE_DYNAMIC_MAX; i++) {
+    if (cache_node->peer == id && cache_node->ch == ch) {
+
+      xSemaphoreTake(cache_node->lock, portMAX_DELAY);
+      // to avoid use 'goto'
+      do {
+        if (cache_node->cahced >= SACP_ROUTE_RESULT_CACHE_MAX) {
+          // there is SACP_ROUTE_RESULT_CACHE_MAX nodes for every route
+          result_node = cache_node->nodes[cache_node->write_index];
+        }
+        else {
+          // apply new free node and save the last one
+          result_node = malloc_result_node();
+          if (!result_node) {
+            LOG_E("HostSACPHMI: no free result cache!\n");
+            break;;
+          }
+          cache_node->nodes[cache_node->write_index] = result_node;
+          // add new node in array
+          cache_node->cahced++;
+        }
+
+        if (++cache_node->write_index >= SACP_ROUTE_RESULT_CACHE_MAX)
+          cache_node->write_index = 0;
+
+        result_node->seq    = sequence;
+        result_node->result = result;
+
+        if (sequence <= cache_node->last_seq) {
+          if (cache_node->last_seq - sequence > 0x7FFF) {
+            // sequence is overload
+            cache_node->last_seq = sequence;
+          }
+        }
+        else
+          cache_node->last_seq = sequence;
+
+      } while (0);
+      xSemaphoreGive(cache_node->lock);
+
+      break;
+    }
+
+    cache_node++;
+  }
+}
+
+bool HostSACPHMI::is_retransmited_request(uint32_t id, uint8_t ch, uint16_t sequence, uint8_t *result) {
+  sacp_result_node_t *result_node = NULL;
+  sacp_result_cache_t *cache_node = result_cache;
+  bool ret = false;
+
+  for (int i = 0; i < SACP_ROUTE_TABLE_DYNAMIC_MAX; i++) {
+    if (cache_node->peer == id && cache_node->ch == ch) {
+      if (sequence - cache_node->last_seq > 0 || cache_node->last_seq - sequence > 0x7FFF) {
+        // it's not a retransmitted request
+        return ret;
+      }
+
+      result_node = cache_node->nodes[0];
+      for (int j = 0; j < cache_node->cahced; j++) {
+        xSemaphoreTake(cache_node->lock, portMAX_DELAY);
+        if (result_node->seq == sequence) {
+          if (result) {
+            *result = result_node->result;
+            ret = true;
+          }
+          xSemaphoreGive(cache_node->lock);
+          break;
+        }
+        xSemaphoreGive(cache_node->lock);
+
+        result_node++;
+      }
+      break;
+    }
+
+    cache_node++;
+  }
+
+  return ret;
+}
+
+sacp_result_node_t *HostSACPHMI::malloc_result_node() {
+  sacp_result_node_t *node = NULL;
+
+  xSemaphoreTake(result_cache_pool.lock, portMAX_DELAY);
+
+  // to avoid 'goto'
+  do {
+    if (result_cache_pool.free == 0)
+      break;
+
+    node = list_first_entry(&result_cache_pool.head, sacp_result_node_t, node);
+
+    result_cache_pool.free--;
+
+  } while (0);
+
+  xSemaphoreGive(result_cache_pool.lock);
+
+  return node;
+}
+
+
+void HostSACPHMI::free_result_node(sacp_result_node_t *node) {
+  if (!node)
+    return;
+
+  xSemaphoreTake(result_cache_pool.lock, portMAX_DELAY);
+
+  list_add_tail(&node->node, &result_cache_pool.head);
+
+  result_cache_pool.free++;
+
+  xSemaphoreGive(result_cache_pool.lock);
+
+  return;
+}
+

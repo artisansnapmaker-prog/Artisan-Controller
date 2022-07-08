@@ -24,6 +24,7 @@
 
 #include "sacp.h"
 #include "../link/link_uart.h"
+#include "../common/list.h"
 
 typedef err_code_t (*sacp_hmi_callback)(void *obj, sacp_hmi_message_t *msg);
 
@@ -68,8 +69,10 @@ typedef struct {
 #define SACP_HMI_CH_INVALID SACP_CH_INVALID
 
 
-#define SACP_ROUTE_TABLE_DYNAMIC_MAX      (8)
+#define SACP_ROUTE_TABLE_DYNAMIC_MAX      (4)
 #define SACP_ROUTE_TABLE_HANDLE_MAX       (4)
+
+#define SACP_ROUTE_RESULT_CACHE_MAX       (10)
 
 // defination for subscription
 #define SACP_SUBSCRIPTION_HANDLE_MAX      (32)
@@ -101,6 +104,29 @@ enum SACPSubscribeNotifyType {
   SACP_SUBS_NOTIFY_TYPE_SUBSCRIBE,
   SACP_SUBS_NOTIFY_TYPE_UNSUBSCRIBE,
 };
+
+typedef struct {
+  list_node node;
+  uint16_t seq;
+  uint8_t  result;
+} sacp_result_node_t;
+
+typedef struct SACPResultCache {
+  uint32_t peer;
+  uint8_t  ch;
+  uint8_t  cahced;
+  uint16_t last_seq;
+  SemaphoreHandle_t lock;
+
+  uint32_t write_index;
+  sacp_result_node_t *nodes[SACP_ROUTE_RESULT_CACHE_MAX];
+} sacp_result_cache_t;
+
+typedef struct SACPResultCachePool {
+  list_head head;
+  uint32_t free;
+  SemaphoreHandle_t lock;
+} sacp_result_cache_pool_t;
 
 class HostSACPHMI: public HostSACP {
   // public methods
@@ -200,6 +226,11 @@ class HostSACPHMI: public HostSACP {
 
     err_code_t forward_message(uint32_t id, uint8_t *pdu, uint32_t length);
 
+    void cache_result(uint32_t id, uint8_t ch, uint16_t sequence, uint8_t result);
+    bool is_retransmited_request(uint32_t id, uint8_t ch, uint16_t sequence, uint8_t *result);
+    sacp_result_node_t *malloc_result_node();
+    void free_result_node(sacp_result_node_t *node);
+
   // private properties
   private:
     // LinkUART *links[SACP_HMI_CH_MAX];
@@ -226,6 +257,9 @@ class HostSACPHMI: public HostSACP {
 
     sacp_route_table_t  rt_dynamic[SACP_ROUTE_TABLE_DYNAMIC_MAX];
     sacp_hmi_new_route_handle_t new_route_handle[SACP_ROUTE_TABLE_HANDLE_MAX];
+
+    sacp_result_cache_t result_cache[SACP_ROUTE_TABLE_DYNAMIC_MAX];
+    sacp_result_cache_pool_t result_cache_pool;
 };
 
 // initalized in system thread

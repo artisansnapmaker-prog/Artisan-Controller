@@ -160,14 +160,18 @@ err_code_t MotionPlatformService::hmi_cb_move_absoluty(void *obj, sacp_hmi_messa
   uint8_t number = msg->data[0];
   coordinate_info_t *move_cmd = (coordinate_info_t *)(msg->data + 1);
 
-  if (number == 0 || number > AXIS_KEY_B1) {
+  if (number == 0 || number > AXIS_KEY_C1) {
     LOG_E("length of move array is out of range[%u]\n", number);
-    return host_hmi.send_ack(msg, E_PARAM);
+    msg->data[0] = E_PARAM;
+    msg->length  = 1;
+    return host_hmi.send_ack(msg);
   }
 
   if (!system_svc.allow_moving()) {
     LOG_E("cannot moving as exception[0x%x]\n", system_svc.get_bans());
-    return host_hmi.send_ack(msg, E_HARDWARE);
+    msg->data[0] = E_HARDWARE;
+    msg->length  = 1;
+    return host_hmi.send_ack(msg);
   }
 
   motion->update_position_from_platform();
@@ -217,9 +221,15 @@ err_code_t MotionPlatformService::hmi_cb_move_absoluty(void *obj, sacp_hmi_messa
 
     if (coordinate_type != COORDINATE_TYPE_LOGICAL) {
       LOG_E("A400 doesn't supoort coordiante type: %u\n", coordinate_type);
-      return host_hmi.send_ack(msg, E_PARAM);
+      msg->data[0] = E_PARAM;
+      msg->length  = 1;
+      return host_hmi.send_ack(msg);
     }
   }
+
+  msg->data[0] = E_SUCCESS;
+  msg->length  = 1;
+  host_hmi.send_ack(msg);
 
   LOG_I("move to X%.3f, Y%.3f, Z%.3f, A%.3f, B%.3f, fr: %u\n", dest.x, dest.y, dest.z, dest.i, dest.j, feedrate);
 
@@ -229,7 +239,19 @@ err_code_t MotionPlatformService::hmi_cb_move_absoluty(void *obj, sacp_hmi_messa
 
   motion->moveto(dest, (float)feedrate);
 
-  return host_hmi.send_ack(msg, E_SUCCESS);
+  uint8_t recv_buff[8];
+  uint16_t recv_len = 8;
+
+  msg->cmd_id  = SACP_CMD_ID_GLOABL_NOTIFY_MOVE_ABSOLUTELY;
+  msg->attr    &= ~SACP_CB_ATTR_ACK;
+  msg->data[0] = E_SUCCESS;
+
+  if(host_hmi.send_sync(msg, recv_buff, &recv_len) != E_SUCCESS) {
+    LOG_E("failed to notify result of moving\n");
+    return E_FAILURE;
+  }
+
+  return E_SUCCESS;
 }
 
 enum MotionSACPHomeAxis {

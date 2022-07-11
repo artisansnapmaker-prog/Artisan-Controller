@@ -436,6 +436,10 @@ static err_code_t hmi_req_callback_bed_position_detection(void *obj, sacp_hmi_me
       motion_platform_svc.moveto_xy(x, y, 180);
       motion_platform_svc.moveto_z(20, 30);
     } else if (extruder_index == 1) {
+      if (!motion_platform_svc.is_all_axes_homed()) {
+        ret = E_FAILURE;
+        goto EXIT;
+      }
       motion_platform_svc.disable_leveling();
       motion_platform_svc.moveto_z(motion_platform_svc.get_current_position(Z_AXIS) + 5, 30);
       smprinter.fdm->tool_change(1, false);

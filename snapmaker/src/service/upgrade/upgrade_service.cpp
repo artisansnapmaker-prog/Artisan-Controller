@@ -51,9 +51,11 @@ err_code_t UpdateService::init(void) {
 
 void UpdateService::update_flash_mark(void) {
   memcpy(&boot_info, (void *)FLASH_BOOT_DATA_ADDR, sizeof(boot_info));
-  boot_info.upgrade_state = UPGRADE_STATE_JUMP_SUCCESS;
-  boot_info_flush_to_flash();
-  LOG_I("ugr_svc: mark boot data as UPGRADE_STATE_JUMP_SUCCESS\r\n");
+  if (boot_info.upgrade_state != UPGRADE_STATE_JUMP_SUCCESS) {
+    boot_info.upgrade_state = UPGRADE_STATE_JUMP_SUCCESS;
+    boot_info_flush_to_flash();
+    LOG_I("ugr_svc: mark boot data as UPGRADE_STATE_JUMP_SUCCESS\r\n");
+  }
 }
 
 void UpdateService::loop(void) {

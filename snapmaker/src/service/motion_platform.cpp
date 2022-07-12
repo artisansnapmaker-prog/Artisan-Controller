@@ -439,6 +439,10 @@ void MotionPlatformService::init() {
   configASSERT(quickstop_binary_sem);
   marlin_paused = false;
   homing_now = false;
+
+  // disable endstop globally by default,
+  // and endstop is valid only in G28
+  endstops.enable_globally(false);
 }
 
 void MotionPlatformService::pins_post_init() {
@@ -1039,7 +1043,7 @@ bool MotionPlatformService::is_axis_homed(ModuleLinearIndex axis) {
 }
 
 void MotionPlatformService::set_endstop(bool status) {
-  endstops.enable_globally(status);
+  endstops.enable(status);
   soft_endstop._enabled = status;
 }
 

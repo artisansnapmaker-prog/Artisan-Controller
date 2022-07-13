@@ -123,7 +123,6 @@ static err_code_t hmi_req_callback_start_level(void *obj, sacp_hmi_message_t *ms
   BedLevelService &bedlevel = *(BedLevelService *)obj;
   err_code_t ret = E_SUCCESS;
   uint8_t grid;
-  uint16_t index = 0;
 
   LOG_I("hmi request start bedlevel\n");
 
@@ -132,15 +131,22 @@ static err_code_t hmi_req_callback_start_level(void *obj, sacp_hmi_message_t *ms
 
   uint8_t mode = bedlevel.get_bedlevel_mode();
   if ((mode != BEDLEVEL_MODE_AUTO) && (mode != BEDLEVEL_MODE_MANUAL)) {
-    ret = E_BUSY;
-    LOG_I("bedlevel mode error\n");
-    goto EXIT;
+    // send request as the result of execution
+    return host_hmi.send_ack(msg, E_BUSY);
   }
 
   if (grid < 2 && grid > 11) {
-    ret = E_PARAM;
-    goto EXIT;
+    // send request as the result of execution
+    return host_hmi.send_ack(msg, E_PARAM);
   }
+
+  if (!motion_platform_svc.is_all_axes_homed()) {
+    // send request as the result of execution
+    return host_hmi.send_ack(msg, E_FAILURE);
+  }
+
+  // send request as the result of execution
+  host_hmi.send_ack(msg, E_SUCCESS);
 
   if (mode == BEDLEVEL_MODE_AUTO) {
     ret = bedlevel.start_auto_bed_leveling(grid);
@@ -150,19 +156,8 @@ static err_code_t hmi_req_callback_start_level(void *obj, sacp_hmi_message_t *ms
     bedlevel.set_end_leveling_process_status(true);
   } else if (mode == BEDLEVEL_MODE_MANUAL) {
     ret = bedlevel.start_manual_bed_leveling(grid);
-  } else {
-    ret = E_FAILURE;
   }
 
-EXIT:
-  // send request as the result of execution
-  index              = 0;
-  msg->data[index++] = ret;
-  msg->length        = index;
-  msg->cmd_set       = SACP_CMD_SET_CALIBRATE_FDM;
-  msg->cmd_id        = BEDLEVEL_REQ_CMD_ID_START_LEVEL;
-  msg->attr          = 0;
-  host_hmi.send_ack(msg);
   return ret;
 }
 
@@ -789,11 +784,6 @@ err_code_t BedLevelService::start_probe_test(uint8_t b, float x, float y) {
 }
 
 err_code_t BedLevelService::start_manual_bed_leveling(uint8_t grids) {
-  if (grids < 2 && grids > 11) {
-    LOG_I("\n");
-    return E_PARAM;
-  }
-
   end_of_leveling_process = false;
 
   LOG_I("start manual bed level, grids: %d\n", grids);
@@ -809,11 +799,6 @@ err_code_t BedLevelService::start_manual_bed_leveling(uint8_t grids) {
   smsettings->bedlevel_settings.live_z_offset[0] = 0;
   smsettings->bedlevel_settings.live_z_offset[1] = 0;
   motion_platform_svc.save_settings();
-
-  // go home
-  if (!motion_platform_svc.is_all_axes_homed()) {
-    return E_FAILURE;
-  }
 
   smprinter.fdm->tool_change(0);
 
@@ -883,11 +868,6 @@ err_code_t BedLevelService::start_auto_bed_leveling(uint8_t grids) {
   sacp_hmi_message_t msg;
   uint8_t buffer[3];
 
-  if (grids < 2 && grids > 11) {
-    ret = E_PARAM;
-    goto EXIT;
-  }
-
   need_to_abort_auto_bedlevel = false;
   set_end_leveling_process_status(false);
 
@@ -902,11 +882,6 @@ err_code_t BedLevelService::start_auto_bed_leveling(uint8_t grids) {
   smsettings->bedlevel_settings.live_z_offset[0] = 0;
   smsettings->bedlevel_settings.live_z_offset[1] = 0;
   motion_platform_svc.save_settings();
-
-  if (!motion_platform_svc.is_all_axes_homed()) {
-    ret = E_FAILURE;
-    goto EXIT;
-  }
 
   smprinter.fdm->tool_change(0);
 

@@ -58,11 +58,21 @@ void ControllerFan::update() {
     //   - At least one stepper driver is enabled
     //   - The heated bed is enabled
     //   - TEMP_SENSOR_BOARD is reporting >= CONTROLLER_FAN_MIN_BOARD_TEMP
-    const ena_mask_t axis_mask = TERN(CONTROLLER_FAN_USE_Z_ONLY, _BV(Z_AXIS), (ena_mask_t)~TERN0(CONTROLLER_FAN_IGNORE_Z, _BV(Z_AXIS)));
-    if ( (stepper.axis_enabled.bits & axis_mask)
-      || TERN0(HAS_HEATED_BED, thermalManager.temp_bed.soft_pwm_amount > 0)
-      || TERN0(HAS_CONTROLLER_FAN_MIN_BOARD_TEMP, thermalManager.wholeDegBoard() >= CONTROLLER_FAN_MIN_BOARD_TEMP)
-    ) lastMotorOn = ms; //... set time to NOW so the fan will turn on
+    #if !MB_SNAPMAKER
+      const ena_mask_t axis_mask = TERN(CONTROLLER_FAN_USE_Z_ONLY, _BV(Z_AXIS), (ena_mask_t)~TERN0(CONTROLLER_FAN_IGNORE_Z, _BV(Z_AXIS)));
+      if ( (stepper.axis_enabled.bits & axis_mask)
+        || TERN0(HAS_HEATED_BED, thermalManager.temp_bed.soft_pwm_amount > 0)
+        || TERN0(HAS_CONTROLLER_FAN_MIN_BOARD_TEMP, thermalManager.wholeDegBoard() >= CONTROLLER_FAN_MIN_BOARD_TEMP)
+      ) lastMotorOn = ms; //... set time to NOW so the fan will turn on
+    #else
+      if (TERN0(HAS_CONTROLLER_FAN_MIN_BOARD_TEMP, thermalManager.wholeDegBoard() >= CONTROLLER_FAN_MIN_BOARD_TEMP))
+        lastMotorOn = ms; //... set time to NOW so the fan will turn on
+    #endif
+
+    if (TERN0(HAS_CONTROLLER_FAN_MIN_BOARD_TEMP, thermalManager.wholeDegBoard() >= CONTROLLER_FAN_MIN_BOARD_TEMP + 10))
+      settings.active_speed = CONTROLLERFAN_SPEED_MAX;
+    else
+      settings.active_speed = CONTROLLERFAN_SPEED_ACTIVE;
 
     // Fan Settings. Set fan > 0:
     //  - If AutoMode is on and steppers have been enabled for CONTROLLERFAN_IDLE_TIME seconds.

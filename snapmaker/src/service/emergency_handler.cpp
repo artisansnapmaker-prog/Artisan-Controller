@@ -495,9 +495,9 @@ void EmergencyHandler::job_cb_notify_recovery(void *p, uint8_t result) {
 }
 
 void EmergencyHandler::background() {
+  JobEnv *jenv = (JobEnv *)env;
   if (powerloss_state == PIN_STATE_TRIGGERED) {
     powerloss_state = PIN_STATE_NORMAL;
-    JobEnv *jenv = (JobEnv *)env;
     LOG_I("powerloss pos: X%.3f, Y%.3f, Z%.3f, I%.3f, J%3.f\n", jenv->current_pos.x,
             jenv->current_pos.y, jenv->current_pos.z, jenv->current_pos.i, jenv->current_pos.j);
     smprinter.set_sys_status(SYSTEM_STATUS_POWER_LOSS, NULL);
@@ -514,6 +514,10 @@ void EmergencyHandler::background() {
       vTaskSuspendAll();
       LOG_E("waiting to reboot!\n");
       while(1);
+    }
+    else {
+      LOG_I("emergency stop pos: X%.3f, Y%.3f, Z%.3f, I%.3f, J%3.f\n", jenv->current_pos.x,
+              jenv->current_pos.y, jenv->current_pos.z, jenv->current_pos.i, jenv->current_pos.j);
     }
   }
 

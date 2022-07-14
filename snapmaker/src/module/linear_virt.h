@@ -27,7 +27,9 @@ enum LinearSACPCommandId {
   SACP_CMD_ID_LINEAR_GET_INFO = 1,
   SACP_CMD_ID_LINEAR_SET_ENDSTOP,
 
-  SACP_CMD_ID_LINEAR_MAX = SACP_CMD_ID_LINEAR_SET_ENDSTOP
+  SACP_CMD_ID_LINEAR_MAX = SACP_CMD_ID_LINEAR_SET_ENDSTOP,
+
+  SACP_CMD_ID_LINEAR_SUBSCRIBE_STATE = 0xa0
 };
 
 // for X X2 Y Y2 Z Z2
@@ -51,6 +53,7 @@ class LinearVirtual: public ModuleBase {
 
     static err_code_t hmi_cb_get_info(void *obj, sacp_hmi_message_t *message);
     static err_code_t hmi_cb_set_endstop(void *obj, sacp_hmi_message_t *message);
+    static uint16_t hmi_cb_publish_state(void *obj, uint8_t *buffer);
 
     static err_code_t routine(void *obj);
 

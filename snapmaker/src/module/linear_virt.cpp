@@ -161,6 +161,11 @@ err_code_t LinearVirtual::post_init() {
     }
   }
 
+  // register callback only one time
+  if (total_online < 2)
+    host_hmi.register_subscription(SACP_CMD_SET_LINEAR_MODULE, SACP_CMD_ID_LINEAR_SUBSCRIBE_STATE,
+              (void *)this, hmi_cb_publish_state);
+
   return E_SUCCESS;
 }
 
@@ -220,6 +225,26 @@ err_code_t LinearVirtual::hmi_cb_set_endstop(void *obj, sacp_hmi_message_t *mess
   motion_platform_svc.set_endstop(message->data[0]);
 
   return host_hmi.send_ack(message, E_SUCCESS);
+}
+
+
+uint16_t LinearVirtual::hmi_cb_publish_state(void *obj, uint8_t *buffer) {
+  uint8_t actual_cnt = 0;
+
+  buffer[0] = E_SUCCESS;
+
+  for (int i = 0; i < LINEAR_VIRTUAL_OBJECT_MAX; i++) {
+    if (!objects[i] || objects[i]->get_status() != MODULE_STATUS_NORMAL)
+      continue;
+
+    buffer[2 + actual_cnt*2]     = objects[i]->get_sub_index();              // indicates X Y Z Y2 Z2
+    buffer[2 + actual_cnt*2 + 1] = digitalRead(objects[i]->endstop_pin); // state of endstop
+    actual_cnt++;
+  }
+
+  buffer[1] = actual_cnt;
+
+  return actual_cnt * 2 + 2;
 }
 
 void LinearVirtual::show_info() {

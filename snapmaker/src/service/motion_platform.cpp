@@ -1043,7 +1043,7 @@ bool MotionPlatformService::is_axis_homed(ModuleLinearIndex axis) {
 }
 
 void MotionPlatformService::set_endstop(bool status) {
-  endstops.enable(status);
+  endstops.enable_globally(status);
   soft_endstop._enabled = status;
 }
 

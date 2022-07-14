@@ -800,19 +800,21 @@ err_code_t BedLevelService::start_manual_bed_leveling(uint8_t grids) {
   smsettings->bedlevel_settings.live_z_offset[1] = 0;
   motion_platform_svc.save_settings();
 
-  smprinter.fdm->tool_change(0);
-
-  motion_platform_svc.disable_leveling();
-  if (smprinter.fdm->get_device_id() == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
-    motion_platform_svc.moveto_z(20, 30);
-  } else if (smprinter.fdm->get_device_id() == MODULE_DEVICE_ID_FDM_1EXTRUDER_2019) {
-    motion_platform_svc.moveto_z(34, 30);
-  }
-
   return E_SUCCESS;
 }
 
 err_code_t BedLevelService::goto_leveling_point(uint8_t index) {
+  if (index == 1) {
+    smprinter.fdm->tool_change(0);
+
+    motion_platform_svc.disable_leveling();
+    if (smprinter.fdm->get_device_id() == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
+      motion_platform_svc.moveto_z(20, 30);
+    } else if (smprinter.fdm->get_device_id() == MODULE_DEVICE_ID_FDM_1EXTRUDER_2019) {
+      motion_platform_svc.moveto_z(34, 30);
+    }
+  }
+
   if ((index <= GRID_MAX_POINTS_X * GRID_MAX_POINTS_Y) && (index > 0)) {
     if (manual_leveling_point_index_ <= GRID_MAX_POINTS_X * GRID_MAX_POINTS_Y) {
       manual_leveling_z_values_[manual_leveling_point_index_] = motion_platform_svc.get_current_position(Z_AXIS);

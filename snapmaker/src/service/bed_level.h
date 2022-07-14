@@ -97,7 +97,7 @@ class BedLevelService {
     err_code_t start_manual_bed_leveling(uint8_t grids);
     err_code_t goto_leveling_point(uint8_t index);
     err_code_t finish_manual_bed_leveling();
-    err_code_t start_auto_bed_leveling(uint8_t grids);
+    err_code_t start_auto_bed_leveling(uint8_t grids, sacp_hmi_message_t *msg);
     err_code_t probe_sensor_calibration(float x, float y);
     err_code_t confirm_probe_sensor_calibration(uint8_t e);
     err_code_t work_height_auto_detection();

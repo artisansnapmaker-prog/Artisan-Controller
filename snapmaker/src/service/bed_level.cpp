@@ -149,7 +149,7 @@ static err_code_t hmi_req_callback_start_level(void *obj, sacp_hmi_message_t *ms
   host_hmi.send_ack(msg, E_SUCCESS);
 
   if (mode == BEDLEVEL_MODE_AUTO) {
-    ret = bedlevel.start_auto_bed_leveling(grid);
+    ret = bedlevel.start_auto_bed_leveling(grid, msg);
     if (ret != E_SUCCESS) {
       smprinter.raise_exception(SM_EXCEP_OWNER_TOOLHEAD, FDM_EXCEP_STA_PROBE_ERROR, EXCEP_ACT_STOP_WORKING);
     }
@@ -855,7 +855,7 @@ err_code_t BedLevelService::finish_manual_bed_leveling () {
   return E_SUCCESS;
 }
 
-err_code_t BedLevelService::start_auto_bed_leveling(uint8_t grids) {
+err_code_t BedLevelService::start_auto_bed_leveling(uint8_t grids, sacp_hmi_message_t *msg) {
   err_code_t ret = E_SUCCESS;
   bool visited[GRID_MAX_NUM][GRID_MAX_NUM];
   static int direction [4][2] = {{1, 0}, {0, 1}, {-1, 0}, {0, -1}};
@@ -866,9 +866,6 @@ err_code_t BedLevelService::start_auto_bed_leveling(uint8_t grids) {
   int cur_y = 0;
   float z;
   int dir_idx = 0;
-
-  sacp_hmi_message_t msg;
-  uint8_t buffer[3];
 
   need_to_abort_auto_bedlevel = false;
   set_end_leveling_process_status(false);
@@ -901,13 +898,10 @@ err_code_t BedLevelService::start_auto_bed_leveling(uint8_t grids) {
 
   motion_platform_svc.moveto_z(20, 30);
 
-  msg.ch      = SACP_HMI_CH_SCREEN;
-  msg.cmd_set = SACP_CMD_SET_CALIBRATE_FDM;
-  msg.cmd_id  = BEDLEVEL_CMD_ID_REPORT_BEDLEVEL_POINT;
-  msg.data    = buffer;
-  msg.peer    = SACP_HOST_ID_SCREEN;
-  msg.attr    = 0;
-  msg.length  = 3;
+  msg->cmd_set = SACP_CMD_SET_CALIBRATE_FDM;
+  msg->cmd_id  = BEDLEVEL_CMD_ID_REPORT_BEDLEVEL_POINT;
+  msg->attr    = 0;
+  msg->length  = 3;
 
   smprinter.set_extruder_check_state(EXTRUDER_STATUS_IDLE);
 
@@ -935,11 +929,11 @@ err_code_t BedLevelService::start_auto_bed_leveling(uint8_t grids) {
       goto EXIT;
     }
 
-    buffer[0] = E_SUCCESS;
-    buffer[1] = (uint8_t)(cur_y * GRID_MAX_POINTS_X + cur_x + 1);
-    buffer[2] = 0;
+    msg->data[0] = E_SUCCESS;
+    msg->data[1] = (uint8_t)(cur_y * GRID_MAX_POINTS_X + cur_x + 1);
+    msg->data[2] = 0;
 
-    host_hmi.send_ack(&msg);
+    host_hmi.send_ack(msg);
 
     int new_x = cur_x + direction[dir_idx][0];
     int new_y = cur_y + direction[dir_idx][1];

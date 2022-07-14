@@ -75,7 +75,16 @@ void GcodeSuite::G1029() {
   const uint8_t seen_a = parser.seenval('A');
   if (seen_a) {
     uint8_t a = (uint8_t)parser.byteval('A', (uint8_t)0);
-    bedlevel_svc.start_auto_bed_leveling(a);
+    sacp_hmi_message_t msg;
+    uint8_t buffer[32];
+    msg.ch = SACP_HMI_CH_SCREEN;
+    msg.attr = 0;
+    msg.cmd_set = SACP_CMD_SET_LASER;
+    msg.peer = SACP_HOST_ID_SCREEN;
+    msg.seq = 0;
+    msg.ver = SACP_VER_1;
+    msg.data = buffer;
+    bedlevel_svc.start_auto_bed_leveling(a, &msg);
     return;
   }
 

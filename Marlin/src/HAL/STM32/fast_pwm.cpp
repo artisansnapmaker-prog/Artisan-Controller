@@ -46,7 +46,7 @@ void set_pwm_duty(const pin_t pin, const uint16_t v, const uint16_t v_size/*=255
     HT->setMode(channel, TIMER_OUTPUT_COMPARE_PWM1, pin);
 
   if (needs_freq && timer_freq[index] == 0)     // If the timer is unconfigured and no freq is set then default PWM_FREQUENCY
-    set_pwm_frequency(pin_name, PWM_FREQUENCY); // Set the frequency and save the value to the assigned index no.
+    set_pwm_frequency(pin, PWM_FREQUENCY); // Set the frequency and save the value to the assigned index no.
 
   // Note the resolution is sticky here, the input can be upto 16 bits and that would require RESOLUTION_16B_COMPARE_FORMAT (16)
   // If such a need were to manifest then we would need to calc the resolution based on the v_size parameter and add code for it.

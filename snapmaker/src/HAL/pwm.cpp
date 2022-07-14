@@ -57,7 +57,7 @@ int PWMController::init_pin(const pin_t pin, const uint16_t v, const uint16_t v_
 
   if (!timer_handle->timer) {
     timer_handle->timer_instance = Instance;
-    if (freq != 0xFFFFFFFF)
+    if (freq == 0xFFFFFFFF)
       timer_handle->timer_freq = PWM_FREQUENCY;
     else
       timer_handle->timer_freq = freq;

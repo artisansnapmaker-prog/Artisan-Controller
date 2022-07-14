@@ -324,6 +324,13 @@ err_code_t ToolHeadFDM::dual_extruder_post_init() {
   return E_SUCCESS;
 }
 
+err_code_t ToolHeadFDM::deinit() {
+  set_status(MODULE_STATUS_OFFLINE);
+  hotend_type_initialized = false;
+
+  return E_SUCCESS;
+}
+
 // hmi subscribe callback
 static uint16_t hmi_subscript_callback_extruder_info(void *obj, uint8_t *buffer) {
   ToolHeadFDM &fdm = *(ToolHeadFDM *)obj;

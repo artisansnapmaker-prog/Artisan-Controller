@@ -3751,7 +3751,13 @@ void Temperature::isr() {
         case H_BED: k = 'B'; break;
       #endif
       #if HAS_TEMP_CHAMBER
-        case H_CHAMBER: k = 'C'; break;
+        case H_CHAMBER: 
+          #if ENABLED(SNAPMAKER_DOUBLE_ZONE_BED)
+            k = 'B'; 
+          #else
+            k = 'C';
+          #endif
+        break;
       #endif
       #if HAS_TEMP_PROBE
         case H_PROBE: k = 'P'; break;
@@ -3767,6 +3773,9 @@ void Temperature::isr() {
       #endif
     }
     SERIAL_CHAR(' ', k);
+    #if ENABLED(SNAPMAKER_DOUBLE_ZONE_BED)
+      if (e == H_BED || e == H_CHAMBER) SERIAL_CHAR('0' + H_BED - e);
+    #endif
     #if HAS_MULTI_HOTEND
       if (e >= 0) SERIAL_CHAR('0' + e);
     #endif
@@ -3816,10 +3825,18 @@ void Temperature::isr() {
     #endif
     SERIAL_ECHOPGM(" @:", getHeaterPower((heater_id_t)target_extruder));
     #if HAS_HEATED_BED
-      SERIAL_ECHOPGM(" B@:", getHeaterPower(H_BED));
+      #if ENABLED(SNAPMAKER_DOUBLE_ZONE_BED)
+        SERIAL_ECHOPGM(" B0@:", getHeaterPower(H_BED));
+      #else
+        SERIAL_ECHOPGM(" B@:", getHeaterPower(H_BED));
+      #endif
     #endif
     #if HAS_HEATED_CHAMBER
-      SERIAL_ECHOPGM(" C@:", getHeaterPower(H_CHAMBER));
+      #if ENABLED(SNAPMAKER_DOUBLE_ZONE_BED)
+        SERIAL_ECHOPGM(" B1@:", getHeaterPower(H_CHAMBER));
+      #else
+        SERIAL_ECHOPGM(" C@:", getHeaterPower(H_CHAMBER));
+      #endif
     #endif
     #if HAS_COOLER
       SERIAL_ECHOPGM(" C@:", getHeaterPower(H_COOLER));

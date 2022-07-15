@@ -85,6 +85,8 @@ int PWMController::init_pin(const pin_t pin, const uint16_t v, const uint16_t v_
   // set pwm freq
   set_frequency(configured_pin - 1, timer_handle->timer_freq);
 
+  LL_TIM_OC_DisablePreload(timer_handle->timer_instance, (uint32_t)(timer_handle->timer->getLLChannel(channel)));
+
   // set captureCompare
   const uint16_t value = invert ? v_size - v : v;
   timer_handle->timer->setCaptureCompare(channel, value, RESOLUTION_8B_COMPARE_FORMAT); // Sets the duty, the calc is done in the library :)

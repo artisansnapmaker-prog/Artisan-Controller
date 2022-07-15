@@ -111,8 +111,8 @@ typedef struct {
 
 #define HOTEND_INFO_MAX 22
 const hotend_type_info_t hotend_info[HOTEND_INFO_MAX] = {{.model = 2, .diameter = 0.4}, \
-                                                         {.model = 1, .diameter = 0.2}, \
                                                          {.model = 1, .diameter = 0.6}, \
+                                                         {.model = 1, .diameter = 0.8}, \
                                                          {.model = 0xff, .diameter = 0},\
                                                          {.model = 0xff, .diameter = 0},\
                                                          {.model = 0xff, .diameter = 0},\

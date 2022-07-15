@@ -882,10 +882,7 @@ void idle(bool no_stepper_sleep/*=false*/) {
 
   IDLE_DONE:
   TERN_(MARLIN_DEV_MODE, idle_depth--);
-
-  #if MB_SNAPMAKER
-    taskYIELD();
-  #endif
+  
   return;
 }
 

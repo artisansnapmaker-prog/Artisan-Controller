@@ -169,7 +169,7 @@ err_code_t MotionPlatformService::hmi_cb_move_absoluty(void *obj, sacp_hmi_messa
 
   if (!system_svc.allow_moving()) {
     LOG_E("cannot moving as exception[0x%x]\n", system_svc.get_bans());
-    msg->data[0] = E_HARDWARE;
+    msg->data[0] = E_EXCEPTION;
     msg->length  = 1;
     return host_hmi.send_ack(msg);
   }
@@ -244,7 +244,8 @@ err_code_t MotionPlatformService::hmi_cb_move_absoluty(void *obj, sacp_hmi_messa
 
   msg->cmd_id  = SACP_CMD_ID_GLOABL_NOTIFY_MOVE_ABSOLUTELY;
   msg->attr    &= ~SACP_CB_ATTR_ACK;
-  msg->data[0] = E_SUCCESS;
+
+  msg->length = hmi_cb_publish_coordinate_info(obj, msg->data);
 
   if(host_hmi.send_sync(msg, recv_buff, &recv_len) != E_SUCCESS) {
     LOG_E("failed to notify result of moving\n");

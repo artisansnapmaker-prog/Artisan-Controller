@@ -204,7 +204,8 @@ class JobCtrl {
 
     void init(void);
     void background_thread(void *p);                               /** main loop, to check all the event from system which will change current job status */
-
+    void request_gcode_process(void *p);
+    
     // job control
     err_code_t req_start( uint8_t client_id,
                           struct GcodeFileInfo *gcodeInfo,
@@ -269,12 +270,12 @@ class JobCtrl {
     bool last_gcode_execute_by_platform;
 
     // use for state of self-inspection
-    uint32_t _err_get_batch_gcode_cnt;
+    // uint32_t _err_get_batch_gcode_cnt;
     uint32_t _statistics_log_interval_ms;
     uint32_t _statistics_log_last_tick_ms;
 
     // use for get gcode
-    uint32_t _get_gcode_buffer_req_min;                       /** the minimum buffer use to get gcode                                       */
+    // uint32_t _get_gcode_buffer_req_min;                       /** the minimum buffer use to get gcode                                       */
     bool abort_resume;
 
     JobCtrlNotifyHandle notify_handle_started[JOB_CTRL_NOTIFY_QUEUE_SIZE];

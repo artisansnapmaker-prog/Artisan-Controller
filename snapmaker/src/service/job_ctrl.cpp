@@ -48,6 +48,13 @@ void job_ctrl_thread_entry(void *p) {
   }
 }
 
+void job_request_gcode(void *p) {
+  for(;;) {
+    job_ctrl_svc.request_gcode_process(p);
+    vTaskDelay(pdMS_TO_TICKS(50));
+  }
+}
+
 void JobCtrl::init(void) {
   _lock = xSemaphoreCreateMutex();
   configASSERT(_lock);
@@ -71,14 +78,20 @@ void JobCtrl::init(void) {
     LOG_E("job_ctrl: cant not create thread\r\n");
     while(1);
   }
+
+  if (xTaskCreate((TaskFunction_t)job_request_gcode, "request_gcode", JOB_REQUEST_GCODE_TASK_STACK_SIZE,
+        (void *)(this), JOB_REQUEST_GCODE_TASK_PRIORITY,  NULL) != pdPASS) {
+    LOG_E("job_ctrl: request gcode thread create failed");
+    while(1);
+  }
 }
 
 void JobCtrl::background_thread(void *p) {
-  static uint32_t keep_printing_cnt = 0;
+  // static uint32_t keep_printing_cnt = 0;
   JobCtrlReqInfo jri;
   size_t len;
 
-  len = xMessageBufferReceive(_req_queue, &jri, sizeof(jri), pdMS_TO_TICKS(JOB_CTRL_LOOP_TIME_MS));
+  len = xMessageBufferReceive(_req_queue, &jri, sizeof(jri), pdMS_TO_TICKS(portMAX_DELAY));
   if (len == sizeof(jri)) {
     switch (jri.req_action)
     {
@@ -103,16 +116,17 @@ void JobCtrl::background_thread(void *p) {
     }
   }
 
-  // make sure send starting ACK before get gcodes
-  if (!got_last_gcode_packet && smprinter.on_printing()) {
-    keep_printing_cnt++;
-    if (keep_printing_cnt >= 3) {
-      get_gcodes_from_client();
-      keep_printing_cnt = 3;
-    }
+  uint8_t issue_ret;
+  while (_issue_ret_rb.available()) {
+    issue_ret = 0;
+    _issue_ret_rb.remove_one(issue_ret);
+    issue_nodify(issue_ret);
   }
-  else {
-    keep_printing_cnt = 0;
+}
+
+void JobCtrl::request_gcode_process(void *p) {
+  if (!got_last_gcode_packet && smprinter.on_printing()) {
+    get_gcodes_from_client();
   }
 
   if (_statistics_log_interval_ms > 0) {
@@ -122,17 +136,22 @@ void JobCtrl::background_thread(void *p) {
     }
   }
 
-  if (got_last_gcode_packet && _gcode_rb.is_empty() ){
-    got_last_gcode_packet = false;
-    LOG_I("push all gcodes to marlin or other 3D printer\r\n");
-    req_stop(STOP_NORMAL, E_JOB_ISSUE_RET_FINISH);
-  }
-
-  uint8_t issue_ret;
-  while (_issue_ret_rb.available()) {
-    issue_ret = 0;
-    _issue_ret_rb.remove_one(issue_ret);
-    issue_nodify(issue_ret);
+  if (got_last_gcode_packet && _gcode_rb.is_empty()) {
+    if (smprinter.on_printing()) {
+      LOCK(_lock, JOB_LOCK_WAIT_TICK);
+      if (!smprinter.on_printing()) {
+        UNLOCK(_lock);
+        goto __err_printf;
+      }
+      got_last_gcode_packet = false;
+      UNLOCK(_lock);
+      LOG_I("push all gcodes to marlin or other 3D printer\r\n");
+      req_stop(STOP_NORMAL, E_JOB_ISSUE_RET_FINISH);
+    }
+    else {
+__err_printf:
+      LOG_W("currently not printing status, no need to wait to stop printing\r\n");
+    }
   }
 }
 
@@ -299,7 +318,9 @@ err_code_t JobCtrl::save_env(void) {
     }
   }
   _env.active_coordinate = motion_platform_svc.get_active_coordinate_system();
+  LOCK(_lock, JOB_LOCK_WAIT_TICK);
   _env.cur_line_num = smprinter.gcode_file_position;
+  UNLOCK(_lock);
   _env.print_feadrate = motion_platform_svc.get_feedrate();
   _env.travel_feadrate = motion_platform_svc.get_travl_feedrate();
   _env.g0g1_relative_mode = motion_platform_svc.get_relative_mode();
@@ -382,7 +403,10 @@ err_code_t JobCtrl::resume_env(JobResumeType rt) {
   abort_resume = false;
 
 __pos_resume:
+  LOCK(_lock, JOB_LOCK_WAIT_TICK);
   _env.req_line_num = _env.cur_line_num;
+  UNLOCK(_lock);
+  
   // wait for all movement done
   motion_platform_svc.synchronize_planner();
   motion_platform_svc.update_position_from_platform();
@@ -489,6 +513,7 @@ void JobCtrl::get_gcodes_from_client(void) {
   req_batch_gcode_t req_batch_gcode;
   res_batch_gcode_t res_batch_gcode;
   uint8_t batch_gcode_buf[GCODE_REQ_BUFFER_MIN];
+  uint8_t retry_times = 0;
 
   // while((uint32_t)_gcode_rb.free() >= _get_gcode_buffer_req_min) {
   while((uint32_t)_gcode_rb.free() >= GCODE_REQ_BUFFER_MIN) {
@@ -499,20 +524,27 @@ void JobCtrl::get_gcodes_from_client(void) {
       //break;
     //}
     res_batch_gcode.gcode_str = batch_gcode_buf;
+
+    if (got_last_gcode_packet || !smprinter.on_printing()) {
+      LOG_W("job_ctrl: no need to get gcode, line: %d\r\n",__LINE__);
+      return;
+    }
     // LOG_I("job_ctrl: get gcode from client %d, startline %d, buffer %d\r\n", _client_id, req_batch_gcode.line_num, req_batch_gcode.buf_len);
     if(ClientNode::get_batch_gcode(_client_id, req_batch_gcode, res_batch_gcode)) {
       if (E_SUCCESS != res_batch_gcode.result &&
           E_JOB_LAST_GCODE_PACK != res_batch_gcode.result) {
         LOG_E("job_ctrl: get gcode's result error\r\n");
-        _err_get_batch_gcode_cnt++;
+        // _err_get_batch_gcode_cnt++;
+        retry_times++;
         continue;
       }
 
       if(res_batch_gcode.start_line_num != req_batch_gcode.line_num) {
         LOG_E("start line number not match, drop this batch gcode\r\n");
-        _err_get_batch_gcode_cnt++;
+        // _err_get_batch_gcode_cnt++;
+        retry_times++;
         // req_stop(STOP_EXCEPTION, SACP_JOB_PAUSE_ISSUE_RET_IVALID_GCODE_LINE_NUMBER);
-        break;
+        continue;//break;
       }
       // shoule we check the line number?
       uint8_t *p, *ls;
@@ -536,41 +568,59 @@ void JobCtrl::get_gcodes_from_client(void) {
           p++;
         }
 
-        if (0 == rx_line_num) {
+        // if (0 == rx_line_num) {
           // LOG_I("job_ctrl: get 0 line gcode, perhaps no large buffer for the next gcode, break and wait for the next large gcode buffer\r\n");
           // update
-          _get_gcode_buffer_req_min = req_batch_gcode.buf_len + 1;
-        }
+          // _get_gcode_buffer_req_min = req_batch_gcode.buf_len + 1;
+        // }
 
         if (rx_line_num != ((res_batch_gcode.end_line_num - res_batch_gcode.start_line_num) + 1)) {
           LOG_E("line number not match, drop this batch gcode, expect %d, but get %d\r\n", rx_line_num, ((res_batch_gcode.end_line_num - res_batch_gcode.start_line_num) + 1));
           // req_stop(STOP_EXCEPTION, SACP_JOB_PAUSE_ISSUE_RET_IVALID_GCODE_LINE_NUMBER);
-          _err_get_batch_gcode_cnt++;
-          break;
+          // _err_get_batch_gcode_cnt++;
+          retry_times++;
+          continue;//break;
         }
 
         // gcode ringbuffer guarantee to hold all the gcode string.
+        LOCK(_lock, JOB_LOCK_WAIT_TICK);
+        if (!smprinter.on_printing()) {
+          UNLOCK(_lock);
+          LOG_W("job_ctrl: no need to get gcode, line: %d\r\n",__LINE__);
+          return;
+        }
+
+        if (req_batch_gcode.line_num != _env.req_line_num) {
+          UNLOCK(_lock);
+          LOG_W("job_ctrl: _env req_line_num changed, req_line_num: %d, get_line_num: %d\r\n", 
+                _env.req_line_num, req_batch_gcode.line_num);
+          return;
+        }
+
         _gcode_rb.insert_multi(res_batch_gcode.gcode_str, p - res_batch_gcode.gcode_str);
         _env.req_line_num += rx_line_num;
-        _err_get_batch_gcode_cnt = 0;
-
         if (E_JOB_LAST_GCODE_PACK == res_batch_gcode.result) {
           LOG_I("job_ctrl: Job control get last gcode packe, last gcode line number %d\r\n", _env.req_line_num - 1);
           got_last_gcode_packet = true;
-          break;
+          // break;
         }
+        UNLOCK(_lock);
+        // _err_get_batch_gcode_cnt = 0;
+        break;
       }
     }
     else {
-      _err_get_batch_gcode_cnt++;
-      break;
+      // _err_get_batch_gcode_cnt++;
+      retry_times++;
+      if (retry_times >= 3)
+        break;
     }
   }
 
-  if (_err_get_batch_gcode_cnt > 3) {
+  if (/*_err_get_batch_gcode_cnt*/retry_times >= 3) {
     LOG_W("can not get batch gcode from clinet for 3 times\r\n");
-    _err_get_batch_gcode_cnt = 0;
-    // req_stop(STOP_EXCEPTION, SACP_JOB_PAUSE_ISSUE_RET_IVALID_GCODE_LINE_NUMBER);
+    // _err_get_batch_gcode_cnt = 0;
+    req_stop(STOP_EXCEPTION, SACP_JOB_PAUSE_ISSUE_RET_IVALID_GCODE_LINE_NUMBER);
   }
 }
 
@@ -612,8 +662,14 @@ void JobCtrl::stepper_quickstop_cb(void) {
 }
 
 void JobCtrl::update_gcode_file_pass_line_number(uint32_t l) {
-  if (l >= (_env.req_line_num - 1)) {
+  if (l >= (_env.req_line_num - 1) && smprinter.on_printing()) {
+    LOCK(_lock, JOB_LOCK_WAIT_TICK);
+    if (!smprinter.on_printing()) {
+      UNLOCK(_lock);
+      return;
+    }
     last_gcode_execute_by_platform = true;
+    UNLOCK(_lock);
   }
 }
 
@@ -645,16 +701,16 @@ void JobCtrl::do_start(struct JobCtrlReqInfo &jri) {
   _client_id = jri.req_data.req_start_data.client_id;
   _env.type = jri.req_data.req_start_data.th_type;
   _env.gcode_file_info = jri.req_data.req_start_data.gcodeInfo;
-  _env.cur_line_num = 0;
-  _env.req_line_num = 0;
   LOCK(_lock, JOB_LOCK_WAIT_TICK);
   _gcode_rb.reset();
+  _env.cur_line_num = 0;
+  _env.req_line_num = 0;
+  got_last_gcode_packet = false;
   UNLOCK(_lock);
   _env.time_elape = 0;
-  _err_get_batch_gcode_cnt = 0;
+  // _err_get_batch_gcode_cnt = 0;
   _env.gfi_valid = true;
-  _get_gcode_buffer_req_min = 0;
-  got_last_gcode_packet = false;
+  // _get_gcode_buffer_req_min = 0;
   _paused = false;
   motion_platform_svc.stepper_total_offset = 0;
 
@@ -829,8 +885,9 @@ void JobCtrl::do_resume(struct JobCtrlReqInfo &jri) {
 
   LOCK(_lock, JOB_LOCK_WAIT_TICK);
   _gcode_rb.reset();
-  UNLOCK(_lock);
   got_last_gcode_packet = false;
+  UNLOCK(_lock);
+
   motion_platform_svc.stepper_total_offset = 0;
 
   if (E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_PRINTING, NULL)) {
@@ -993,6 +1050,10 @@ bool JobCtrl::consume_a_gcode(uint8_t *cmd, uint16_t max_len, uint32_t *line) {
   ret = false;
   cmd_len = 0;
   LOCK(_lock, JOB_LOCK_WAIT_TICK);
+  if (!smprinter.on_printing()) {
+    UNLOCK(_lock);
+    return false;
+  }
   while(_gcode_rb.remove_one(c)) {
     if(cmd_len >= max_len) {
       LOG_W("gcode too long for the command buffer");

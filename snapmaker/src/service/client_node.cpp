@@ -69,10 +69,10 @@ void ClientNode::class_init(void) {
   // job control
   ret |= host_hmi.apply_cmd_set_handle(CMD_SET_JOB_CTRL, CMD_ID_JOB_CTRL_NUM);
   ret |= host_hmi.register_callback(CMD_SET_JOB_CTRL, CMD_ID_JOB_GET_GCODE_FILE_INFO, NULL, sacp_cb);
-  ret |= host_hmi.register_callback(CMD_SET_JOB_CTRL, CMD_ID_JOB_CTRL_START, NULL, sacp_cb);
-  ret |= host_hmi.register_callback(CMD_SET_JOB_CTRL, CMD_ID_JOB_CTRL_PAUSE, NULL, sacp_cb);
-  ret |= host_hmi.register_callback(CMD_SET_JOB_CTRL, CMD_ID_JOB_CTRL_RESUME, NULL, sacp_cb);
-  ret |= host_hmi.register_callback(CMD_SET_JOB_CTRL, CMD_ID_JOB_CTRL_STOP, NULL, sacp_cb);
+  ret |= host_hmi.register_callback(CMD_SET_JOB_CTRL, CMD_ID_JOB_CTRL_START, NULL, sacp_cb, SACP_CB_ATTR_BLOCKED_WITHOUT_MOTION);
+  ret |= host_hmi.register_callback(CMD_SET_JOB_CTRL, CMD_ID_JOB_CTRL_PAUSE, NULL, sacp_cb, SACP_CB_ATTR_BLOCKED_WITHOUT_MOTION);
+  ret |= host_hmi.register_callback(CMD_SET_JOB_CTRL, CMD_ID_JOB_CTRL_RESUME, NULL, sacp_cb, SACP_CB_ATTR_BLOCKED_WITHOUT_MOTION);
+  ret |= host_hmi.register_callback(CMD_SET_JOB_CTRL, CMD_ID_JOB_CTRL_STOP, NULL, sacp_cb, SACP_CB_ATTR_BLOCKED_WITHOUT_MOTION);
   ret |= host_hmi.register_callback(CMD_SET_JOB_CTRL, CMD_ID_JOB_SET_FEEDRATE_PERCENTAGE, NULL, sacp_cb);
   ret |= host_hmi.register_callback(CMD_SET_JOB_CTRL, CMD_ID_JOB_GET_FEEDRATE_PERCENTAGE, NULL, sacp_cb);
   ret |= host_hmi.register_callback(CMD_SET_JOB_CTRL, CMD_ID_JOB_SET_FLOWRATE_PERCENTAGE, NULL, sacp_cb);
@@ -264,31 +264,36 @@ uint16_t ClientNode::sys_hardtick_sub_cb(void *obj, uint8_t *buffer) {
 
 err_code_t ClientNode::issue_client(uint8_t id, uint8_t issue_ret) {
   // report status change reasone
-  ClientNode *cn = find_client_node(id);
-  if (!cn) {
-    return E_FAILURE;
-  }
+  ClientNode *client;
 
   sacp_hmi_message_t msg;
   uint8_t tx_buf[1];
   uint8_t rx_buf[8];
   uint16_t rx_len = 8;
-  msg.cmd_set = CMD_SET_JOB_CTRL;
-  msg.cmd_id = CMD_ID_JOB_CTRL_ISSUE;
-  msg.ch = cn->ch;
-  msg.peer = cn->peer;
-  msg.data = tx_buf;
-  msg.length = 1;
-  msg.attr = 0;
-  tx_buf[0] = issue_ret;
 
-  if (E_SUCCESS != host_hmi.send_sync(&msg, rx_buf, &rx_len)) {
-    LOG_E("Client node: Issue failure, failed to send msg\r\n");
-    return E_FAILURE;
-  }
-  if (E_SUCCESS != rx_buf[0]) {
-    LOG_E("Client node: Issue failure, result is not success\r\n");
-    return E_FAILURE;
+  msg.cmd_set = CMD_SET_JOB_CTRL;
+  msg.cmd_id  = CMD_ID_JOB_CTRL_ISSUE;
+  msg.data    = tx_buf;
+  msg.length  = 1;
+  msg.attr    = 0;
+  tx_buf[0]   = issue_ret;
+
+  for (uint8_t i = 0; i < MAX_CLIENT_NODE_NUM; i++) {
+    client = ClientNode::find_client_node(i);
+    if (!client || client->peer == SACP_HOST_INVALID)
+      continue;
+
+    msg.ch = client->ch;
+    msg.peer = client->peer;
+
+    if (E_SUCCESS != host_hmi.send_sync(&msg, rx_buf, &rx_len)) {
+      LOG_E("Client node: Issue failure, failed to send msg\r\n");
+      return E_FAILURE;
+    }
+    if (E_SUCCESS != rx_buf[0]) {
+      LOG_E("Client node: Issue failure, result is not success\r\n");
+      return E_FAILURE;
+    }
   }
 
   return E_SUCCESS;
@@ -339,13 +344,25 @@ err_code_t ClientNode::free_sacp_msg_node(sacp_hmi_message_t *sacp_msg) {
 
 
 void ClientNode::job_request_cb(void *p, uint8_t result) {
+  err_code_t ret;
+  uint8_t recv_buff[4];
+  uint16_t recv_len = 4;
+
   sacp_hmi_message_t *copy_msg = (sacp_hmi_message_t *)p;
+
   if (!copy_msg) {
     LOG_W("ClientNode:job_request_cb: msg is NULL, sys status[%u]\n", smprinter.get_sys_status());
     return;
   }
 
-  host_hmi.send_ack(copy_msg, result);
+  copy_msg->attr = 0;
+  copy_msg->length = 1;
+  copy_msg->data = &result;
+
+  if ((ret = host_hmi.send_sync(copy_msg, recv_buff, &recv_len)) != E_SUCCESS) {
+    LOG_E("ClientNode: failted to notify HMI, ret: %u\n", ret);
+  }
+
   free_sacp_msg_node(copy_msg);
 }
 
@@ -376,7 +393,7 @@ bool ClientNode::sacp_get_batch_gcode(req_batch_gcode_t &req_batch_gcode, res_ba
   _16_TO_LITTLE_STREAM(req_batch_gcode.buf_len, buf + 4);
   s_msg.length = 6;
   out_len = SEND_BUF_SIZE;
-  ret = host_hmi.send_sync(&s_msg, buf, &out_len);
+  ret = host_hmi.send_sync(&s_msg, buf, &out_len, 3000);
   if (E_SUCCESS == ret) {
     if(out_len < 8){
       LOG_E("Client node: batch gcode response lenght error, must > 8, but get %d\r\n", out_len);
@@ -491,16 +508,36 @@ err_code_t ClientNode::req_start_job(ClientNode *client, sacp_hmi_message_t *msg
   sacp_hmi_message_t *msg_cp;
   uint8_t *p;
 
+  uint8_t recv_buff[4];
+  uint16_t recv_len = 4;
+
   LOG_I("client_node: client %d request start a job at sta %u\r\n", client->id, smprinter.get_sys_status());
 
   p = msg->data;
   // check MD5
   str_len = LITTLE_STREAM_TO_16(p);
   p += 2;
+
+  // will change the first byte, so put it to str_len firstly above
+  msg->data[0] = E_SUCCESS;
+  msg->length = 1;
+  host_hmi.send_ack(msg);
+
+  // prepare data for ACK
+  msg->cmd_id = CMD_ID_JOB_CTRL_NOTIFY_START;
+  msg->attr   = 0;
+  msg->length = 1;
+
   if (str_len < GCODE_MD5_LENGTH) {
     LOG_E("Client node: MD5 length error\r\n");
-    return host_hmi.send_ack(msg, SACP_RET_JOB_IVALID_GCODE_FILE);
+
+    msg->data[0] = SACP_RET_JOB_IVALID_GCODE_FILE;
+    if ((ret = host_hmi.send_sync(msg, recv_buff, &recv_len)) != E_SUCCESS) {
+      LOG_E("failted to notify HMI START, ret: %u\n", ret);
+    }
+    return ret;
   }
+
   memcpy(gfi.MD5, p, str_len);
   p += str_len;
 
@@ -509,7 +546,11 @@ err_code_t ClientNode::req_start_job(ClientNode *client, sacp_hmi_message_t *msg
   p += 2;
   if (str_len > GCODE_FILE_NAME_SIZE-1) {
     LOG_E("Client node: file name too long\r\n");
-    return host_hmi.send_ack(msg, SACP_RET_JOB_IVALID_GCODE_FILE);
+    msg->data[0] = SACP_RET_JOB_IVALID_GCODE_FILE;
+    if ((ret = host_hmi.send_sync(msg, recv_buff, &recv_len)) != E_SUCCESS) {
+      LOG_E("failted to notify HMI START, ret: %u\n", ret);
+    }
+    return ret;
   }
   memcpy(gfi.name, p, str_len);
   gfi.name[str_len] = '\0';
@@ -519,20 +560,33 @@ err_code_t ClientNode::req_start_job(ClientNode *client, sacp_hmi_message_t *msg
   type = toolHeadType(p[0]);
   if (type >= TH_TYPE_UNKNOW) {
     LOG_E("Client node: unknow job type %d\r\n", type);
-    return host_hmi.send_ack(msg, SACP_RET_UNSUPPORT_PARAM);
+    msg->data[0] = SACP_RET_UNSUPPORT_PARAM;
+    if ((ret = host_hmi.send_sync(msg, recv_buff, &recv_len)) != E_SUCCESS) {
+      LOG_E("failted to notify HMI START, ret: %u\n", ret);
+    }
+    return ret;
   }
 
   // starting
   msg_cp = malloc_sacp_msg_node();
   if (!msg_cp) {
     LOG_E("client_node: can not malloc sacp msg copy\r\n");
-    return host_hmi.send_ack(msg, SACP_RET_NO_RESC);
+    msg->data[0] = SACP_RET_NO_RESC;
+    if ((ret = host_hmi.send_sync(msg, recv_buff, &recv_len)) != E_SUCCESS) {
+      LOG_E("failted to notify HMI START, ret: %u\n", ret);
+    }
+    return ret;
   }
   *msg_cp = *msg;
   ret = job_ctrl_svc.req_start(id, &gfi, type, job_request_cb, msg_cp);
   if (E_SUCCESS != ret) {
     free_sacp_msg_node(msg_cp);
-    return host_hmi.send_ack(msg, ret);
+    LOG_E("client_node: failed to req start\r\n");
+    msg->data[0] = ret;
+    if ((ret = host_hmi.send_sync(msg, recv_buff, &recv_len)) != E_SUCCESS) {
+      LOG_E("failted to notify HMI START, ret: %u\n", ret);
+    }
+    return ret;
   }
 
   return E_SUCCESS;
@@ -542,17 +596,41 @@ err_code_t ClientNode::req_pause_job(ClientNode *client, sacp_hmi_message_t* msg
   err_code_t ret;
   sacp_hmi_message_t *msg_cp;
 
+  uint8_t recv_buff[4];
+  uint16_t recv_len = 4;
+
   LOG_I("Client node: %d client %d request pause a job at sta %u\r\n", millis(), client->id, smprinter.get_sys_status());
+
+  // ACK firstly
+  msg->data[0] = E_SUCCESS;
+  msg->length = 1;
+  host_hmi.send_ack(msg);
+
+  // prepare data for ACK
+  msg->cmd_id = CMD_ID_JOB_CTRL_NOTIFY_PAUSE;
+  msg->attr   = 0;
+  msg->length = 1;
+
   msg_cp = malloc_sacp_msg_node();
   if (!msg_cp) {
     LOG_E("client_node: can not malloc sacp msg copy\r\n");
-    return host_hmi.send_ack(msg, SACP_RET_NO_RESC);
+    msg->data[0] = SACP_RET_NO_RESC;
+    if ((ret = host_hmi.send_sync(msg, recv_buff, &recv_len)) != E_SUCCESS) {
+      LOG_E("failted to notify HMI PAUSE, ret: %u\n", ret);
+    }
+    return ret;
   }
+
   *msg_cp = *msg;
   ret = job_ctrl_svc.req_pause(PAUSE_CLIENT_REQ, job_request_cb, msg_cp);
   if (E_SUCCESS != ret) {
     free_sacp_msg_node(msg_cp);
-    return host_hmi.send_ack(msg, ret);
+    LOG_E("client_node: failed to req pause\r\n");
+    msg->data[0] = ret;
+    if ((ret = host_hmi.send_sync(msg, recv_buff, &recv_len)) != E_SUCCESS) {
+      LOG_E("failted to notify HMI PAUSE, ret: %u\n", ret);
+    }
+    return ret;
   }
 
   return E_SUCCESS;
@@ -562,17 +640,41 @@ err_code_t ClientNode::req_resume_job(ClientNode *client, sacp_hmi_message_t* ms
   err_code_t ret;
   sacp_hmi_message_t *msg_cp;
 
+  uint8_t recv_buff[4];
+  uint16_t recv_len = 4;
+
   LOG_I("Client node: client %d request resume a job at sta %u\r\n", client->id, smprinter.get_sys_status());
+
+  // ACK firstly
+  msg->data[0] = E_SUCCESS;
+  msg->length = 1;
+  host_hmi.send_ack(msg);
+
+  // prepare data for ACK
+  msg->cmd_id = CMD_ID_JOB_CTRL_NOTIFY_RESUME;
+  msg->attr   = 0;
+  msg->length = 1;
+
   msg_cp = malloc_sacp_msg_node();
   if (!msg_cp) {
     LOG_E("client_node: can not malloc sacp msg copy\r\n");
-    return host_hmi.send_ack(msg, SACP_RET_NO_RESC);
+    msg->data[0] = SACP_RET_NO_RESC;
+    if ((ret = host_hmi.send_sync(msg, recv_buff, &recv_len)) != E_SUCCESS) {
+      LOG_E("failted to notify HMI RESUME, ret: %u\n", ret);
+    }
+    return ret;
   }
+
   *msg_cp = *msg;
   ret = job_ctrl_svc.req_resume(id, job_request_cb, msg_cp);
   if (E_SUCCESS != ret) {
     free_sacp_msg_node(msg_cp);
-    return host_hmi.send_ack(msg, ret);
+    LOG_E("client_node: failed to req resume\r\n");
+    msg->data[0] = ret;
+    if ((ret = host_hmi.send_sync(msg, recv_buff, &recv_len)) != E_SUCCESS) {
+      LOG_E("failted to notify HMI RESUME, ret: %u\n", ret);
+    }
+    return ret;
   }
 
   return E_SUCCESS;
@@ -582,18 +684,41 @@ err_code_t ClientNode::req_stop_job(ClientNode *client, sacp_hmi_message_t* msg)
   err_code_t ret;
   sacp_hmi_message_t *msg_cp;
 
+  uint8_t recv_buff[4];
+  uint16_t recv_len = 4;
+
   LOG_I("Client node: client %d request stop a job at sta %u\r\n", client->id, smprinter.get_sys_status());
+
+  // ACK firstly
+  msg->data[0] = E_SUCCESS;
+  msg->length = 1;
+  host_hmi.send_ack(msg);
+
+  // prepare data for ACK
+  msg->cmd_id = CMD_ID_JOB_CTRL_NOTIFY_STOP;
+  msg->attr   = 0;
+  msg->length = 1;
+
   msg_cp = malloc_sacp_msg_node();
   if (!msg_cp) {
     LOG_E("client_node: can not malloc sacp msg copy\r\n");
-    return host_hmi.send_ack(msg, SACP_RET_NO_RESC);
+    msg->data[0] = SACP_RET_NO_RESC;
+    if ((ret = host_hmi.send_sync(msg, recv_buff, &recv_len)) != E_SUCCESS) {
+      LOG_E("failted to notify HMI STOP, ret: %u\n", ret);
+    }
+    return ret;
   }
   *msg_cp = *msg;
   // ret = job_ctrl_svc.req_stop(STOP_CLIENT_REQ, SACP_JOB_PAUSE_ISSUE_RET_STOP_CLIENT_REQ, job_req_stop_cb, msg_cp);
   ret = job_ctrl_svc.req_stop(STOP_CLIENT_REQ, SACP_JOB_PAUSE_ISSUE_RET_STOP_CLIENT_REQ, job_request_cb, msg_cp);
   if (E_SUCCESS != ret) {
     free_sacp_msg_node(msg_cp);
-    return host_hmi.send_ack(msg, ret);
+    LOG_E("client_node: failed to req stop\r\n");
+    msg->data[0] = ret;
+    if ((ret = host_hmi.send_sync(msg, recv_buff, &recv_len)) != E_SUCCESS) {
+      LOG_E("failted to notify HMI STOP, ret: %u\n", ret);
+    }
+    return ret;
   }
 
   return E_SUCCESS;

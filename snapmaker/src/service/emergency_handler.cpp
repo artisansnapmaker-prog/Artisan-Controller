@@ -490,8 +490,10 @@ err_code_t EmergencyHandler::hmi_cb_clear_record(void *obj, sacp_hmi_message_t *
 // notify screen the emergency button is pressed
 void EmergencyHandler::job_cb_notify_recovery(void *p, uint8_t result) {
   sacp_hmi_message_t *msg = (sacp_hmi_message_t *)p;
+  uint8_t recv_buff[4];
+  uint16_t recv_len = 4;
 
-  host_hmi.send_ack(msg, result);
+  host_hmi.send_sync(msg, recv_buff, &recv_len);
 }
 
 void EmergencyHandler::background() {

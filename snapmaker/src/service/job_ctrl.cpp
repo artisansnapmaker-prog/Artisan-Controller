@@ -637,7 +637,6 @@ void JobCtrl::do_start(struct JobCtrlReqInfo &jri) {
       DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, E_FAILURE);
       return;
     }
-    DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, E_SUCCESS);
   }
 
   // prepare flash to record emergency data
@@ -752,9 +751,6 @@ void JobCtrl::do_pause(struct JobCtrlReqInfo &jri) {
     return;
   }
 
-  // TODO: tell hmi the result firstly
-  DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, E_SUCCESS);
-
   end_millis = millis();
   LOG_I("quick stop to standby take %d milliseconds\r\n",
       end_millis >= start_millis?
@@ -809,7 +805,6 @@ void JobCtrl::do_resume(struct JobCtrlReqInfo &jri) {
     DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, E_FAILURE);
     return;
   }
-  DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, E_SUCCESS);
 
   // to make job ctrl call resume_finish()
   if (jri.req_data.req_resume_data.type == RESUME_TYPE_RECOVERY) {
@@ -875,7 +870,6 @@ void JobCtrl::do_stop(struct JobCtrlReqInfo &jri) {
       _issue_ret_rb.insert_one(SACP_JOB_PAUSE_ISSUE_RET_STOP_FAILURE);
       return;
     }
-    DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, E_SUCCESS);
   }
   else {
     // TODO: do nothing

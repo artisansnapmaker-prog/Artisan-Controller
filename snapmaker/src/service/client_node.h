@@ -52,8 +52,13 @@
 #define CMD_ID_JOB_CTRL_PAUSE                         (0x04)
 #define CMD_ID_JOB_CTRL_RESUME                        (0x05)
 #define CMD_ID_JOB_CTRL_STOP                          (0x06)
+#define CMD_ID_JOB_CTRL_NOTIFY_START                  (0x14)
+#define CMD_ID_JOB_CTRL_NOTIFY_PAUSE                  (0x15)
+#define CMD_ID_JOB_CTRL_NOTIFY_RESUME                 (0x16)
+#define CMD_ID_JOB_CTRL_NOTIFY_STOP                   (0x17)
 #define CMD_ID_JOB_CTRL_REQ_POWERLOSS_INFO            (0x07)
 #define CMD_ID_JOB_CTRL_REQ_POWERLOSS_RECOVERY        (0x08)
+#define CMD_ID_JOB_CTRL_NOTIFY_POWERLOSS_RECOVERY     (0x18)
 #define CMD_ID_JOB_CTRL_REQ_POWERLOSS_CLEAR           (0x09)
 
 #define CMD_ID_JOB_SET_FEEDRATE_PERCENTAGE            (0x0e)

@@ -420,6 +420,20 @@ void MotionPlatformService::init() {
   gcode_queue = xMessageBufferCreate(MOTION_PLATFORM_QUEUE_SIZE);
   configASSERT(gcode_queue);
 
+  marlin_signal = xSemaphoreCreateCounting(65536, 0);
+  configASSERT(marlin_signal);
+  motion_owner_lock = xSemaphoreCreateMutex();
+  configASSERT(motion_owner_lock);
+  motion_owner = NULL;
+  paused_nested = 0;
+
+  quickstop_in_stepper_binary_sem = xSemaphoreCreateBinary();
+  configASSERT(quickstop_in_stepper_binary_sem);
+  quickstop_binary_sem = xSemaphoreCreateBinary();
+  configASSERT(quickstop_binary_sem);
+  marlin_paused = false;
+  homing_now = false;
+
   host_hmi.register_subscription(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_SUB_COORDINATE,
             (void *)this, hmi_cb_publish_coordinate_info);
 
@@ -448,20 +462,6 @@ void MotionPlatformService::init() {
   else {
     LOG_I(LOG_RESULT_OK);
   }
-
-  marlin_signal = xSemaphoreCreateCounting(65536, 0);
-  configASSERT(marlin_signal);
-  motion_owner_lock = xSemaphoreCreateMutex();
-  configASSERT(motion_owner_lock);
-  motion_owner = NULL;
-  paused_nested = 0;
-
-  quickstop_in_stepper_binary_sem = xSemaphoreCreateBinary();
-  configASSERT(quickstop_in_stepper_binary_sem);
-  quickstop_binary_sem = xSemaphoreCreateBinary();
-  configASSERT(quickstop_binary_sem);
-  marlin_paused = false;
-  homing_now = false;
 
   // disable endstop globally by default,
   // and endstop is valid only in G28

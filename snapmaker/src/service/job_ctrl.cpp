@@ -879,7 +879,8 @@ void JobCtrl::do_resume(struct JobCtrlReqInfo &jri) {
     return;
   }
 
-  if (RESUME_TYPE_LIVE_Z_OFFSET != jri.req_data.req_resume_data.type) {
+  // update client id only in power-loss recovery
+  if (RESUME_TYPE_RECOVERY == jri.req_data.req_resume_data.type) {
     _client_id = jri.req_data.req_resume_data.client_id;
   }
 
@@ -899,13 +900,22 @@ void JobCtrl::do_resume(struct JobCtrlReqInfo &jri) {
   }
   DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, E_SUCCESS);
 
-  // to here, it indicates recovery is done, by scott
-  if (jri.req_data.req_resume_data.type == RESUME_TYPE_RECOVERY) {
+  switch (jri.req_data.req_resume_data.type) {
+  case RESUME_TYPE_RECOVERY:
+    // to here, it indicates recovery is done, by scott
     // set this flash to make jobctrl thinks it recovery from paused
     _paused = true;
     // prepare flash for possible emergency event
     emergency_hdl.prepare_flash();
-    // TODO: we should tell HMI the result after all ok
+    break;
+
+  case RESUME_TYPE_PAUSE:
+    // notify all clients job is resumed
+    _issue_ret_rb.insert_one(SACP_JOB_PAUSE_ISSUE_RET_REQ_RESUME);
+    break;
+
+  default:
+    break;
   }
 
   // notify objects we will resume working

@@ -167,11 +167,19 @@ typedef struct __packed MachineInfo {
 
 typedef struct __packed ProductionSN {
   uint16_t str_len;
-  char     sn[0];
+  char     *sn;
 } production_sn_t;
 
-#define ADDR_PRODUCTION_SN  (0x8007FE0)
-#define ADDR_CONTROLLER_SN  (0x8007FFC)
+#define ADDR_PRODUCTION_SN            (0x8007FBC)
+#define PRODUCTION_SN_STRING_LENGTH   (30)
+#define ADDR_CONTROLLER_SN            (0x8007FFC)
+
+typedef struct __packed RawProductionSN {
+  char sn[PRODUCTION_SN_STRING_LENGTH];  // include \0
+  uint16_t checksum;
+  char sn_backup[PRODUCTION_SN_STRING_LENGTH];  // include \0
+  uint16_t checksum_backup;
+} raw_production_sn_t;
 
 #define PC_PORT_PROTOCOL_GCODE  (0)
 #define PC_PORT_PROTOCOL_SACP   (1)
@@ -223,6 +231,7 @@ err_code_t SnapmakerPrinter::hmi_cb_get_machine_info(void *obj, sacp_hmi_message
   info->model      = (uint8_t)printer->model;
   info->hw_ver     = printer->hw_ver;
   info->sn         = *(uint32_t *)(ADDR_CONTROLLER_SN);
+  LOG_I("Controller SN: 0x%x!\n", info->sn);
 
   for (; i < 32; i++) {
     info->fw_ver[i] = ver[i];
@@ -234,10 +243,18 @@ err_code_t SnapmakerPrinter::hmi_cb_get_machine_info(void *obj, sacp_hmi_message
 
   // product serial number
   psn = (production_sn_t *)(msg->data + 1 + sizeof(machine_info_t) + i);
-  psn->str_len = 21;
-  strncpy(psn->sn, "12345678901234567890", 21);
+  psn->str_len = 20;
+  raw_production_sn_t *rb_psn = (raw_production_sn_t *)(ADDR_PRODUCTION_SN);
+  if (rb_psn->checksum == host_hmi.calculate_checksum((uint8_t *)rb_psn->sn, PRODUCTION_SN_STRING_LENGTH)) {
+    strncpy(psn->sn, rb_psn->sn, 20);
+    LOG_I("product SN: %s!\n", rb_psn->sn);
+  }
+  else {
+    memset(psn->sn, '6', 20);
+    LOG_E("invalid product SN!\n");
+  }
 
-  msg->length = sizeof(machine_info_t) + i + 1 + 23;
+  msg->length = sizeof(machine_info_t) + i + 1 + 22;
 
   LOG_I("report machine info, len[0x%x]\n", msg->length);
 

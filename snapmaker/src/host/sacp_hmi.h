@@ -76,7 +76,7 @@ typedef struct {
 
 // defination for subscription
 #define SACP_SUBSCRIPTION_HANDLE_MAX      (32)
-#define SACP_SUBSCRIPTION_NODE_MAX        (20)
+#define SACP_SUBSCRIPTION_NODE_MAX        (64)
 #define SACP_SUBSCRIPTION_CLIENT_MAX      (32)
 #define SACP_SUBSCRIPTION_PERIOD_INVALID  (10)
 

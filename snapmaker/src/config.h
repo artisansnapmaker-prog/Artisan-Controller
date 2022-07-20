@@ -9,7 +9,8 @@
 #endif
 
 #ifdef ENABLE_CCRAM
-  #define AT_CCRAM  __attribute__((section(".ccmram")))
+  #define AT_CCRAM    __attribute__((section(".ccmram")))
+  #define CCRAM_SIZE  (64*1024)
 #else
   #define AT_CCRAM
 #endif

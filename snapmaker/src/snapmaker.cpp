@@ -167,7 +167,7 @@ typedef struct __packed MachineInfo {
 
 typedef struct __packed ProductionSN {
   uint16_t str_len;
-  char     *sn;
+  char     sn[0];
 } production_sn_t;
 
 #define ADDR_PRODUCTION_SN            (0x8007FBC)
@@ -618,9 +618,25 @@ void SnapmakerPrinter::post_init() {
   uint32_t *data_start = &_sdata, *data_end = &_edata;
   uint32_t *bss_start = &__bss_start__, *bss_end = &__bss_end__;
 
-  LOG_I("\nCCRAM, start: 0x%08x, end: 0x%08x, size: %.3f kBytes\n", ccram_start, ccram_end, (ccram_end - ccram_start) * 4 / 1024.0);
-  LOG_I("Data, start: 0x%08x, end: 0x%08x, size: %.3f kBytes\n", data_start, data_end, (data_end - data_start) * 4 / 1024.0);
-  LOG_I("BSS, start: 0x%08x, end: 0x%08x, size: %.3f kBytes\n\n", bss_start, bss_end, (bss_end - bss_start) * 4 / 1024.0);
+  uint32_t next_ms = millis() + 500;
+
+  LOG_I("\nCCRAM\t, start: 0x%08x, end: 0x%08x, size: %.3f kBytes\n", ccram_start, ccram_end, (ccram_end - ccram_start) * 4 / 1024.0);
+  LOG_I("Data\t, start: 0x%08x, end: 0x%08x, size: %.3f kBytes\n", data_start, data_end, (data_end - data_start) * 4 / 1024.0);
+  LOG_I("BSS\t, start: 0x%08x, end: 0x%08x, size: %.3f kBytes\n\n", bss_start, bss_end, (bss_end - bss_start) * 4 / 1024.0);
+
+  if ((int)(CCRAM_SIZE - (ccram_end - ccram_start)) < 256) {
+    LOG_E("\n\nThe remaining space of CCRAM is too small!!!\n");
+    digitalWrite(LED_RED_PIN, LOW);
+    digitalWrite(LED_GREEN_PIN, LOW);
+    digitalWrite(LED_BLUE_PIN, LOW);
+
+    while (1) {
+      if (ELAPSED(millis(), next_ms)) {
+        digitalToggle(LED_RED_PIN);
+        next_ms = millis() + 500;
+      }
+    }
+  }
 
   // enable power
   pinMode(POWER_CTRL_8P_TOOLHEAD, OUTPUT);

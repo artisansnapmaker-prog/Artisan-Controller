@@ -170,17 +170,6 @@ typedef struct __packed ProductionSN {
   char     sn[0];
 } production_sn_t;
 
-#define ADDR_PRODUCTION_SN            (0x8007FBC)
-#define PRODUCTION_SN_STRING_LENGTH   (30)
-#define ADDR_CONTROLLER_SN            (0x8007FFC)
-
-typedef struct __packed RawProductionSN {
-  char sn[PRODUCTION_SN_STRING_LENGTH];  // include \0
-  uint16_t checksum;
-  char sn_backup[PRODUCTION_SN_STRING_LENGTH];  // include \0
-  uint16_t checksum_backup;
-} raw_production_sn_t;
-
 #define PC_PORT_PROTOCOL_GCODE  (0)
 #define PC_PORT_PROTOCOL_SACP   (1)
 #define PC_PORT_PROTOCOL_MAX    (PC_PORT_PROTOCOL_SACP)
@@ -247,7 +236,11 @@ err_code_t SnapmakerPrinter::hmi_cb_get_machine_info(void *obj, sacp_hmi_message
   raw_production_sn_t *rb_psn = (raw_production_sn_t *)(ADDR_PRODUCTION_SN);
   if (rb_psn->checksum == host_hmi.calculate_checksum((uint8_t *)rb_psn->sn, PRODUCTION_SN_STRING_LENGTH)) {
     strncpy(psn->sn, rb_psn->sn, 20);
-    LOG_I("product SN: %s!\n", rb_psn->sn);
+    LOG_I("product SN: %s\n", rb_psn->sn);
+  }
+  else if (rb_psn->checksum_backup == host_hmi.calculate_checksum((uint8_t *)rb_psn->sn_backup, PRODUCTION_SN_STRING_LENGTH)) {
+    strncpy(psn->sn, rb_psn->sn_backup, 20);
+    LOG_I("product SN: %s\n", rb_psn->sn_backup);
   }
   else {
     memset(psn->sn, '6', 20);

@@ -294,6 +294,17 @@ enum PurifierExceptionState {
   PURIFIER_EXCEP_STA_OFFLINE = 1,
 };
 
+// macros for SN
+#define ADDR_PRODUCTION_SN            (0x8007FBC)
+#define PRODUCTION_SN_STRING_LENGTH   (30)
+#define ADDR_CONTROLLER_SN            (0x8007FFC)
+
+typedef struct __packed RawProductionSN {
+  char sn[PRODUCTION_SN_STRING_LENGTH];  // include \0
+  uint16_t checksum;
+  char sn_backup[PRODUCTION_SN_STRING_LENGTH];  // include \0
+  uint16_t checksum_backup;
+} raw_production_sn_t;
 
 // wrapper of snapmaker for marlin
 class SnapmakerPrinter

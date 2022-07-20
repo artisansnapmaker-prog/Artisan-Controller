@@ -34,21 +34,24 @@
 #include "src/gcode/gcode.h"
 #include "src/module/motion.h"
 
-
 void GcodeSuite::M1005() {
-  // MAC_t       mac;
-
-  // char buffer[VERSION_STRING_SIZE + 4];
-  // int  i;
-
   // version in code
   LOG_I("\nMarlin %s\n", SHORT_BUILD_VERSION);
   LOG_I("Compiled: %s, %s\n", __DATE__, __TIME__);
 
-  // version in package
-  // memcpy(buffer, (char*)(FLASH_BOOT_PARA + 2048), 30);
-  // SERIAL_ECHO_MSG(MSG_MARLIN_PACK, ": ", buffer, "\n");
+  // TODO: version in package
 
+  // SN of controller
+  raw_production_sn_t *rb_psn = (raw_production_sn_t *)(ADDR_PRODUCTION_SN);
+  if (rb_psn->checksum == host_hmi.calculate_checksum((uint8_t *)rb_psn->sn, PRODUCTION_SN_STRING_LENGTH)) {
+    LOG_I("product SN: %s\n", rb_psn->sn);
+  }
+  else if (rb_psn->checksum_backup == host_hmi.calculate_checksum((uint8_t *)rb_psn->sn_backup, PRODUCTION_SN_STRING_LENGTH)) {
+    LOG_I("product SN: %s\n", rb_psn->sn_backup);
+  }
+  else {
+    LOG_E("No valid product SN!\n");
+  }
 
   // version of modules
   LOG_I("\nmodule list:\n");
@@ -61,10 +64,6 @@ void GcodeSuite::M1005() {
     LOG_I("Module ID: 0x%x, SN: 0x%0x, FW ver: %s, HW ver: 0x%x, sta: %u\n", module->get_device_id(),
           module->get_sn(), module->get_fw_version(), module->get_hw_verion(), module->get_status());
   }
-
-  // if (ModuleBase::toolhead() == MACHINE_TYPE_LASER || (ModuleBase::toolhead() == MACHINE_TYPE_LASER_10W)) {
-  //   laser->ReadBluetoothVer();
-  // }
 
   LOG_I("\nMachine Size: ");
   switch (smprinter.get_model()) {
@@ -104,7 +103,7 @@ void GcodeSuite::M1006() {
 
   case TH_TYPE_LASER:
     LOG_I("LASER\n");
-    LOG_I("Current Status: \n");
+    // LOG_I("Current Status: \n");
     // SERIAL_ECHOLN((laser->state() == TOOLHEAD_LASER_STATE_ON)? "ON" : "OFF");
     // SERIAL_ECHO_MSG("Current Power: ", laser->power());
     // SERIAL_ECHO_MSG("Focus Height: ", laser->focus());

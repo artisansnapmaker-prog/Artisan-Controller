@@ -851,3 +851,10 @@ err_code_t ModuleService::factory_reset() {
 
   return ret2;
 }
+
+void ModuleService::pre_module_upgrade() {
+  for (int i = 0; i < configured_module; i++) {
+    unregister_routine((void*)modules[i]);
+    modules[i]->deinit();
+  }
+}

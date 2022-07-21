@@ -151,6 +151,7 @@ ModuleBase *UpgradeControllerToModule::get_next_module(void) {
 
     uint16_t id = m->get_device_id();
     if (pit->start_index <= id && id <= pit->end_index) {
+      module_svc.pre_module_upgrade();
       return m;
     }
     else {

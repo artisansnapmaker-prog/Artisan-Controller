@@ -103,6 +103,7 @@ class ModuleService {
     void scan_modules();
 
     void machine_replace_mode_deinit(bool switch_working_mode);
+    void pre_module_upgrade();
 
     err_code_t factory_reset();
   // private methods

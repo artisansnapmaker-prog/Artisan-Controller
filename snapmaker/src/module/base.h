@@ -413,7 +413,7 @@ class ModuleBase {
 
     uint8_t status = MODULE_STATUS_UNCONFIGURE;
     uint8_t  hw_ver;
-    char     fw_ver[MODULE_FW_VER_SIZE];
+    char     fw_ver[MODULE_FW_VER_SIZE] = "v0.0.0";
 
     LinkCANChannel channel;
 

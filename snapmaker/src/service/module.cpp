@@ -530,7 +530,7 @@ err_code_t ModuleService::get_function_list(ModuleBase &module) {
   // check if function list from module is empty
   if (recv_buffer[SACP_MODULE_RECV_INDEX_DATA] == 0) {
     LOG_W("no function of module: 0x%08x\n", cmd.peer);
-    return E_FAILURE;
+    return E_SUCCESS;
   }
 
   // 2. apply memory for message id map

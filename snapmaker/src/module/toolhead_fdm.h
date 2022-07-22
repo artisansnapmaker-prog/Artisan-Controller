@@ -248,6 +248,7 @@ class ToolHeadFDM: public ModuleBase {
     uint32_t get_fdm_state();
     void clear_fdm_state(fdm_fault_e state);
     void get_fdm_state(fdm_fault_e state);
+    uint8_t get_fdm_fault_state(fdm_fault_e fault_type);
     uint8_t get_extruder_status(uint8_t e);
     err_code_t extruder_status_check_ctrl(extruder_status_e status);
     err_code_t tool_change(uint8_t new_tool, bool z_compensation=true);

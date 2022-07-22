@@ -35,6 +35,7 @@
 #include "endstops.h"
 #include "planner.h"
 #include "printcounter.h"
+#include "../../../snapmaker/src/snapmaker.h"
 
 #if EITHER(HAS_COOLER, LASER_COOLANT_FLOW_METER)
   #include "../feature/cooler.h"
@@ -3314,9 +3315,9 @@ void Temperature::isr() {
               bool bed_mos2 = READ_OUTPUT(HEATER_CHAMBER_PIN);
               if (bed_mos1 == true && bed_mos2 == true) {
                 if (!(bed_sw1 == true && bed_sw2 == true)) {
-                  if (bed_sw1 == false && bed_sw2 == true) 
+                  if (bed_sw1 == false && bed_sw2 == true)
                     bed_error_sta = 1;
-                  else if (bed_sw1 == true && bed_sw2 == false) 
+                  else if (bed_sw1 == true && bed_sw2 == false)
                     bed_error_sta = 2;
                   else
                     bed_error_sta = 3;
@@ -3743,9 +3744,9 @@ void Temperature::isr() {
         case H_BED: k = 'B'; break;
       #endif
       #if HAS_TEMP_CHAMBER
-        case H_CHAMBER: 
+        case H_CHAMBER:
           #if ENABLED(SNAPMAKER_DOUBLE_ZONE_BED)
-            k = 'B'; 
+            k = 'B';
           #else
             k = 'C';
           #endif
@@ -3901,6 +3902,18 @@ void Temperature::isr() {
       millis_t now, next_temp_ms = 0, next_cool_check_ms = 0;
       wait_for_heatup = true;
       do {
+
+        #if MB_SNAPMAKER
+          uint8_t fdm_fault_state_nozzle_type = smprinter.fdm->get_fdm_fault_state(FDM_FAULT_NOZZLE_IDENTIFY);
+          uint8_t fdm_fault_state_temp = smprinter.fdm->get_fdm_fault_state(FDM_FAULT_NOZZLE_TEMP);
+          uint8_t fdm_fault_state_online = smprinter.fdm->get_status();
+          if (fdm_fault_state_nozzle_type || fdm_fault_state_temp || (fdm_fault_state_online == MODULE_STATUS_OFFLINE)) {
+            LOG_E("jump out of the waiting hotend heating cycle: %d, %d, %d\n", fdm_fault_state_nozzle_type, fdm_fault_state_temp, fdm_fault_state_online);
+            break;
+          }
+
+        #endif
+
         // Target temperature might be changed during the loop
         if (target_temp != degTargetHotend(target_extruder)) {
           wants_to_cool = isCoolingHotend(target_extruder);

@@ -1192,6 +1192,7 @@ void ToolHeadFDM::update_hotend_temp(uint8_t *data) {
 
   if (data[2] == 1) {
     motion_platform_svc.set_hotend_temp(0, 0);
+    fdm_exception_trigger(FDM_FAULT_NOZZLE_TEMP);
     system_svc.raise_exception(get_device_id(), FDM_EXCEP_STA_THERMAL_RUNAWAY_E0, EXCEP_ACT_STOP_WORKING | EXCEP_ACT_DISABLE_POWER_8P_TOOLHEAD);
   }
 
@@ -1199,6 +1200,7 @@ void ToolHeadFDM::update_hotend_temp(uint8_t *data) {
     hotend_temp[1].current = data[4] << 8 | data[5];
     if (data[6] == 1) {
       motion_platform_svc.set_hotend_temp(0, 1);
+      fdm_exception_trigger(FDM_FAULT_NOZZLE_TEMP);
       system_svc.raise_exception(get_device_id(), FDM_EXCEP_STA_THERMAL_RUNAWAY_E1, EXCEP_ACT_STOP_WORKING | EXCEP_ACT_DISABLE_POWER_8P_TOOLHEAD);
     }
   }
@@ -1417,6 +1419,10 @@ uint8_t ToolHeadFDM::get_filament_detection_state(uint8_t e) {
 
 uint32_t ToolHeadFDM::get_fdm_state() {
   return fdm_state;
+}
+
+uint8_t ToolHeadFDM::get_fdm_fault_state(fdm_fault_e fault_type) {
+  return (fdm_state >> fault_type) & 0xff;
 }
 
 void ToolHeadFDM::clear_fdm_state(fdm_fault_e state) {
@@ -2059,11 +2065,11 @@ void ToolHeadFDM::fdm_exception_trigger(fdm_fault_e fault) {
         break;
       case FDM_FAULT_NOZZLE_IDENTIFY:
         LOG_I("nozzle fault request pause\n");
-        job_ctrl_svc.req_pause(PAUSE_WRONG_NOZZLE, NULL, NULL);
+        job_ctrl_svc.req_stop(STOP_WRONG_NOZZLE, SACP_JOB_PAUSE_ISSUE_RET_WRONG_NOZZLE, NULL, NULL);
         break;
       case FDM_FAULT_NOZZLE_TEMP:
         LOG_I("hotend temp fault request pause\n");
-        job_ctrl_svc.req_pause(PAUSE_NOZZLE_TEMP, NULL, NULL);
+        job_ctrl_svc.req_stop(STOP_NOZZLE_TEMP, SACP_JOB_PAUSE_ISSUE_RET_WRONG_HOTEND_TEMP, NULL, NULL);
         break;
       case FDM_FAULT_FILAMENT:
         LOG_I("filament out request pause\n");

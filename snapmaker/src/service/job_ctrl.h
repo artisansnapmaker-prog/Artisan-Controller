@@ -116,6 +116,9 @@ enum JobStopType {
   STOP_CLIENT_REQ,
   STOP_EMERGENCY,
   STOP_EXCEPTION,
+  STOP_WRONG_EXTRUDER,
+  STOP_WRONG_NOZZLE,
+  STOP_NOZZLE_TEMP,
 };
 
 enum JobNotifyType {
@@ -205,7 +208,7 @@ class JobCtrl {
     void init(void);
     void background_thread(void *p);                               /** main loop, to check all the event from system which will change current job status */
     void request_gcode_process(void *p);
-    
+
     // job control
     err_code_t req_start( uint8_t client_id,
                           struct GcodeFileInfo *gcodeInfo,

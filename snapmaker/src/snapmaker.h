@@ -520,6 +520,22 @@ class SnapmakerPrinter
       return E_HARDWARE;
     }
 
+    uint8_t get_fdm_fault_state(fdm_fault_e fault_type) {
+      if (fdm) {
+        return fdm->get_fdm_fault_state(fault_type);
+      }
+
+      return 0;
+    }
+
+    uint8_t get_status() {
+      if (fdm) {
+        return fdm->get_status();
+      }
+
+      return 0;
+    }
+
     // LASER
     void set_laser_fan_speed(uint16_t speed) {}
 

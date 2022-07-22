@@ -146,6 +146,7 @@
 #define SACP_JOB_PAUSE_ISSUE_RET_WRONG_HOTEND_TEMP              (19)
 #define SACP_JOB_PAUSE_ISSUE_RET_EXCEPTION                      (20)
 #define SACP_JOB_PAUSE_ISSUE_RET_REQ_RESUME                     (21)
+#define SACP_JOB_PAUSE_ISSUE_RET_EXCEPTION_STOP                 (22)
 #define SACP_JOB_PAUSE_ISSUE_RET_UNKNOW_ERR                     (255)
 
 #define CLIENT_NODE_ONFFLINE_NOTIFY_CB_MAX                      (32)

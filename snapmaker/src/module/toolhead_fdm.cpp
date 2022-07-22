@@ -1164,7 +1164,7 @@ void ToolHeadFDM::set_hotend_type(uint8_t *data) {
   } else {
     fdm_exception_trigger(FDM_FAULT_NOZZLE_IDENTIFY);
     // TBD
-    system_svc.raise_exception(get_device_id(), FDM_EXCEP_STA_NOZZLE_TYPE_ERROR/*, EXCEP_ACT_STOP_WORKING | EXCEP_ACT_DISABLE_POWER_8P_TOOLHEAD*/);
+    system_svc.raise_exception(get_device_id(), FDM_EXCEP_STA_NOZZLE_TYPE_ERROR, EXCEP_ACT_STOP_WORKING | EXCEP_ACT_DISABLE_POWER_8P_TOOLHEAD);
   }
 }
 
@@ -2055,31 +2055,6 @@ err_code_t ToolHeadFDM::factory_reset() {
 void ToolHeadFDM::fdm_exception_trigger(fdm_fault_e fault) {
   fdm_state |= 1 << fault;
   LOG_E("set fdm_sate: %x\n", fdm_state);
-
-  // enum SystemStatus system_state = smprinter.get_sys_status();
-  // if (system_state == SYSTEM_STATUS_PRINTING || system_state == SYSTEM_STATUS_XY_CALIBRATING_PRINTING) {
-    switch (fault) {
-      case FDM_FAULT_EXTRUDER_STATE:
-        // LOG_I("extruder fault request pause\n");
-        // job_ctrl_svc.req_pause(PAUSE_WRONG_EXTRUDER, NULL, NULL);
-        break;
-      case FDM_FAULT_NOZZLE_IDENTIFY:
-        LOG_I("nozzle fault request pause\n");
-        job_ctrl_svc.req_stop(STOP_WRONG_NOZZLE, SACP_JOB_PAUSE_ISSUE_RET_WRONG_NOZZLE, NULL, NULL);
-        break;
-      case FDM_FAULT_NOZZLE_TEMP:
-        LOG_I("hotend temp fault request pause\n");
-        job_ctrl_svc.req_stop(STOP_NOZZLE_TEMP, SACP_JOB_PAUSE_ISSUE_RET_WRONG_HOTEND_TEMP, NULL, NULL);
-        break;
-      case FDM_FAULT_FILAMENT:
-        LOG_I("filament out request pause\n");
-        job_ctrl_svc.req_pause(PAUSE_FILM_RUNOUT, NULL, NULL);
-        break;
-      case FDM_FAULT_EXTRUDER_HOME_FAILED:
-        LOG_I("extruder go home failed\n");
-        break;
-    }
-  // }
 }
 
 void ToolHeadFDM::fdm_exception_clear(fdm_fault_e fault) {

@@ -406,7 +406,7 @@ __pos_resume:
   LOCK(_lock, JOB_LOCK_WAIT_TICK);
   _env.req_line_num = _env.cur_line_num;
   UNLOCK(_lock);
-  
+
   // wait for all movement done
   motion_platform_svc.synchronize_planner();
   motion_platform_svc.update_position_from_platform();
@@ -592,7 +592,7 @@ void JobCtrl::get_gcodes_from_client(void) {
 
         if (req_batch_gcode.line_num != _env.req_line_num) {
           UNLOCK(_lock);
-          LOG_W("job_ctrl: _env req_line_num changed, req_line_num: %d, get_line_num: %d\r\n", 
+          LOG_W("job_ctrl: _env req_line_num changed, req_line_num: %d, get_line_num: %d\r\n",
                 _env.req_line_num, req_batch_gcode.line_num);
           return;
         }
@@ -967,6 +967,19 @@ void JobCtrl::do_stop(struct JobCtrlReqInfo &jri) {
     break;
 
     case STOP_EXCEPTION:
+      motion_platform_svc.req_quickstop();
+      _issue_ret_rb.insert_one(SACP_JOB_PAUSE_ISSUE_RET_EXCEPTION_STOP);
+      break;
+
+    case STOP_WRONG_EXTRUDER:
+      motion_platform_svc.req_quickstop();
+      break;
+
+    case STOP_WRONG_NOZZLE:
+      motion_platform_svc.req_quickstop();
+      break;
+
+    case STOP_NOZZLE_TEMP:
       motion_platform_svc.req_quickstop();
       break;
 

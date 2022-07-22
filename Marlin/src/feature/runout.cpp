@@ -77,7 +77,7 @@ void event_filament_runout(const uint8_t extruder) {
   #if MB_SNAPMAKER
     smprinter.fdm_exception_trigger(FDM_FAULT_FILAMENT);
     // TBD
-  smprinter.raise_exception(SM_EXCEP_OWNER_TOOLHEAD, FDM_EXCEP_STA_FILAMENT_RUNOUT/*, EXCEP_ACT_PAUSE_WORKING*/);
+  smprinter.raise_exception(SM_EXCEP_OWNER_TOOLHEAD, FDM_EXCEP_STA_FILAMENT_RUNOUT, EXCEP_ACT_PAUSE_WORKING);
   #else
     if (did_pause_print) return;  // Action already in progress. Purge triggered repeated runout.
 

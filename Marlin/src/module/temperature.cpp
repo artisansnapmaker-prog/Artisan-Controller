@@ -3904,14 +3904,15 @@ void Temperature::isr() {
       do {
 
         #if MB_SNAPMAKER
-          uint8_t fdm_fault_state_nozzle_type = smprinter.fdm->get_fdm_fault_state(FDM_FAULT_NOZZLE_IDENTIFY);
-          uint8_t fdm_fault_state_temp = smprinter.fdm->get_fdm_fault_state(FDM_FAULT_NOZZLE_TEMP);
-          uint8_t fdm_fault_state_online = smprinter.fdm->get_status();
-          if (fdm_fault_state_nozzle_type || fdm_fault_state_temp || (fdm_fault_state_online == MODULE_STATUS_OFFLINE)) {
-            LOG_E("jump out of the waiting hotend heating cycle: %d, %d, %d\n", fdm_fault_state_nozzle_type, fdm_fault_state_temp, fdm_fault_state_online);
-            break;
+          if (smprinter.get_toolhead_type() == TH_TYPE_3DP) {
+            uint8_t fdm_fault_state_nozzle_type = smprinter.fdm->get_fdm_fault_state(FDM_FAULT_NOZZLE_IDENTIFY);
+            uint8_t fdm_fault_state_temp = smprinter.fdm->get_fdm_fault_state(FDM_FAULT_NOZZLE_TEMP);
+            uint8_t fdm_fault_state_online = smprinter.fdm->get_status();
+            if (fdm_fault_state_nozzle_type || fdm_fault_state_temp || (fdm_fault_state_online == MODULE_STATUS_OFFLINE)) {
+              LOG_E("jump out of the waiting hotend heating cycle: %d, %d, %d\n", fdm_fault_state_nozzle_type, fdm_fault_state_temp, fdm_fault_state_online);
+              break;
+            }
           }
-
         #endif
 
         // Target temperature might be changed during the loop

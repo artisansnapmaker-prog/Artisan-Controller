@@ -399,22 +399,26 @@ void GcodeSuite::G28() {
     TERN_(HOME_Z_FIRST, if (doZ) homeaxis(Z_AXIS));
 
     #if MB_SNAPMAKER
-      if (smprinter.fdm->get_device_id() == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
-        if (smprinter.right_extruder_move_to_destination(GO_HOME) != E_SUCCESS) {
-          LOG_I("right extruder go home failed\n");
-          smprinter.raise_exception(SM_EXCEP_OWNER_TOOLHEAD, FDM_EXCEP_STA_EXTRUDER_HOME_FAILED, EXCEP_ACT_STOP_WITH_RECOVERY);
-          return;
+      if (smprinter.get_toolhead_type() == TH_TYPE_3DP) {
+        if (smprinter.fdm->get_device_id() == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
+          if (smprinter.right_extruder_move_to_destination(GO_HOME) != E_SUCCESS) {
+            LOG_I("right extruder go home failed\n");
+            smprinter.raise_exception(SM_EXCEP_OWNER_TOOLHEAD, FDM_EXCEP_STA_EXTRUDER_HOME_FAILED, EXCEP_ACT_STOP_WITH_RECOVERY);
+            return;
+          }
+          else {
+            smprinter.clear_exception(SM_EXCEP_OWNER_TOOLHEAD, FDM_EXCEP_STA_EXTRUDER_HOME_FAILED);
+          }
+          smprinter.tool_change(0);
         }
-        else {
-          smprinter.clear_exception(SM_EXCEP_OWNER_TOOLHEAD, FDM_EXCEP_STA_EXTRUDER_HOME_FAILED);
-        }
-        smprinter.tool_change(0);
       }
     #endif
 
     #if MB_SNAPMAKER
-      if (doZ) {
-        smprinter.dual_extruder_process_after_z_homed();
+      if (smprinter.get_toolhead_type() == TH_TYPE_3DP) {
+        if (doZ) {
+          smprinter.dual_extruder_process_after_z_homed();
+        }
       }
     #endif
 

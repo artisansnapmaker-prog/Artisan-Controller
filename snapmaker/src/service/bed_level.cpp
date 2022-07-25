@@ -624,12 +624,6 @@ static err_code_t hmi_req_callback_set_live_z_offset(void *obj, sacp_hmi_message
     goto EXIT;
   }
 
-  if (bedlevel.get_bedlevel_mode() != BEDLEVEL_MODE_IDLE) {
-    ret = E_BUSY;
-    LOG_I("can't set live z offset\n");
-    goto EXIT;
-  }
-
   if (e > smprinter.fdm->get_extruders_count() - 1) {
     ret = E_PARAM;
     goto EXIT;
@@ -1071,7 +1065,11 @@ void BedLevelService::set_live_z_offset(uint8_t e, float offset) {
     live_z_offset_changed = true;
     LOG_I("z cur height changed: %f\n", offset - live_z_offset[e]);
     if (e == smprinter.fdm->get_active_extruder()) {
-      job_ctrl_svc.req_pause(PUASE_LIVE_Z_OFFSET, NULL, NULL);
+      err_code_t ret = job_ctrl_svc.req_pause(PUASE_LIVE_Z_OFFSET, NULL, NULL);
+      if (ret != E_SUCCESS) {
+        LOG_E("request pause failed when set live_z_offset\n");
+        return;
+      }
       while(smprinter.get_sys_status() != SYSTEM_STATUS_PAUSED) {
         motion_platform_svc.synchronize_planner();
       }

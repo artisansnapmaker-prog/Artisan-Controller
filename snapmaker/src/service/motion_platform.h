@@ -232,6 +232,7 @@ class MotionPlatformService {
     bool is_original_position_offset();
     static void motion_background(void *p);
     static uint16_t hmi_cb_publish_coordinate_info(void *obj, uint8_t *buffer);
+    static uint16_t hmi_cb_publish_feedrate(void *obj, uint8_t *buffer);
     static err_code_t hmi_cb_get_coordinate_info(void *obj, sacp_hmi_message_t *msg);
     static err_code_t hmi_cb_set_active_coordinate_system(void *obj, sacp_hmi_message_t *msg);
     static err_code_t hmi_cb_set_origin(void *obj, sacp_hmi_message_t *msg);

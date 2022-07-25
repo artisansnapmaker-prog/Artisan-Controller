@@ -79,6 +79,19 @@ uint16_t MotionPlatformService::hmi_cb_publish_coordinate_info(void *obj, uint8_
   return sizeof(CoordinateSystemInformation) + 1;
 }
 
+uint16_t MotionPlatformService::hmi_cb_publish_feedrate(void *obj, uint8_t *buffer) {
+  if (!buffer)
+    return 0;
+
+  uint16_t feedrate = (uint16_t)(feedrate_mm_s);
+
+  buffer[0] = E_SUCCESS;
+  buffer[1] = (uint8_t)(feedrate&0xff);
+  buffer[2] = (uint8_t)((feedrate&0xff00)>>8);
+
+  return 3;
+}
+
 // HMI event callback
 #define COORDINATE_TYPE_LOGICAL (0)
 #define COORDINATE_TYPE_NATIVE  (1)
@@ -436,6 +449,9 @@ void MotionPlatformService::init() {
 
   host_hmi.register_subscription(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_SUB_COORDINATE,
             (void *)this, hmi_cb_publish_coordinate_info);
+
+  host_hmi.register_subscription(SACP_CMD_SET_WOKRING_FLOW, SACP_CMD_ID_WORKING_FLOW_SUB_FEEDRATE,
+            (void *)this, hmi_cb_publish_feedrate);
 
   host_hmi.register_callback(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_GET_COORDINATE,
             (void *)this, hmi_cb_get_coordinate_info);
@@ -1125,7 +1141,7 @@ float MotionPlatformService::get_max_position(uint8_t axis) {
 }
 
 float MotionPlatformService::get_feedrate_percentage() {
-   return feedrate_percentage;
+  return feedrate_percentage;
 }
 
 xyz_pos_t MotionPlatformService::get_position_shift() {

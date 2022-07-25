@@ -1194,10 +1194,8 @@ err_code_t ToolHeadLaser::post_init() {
   feedrate_percentage = 100;
   motion_platform_svc.sync_feedrate_percentage_to_platform(feedrate_percentage);
 
-  // report  BT MAC when HMI get laser module info
-  // if (ClientNode::register_on_client_node_online((void *)this, client_cb_report_bt_mac) != E_SUCCESS) {
-  //   LOG_E("Laser: failed to register host online callback!\n");
-  // }
+  // update software endstop for Z min
+  motion_platform_svc.update_soft_endstops((uint8_t)Z_AXIS, (uint8_t)0, (float)13);
 
   return E_SUCCESS;
 }

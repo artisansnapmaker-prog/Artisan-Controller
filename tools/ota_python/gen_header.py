@@ -157,7 +157,7 @@ except:
 try:
   VER = args.ver
   FLAG = int(args.flag)
-  RUNADDR = int(args.radr)
+  RUNADDR = int(args.radr, 16)
 except:
   pass
 
@@ -166,6 +166,7 @@ print("flie: " + FILE)
 print("type: %d" % TYPE)
 print("ver: " + VER)
 print("flag %d: " % FLAG)
+print("entry addr 0x%x: " % RUNADDR)
 print("output file: {}".format(O_NAME))
 
 

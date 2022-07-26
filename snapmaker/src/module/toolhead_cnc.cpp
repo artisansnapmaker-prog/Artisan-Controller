@@ -470,15 +470,10 @@ err_code_t ToolHeadCNC::resume_env(uint8_t *env_buf, uint32_t &len) {
       }
     }
 
-    if (tmp_info->run_state == CNC_OUTPUT_ON) {
-      if (ctr_mode == CNC_CONSTANT_POWER_MODE) 
-        result = sync_cnc_output(power, CNC_PWM_SET_SPEED);
-      else 
-        result = sync_cnc_output(target_rpm, CNC_RPM_SET_SPEED);
-    }
-    else {
-      result = sync_cnc_output(0, CNC_PWM_SET_SPEED);
-    }
+    if (ctr_mode == CNC_CONSTANT_POWER_MODE) 
+      result = sync_cnc_output(power, CNC_PWM_SET_SPEED);
+    else 
+      result = sync_cnc_output(target_rpm, CNC_RPM_SET_SPEED);
 
     if (result) {
       LOG_E("[%s] sync_cnc_output fail\n",__FUNCTION__);

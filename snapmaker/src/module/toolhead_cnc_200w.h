@@ -69,6 +69,7 @@ class ToolHeadCNC200W: public ToolHeadCNC {
     bool get_cnc_hw_verion(uint8_t *version);
     err_code_t set_cnc_run_dir(uint8_t dir); 
     err_code_t set_cnc_pid(uint8_t index, uint8_t mode, uint32_t param);
+    void safe_check(uint32_t time_out=CNC_SAFE_CHECK_TRIGGER_TIME);
 
   private:
     float pcb_temp = 0;

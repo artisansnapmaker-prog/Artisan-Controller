@@ -109,6 +109,7 @@ err_code_t ToolHeadCNC::pre_init() {
     record_error = 0;
     online = false;
     feedrate_percentage = 100;
+    safe_check_tick = CNC_SAFE_CHECK_INVALID_VALUE;
     public_mutex_unlock();
   }
   else {
@@ -194,6 +195,11 @@ void cnc_callback_update_rpm(void *obj, uint8_t *data, uint8_t length) {
       cnc.error_state &= (~CNC_STALL_ERROR_MASK);
     }
     cnc.lost_counter = xTaskGetTickCount();
+    if (cnc.safe_check_tick != CNC_SAFE_CHECK_INVALID_VALUE) {
+      if (!(cnc.error_state && smprinter.get_sys_status() == SYSTEM_STATUS_PRINTING)) {
+        cnc.safe_check_tick = cnc.lost_counter;
+      }
+    }
     cnc.public_mutex_unlock();
   }
 
@@ -232,10 +238,34 @@ void ToolHeadCNC::lost_counter_routine(uint32_t time_out) {
   }
 }
 
+void ToolHeadCNC::safe_check(uint32_t time_out) {
+  if (online && safe_check_tick != CNC_SAFE_CHECK_INVALID_VALUE) {
+    if (ELAPSED(xTaskGetTickCount(), safe_check_tick + time_out)) {
+      if (error_state) {
+        if (public_mutex_lock()) {
+          safe_check_tick = CNC_SAFE_CHECK_INVALID_VALUE;
+          public_mutex_unlock();
+        }
+        else {
+          // prevent mutex acquisition failure from repeatedly throwing exceptions
+          safe_check_tick = CNC_SAFE_CHECK_INVALID_VALUE;
+        }
+        LOG_E("[%s] The cnc module is abnormal during the printing process, err: 0x%x\n", __FUNCTION__, error_state);
+        // clear exception early, make sure exceptions are sent to the screen
+        system_svc.clear_exception(get_device_id(), CNC_EXCEP_STA_STALLED);
+        system_svc.raise_exception(get_device_id(), CNC_EXCEP_STA_STALLED, \
+                                    EXCEP_ACT_PAUSE_WORKING);
+      }
+    }
+  }
+}
+
 err_code_t cnc_callback_routine(void *obj) {
   ToolHeadCNC &cnc = *(ToolHeadCNC *)obj;
-  if (obj)
+  if (obj) {
     cnc.lost_counter_routine();
+    cnc.safe_check();
+  }
   return E_SUCCESS;
 } 
 
@@ -261,6 +291,7 @@ err_code_t ToolHeadCNC::post_init() {
 
   if (public_mutex_lock()) {
     lost_counter = xTaskGetTickCount();
+    safe_check_tick = CNC_SAFE_CHECK_INVALID_VALUE;
     online = true;
     set_status(MODULE_STATUS_NORMAL);
     public_mutex_unlock();
@@ -365,12 +396,18 @@ err_code_t ToolHeadCNC::sync_cnc_output(uint16_t value, CNCSpeedControlType type
   }
 
   if (public_mutex_lock()) {
-    if (value > 0)
+    if (value > 0) {
+      safe_check_tick = xTaskGetTickCount();
       output_sta = CNC_OUTPUT_ON;
-    else if (output_sta == CNC_OUTPUT_ON)
+    }
+    else if (output_sta == CNC_OUTPUT_ON) {
       output_sta = CNC_OUTPUT_OFF_ING;
-    else 
+      safe_check_tick = CNC_SAFE_CHECK_INVALID_VALUE;
+    }
+    else {
       output_sta = CNC_OUTPUT_OFF;
+      safe_check_tick = CNC_SAFE_CHECK_INVALID_VALUE;
+    }
     public_mutex_unlock();
   }
   else {

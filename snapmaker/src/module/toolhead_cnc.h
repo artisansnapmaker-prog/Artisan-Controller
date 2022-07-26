@@ -24,7 +24,10 @@
 #include "base.h"
 
 #define CNC_POWER_MAX (100)
-#define CNC_LOST_TIME_OUT  (3000)     
+#define CNC_LOST_TIME_OUT  (3000)
+
+#define CNC_SAFE_CHECK_TRIGGER_TIME           (3100)    
+#define CNC_SAFE_CHECK_INVALID_VALUE          (0xFFFFFFFF)
 
 #define CNC_STALL_ERROR_MASK           (1 << 0)
 #define CNC_H_PROTECT_ERROR_MASK       (1 << 1)
@@ -163,6 +166,7 @@ class ToolHeadCNC: public ModuleBase {
     virtual bool is_support_rpm_mode() { return false; }
     virtual bool is_support_change_ctr_mode() { return false; }
     virtual err_code_t register_hmi_command_func(void *obj);
+    virtual void safe_check(uint32_t time_out=CNC_SAFE_CHECK_TRIGGER_TIME);
 
   private:
     virtual err_code_t sync_cnc_output(uint16_t value, CNCSpeedControlType type=CNC_PWM_SET_SPEED);
@@ -178,6 +182,7 @@ class ToolHeadCNC: public ModuleBase {
     uint16_t target_rpm;
     uint16_t record_error;
     uint32_t lost_counter;
+    uint32_t safe_check_tick;
     bool  online = false;
     int16_t feedrate_percentage;
     SemaphoreHandle_t public_mutex = NULL;

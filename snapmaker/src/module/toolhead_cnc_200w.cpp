@@ -75,6 +75,7 @@ err_code_t ToolHeadCNC200W::pre_init() {
     online = false;
     record_error = 0;
     feedrate_percentage = 100;
+    safe_check_tick = CNC_SAFE_CHECK_INVALID_VALUE;
     public_mutex_unlock();
   }
   else {
@@ -124,6 +125,11 @@ void hp_cnc_callback_update_info(void *obj, uint8_t *data, uint8_t length) {
       // TODO: Modified state better after the event has been successfully 
       // processed, subsequent optimisation.
       cnc.error_state = data[2];
+      if (cnc.safe_check_tick != CNC_SAFE_CHECK_INVALID_VALUE) {
+        if (!(cnc.error_state && smprinter.get_sys_status() == SYSTEM_STATUS_PRINTING)) {
+          cnc.safe_check_tick = cnc.lost_counter;
+        }
+      }
       cnc.public_mutex_unlock();
     }
     
@@ -204,10 +210,43 @@ void hp_cnc_callback_self_test_info(void *obj, uint8_t *data, uint8_t length) {
   }
 }
 
+void ToolHeadCNC200W::safe_check(uint32_t time_out) {
+  if (online && safe_check_tick != CNC_SAFE_CHECK_INVALID_VALUE) {
+    if (ELAPSED(xTaskGetTickCount(), safe_check_tick + time_out)) {
+      if (error_state) {
+        uint32_t action = 0;
+        uint32_t ban = 0;
+
+        if (public_mutex_lock()) {
+          safe_check_tick = CNC_SAFE_CHECK_INVALID_VALUE;
+          public_mutex_unlock();
+        }
+        else {
+          // prevent mutex acquisition failure from repeatedly throwing exceptions
+          safe_check_tick = CNC_SAFE_CHECK_INVALID_VALUE;
+        }
+
+        LOG_E("[%s] The cnc module is abnormal during the printing process, err: 0x%x\n", __FUNCTION__, error_state);
+        for (int i = 5; i >= 0; i--) {
+          if (error_state & (1 << i)) {
+            action = EXCEP_ACT_PAUSE_WORKING;
+            ban = i > 1 ? EXCEP_BAN_TURN_ON_CNC : 0; 
+            // clear exception early, make sure exceptions are sent to the screen
+            system_svc.clear_exception(get_device_id(), CNC_EXCEP_STA_STALLED + i);
+            system_svc.raise_exception(get_device_id(), CNC_EXCEP_STA_STALLED + i, action, ban);
+            break;
+          }
+        }
+      }
+    }
+  }
+}
+
 err_code_t hp_cnc_callback_routine(void *obj) {
   ToolHeadCNC200W &cnc = *(ToolHeadCNC200W *)obj;
   if (obj){
     cnc.lost_counter_routine();
+    cnc.safe_check();
   }
   return E_SUCCESS;
 }
@@ -427,12 +466,18 @@ err_code_t ToolHeadCNC200W::sync_cnc_output(uint16_t value, CNCSpeedControlType 
 
   if (result == E_SUCCESS) {
     if (public_mutex_lock()) {
-      if (value > 0)
+      if (value > 0) {
+        safe_check_tick = xTaskGetTickCount();
         output_sta = CNC_OUTPUT_ON;
-      else if (output_sta == CNC_OUTPUT_ON)
+      }
+      else if (output_sta == CNC_OUTPUT_ON) {
         output_sta = CNC_OUTPUT_OFF_ING;
-      else 
+        safe_check_tick = CNC_SAFE_CHECK_INVALID_VALUE;
+      } 
+      else {
         output_sta = CNC_OUTPUT_OFF;
+        safe_check_tick = CNC_SAFE_CHECK_INVALID_VALUE;
+      }
       public_mutex_unlock();
     }
     else {
@@ -591,6 +636,7 @@ err_code_t ToolHeadCNC200W::post_init() {
 
   if (public_mutex_lock()) {
     lost_counter = xTaskGetTickCount();
+    safe_check_tick = CNC_SAFE_CHECK_INVALID_VALUE;
     online = true;
     set_status(MODULE_STATUS_NORMAL);
     set_hw_version(hw_verion);

@@ -223,6 +223,8 @@ err_code_t ToolHeadLaser::hmi_cb_get_info(void *obj, sacp_hmi_message_t *message
 
   host_hmi.send_ack(message);
 
+  laser.read_focal_length();
+
   return laser.report_bt_mac(message->peer, message->ch);
 }
 
@@ -1386,7 +1388,7 @@ err_code_t ToolHeadLaser::read_focal_length() {
   }
   else {
     focal_length = (recv_buffer[0]<<8 | recv_buffer[1]);
-    // LOG_I("got focal length from moduel: %d\n", focal_length);
+    LOG_I("got focal length from moduel: %d\n", focal_length);
   }
 
   return ret;
@@ -1626,6 +1628,9 @@ err_code_t ToolHeadLaser::report_bt_mac(uint32_t peer, uint8_t ch) {
 
 void ToolHeadLaser::show_status() {
   SnapmakerSettings *smsettings = smprinter.get_settings();
+
+  read_focal_length();
+
   LOG_I("Laser status: \n");
   LOG_I("pwm pin: %u\n", output_pin);
   LOG_I("tube status: %u\n", tube_status);

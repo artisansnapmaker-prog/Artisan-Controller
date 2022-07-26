@@ -200,7 +200,6 @@ void cnc_callback_update_rpm(void *obj, uint8_t *data, uint8_t length) {
   if (stall_trigger) {
     LOG_I("CNC blocking trigger!!!\n");
     cnc.record_error = cnc.error_state;
-    smprinter.pause_trigger(PAUSE_EXCEPTION);
   }
 
   if (is_raise_err) {

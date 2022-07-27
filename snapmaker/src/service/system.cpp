@@ -280,7 +280,8 @@ ack_hmi:
 
   buffer[4] = get_bans(&buffer[5], 140 - 5);
 
-  if (!same_exception && smprinter.get_sys_status() != SYSTEM_STATUS_EMERGENCY_STOP)
+  if (!same_exception && smprinter.get_sys_status() != SYSTEM_STATUS_EMERGENCY_STOP && \
+      smprinter.get_sys_status() != SYSTEM_STATUS_REPLACE_MODE)
     ret = notification_raise_exception(owner, state, buffer, buffer[4] + 5);
 
   return ret;

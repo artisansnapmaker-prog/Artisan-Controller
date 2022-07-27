@@ -1145,7 +1145,7 @@ void BedLevelService::auto_probe_sensor_calibration() {
   motion_platform_svc.disable_z_probe();
 
   // raise and toolchange
-  motion_platform_svc.moveto_z(motion_platform_svc.get_current_position(Z_AXIS) + 10, 30);
+  motion_platform_svc.moveto_z(motion_platform_svc.get_current_position(Z_AXIS) + 100, 30);
   fdm->tool_change(0, false);
 }
 
@@ -1244,7 +1244,7 @@ void BedLevelService::auto_hotend_offset_calibration() {
 
 void BedLevelService::toolhead_auto_calibation() {
   auto_probe_sensor_calibration();
-  auto_hotend_offset_calibration();
+  // auto_hotend_offset_calibration();
 }
 
 void BedLevelService::update_soft_endstop_max_z() {

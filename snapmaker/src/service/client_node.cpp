@@ -528,6 +528,15 @@ err_code_t ClientNode::req_start_job(ClientNode *client, sacp_hmi_message_t *msg
   msg->attr   = 0;
   msg->length = 1;
 
+  if (!smprinter.get_cur_toolhead()) {
+    LOG_E("Client node: no toolhead!\r\n");
+    msg->data[0] = SACP_RET_JOB_NO_TOOLHEAD;
+    if ((ret = host_hmi.send_sync(msg, recv_buff, &recv_len)) != E_SUCCESS) {
+      LOG_E("failted to notify HMI START, ret: %u\n", ret);
+    }
+    return ret;
+  }
+
   if (str_len < GCODE_MD5_LENGTH) {
     LOG_E("Client node: MD5 length error\r\n");
 

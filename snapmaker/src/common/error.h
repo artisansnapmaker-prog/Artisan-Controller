@@ -60,6 +60,8 @@ typedef uint8_t err_code_t;
 
 #define E_EXCEPTION             (COMMON_ERR_BASE + 14)     /* prevent action as system exceptions */
 
+#define E_NON_HOME              (COMMON_ERR_BASE + 16)     /* didn't home axes */
+
 
 // for legacy use
 #define E_INVALID_CMD   E_INVALID_CMD_ID

@@ -1363,3 +1363,7 @@ float MotionPlatformService::get_motherboard_current_temp(uint8_t index) {
   else
     return 0;
 }
+
+void MotionPlatformService::abort_heating() {
+  wait_for_heatup = false;
+}

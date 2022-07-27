@@ -721,6 +721,9 @@ err_code_t ClientNode::req_stop_job(ClientNode *client, sacp_hmi_message_t* msg)
     return ret;
   }
 
+  // abort heating with blocked when stop working
+  motion_platform_svc.abort_heating();
+
   return E_SUCCESS;
 }
 

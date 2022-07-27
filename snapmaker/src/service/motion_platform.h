@@ -249,6 +249,7 @@ class MotionPlatformService {
     void do_quickstop();
 
     float get_motherboard_current_temp(uint8_t index);
+    void abort_heating();
 
   private:
     MessageBufferHandle_t gcode_queue;

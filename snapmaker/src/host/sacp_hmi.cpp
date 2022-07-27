@@ -21,8 +21,49 @@ static AT_CCRAM uint8_t serial_rx_buffer_screen[SACP_PDU_MAX_SIZE];
 
 HostSACPHMI AT_CCRAM host_hmi(SACP_VER_1, SACP_HOST_ID_CONTROLLER);
 
+static AT_CCRAM StackType_t stack_hmi_event_thread[HMI_EVENT_TASK_STACK_SIZE];
+static AT_CCRAM StackType_t stack_hmi_recv_thread[HMI_RECV_TASK_STACK_SIZE];
+
+static AT_CCRAM StaticTask_t tcb_hmi_event;
+static AT_CCRAM StaticTask_t tcb_hmi_recv;
+
+TaskHandle_t thandle_hmi_event = NULL;
+TaskHandle_t thandle_hmi_blocked_event = NULL;
+
+// hmi recv handler
+static void hmi_recv_handler(void *param) {
+  UNUSED(param);
+  for (;;) {
+    host_hmi.handle_receive();
+
+    vTaskDelay(pdMS_TO_TICKS(5));
+  }
+}
+
+//handler for hmi non-blocked events
+static void hmi_event_handler(void *param) {
+  UNUSED(param);
+  for (;;) {
+    host_hmi.handle_events();
+
+    taskYIELD();
+  }
+}
+
+// handler for hmi blocked events
+static void hmi_blocked_event_handler(void *param) {
+  UNUSED(param);
+  for (;;) {
+    host_hmi.handle_events();
+
+    taskYIELD();
+  }
+}
 
 err_code_t HostSACPHMI::init(TaskHandle_t event_task, SemaphoreHandle_t recv_signal) {
+  recv_signal = xSemaphoreCreateCounting(65535, 0);
+  configASSERT(recv_signal);
+
   waiting_lock = xSemaphoreCreateMutex();
   configASSERT(waiting_lock);
 
@@ -112,6 +153,40 @@ err_code_t HostSACPHMI::init(TaskHandle_t event_task, SemaphoreHandle_t recv_sig
   result_cache_pool.free = SACP_ROUTE_RESULT_CACHE_MAX * SACP_ROUTE_TABLE_DYNAMIC_MAX;
   result_cache_pool.lock = xSemaphoreCreateMutex();
   configASSERT(result_cache_pool.lock);
+
+  TaskHandle_t hmi_recv_task;
+
+  LOG_I("Creating HMI receive task...");
+  hmi_recv_task = xTaskCreateStatic((TaskFunction_t)hmi_recv_handler, "hmi_recv", HMI_RECV_TASK_STACK_SIZE,
+        recv_signal, HMI_RECV_TASK_PRIORITY, stack_hmi_recv_thread, &tcb_hmi_recv);
+  if (!hmi_recv_task) {
+    LOG_E(LOG_RESULT_FAIL);
+    while(1);
+  }
+  else {
+    LOG_I(LOG_RESULT_OK);
+  }
+
+  LOG_I("Creating HMI event task...");
+  thandle_hmi_event = xTaskCreateStatic((TaskFunction_t)hmi_event_handler, "hmi_event", HMI_EVENT_TASK_STACK_SIZE,
+        NULL, HMI_EVENT_TASK_PRIORITY, stack_hmi_event_thread, &tcb_hmi_event);
+  if (!thandle_hmi_event) {
+    LOG_E(LOG_RESULT_FAIL);
+    while(1);
+  }
+  else {
+    LOG_I(LOG_RESULT_OK);
+  }
+
+  LOG_I("Creating HMI blocked event task...");
+  if (xTaskCreate((TaskFunction_t)hmi_blocked_event_handler, "hmi_blocked_event", JOB_REQUEST_GCODE_TASK_STACK_SIZE,
+        (void *)(this), HMI_BLOCKED_EVENT_TASK_STACK_SIZE,  &thandle_hmi_blocked_event) != pdPASS) {
+    LOG_E(LOG_RESULT_FAIL);
+    while(1);
+  }
+  else {
+    LOG_I(LOG_RESULT_OK);
+  }
 
   return E_SUCCESS;
 }
@@ -1124,7 +1199,7 @@ MessageBufferHandle_t HostSACPHMI::get_event_queue_by_thread() {
   if (xTaskGetCurrentTaskHandle() == thandle_marlin) {
     return events_with_motion;
   }
-  else if (xTaskGetCurrentTaskHandle() == thandle_system) {
+  else if (xTaskGetCurrentTaskHandle() == thandle_hmi_blocked_event) {
     return events_blocked_without_motion;
   }
   else {

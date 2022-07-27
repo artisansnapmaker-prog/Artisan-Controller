@@ -172,7 +172,7 @@ class HostSACPHMI: public HostSACP {
       }
     }
 
-    err_code_t init(TaskHandle_t event_task, SemaphoreHandle_t recv_signal);
+    err_code_t init(TaskHandle_t event_task, SemaphoreHandle_t recv_event);
 
     // apply resource to save cmd set handle, except the command id for subcribtion
     err_code_t apply_cmd_set_handle(uint8_t cmd_set, uint8_t length);

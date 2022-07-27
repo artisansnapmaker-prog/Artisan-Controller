@@ -658,5 +658,4 @@ extern SnapmakerPrinter smprinter;
 
 extern TaskHandle_t thandle_marlin;
 extern TaskHandle_t thandle_system;
-extern TaskHandle_t thandle_hmi_event;
 #endif  // #ifndef SNAPMAKER_H_

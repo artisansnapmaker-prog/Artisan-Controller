@@ -32,6 +32,9 @@
 #define HMI_EVENT_TASK_PRIORITY      (3)
 #define HMI_EVENT_TASK_STACK_SIZE    (2048) // 8kBytes
 
+#define HMI_BLOCKED_EVENT_TASK_PRIORITY      (3)
+#define HMI_BLOCKED_EVENT_TASK_STACK_SIZE    (2048) // 8kBytes
+
 // parameters for module event handler task
 #define MODULE_EVENT_TASK_PRIORITY      (3)
 #define MODULE_EVENT_TASK_STACK_DEPTH   (512)  // 2kBytes
@@ -40,7 +43,7 @@
 #define MODULE_RECEIVE_TASK_STACK_DEPTH (512) // 2kBytes
 
 #define JOB_REQUEST_GCODE_TASK_PRIORITY       (3)
-#define JOB_REQUEST_GCODE_TASK_STACK_SIZE     (2048)
+#define JOB_REQUEST_GCODE_TASK_STACK_SIZE     (1024)
 
 
 // priority for UARTs

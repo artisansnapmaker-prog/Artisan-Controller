@@ -24,15 +24,10 @@ SnapmakerPrinter smprinter;
 
 TaskHandle_t thandle_marlin = NULL;
 TaskHandle_t thandle_system = NULL;
-TaskHandle_t thandle_hmi_event = NULL;
 
 static AT_CCRAM StackType_t stack_system_thread[SYSTEM_TASK_STACK_SIZE];
-static AT_CCRAM StackType_t stack_hmi_event_thread[HMI_EVENT_TASK_STACK_SIZE];
-static AT_CCRAM StackType_t stack_hmi_recv_thread[HMI_RECV_TASK_STACK_SIZE];
 
 static AT_CCRAM StaticTask_t tcb_system;
-static AT_CCRAM StaticTask_t tcb_hmi_event;
-static AT_CCRAM StaticTask_t tcb_hmi_recv;
 
 static AT_CCRAM StackType_t stack_timer[configTIMER_TASK_STACK_DEPTH];
 static AT_CCRAM StaticTask_t tcb_timer;
@@ -427,58 +422,9 @@ err_code_t SnapmakerPrinter::hmi_cb_set_machine_enter_replace_mode(void *obj, sa
   return ret;
 }
 
-
-// can recv handler
-static void hmi_recv_handler(void *param) {
-
-  for (;;) {
-    host_hmi.handle_receive();
-
-    vTaskDelay(pdMS_TO_TICKS(5));
-  }
-}
-
-// can event handler
-static void hmi_event_handler(void *param) {
-
-  for (;;) {
-    host_hmi.handle_events();
-
-    taskYIELD();
-  }
-}
-
 static void system_thread(void *p) {
-  TaskHandle_t hmi_recv_task;
-  SemaphoreHandle_t hmi_recv_signal = NULL;
-
-  hmi_recv_signal = xSemaphoreCreateCounting(65535, 0);
-
-  LOG_I("Creating HMI receive task...");
-  hmi_recv_task = xTaskCreateStatic((TaskFunction_t)hmi_recv_handler, "hmi_recv", HMI_RECV_TASK_STACK_SIZE,
-        hmi_recv_signal, HMI_RECV_TASK_PRIORITY, stack_hmi_recv_thread, &tcb_hmi_recv);
-  if (!hmi_recv_task) {
-    LOG_E(LOG_RESULT_FAIL);
-    while(1);
-  }
-  else {
-    LOG_I(LOG_RESULT_OK);
-  }
-
-  LOG_I("Creating HMI event task...");
-  thandle_hmi_event = xTaskCreateStatic((TaskFunction_t)hmi_event_handler, "hmi_event", HMI_EVENT_TASK_STACK_SIZE,
-        NULL, HMI_EVENT_TASK_PRIORITY, stack_hmi_event_thread, &tcb_hmi_event);
-  if (!thandle_hmi_event) {
-
-    LOG_E(LOG_RESULT_FAIL);
-    while(1);
-  }
-  else {
-    LOG_I(LOG_RESULT_OK);
-  }
-
   // must init hmi firstly
-  host_hmi.init(thandle_hmi_event, hmi_recv_signal);
+  host_hmi.init(NULL, NULL);
   host_hmi.apply_cmd_set_handle(SACP_CMD_SET_GLOBAL_REQ, 26);
 
   // must do init before initializing modules, by scott
@@ -542,7 +488,6 @@ static void system_thread(void *p) {
     system_svc.background_thread();
     emergency_hdl.background();
     smprinter.security_check();
-    host_hmi.handle_events();
     upgrade_svc.loop();
     debug.send_sacp_log_routine();
 

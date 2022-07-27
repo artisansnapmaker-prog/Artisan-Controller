@@ -270,7 +270,7 @@ class JobCtrl {
     bool _paused;
     SystemStatus status_before_start;
     bool got_last_gcode_packet;
-    bool last_gcode_execute_by_platform;
+    // bool last_gcode_execute_by_platform;
 
     // use for state of self-inspection
     // uint32_t _err_get_batch_gcode_cnt;

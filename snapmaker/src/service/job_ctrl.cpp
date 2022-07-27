@@ -136,23 +136,23 @@ void JobCtrl::request_gcode_process(void *p) {
     }
   }
 
-  if (got_last_gcode_packet && _gcode_rb.is_empty()) {
-    if (smprinter.on_printing()) {
-      LOCK(_lock, JOB_LOCK_WAIT_TICK);
-      if (!smprinter.on_printing()) {
-        UNLOCK(_lock);
-        goto __err_printf;
-      }
-      got_last_gcode_packet = false;
-      UNLOCK(_lock);
-      LOG_I("push all gcodes to marlin or other 3D printer\r\n");
-      req_stop(STOP_NORMAL, E_JOB_ISSUE_RET_FINISH);
-    }
-    else {
-__err_printf:
-      LOG_W("currently not printing status, no need to wait to stop printing\r\n");
-    }
-  }
+//   if (got_last_gcode_packet && _gcode_rb.is_empty()) {
+//     if (smprinter.on_printing()) {
+//       LOCK(_lock, JOB_LOCK_WAIT_TICK);
+//       if (!smprinter.on_printing()) {
+//         UNLOCK(_lock);
+//         goto __err_printf;
+//       }
+//       got_last_gcode_packet = false;
+//       UNLOCK(_lock);
+//       LOG_I("push all gcodes to marlin or other 3D printer\r\n");
+//       req_stop(STOP_NORMAL, E_JOB_ISSUE_RET_FINISH);
+//     }
+//     else {
+// __err_printf:
+//       LOG_W("currently not printing status, no need to wait to stop printing\r\n");
+//     }
+//   }
 }
 
 err_code_t JobCtrl::req_start(  uint8_t client_id,
@@ -662,14 +662,19 @@ void JobCtrl::stepper_quickstop_cb(void) {
 }
 
 void JobCtrl::update_gcode_file_pass_line_number(uint32_t l) {
-  if (l >= (_env.req_line_num - 1) && smprinter.on_printing()) {
+  if (l >= (_env.req_line_num - 1) && smprinter.on_printing() && got_last_gcode_packet) {
     LOCK(_lock, JOB_LOCK_WAIT_TICK);
-    if (!smprinter.on_printing()) {
+    uint32_t line_tmp = _env.req_line_num;
+    if (!(l >= (_env.req_line_num - 1) && smprinter.on_printing() && got_last_gcode_packet)) {
       UNLOCK(_lock);
       return;
     }
-    last_gcode_execute_by_platform = true;
+    // preventing repeated access
+    _env.req_line_num = 0xFFFFFFFF;
+    // last_gcode_execute_by_platform = true;
     UNLOCK(_lock);
+    LOG_I("JobCtrl: print finish, line: %d, req_line_num: %d\r\n", l, line_tmp);
+    req_stop(STOP_NORMAL, E_JOB_ISSUE_RET_FINISH);
   }
 }
 
@@ -950,7 +955,7 @@ void JobCtrl::do_stop(struct JobCtrlReqInfo &jri) {
     case STOP_NORMAL:
     {
       uint32_t cnt = 30;
-      while (motion_platform_svc.planner_busy() || !last_gcode_execute_by_platform) {
+      while (motion_platform_svc.planner_busy()/* || !last_gcode_execute_by_platform*/) {
         vTaskDelay(10);
         if (0 == cnt % 30)
           LOG_I("gcode_file_pass_line_number %d\r\n", smprinter.gcode_file_pass_line_number);
@@ -1089,7 +1094,7 @@ bool JobCtrl::consume_a_gcode(uint8_t *cmd, uint16_t max_len, uint32_t *line) {
       *line = _env.cur_line_num++;
       cmd[cmd_len] = 0;
       // LOG_I("job_ctrl: marlin consume a gcode %d: %s\r\n", *line, cmd);
-      last_gcode_execute_by_platform = false;
+      // last_gcode_execute_by_platform = false;
       ret = true;
 
       if (_paused){

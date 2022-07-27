@@ -356,3 +356,14 @@ void BedVirtual::work_mode_bed_check(void) {
     }
   }
 }
+
+err_code_t BedVirtual::deinit(void) {
+  // return standby();
+  taskENTER_CRITICAL();
+  thermalManager.setTargetBed(0);
+  #if ENABLED(SNAPMAKER_DOUBLE_ZONE_BED)
+    thermalManager.setTargetChamber(0);
+  #endif
+  taskEXIT_CRITICAL();
+  return E_SUCCESS;  
+}

@@ -51,7 +51,7 @@ class BedVirtual: public ModuleBase {
     bool check_online() { return true; }
     err_code_t pre_init();
     err_code_t post_init();
-    err_code_t deinit() { return E_SUCCESS; }
+    err_code_t deinit();
     err_code_t save_env(uint8_t *env_buf, uint32_t &len);
     err_code_t resume_env(uint8_t *env_buf, uint32_t &len);
     err_code_t standby(void);

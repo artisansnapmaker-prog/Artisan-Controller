@@ -47,7 +47,7 @@ class LinearVirtual: public ModuleBase {
     bool check_online() { return true; }
     err_code_t pre_init();
     err_code_t post_init();
-    err_code_t deinit() { return E_SUCCESS; }
+    err_code_t deinit();
 
     static void show_info();
 

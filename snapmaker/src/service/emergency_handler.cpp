@@ -511,13 +511,7 @@ void EmergencyHandler::background() {
     button_state = read_button();
     job_cb_notify_emergency_stop(&msg_notify_stop, E_SUCCESS);
 
-    if (button_state != PIN_STATE_TRIGGERED) {
-      reboot();
-      vTaskSuspendAll();
-      LOG_E("waiting to reboot!\n");
-      while(1);
-    }
-    else {
+    if (button_state == PIN_STATE_TRIGGERED) {
       LOG_I("emergency stop pos: X%.3f, Y%.3f, Z%.3f, I%.3f, J%3.f\n", jenv->current_pos.x,
               jenv->current_pos.y, jenv->current_pos.z, jenv->current_pos.i, jenv->current_pos.j);
     }
@@ -530,6 +524,7 @@ void EmergencyHandler::background() {
     if (smprinter.set_sys_status(SYSTEM_STATUS_EMERGENCY_STOP, NULL) != E_SUCCESS) {
       LOG_E("failed to set system to EMERGENCY_STOP\n");
     }
+    LOG_I("deinit all modules cause emergency stop!\n");
     module_svc.emergency_stop_all();
   }
 

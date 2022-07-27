@@ -313,3 +313,9 @@ err_code_t LinearVirtual::routine(void *obj) {
   return E_SUCCESS;
 }
 
+
+err_code_t LinearVirtual::deinit() {
+  set_status(MODULE_STATUS_OFFLINE);
+
+  return E_SUCCESS;
+}

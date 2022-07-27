@@ -2,7 +2,7 @@
 #include "../../../Marlin/src/module/temperature.h"
 
 #include "snapmaker.h"
-#include "src/HAL/HAL.h"
+// #include "src/HAL/HAL.h"
 #include "src/pins/pins.h"
 #include "src/core/serial.h"
 
@@ -19,6 +19,7 @@
 #include "service/upgrade/sm2_upgrade.h"
 
 #include "HAL/interrupt.h"
+#include "HAL/core.h"
 
 SnapmakerPrinter smprinter;
 
@@ -193,13 +194,14 @@ err_code_t SnapmakerPrinter::hmi_cb_request_reboot(void *obj, sacp_hmi_message_t
   ret = host_hmi.send_sync(msg, recv_buffer, &recv_len);
   if (ret != E_SUCCESS) {
     LOG_E("failed to notify host that we will reboot!\n");
-    return ret;
   }
 
   disable_all_interrupts();
-  HAL_reboot();
+  reboot();
+  vTaskSuspendAll();
+  LOG_E("waiting to reboot!\n");
   while(1);
-  return E_SUCCESS;
+  return ret;
 }
 
 err_code_t SnapmakerPrinter::hmi_cb_get_machine_info(void *obj, sacp_hmi_message_t *msg) {

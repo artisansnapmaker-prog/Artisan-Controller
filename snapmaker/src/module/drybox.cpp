@@ -49,10 +49,10 @@ err_code_t DryBox::post_init() {
 
   // apply fdm cmd ids handle and register hmi request callback
   host_hmi.apply_cmd_set_handle(SACP_CMD_SET_DRY_BOX, DRYBOX_REQ_CMD_ID_SUM);
-  host_hmi.register_callback(SACP_CMD_SET_DRY_BOX, DRYBOX_REQ_CMD_ID_GET_DRYBOX_INFO, (void *)this, hmi_req_callback_get_drybox_info, SACP_CB_ATTR_BLOCKED_WITHOUT_MOTION);
-  host_hmi.register_callback(SACP_CMD_SET_DRY_BOX, DRYBOX_REQ_CMD_ID_SET_TEMP, (void *)this, hmi_req_callback_set_temp, SACP_CB_ATTR_BLOCKED_WITHOUT_MOTION);
-  host_hmi.register_callback(SACP_CMD_SET_DRY_BOX, DRYBOX_REQ_CMD_ID_SET_HEATING_TIME, (void *)this, hmi_req_callback_set_heating_time, SACP_CB_ATTR_BLOCKED_WITHOUT_MOTION);
-  host_hmi.register_callback(SACP_CMD_SET_DRY_BOX, DRYBOX_REQ_CMD_ID_HEATING_CTRL, (void *)this, hmi_req_callback_heating_ctrl, SACP_CB_ATTR_BLOCKED_WITHOUT_MOTION);
+  host_hmi.register_callback(SACP_CMD_SET_DRY_BOX, DRYBOX_REQ_CMD_ID_GET_DRYBOX_INFO, (void *)this, hmi_req_callback_get_drybox_info);
+  host_hmi.register_callback(SACP_CMD_SET_DRY_BOX, DRYBOX_REQ_CMD_ID_SET_TEMP, (void *)this, hmi_req_callback_set_temp);
+  host_hmi.register_callback(SACP_CMD_SET_DRY_BOX, DRYBOX_REQ_CMD_ID_SET_HEATING_TIME, (void *)this, hmi_req_callback_set_heating_time);
+  host_hmi.register_callback(SACP_CMD_SET_DRY_BOX, DRYBOX_REQ_CMD_ID_HEATING_CTRL, (void *)this, hmi_req_callback_heating_ctrl);
 
   // register some callback for info report
   uint16_t msg_id;

@@ -22,7 +22,6 @@ static err_code_t hmi_req_callback_set_fan_speed(void *obj, sacp_hmi_message_t *
 static err_code_t hmi_req_callback_set_hotend_offset(void *obj, sacp_hmi_message_t *msg);
 static err_code_t hmi_req_callback_get_hotend_offset(void *obj, sacp_hmi_message_t *msg);
 static err_code_t hmi_req_callback_extruder_motion(void *obj, sacp_hmi_message_t *msg);
-static err_code_t hmi_req_callback_change_nozzle_ctrl(void *obj, sacp_hmi_message_t *msg);
 
 // every module must define itself function and priority map !!!!
 // then set it to ModuleBase with set_func_prio_map() in pre_init()
@@ -108,10 +107,10 @@ err_code_t ToolHeadFDM::single_extruder_post_init() {
 
   // apply fdm cmd ids handle and register hmi request callback
   host_hmi.apply_cmd_set_handle(SACP_CMD_SET_FDM, FDM_REQ_CMD_ID_SUM);
-  host_hmi.register_callback(SACP_CMD_SET_FDM, FDM_REQ_CMD_ID_GET_TOOLHEAD_INFO, this, hmi_req_callback_get_toolhead_info, SACP_CB_ATTR_BLOCKED_WITHOUT_MOTION);
-  host_hmi.register_callback(SACP_CMD_SET_FDM, FDM_REQ_CMD_ID_SET_HOTEND_TEMP, this, hmi_req_callback_set_hotend_temp, SACP_CB_ATTR_BLOCKED_WITHOUT_MOTION);
-  host_hmi.register_callback(SACP_CMD_SET_FDM, FDM_REQ_CMD_ID_FILAMENT_DETECT_CTRL, this, hmi_req_callback_set_filament_detect_ctrl, SACP_CB_ATTR_BLOCKED_WITHOUT_MOTION);
-  host_hmi.register_callback(SACP_CMD_SET_FDM, FDM_REQ_CMD_ID_SET_FAN_SPEED, this, hmi_req_callback_set_fan_speed, SACP_CB_ATTR_BLOCKED_WITHOUT_MOTION);
+  host_hmi.register_callback(SACP_CMD_SET_FDM, FDM_REQ_CMD_ID_GET_TOOLHEAD_INFO, this, hmi_req_callback_get_toolhead_info);
+  host_hmi.register_callback(SACP_CMD_SET_FDM, FDM_REQ_CMD_ID_SET_HOTEND_TEMP, this, hmi_req_callback_set_hotend_temp);
+  host_hmi.register_callback(SACP_CMD_SET_FDM, FDM_REQ_CMD_ID_FILAMENT_DETECT_CTRL, this, hmi_req_callback_set_filament_detect_ctrl);
+  host_hmi.register_callback(SACP_CMD_SET_FDM, FDM_REQ_CMD_ID_SET_FAN_SPEED, this, hmi_req_callback_set_fan_speed);
   host_hmi.register_callback(SACP_CMD_SET_FDM, FDM_REQ_CMD_ID_EXTRUDER_MOTION, this, hmi_req_callback_extruder_motion, SACP_CB_ATTR_BLOCKED_WITH_MOTION);
 
   // register some callback for info report
@@ -194,15 +193,14 @@ err_code_t ToolHeadFDM::dual_extruder_post_init() {
 
   // apply fdm cmd ids handle and register hmi request callback
   host_hmi.apply_cmd_set_handle(SACP_CMD_SET_FDM, FDM_REQ_CMD_ID_SUM);
-  host_hmi.register_callback(SACP_CMD_SET_FDM, FDM_REQ_CMD_ID_GET_TOOLHEAD_INFO, this, hmi_req_callback_get_toolhead_info, SACP_CB_ATTR_BLOCKED_WITHOUT_MOTION);
-  host_hmi.register_callback(SACP_CMD_SET_FDM, FDM_REQ_CMD_ID_SET_HOTEND_TEMP, this, hmi_req_callback_set_hotend_temp, SACP_CB_ATTR_BLOCKED_WITHOUT_MOTION);
-  host_hmi.register_callback(SACP_CMD_SET_FDM, FDM_REQ_CMD_ID_FILAMENT_DETECT_CTRL, this, hmi_req_callback_set_filament_detect_ctrl, SACP_CB_ATTR_BLOCKED_WITHOUT_MOTION);
+  host_hmi.register_callback(SACP_CMD_SET_FDM, FDM_REQ_CMD_ID_GET_TOOLHEAD_INFO, this, hmi_req_callback_get_toolhead_info);
+  host_hmi.register_callback(SACP_CMD_SET_FDM, FDM_REQ_CMD_ID_SET_HOTEND_TEMP, this, hmi_req_callback_set_hotend_temp);
+  host_hmi.register_callback(SACP_CMD_SET_FDM, FDM_REQ_CMD_ID_FILAMENT_DETECT_CTRL, this, hmi_req_callback_set_filament_detect_ctrl);
   host_hmi.register_callback(SACP_CMD_SET_FDM, FDM_REQ_CMD_ID_SWITCH_EXTRUDER, this, hmi_req_callback_switch_extruder, SACP_CB_ATTR_BLOCKED_WITH_MOTION);
-  host_hmi.register_callback(SACP_CMD_SET_FDM, FDM_REQ_CMD_ID_SET_FAN_SPEED, this, hmi_req_callback_set_fan_speed, SACP_CB_ATTR_BLOCKED_WITHOUT_MOTION);
-  host_hmi.register_callback(SACP_CMD_SET_FDM, FDM_REQ_CMD_ID_SET_HOTEND_OFFSET, this, hmi_req_callback_set_hotend_offset, SACP_CB_ATTR_BLOCKED_WITHOUT_MOTION);
-  host_hmi.register_callback(SACP_CMD_SET_FDM, FDM_REQ_CMD_ID_GET_HOTEND_OFFSET, this, hmi_req_callback_get_hotend_offset, SACP_CB_ATTR_BLOCKED_WITHOUT_MOTION);
+  host_hmi.register_callback(SACP_CMD_SET_FDM, FDM_REQ_CMD_ID_SET_FAN_SPEED, this, hmi_req_callback_set_fan_speed);
+  host_hmi.register_callback(SACP_CMD_SET_FDM, FDM_REQ_CMD_ID_SET_HOTEND_OFFSET, this, hmi_req_callback_set_hotend_offset);
+  host_hmi.register_callback(SACP_CMD_SET_FDM, FDM_REQ_CMD_ID_GET_HOTEND_OFFSET, this, hmi_req_callback_get_hotend_offset);
   host_hmi.register_callback(SACP_CMD_SET_FDM, FDM_REQ_CMD_ID_EXTRUDER_MOTION, this, hmi_req_callback_extruder_motion, SACP_CB_ATTR_BLOCKED_WITH_MOTION);
-  host_hmi.register_callback(SACP_CMD_SET_FDM, FDM_REQ_CMD_ID_CHANGE_NOZZLE_CTRL, this, hmi_req_callback_change_nozzle_ctrl, SACP_CB_ATTR_BLOCKED_WITHOUT_MOTION);
 
   // register some callback for info report
   uint16_t msg_id;
@@ -777,10 +775,6 @@ static err_code_t hmi_req_callback_extruder_motion(void *obj, sacp_hmi_message_t
   msg->cmd_id        = FDM_REQ_CMD_ID_EXTRUDER_MOTION_RESULT;
   msg->attr          = 0;
   host_hmi.send_sync(msg, recv_buffer, &recv_len, 2000, 3);
-  return E_SUCCESS;
-}
-
-static err_code_t hmi_req_callback_change_nozzle_ctrl(void *obj, sacp_hmi_message_t *msg) {
   return E_SUCCESS;
 }
 

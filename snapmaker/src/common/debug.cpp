@@ -106,7 +106,7 @@ void SnapDebug::post_init() {
   host_hmi.register_subscription(SACP_CMD_SET_GLOBAL_REQ, DEBUG_SUBSCRIPT_CMD_ID_LOG_TRANS, this, hmi_subscript_callback_log_trans, hmi_subscribe_log_trans_notify_cb);
 
   // apply fdm cmd ids handle and register hmi request callback
-  host_hmi.register_callback(SACP_CMD_SET_GLOBAL_REQ, DEBUG_REQ_CMD_ID_SET_LOG_LEVEL, this, hmi_req_callback_set_log_level, SACP_CB_ATTR_BLOCKED_WITHOUT_MOTION);
+  host_hmi.register_callback(SACP_CMD_SET_GLOBAL_REQ, DEBUG_REQ_CMD_ID_SET_LOG_LEVEL, this, hmi_req_callback_set_log_level);
 }
 
 uint16_t SnapDebug::hmi_subscript_callback_log_trans(void *obj, uint8_t *buffer) {

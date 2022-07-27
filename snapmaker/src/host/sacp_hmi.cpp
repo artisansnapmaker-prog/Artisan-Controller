@@ -179,10 +179,12 @@ err_code_t HostSACPHMI::init(TaskHandle_t event_task, SemaphoreHandle_t recv_sig
   }
 
   LOG_I("Creating HMI blocked event task...");
-  if (xTaskCreate((TaskFunction_t)hmi_blocked_event_handler, "hmi_blocked_event", JOB_REQUEST_GCODE_TASK_STACK_SIZE,
-        (void *)(this), HMI_BLOCKED_EVENT_TASK_STACK_SIZE,  &thandle_hmi_blocked_event) != pdPASS) {
+  if (xTaskCreate((TaskFunction_t)hmi_blocked_event_handler, "hmi_blocked_event", HMI_BLOCKED_EVENT_TASK_STACK_SIZE,
+        NULL, HMI_BLOCKED_EVENT_TASK_PRIORITY,  &thandle_hmi_blocked_event) != pdPASS) {
     LOG_E(LOG_RESULT_FAIL);
     while(1);
+  } else if (!thandle_hmi_blocked_event) {
+    LOG_E(LOG_RESULT_FAIL);
   }
   else {
     LOG_I(LOG_RESULT_OK);

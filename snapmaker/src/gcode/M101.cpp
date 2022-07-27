@@ -34,7 +34,7 @@
 #include "src/gcode/gcode.h"
 #include "../common/debug.h"
 
-#define MAX_TASKS 10
+#define MAX_TASKS 12
 
 void GcodeSuite::M101() {
   TaskStatus_t TaskStatArray[MAX_TASKS];

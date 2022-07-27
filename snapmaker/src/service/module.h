@@ -146,6 +146,8 @@ class ModuleService {
     message_id_record_t msg_id_records[MODULE_FUNC_PRIORITY_MAX];
 
     uint32_t next_ms_background_broadcast;
+    static TimerHandle_t timer_broadcast;
+    static bool need_broadcast;
 };
 
 extern ModuleService module_svc;

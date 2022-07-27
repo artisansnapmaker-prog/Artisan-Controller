@@ -24,6 +24,9 @@ typedef struct {
   char      fw_version[0];
 } __packed module_info_t;
 
+TimerHandle_t ModuleService::timer_broadcast = NULL;
+bool ModuleService::need_broadcast = false;
+
 static void handle_can_receive(void *p) {
   BaseType_t ret;
   SemaphoreHandle_t recv_signal = (SemaphoreHandle_t)p;
@@ -44,6 +47,14 @@ static void handle_can_receive(void *p) {
   }
 }
 
+void heartbeat_broadcast(TimerHandle_t timer) {
+  bool *is_broadcast = (bool *)pvTimerGetTimerID(timer);
+  if (!timer)
+    return;
+
+  if (*is_broadcast)
+    host_broadcast.send(0x1);
+}
 
 static void handle_can_events(__unused void *p) {
   BaseType_t ret;
@@ -379,6 +390,27 @@ void ModuleService::init() {
         (void *)this, (sacp_hmi_callback)report_module_info);
 
   status = MS_STATUS_CONFIG;
+  
+  if (!timer_broadcast) {
+    timer_broadcast = xTimerCreate( "timer_broadcast",
+                                    pdMS_TO_TICKS(BACKGROUND_BROADCAST_DURATION),
+                                    pdTRUE,
+                                    (void *) (&need_broadcast),
+                                    heartbeat_broadcast);
+    if (timer_broadcast) {
+      if (xTimerStart(timer_broadcast, portMAX_DELAY) != pdTRUE) {
+        LOG_E("timer_broadcast start fail!!!\n");
+        xTimerDelete(timer_broadcast, portMAX_DELAY);
+        timer_broadcast = NULL;
+      }
+      else 
+        LOG_I("timer_broadcast start success\n");
+    }
+    else 
+      LOG_E("Create timer broadcast fail!!!\n");
+  }
+  else 
+    LOG_W("timer_broadcast already exists\n");
   next_ms_background_broadcast = millis() + BACKGROUND_BROADCAST_DURATION;
 }
 
@@ -743,8 +775,7 @@ void ModuleService::unregister_routine(void *obj) {
 
 
 void ModuleService::background_thread() {
-  bool need_broadcast = false;
-
+  bool is_broadcast = false;
   // perform routine of modules
   for (int i = 0; i < MODULE_ACCESSIBLE_MAX; i++) {
     if (routines[i].cb)
@@ -759,19 +790,22 @@ void ModuleService::background_thread() {
       continue;
 
     if (modules[i]->get_status() == MODULE_STATUS_NORMAL) {
-      need_broadcast = true;
+      is_broadcast = true;
+      break;
     }
   }
 
+  if (is_broadcast != need_broadcast) 
+    need_broadcast = is_broadcast;
   // TODO: scan modules
   // host_mac.send(MODULE_MAC_CMD_SCAN);
 
-  if ((int)(next_ms_background_broadcast - millis()) < 0) {
-    next_ms_background_broadcast = millis() + BACKGROUND_BROADCAST_DURATION;
-    if (need_broadcast) {
-      host_broadcast.send(0x1);
-    }
-  }
+  // if ((int)(next_ms_background_broadcast - millis()) < 0) {
+  //   next_ms_background_broadcast = millis() + BACKGROUND_BROADCAST_DURATION;
+  //   if (need_broadcast) {
+  //     host_broadcast.send(0x1);
+  //   }
+  // }
 }
 
 

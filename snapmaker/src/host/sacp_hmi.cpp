@@ -1085,8 +1085,9 @@ void HostSACPHMI::handle_receive() {
     }
 
     if (version == SACP_VER_1)
-      LOG_I("recv ch[%u] v1 msg[%x:%x], attr[%x]\n", i, parser_buff[SACP_V1_FRAME_INDEX_CMD_SET],
-            parser_buff[SACP_V1_FRAME_INDEX_CMD_ID], parser_buff[SACP_V1_FRAME_INDEX_ATTR]);
+      LOG_I("recv ch[%u] v1 msg[%x:%x], attr[%x], seq[%u]\n", i, parser_buff[SACP_V1_FRAME_INDEX_CMD_SET],
+            parser_buff[SACP_V1_FRAME_INDEX_CMD_ID], parser_buff[SACP_V1_FRAME_INDEX_ATTR],
+            parser_buff[SACP_V1_FRAME_INDEX_SEQ_H]<<8 | parser_buff[SACP_V1_FRAME_INDEX_SEQ_L]);
     else
       LOG_I("recv ch[%u] v0 msg[%x]\n", i, parser_buff[SACP_V0_FRAME_INDEX_EVENT_ID]);
 

@@ -358,6 +358,8 @@ err_code_t EmergencyHandler::hmi_cb_check_recovery_info(void *obj, sacp_hmi_mess
 
 err_code_t EmergencyHandler::hmi_cb_req_recovery_job(void *obj, sacp_hmi_message_t *msg) {
   EmergencyHandler &handler = *(EmergencyHandler *)obj;
+  uint8_t   recv_buff[8];
+  uint16_t  recv_length = 8;
 
   JobEnv *job_env = (JobEnv *)handler.env;
   GcodeFileInfo *env_file_info = &job_env->gcode_file_info;
@@ -423,6 +425,14 @@ err_code_t EmergencyHandler::hmi_cb_req_recovery_job(void *obj, sacp_hmi_message
     return host_hmi.send_ack(msg, E_INVALID_STATE);
   }
 
+  // ack firstly, then start recovering
+  msg->data[0] = E_SUCCESS;
+  msg->length  = 1;
+  host_hmi.send_ack(msg);
+
+  msg->cmd_id = CMD_ID_JOB_CTRL_NOTIFY_POWERLOSS_RECOVERY;
+  msg->attr   = 0;
+
   LOG_I("EmergencyHandler: recover pos: X%.3f, Y%.3f, Z%.3f, I%.3f, J%3.f\n", job_env->current_pos.x,
           job_env->current_pos.y, job_env->current_pos.z, job_env->current_pos.i, job_env->current_pos.j);
 
@@ -458,7 +468,9 @@ err_code_t EmergencyHandler::hmi_cb_req_recovery_job(void *obj, sacp_hmi_message
     break;
 
   default:
-    return host_hmi.send_ack(msg, E_INVALID_STATE);
+    LOG_E("EmergencyHandler: invalid toolhead type[%u]\n", smprinter.get_toolhead_type());
+    msg->data[0] = E_INVALID_STATE;
+    return host_hmi.send_sync(msg, recv_buff, &recv_length);
     break;
   }
 
@@ -474,7 +486,8 @@ err_code_t EmergencyHandler::hmi_cb_req_recovery_job(void *obj, sacp_hmi_message
   // resume job
   job_ctrl_svc.req_resume(client->id, job_cb_notify_recovery, &msg_notify_recovery, RESUME_TYPE_RECOVERY);
 
-  return E_SUCCESS;
+  msg->data[0] = E_SUCCESS;
+  return host_hmi.send_sync(msg, recv_buff, &recv_length);;
 }
 
 err_code_t EmergencyHandler::hmi_cb_clear_record(void *obj, sacp_hmi_message_t *msg) {

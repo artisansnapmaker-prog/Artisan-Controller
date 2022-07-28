@@ -1422,6 +1422,12 @@ err_code_t HostSACPHMI::handle_subscript(void *obj, sacp_hmi_message_t *msg) {
 
   LOG_I("subscribe cmd[%x:%x], period[%u]!\n", cmd_set, cmd_id, period);
 
+  if (period < SACP_SUBSCRIPTION_PERIOD_INVALID) {
+    LOG_E("period is less than [%d]\n", SACP_SUBSCRIPTION_PERIOD_INVALID);
+    ret = E_PARAM;
+    goto out_subscript;
+  }
+
   // check firstly if someone has register this node of cmd_set & cmd_id
   for (; node_index < SACP_SUBSCRIPTION_NODE_MAX; node_index++) {
     if (host.subscription_nodes[node_index].cmd_set == cmd_set &&
@@ -1431,39 +1437,51 @@ err_code_t HostSACPHMI::handle_subscript(void *obj, sacp_hmi_message_t *msg) {
   }
 
   if (node_index >= SACP_SUBSCRIPTION_NODE_MAX) {
-    LOG_W("no body registered subsciption node for [%x:%x]\n", cmd_set, cmd_id);
+    LOG_W("no body registered subscription node for [%x:%x]\n", cmd_set, cmd_id);
     ret = E_NO_RESRC;
     goto out_subscript;
   }
 
-  // check if client has register this node of cmd_set & cmd_id
+  // check if there is one same client has register this node of cmd_set & cmd_id
   for (; client_index < SACP_SUBSCRIPTION_CLIENT_MAX; client_index++) {
+    node = host.subscription_clients[client_index].node;
+
     // if have same peer and ch, indicate the client send same request again
     // maybe it just want to change period
     if (host.subscription_clients[client_index].peer == msg->peer &&
         host.subscription_clients[client_index].ch == msg->ch) {
 
-      node = host.subscription_clients[client_index].node;
-      if (!node)
+      if (!node) {
+        LOG_I("client didn't subscribe message ok last time!\n");
         break;
+      }
       if (node->cmd_set == cmd_set && node->cmd_id == cmd_id) {
         if (host.subscription_clients[client_index].period != period) {
+          LOG_I("same client has registered same node, update period!\n");
           // update period and return
           xTimerChangePeriod(host.subscription_clients[client_index].timer, period, portMAX_DELAY);
           host.subscription_clients[client_index].period = period;
         }
-        // got same client, break out
+        else {
+          LOG_I("same client has registered same node with same period!\n");
+        }
+        // got same client, same period, return success
         goto out_subscript;
       }
     }
 
-    if (!host.subscription_clients[client_index].node) {
+    if (!node) {
+      // client subcribe message firstly
+      // there is new available client
+      LOG_I("client subscribe message firstly!\n");
       break;
     }
   }
 
   if (client_index >= SACP_SUBSCRIPTION_CLIENT_MAX) {
     LOG_E("no avaliable client for subscription[%x:%x]\n", cmd_set, cmd_id);
+    ret = E_NO_RESRC;
+    goto out_subscript;
   }
 
   // add new client

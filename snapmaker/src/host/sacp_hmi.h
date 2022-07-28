@@ -75,10 +75,10 @@ typedef struct {
 #define SACP_ROUTE_RESULT_CACHE_MAX       (10)
 
 // defination for subscription
-#define SACP_SUBSCRIPTION_HANDLE_MAX      (32)
-#define SACP_SUBSCRIPTION_NODE_MAX        (64)
-#define SACP_SUBSCRIPTION_CLIENT_MAX      (32)
-#define SACP_SUBSCRIPTION_PERIOD_INVALID  (10)
+#define SACP_SUBSCRIPTION_HANDLE_MAX      (48)
+#define SACP_SUBSCRIPTION_NODE_MAX        (32)
+#define SACP_SUBSCRIPTION_CLIENT_MAX      (48)
+#define SACP_SUBSCRIPTION_PERIOD_INVALID  (500)
 
 typedef struct sacp_subscription_handle {
   void *obj;

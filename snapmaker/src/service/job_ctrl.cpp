@@ -290,13 +290,13 @@ err_code_t JobCtrl::save_env(void) {
   ModuleBase *cur_toolhead;
 
   if (!(cur_toolhead = smprinter.get_cur_toolhead())) {
-    LOG_E("job_ctrl: Can not get toolhead\r\n");
+    // LOG_E("job_ctrl: Can not get toolhead\r\n");
     return E_JOB_SAVE_ENV_FAILURE;
   }
 
   _env.toolhead_env_buf_size = MODULE_ENV_MAX_SIZE;
   if (E_SUCCESS != cur_toolhead->save_env(_env.toolhead_env_buf, _env.toolhead_env_buf_size)) {
-    LOG_E("Toolhead save env error\r\n");
+    // LOG_E("Toolhead save env error\r\n");
     return E_JOB_SAVE_ENV_FAILURE;
   }
 
@@ -306,7 +306,7 @@ err_code_t JobCtrl::save_env(void) {
     if (bed) {
       _env.bed_env_buf_size = MODULE_ENV_MAX_SIZE;
       if (E_SUCCESS != bed->save_env(_env.bed_env_buf, _env.bed_env_buf_size)) {
-        LOG_E("job_ctrl: bed save env failure\r\n");
+        // LOG_E("job_ctrl: bed save env failure\r\n");
       }
       else {
         // save_env() maybe called from ISR, so comment the log
@@ -314,13 +314,13 @@ err_code_t JobCtrl::save_env(void) {
       }
     }
     else {
-      LOG_E("job_ctrl: can not get bed\r\n");
+      // LOG_E("job_ctrl: can not get bed\r\n");
     }
   }
   _env.active_coordinate = motion_platform_svc.get_active_coordinate_system();
-  LOCK(_lock, JOB_LOCK_WAIT_TICK);
+  // LOCK(_lock, JOB_LOCK_WAIT_TICK);
   _env.cur_line_num = smprinter.gcode_file_position;
-  UNLOCK(_lock);
+  // UNLOCK(_lock);
   _env.print_feadrate = motion_platform_svc.get_feedrate();
   _env.travel_feadrate = motion_platform_svc.get_travl_feedrate();
   _env.g0g1_relative_mode = motion_platform_svc.get_relative_mode();

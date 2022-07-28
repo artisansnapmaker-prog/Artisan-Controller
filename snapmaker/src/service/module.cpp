@@ -390,7 +390,7 @@ void ModuleService::init() {
         (void *)this, (sacp_hmi_callback)report_module_info);
 
   status = MS_STATUS_CONFIG;
-  
+
   if (!timer_broadcast) {
     timer_broadcast = xTimerCreate( "timer_broadcast",
                                     pdMS_TO_TICKS(BACKGROUND_BROADCAST_DURATION),
@@ -403,15 +403,15 @@ void ModuleService::init() {
         xTimerDelete(timer_broadcast, portMAX_DELAY);
         timer_broadcast = NULL;
       }
-      else 
+      else
         LOG_I("timer_broadcast start success\n");
     }
-    else 
+    else
       LOG_E("Create timer broadcast fail!!!\n");
   }
-  else 
+  else
     LOG_W("timer_broadcast already exists\n");
-  next_ms_background_broadcast = millis() + BACKGROUND_BROADCAST_DURATION;
+  // next_ms_background_broadcast = millis() + BACKGROUND_BROADCAST_DURATION;
 }
 
 

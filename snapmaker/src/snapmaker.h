@@ -226,6 +226,7 @@ enum FDMExceptionState {
   FDM_EXCEP_STA_PROBE_ERROR,
   FDM_EXCEP_STA_PORT_ERROR,
   FDM_EXCEP_STA_EXTRUDER_HOME_FAILED,
+  FDM_EXCEP_STA_POST_INIT_FAIL,
 };
 
 // exception state for heated Bed

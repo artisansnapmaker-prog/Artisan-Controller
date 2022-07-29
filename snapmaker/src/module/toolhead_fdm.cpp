@@ -102,6 +102,10 @@ err_code_t ToolHeadFDM::post_init() {
 }
 
 err_code_t ToolHeadFDM::single_extruder_post_init() {
+  err_code_t ret;
+  uint32_t port_index;
+  SnapmakerSettings * smsettings;
+
   // register hmi subscript callback
   host_hmi.register_subscription(SACP_CMD_SET_FDM, FDM_SUBSCRIPT_CMD_ID_EXTRUDER_INFO, this, hmi_subscript_callback_extruder_info);
 
@@ -117,49 +121,59 @@ err_code_t ToolHeadFDM::single_extruder_post_init() {
   uint16_t msg_id;
   msg_id = get_message_id(MODULE_FUNC_PROBE_STATE);
   if (msg_id == MODULE_MESSAGE_ID_INVALID) {
-    return E_FAILURE;
+    ret = E_FAILURE;
+    goto EXIT;
   }
   if (host_can_rou.register_callback(msg_id, (void *)this, fdm_callback_probe_state) != E_SUCCESS) {
-    return E_FAILURE;
+    ret = E_FAILURE;
+    goto EXIT;
   }
 
   msg_id = get_message_id(MODULE_FUNC_RUNOUT_SENSOR_STATE);
   if (msg_id == MODULE_MESSAGE_ID_INVALID) {
-    return E_FAILURE;
+    ret = E_FAILURE;
+    goto EXIT;
   }
   if (host_can_rou.register_callback(msg_id, (void *)this, fdm_callback_filament_state) != E_SUCCESS) {
-    return E_FAILURE;
+    ret = E_FAILURE;
+    goto EXIT;
   }
 
   msg_id = get_message_id(MODULE_FUNC_GET_NOZZLE_TEMP);
   if (msg_id == MODULE_MESSAGE_ID_INVALID) {
-    return E_FAILURE;
+    ret = E_FAILURE;
+    goto EXIT;
   }
   if (host_can_rou.register_callback(msg_id, (void *)this, fdm_callback_hotend_temp) != E_SUCCESS) {
-    return E_FAILURE;
+    ret = E_FAILURE;
+    goto EXIT;
   }
 
   msg_id = get_message_id(MODULE_FUNC_REPORT_3DP_PID);
   if (msg_id == MODULE_MESSAGE_ID_INVALID) {
-    return E_FAILURE;
+    ret = E_FAILURE;
+    goto EXIT;
   }
   if (host_can_rou.register_callback(msg_id, (void *)this, fdm_callback_hotend_pid) != E_SUCCESS) {
-    return E_FAILURE;
+    ret = E_FAILURE;
+    goto EXIT;
   }
 
   if (MODULE_DEVICE_ID_INVALID == get_device_id()) {
-    return E_FAILURE;
+    ret = E_FAILURE;
+    goto EXIT;
   }
 
   last_recv_time = millis();
-  SnapmakerSettings * smsettings = smprinter.get_settings();
+  smsettings = smprinter.get_settings();
   single_extruder_steps_per_unit = smsettings->fdm_settings.single_extruder_steps_per_unit;
 
-  uint32_t port_index = get_port_index();
+  port_index = get_port_index();
   if (port_index != PORT_INDEX_P1) {
     set_status(MODULE_STATUS_UNCONFIGURE);
     system_svc.raise_exception(get_device_id(), FDM_EXCEP_STA_PORT_ERROR);
-    return E_HARDWARE;
+    ret = E_HARDWARE;
+    goto EXIT;
   }
 
   hotend_type[0] = 0;
@@ -184,10 +198,21 @@ err_code_t ToolHeadFDM::single_extruder_post_init() {
   set_status(MODULE_STATUS_NORMAL);
   LOG_I("fdm single extruder ready\n");
 
-  return E_SUCCESS;
+  ret = E_SUCCESS;
+
+EXIT:
+  if (ret != E_SUCCESS) {
+    LOG_E("single extruder post init failed\n");
+    system_svc.raise_exception(get_device_id(), FDM_EXCEP_STA_POST_INIT_FAIL);
+  }
+  return ret;
 }
 
 err_code_t ToolHeadFDM::dual_extruder_post_init() {
+  err_code_t ret = E_SUCCESS;
+  uint32_t port_index;
+  SnapmakerSettings * smsettings;
+
   // register hmi subscript callback
   host_hmi.register_subscription(SACP_CMD_SET_FDM, FDM_SUBSCRIPT_CMD_ID_EXTRUDER_INFO, this, hmi_subscript_callback_extruder_info);
 
@@ -206,89 +231,109 @@ err_code_t ToolHeadFDM::dual_extruder_post_init() {
   uint16_t msg_id;
   msg_id = get_message_id(MODULE_FUNC_PROBE_STATE);
   if (msg_id == MODULE_MESSAGE_ID_INVALID) {
-    return E_FAILURE;
+    ret = E_FAILURE;
+    goto EXIT;
   }
   if (host_can_rou.register_callback(msg_id, (void *)this, fdm_callback_probe_state) != E_SUCCESS) {
-    return E_FAILURE;
+    ret = E_FAILURE;
+    goto EXIT;
   }
 
   msg_id = get_message_id(MODULE_FUNC_RUNOUT_SENSOR_STATE);
   if (msg_id == MODULE_MESSAGE_ID_INVALID) {
-    return E_FAILURE;
+    ret = E_FAILURE;
+    goto EXIT;
   }
   if (host_can_rou.register_callback(msg_id, (void *)this, fdm_callback_filament_state) != E_SUCCESS) {
-    return E_FAILURE;
+    ret = E_FAILURE;
+    goto EXIT;
   }
 
   msg_id = get_message_id(MODULE_FUNC_GET_NOZZLE_TEMP);
   if (msg_id == MODULE_MESSAGE_ID_INVALID) {
-    return E_FAILURE;
+    ret = E_FAILURE;
+    goto EXIT;
   }
   if (host_can_rou.register_callback(msg_id, (void *)this, fdm_callback_hotend_temp) != E_SUCCESS) {
-    return E_FAILURE;
+    ret = E_FAILURE;
+    goto EXIT;
   }
 
   msg_id = get_message_id(MODULE_FUNC_REPORT_3DP_PID);
   if (msg_id == MODULE_MESSAGE_ID_INVALID) {
-    return E_FAILURE;
+    ret = E_FAILURE;
+    goto EXIT;
   }
   if (host_can_rou.register_callback(msg_id, (void *)this, fdm_callback_hotend_pid) != E_SUCCESS) {
-    return E_FAILURE;
+    ret = E_FAILURE;
+    goto EXIT;
   }
 
   msg_id = get_message_id(MODULE_FUNC_REPORT_NOZZLE_TYPE);
   if (msg_id == MODULE_MESSAGE_ID_INVALID) {
-    return E_FAILURE;
+    ret = E_FAILURE;
+    goto EXIT;
   }
   if (host_can_rou.register_callback(msg_id, (void *)this, fdm_callback_hotend_type) != E_SUCCESS) {
-    return E_FAILURE;
+    ret = E_FAILURE;
+    goto EXIT;
   }
 
   msg_id = get_message_id(MODULE_REPORT_EXTRUDER_INFO);
   if (msg_id == MODULE_MESSAGE_ID_INVALID) {
-    return E_FAILURE;
+    ret = E_FAILURE;
+    goto EXIT;
   }
   if (host_can_rou.register_callback(msg_id, (void *)this, fdm_callback_extruder_info) != E_SUCCESS) {
-    return E_FAILURE;
+    ret = E_FAILURE;
+    goto EXIT;
   }
 
   msg_id = get_message_id(MODULE_FUNC_REPORT_HOTEND_OFFSET);
   if (msg_id == MODULE_MESSAGE_ID_INVALID) {
-    return E_FAILURE;
+    ret = E_FAILURE;
+    goto EXIT;
   }
   if (host_can_rou.register_callback(msg_id, (void *)this, fdm_callback_report_hotend_offset) != E_SUCCESS) {
-    return E_FAILURE;
+    ret = E_FAILURE;
+    goto EXIT;
   }
 
   msg_id = get_message_id(MODULE_FUNC_REPORT_PROBE_SENSOR_COMPENSATION);
   if (msg_id == MODULE_MESSAGE_ID_INVALID) {
-    return E_FAILURE;
+    ret = E_FAILURE;
+    goto EXIT;
   }
   if (host_can_rou.register_callback(msg_id, (void *)this, fdm_callback_report_probe_sensor_compensation) != E_SUCCESS) {
-    return E_FAILURE;
+    ret = E_FAILURE;
+    goto EXIT;
   }
 
   msg_id = get_message_id(MODULE_FUNC_REPORT_RIGHT_EXTRUDER_POS);
   if (msg_id == MODULE_MESSAGE_ID_INVALID) {
-    return E_FAILURE;
+    ret = E_FAILURE;
+    goto EXIT;
   }
   if (host_can_rou.register_callback(msg_id, (void *)this, fdm_callback_report_right_extruder_pos) != E_SUCCESS) {
-    return E_FAILURE;
+    ret = E_FAILURE;
+    goto EXIT;
   }
 
   if (MODULE_DEVICE_ID_INVALID == get_device_id()) {
-    return E_FAILURE;
+    ret = E_FAILURE;
+    goto EXIT;
   }
 
   last_recv_time = millis();
-  SnapmakerSettings * smsettings = smprinter.get_settings();
+  smsettings = smprinter.get_settings();
   dual_extruder_steps_per_unit[0] = smsettings->fdm_settings.dual_extruder_steps_per_unit[0];
 
-  uint32_t port_index = get_port_index();
+  port_index = get_port_index();
   if (port_index != PORT_INDEX_P1) {
     set_status(MODULE_STATUS_UNCONFIGURE);
     system_svc.raise_exception(get_device_id(), FDM_EXCEP_STA_PORT_ERROR);
-    return E_HARDWARE;
+    ret = E_HARDWARE;
+    goto EXIT;
   }
 
   hotend_pid_sync();
@@ -319,7 +364,14 @@ err_code_t ToolHeadFDM::dual_extruder_post_init() {
   set_status(MODULE_STATUS_NORMAL);
   LOG_I("fdm dual extruder ready\n");
 
-  return E_SUCCESS;
+  ret = E_SUCCESS;
+
+EXIT:
+  if (ret != E_SUCCESS) {
+    LOG_E("dual extruder post init failed\n");
+    system_svc.raise_exception(get_device_id(), FDM_EXCEP_STA_POST_INIT_FAIL);
+  }
+  return ret;
 }
 
 err_code_t ToolHeadFDM::deinit() {

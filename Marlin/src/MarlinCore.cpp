@@ -1132,6 +1132,10 @@ void setup() {
   // Add by 747
   __enable_irq();
 
+  SET_INPUT_PULLUP(PD6);
+
+  smprinter.pre_init();
+
   #ifdef FASTIO_INIT
     FASTIO_INIT();
   #endif
@@ -1179,8 +1183,6 @@ void setup() {
     #endif
   #endif
   SERIAL_ECHOLNPGM("start");
-
-  smprinter.pre_init();
 
   // Set up these pins early to prevent suicide
   #if HAS_KILL

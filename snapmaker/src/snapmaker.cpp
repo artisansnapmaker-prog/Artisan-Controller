@@ -200,8 +200,6 @@ err_code_t SnapmakerPrinter::hmi_cb_request_reboot(void *obj, sacp_hmi_message_t
 
   disable_all_interrupts();
   reboot();
-  vTaskSuspendAll();
-  LOG_E("waiting to reboot!\n");
   while(1);
   return ret;
 }
@@ -501,6 +499,8 @@ static void system_thread(void *p) {
 
 
 void SnapmakerPrinter::pre_init(void) {
+  // !!! cannot show log here!!!
+
   // avoid turn on laser
   pinMode(pins_map[PORT_INDEX_P1].step, OUTPUT);
   digitalWrite(pins_map[PORT_INDEX_P1].step, HIGH);

@@ -777,6 +777,7 @@ void ModuleService::unregister_routine(void *obj) {
 
 
 void ModuleService::background_thread() {
+  static bool check_axes = true;
   bool is_broadcast = false;
   // perform routine of modules
   for (int i = 0; i < MODULE_ACCESSIBLE_MAX; i++) {

@@ -175,7 +175,9 @@ uint16_t SnapmakerPrinter::hmi_cb_publish_system_status(void *obj, uint8_t *buff
   SnapmakerPrinter *printer = (SnapmakerPrinter *)obj;
   buffer[0] = E_SUCCESS;
   buffer[1] = printer->sys_status;
-  return 2;
+  buffer[2] = motion_platform_svc.is_moving();
+
+  return 3;
 }
 
 // HMI event callback

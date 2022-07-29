@@ -1367,3 +1367,7 @@ float MotionPlatformService::get_motherboard_current_temp(uint8_t index) {
 void MotionPlatformService::abort_heating() {
   wait_for_heatup = false;
 }
+
+bool MotionPlatformService::is_moving() {
+  return planner.has_blocks_queued();
+}

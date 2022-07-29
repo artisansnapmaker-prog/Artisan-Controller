@@ -124,6 +124,8 @@ class MotionPlatformService {
     void req_quickstop(void);
     void req_live_Z_offset_quickstop(void);
     bool planner_busy(void);
+    bool is_moving();
+
     // This api use for wait planner quickstop
     err_code_t take_quickstop_sem(uint32_t wait_time);
     err_code_t give_quickstop_sem(void);

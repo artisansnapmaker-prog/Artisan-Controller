@@ -231,7 +231,7 @@ class JobCtrl {
     // set & get
     err_code_t set_env(struct JobEnv &env);
     struct JobEnv *get_env(void);
-    err_code_t update_env(void);
+    err_code_t update_env(bool from_isr=false);
     toolHeadType get_type(void) { return _env.type; }
     struct GcodeFileInfo *get_gcode_info(void) { return _env.gfi_valid? &_env.gcode_file_info : NULL; }
     uint32_t get_cur_linenum(void) { return _env.cur_line_num; }
@@ -253,7 +253,7 @@ class JobCtrl {
     void do_pause(struct JobCtrlReqInfo &jri);
     void do_resume(struct JobCtrlReqInfo &jri);
     void do_stop(struct JobCtrlReqInfo &jri);
-    err_code_t save_env(void);                                  /** save current job enviroment                                           */
+    err_code_t save_env(bool from_isr=false);                                  /** save current job enviroment                                           */
     err_code_t resume_env(JobResumeType rt);                    /** resume saved enviroment to job                                        */
     err_code_t recover_env(void);                               /** resume saved enviroment to job                                        */
     err_code_t machine_standby(void);                           /** set the machine in standby status                                     */

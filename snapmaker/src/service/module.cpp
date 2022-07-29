@@ -797,7 +797,7 @@ void ModuleService::background_thread() {
     }
   }
 
-  if (is_broadcast != need_broadcast) 
+  if (is_broadcast != need_broadcast)
     need_broadcast = is_broadcast;
   // TODO: scan modules
   // host_mac.send(MODULE_MAC_CMD_SCAN);

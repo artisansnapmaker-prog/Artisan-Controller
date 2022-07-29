@@ -286,12 +286,12 @@ void JobCtrl::print_job_env(struct JobEnv *env) {
   for (uint32_t i = 0; i < env->toolhead_env_buf_size; i++) LOG_I("%02X ", env->toolhead_env_buf[i]);
 }
 
-err_code_t JobCtrl::save_env(void) {
+err_code_t JobCtrl::save_env(bool from_isr/*=false*/) {
   ModuleBase *cur_toolhead;
 
   if (!(cur_toolhead = smprinter.get_cur_toolhead())) {
     // LOG_E("job_ctrl: Can not get toolhead\r\n");
-    return E_JOB_SAVE_ENV_FAILURE;
+    return E_JOB_NO_TOOLHEAD;
   }
 
   _env.toolhead_env_buf_size = MODULE_ENV_MAX_SIZE;
@@ -309,18 +309,17 @@ err_code_t JobCtrl::save_env(void) {
         // LOG_E("job_ctrl: bed save env failure\r\n");
       }
       else {
-        // save_env() maybe called from ISR, so comment the log
         // LOG_I("job_ctrl: bed_temp save\r\n");
       }
     }
-    else {
-      // LOG_E("job_ctrl: can not get bed\r\n");
-    }
   }
+
   _env.active_coordinate = motion_platform_svc.get_active_coordinate_system();
-  // LOCK(_lock, JOB_LOCK_WAIT_TICK);
+  if (!from_isr)
+    LOCK(_lock, JOB_LOCK_WAIT_TICK);
   _env.cur_line_num = smprinter.gcode_file_position;
-  // UNLOCK(_lock);
+  if (!from_isr)
+    UNLOCK(_lock);
   _env.print_feadrate = motion_platform_svc.get_feedrate();
   _env.travel_feadrate = motion_platform_svc.get_travl_feedrate();
   _env.g0g1_relative_mode = motion_platform_svc.get_relative_mode();
@@ -805,7 +804,9 @@ void JobCtrl::do_pause(struct JobCtrlReqInfo &jri) {
     break;
   }
 
-  if (E_SUCCESS != save_env()) {
+  err_code_t ret = save_env();
+  if (E_SUCCESS != ret) {
+    LOG_I("job_ctrl:failed to save env, ret=%u\r\n", ret);
     smprinter.set_sys_status(SYSTEM_STATUS_IDLE, &ret_sys_status);
     DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, E_JOB_SAVE_ENV_FAILURE);
     _issue_ret_rb.insert_one(SACP_JOB_PAUSE_ISSUE_RET_SAVE_ENV_FAILURE);
@@ -1061,8 +1062,8 @@ struct JobEnv *JobCtrl::get_env(void) {
   return &_env;
 }
 
-err_code_t JobCtrl::update_env(void) {
-  return save_env();
+err_code_t JobCtrl::update_env(bool from_isr/*=false*/) {
+  return save_env(from_isr);
 }
 
 bool JobCtrl::consume_a_gcode(uint8_t *cmd, uint16_t max_len, uint32_t *line) {

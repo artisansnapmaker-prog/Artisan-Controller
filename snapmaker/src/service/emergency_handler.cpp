@@ -216,7 +216,7 @@ void EmergencyHandler::power_loss() {
 
     // only update env in printing
     if (smprinter.on_printing())
-      job_ctrl_svc.update_env();
+      job_ctrl_svc.update_env(true);
     // if failed to update env, show LED?
     job_env = job_ctrl_svc.get_env();
     memcpy(env, job_env, sizeof(JobEnv));
@@ -264,7 +264,7 @@ void EmergencyHandler::emergency_stop() {
     motion_platform_svc.update_position_from_stepper();
 
     if (smprinter.on_printing())
-      job_ctrl_svc.update_env();
+      job_ctrl_svc.update_env(true);
 
     job_env = job_ctrl_svc.get_env();
     memcpy(env, job_env, sizeof(JobEnv));

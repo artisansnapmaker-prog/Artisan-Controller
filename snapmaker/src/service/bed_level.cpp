@@ -37,7 +37,7 @@ void BedLevelService::init() {
   host_hmi.register_callback(SACP_CMD_SET_CALIBRATE_FDM, BEDLEVEL_REQ_CMD_ID_GET_LEVEL_STATE, this, hmi_req_callback_get_level_state);
   host_hmi.register_callback(SACP_CMD_SET_CALIBRATE_FDM, BEDLEVEL_REQ_CMD_ID_BED_POSITION_DETECTION, this, hmi_req_callback_bed_position_detection, SACP_CB_ATTR_BLOCKED_WITH_MOTION);
   host_hmi.register_callback(SACP_CMD_SET_CALIBRATE_FDM, BEDLEVEL_REQ_CMD_ID_PROBE_SENSOR_CALIBRATION, this, hmi_req_callback_probe_sensor_calibration, SACP_CB_ATTR_BLOCKED_WITH_MOTION);
-  host_hmi.register_callback(SACP_CMD_SET_CALIBRATE_FDM, BEDLEVEL_REQ_CMD_ID_SET_LIVE_Z_OFFSET, this, hmi_req_callback_set_live_z_offset, SACP_CB_ATTR_BLOCKED_WITH_MOTION);
+  host_hmi.register_callback(SACP_CMD_SET_CALIBRATE_FDM, BEDLEVEL_REQ_CMD_ID_SET_LIVE_Z_OFFSET, this, hmi_req_callback_set_live_z_offset, SACP_CB_ATTR_BLOCKED_WITHOUT_MOTION);
   host_hmi.register_callback(SACP_CMD_SET_CALIBRATE_FDM, BEDLEVEL_REQ_CMD_ID_GET_LIVE_Z_OFFSET, this, hmi_req_callback_get_live_z_offset);
 }
 

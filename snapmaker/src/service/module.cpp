@@ -48,11 +48,13 @@ static void handle_can_receive(void *p) {
 }
 
 void heartbeat_broadcast(TimerHandle_t timer) {
-  bool *is_broadcast = (bool *)pvTimerGetTimerID(timer);
+  bool *is_broadcast = NULL;
   if (!timer)
     return;
 
-  if (*is_broadcast)
+  is_broadcast = (bool *)pvTimerGetTimerID(timer);
+
+  if (is_broadcast && *is_broadcast)
     host_broadcast.send(0x1);
 }
 

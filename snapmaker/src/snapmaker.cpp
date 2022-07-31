@@ -501,6 +501,13 @@ static void system_thread(void *p) {
 void SnapmakerPrinter::pre_init(void) {
   // !!! cannot show log here!!!
 
+  // deinit the serial, and disable the interrupt
+  // to avoid be impact by bootloader
+  MSerial1.end();
+  MSerial2.end();
+  NVIC_DisableIRQ(USART1_IRQn);
+  NVIC_DisableIRQ(USART2_IRQn);
+
   // avoid turn on laser
   pinMode(pins_map[PORT_INDEX_P1].step, OUTPUT);
   digitalWrite(pins_map[PORT_INDEX_P1].step, HIGH);

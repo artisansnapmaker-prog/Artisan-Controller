@@ -1091,6 +1091,10 @@ void MotionPlatformService::set_steps_per_unit(float steps_per_unit, uint8_t axi
   planner.refresh_positioning();
 }
 
+float MotionPlatformService::get_steps_per_unit(uint8_t axis) {
+  return planner.settings.axis_steps_per_mm[axis];
+}
+
 void  MotionPlatformService::update_position_from_stepper() {
   set_current_from_steppers_for_axis(ALL_AXES_ENUM);
   sm_current_position = current_position;

@@ -1627,6 +1627,12 @@ err_code_t ToolHeadFDM::tool_change(uint8_t new_tool, bool z_compensation/*=true
     float xdiff = hotend_offset_tmp[X_AXIS][new_tool] - hotend_offset_tmp[X_AXIS][active_extruder];
     float ydiff = hotend_offset_tmp[Y_AXIS][new_tool] - hotend_offset_tmp[Y_AXIS][active_extruder];
     float zdiff = hotend_offset_tmp[Z_AXIS][new_tool] - hotend_offset_tmp[Z_AXIS][active_extruder];
+    int32_t xdiff_scaled = xdiff * motion_platform_svc.get_steps_per_unit(X_AXIS);
+    int32_t ydiff_scaled = ydiff * motion_platform_svc.get_steps_per_unit(Y_AXIS);
+    int32_t zdiff_scaled = zdiff * motion_platform_svc.get_steps_per_unit(Z_AXIS);
+    xdiff = (float)xdiff_scaled / motion_platform_svc.get_steps_per_unit(X_AXIS);
+    ydiff = (float)ydiff_scaled / motion_platform_svc.get_steps_per_unit(Y_AXIS);
+    zdiff = (float)zdiff_scaled / motion_platform_svc.get_steps_per_unit(Z_AXIS);
     // LOG_I("hotend_offset_y%d: %f\n", new_tool, hotend_offset_tmp[Y_AXIS][new_tool]);
     // LOG_I("hotend_offset_y%d: %f\n", active_extruder, hotend_offset_tmp[Y_AXIS][active_extruder]);
     // LOG_I("hotend_offset_z%d: %f\n", new_tool, hotend_offset_tmp[Z_AXIS][new_tool]);

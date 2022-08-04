@@ -95,7 +95,6 @@ void GcodeSuite::M92() {
 }
 
 void GcodeSuite::M92_report(const bool forReplay/*=true*/, const int8_t e/*=-1*/) {
-  #if !MB_SNAPMAKER
     report_heading_etc(forReplay, F(STR_STEPS_PER_UNIT));
     SERIAL_ECHOPGM_P(LIST_N(DOUBLE(LINEAR_AXES),
       PSTR("  M92 X"), LINEAR_UNIT(planner.settings.axis_steps_per_mm[X_AXIS]),
@@ -122,7 +121,4 @@ void GcodeSuite::M92_report(const bool forReplay/*=true*/, const int8_t e/*=-1*/
     #else
       UNUSED(e);
     #endif
-  #else
-    smprinter.report_steps_per_unit();
-  #endif
 }

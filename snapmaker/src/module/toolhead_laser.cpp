@@ -1197,7 +1197,7 @@ err_code_t ToolHeadLaser::post_init() {
   motion_platform_svc.sync_feedrate_percentage_to_platform(feedrate_percentage);
 
   // update software endstop for Z min
-  motion_platform_svc.update_soft_endstops((uint8_t)Z_AXIS, (uint8_t)0, (float)13);
+  motion_platform_svc.set_soft_endstops((uint8_t)Z_AXIS, (uint8_t)0, (float)13);
 
   return E_SUCCESS;
 }

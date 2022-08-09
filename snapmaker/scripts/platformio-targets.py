@@ -28,7 +28,7 @@ project_dir = projenv.get("PROJECT_DIR")
 
 PIOENV = projenv.get("PIOENV")
 if PIOENV.endswith('_boot'):
-  print("You are build bootloader, won't package bin for HMI")
+  print("You are building bootloader, won't package bin for HMI")
 
 project_dir = projenv.get("PROJECT_DIR")
 release_dir = join(project_dir, "release")

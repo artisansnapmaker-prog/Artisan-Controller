@@ -30,7 +30,7 @@ def pack_raw_bootloader_app(source, target, env):
 def pack_minor_app(source, target, env):
   PIOENV = projenv.get("PIOENV")
   if PIOENV.endswith('_boot'):
-    print("You are build bootloader, won't package bin for HMI")
+    print("You are building bootloader, won't package bin for HMI")
     return
 
   project_dir = projenv.get("PROJECT_DIR")
@@ -78,7 +78,7 @@ def pack_minor_app(source, target, env):
 def pack_major_app(source, target, env):
   PIOENV = projenv.get("PIOENV")
   if PIOENV.endswith('_boot'):
-    print("You are build bootloader, won't package bin for HMI")
+    print("You are building bootloader, won't package bin for HMI")
     return
 
   project_dir = projenv.get("PROJECT_DIR")

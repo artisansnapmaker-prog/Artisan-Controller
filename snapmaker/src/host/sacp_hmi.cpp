@@ -590,7 +590,7 @@ err_code_t HostSACPHMI::send(sacp_hmi_message_t *message) {
   xSemaphoreGive(channel.lock);
 
   // cache result of ACK for events with BLOCKED attribute
-  if (xTaskGetCurrentTaskHandle() == thandle_marlin || xTaskGetCurrentTaskHandle() == thandle_system) {
+  if (xTaskGetCurrentTaskHandle() == thandle_marlin || xTaskGetCurrentTaskHandle() == thandle_hmi_blocked_event) {
     if (message->attr & SACP_MESSAGE_ATTR_ACK && !(message->attr & SACP_MESSAGE_ATTR_UPDATE_ACK_SEQ))
       cache_result(message->peer, message->ch, message->seq, (message->length)? message->data[0] : E_FAILURE);
   }
@@ -928,7 +928,7 @@ MessageBufferHandle_t HostSACPHMI::get_event_queue_by_cmd(uint8_t *buffer, uint8
     return events_normal;
   }
 
-  // to here, request we have
+  // to here, request we have acked prevously, just send result
   msg.peer    = buffer[SACP_V1_FRAME_INDEX_SENDER_ID];
   msg.attr    = buffer[SACP_V1_FRAME_INDEX_ATTR];
   msg.cmd_set = cmd_set;

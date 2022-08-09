@@ -497,11 +497,13 @@ err_code_t JobCtrl::machine_standby(void) {
     t_pos.z = 395;
     motion_platform_svc.moveto(t_pos, RESUME_Z_FEEDRATE, true);
 
-    LOG_I("job_ctrl: y move to fronthead\r\n");
-    motion_platform_svc.update_position_from_platform();
-    t_pos = motion_platform_svc.sm_current_position;
-    t_pos.y = 395;
-    motion_platform_svc.moveto(t_pos, RESUME_XY_FEEDRATE, true);
+    if (TH_TYPE_3DP == _env.type) {
+      LOG_I("job_ctrl: y move to fronthead\r\n");
+      motion_platform_svc.update_position_from_platform();
+      t_pos = motion_platform_svc.sm_current_position;
+      t_pos.y = 395;
+      motion_platform_svc.moveto(t_pos, RESUME_XY_FEEDRATE, true);
+    }
   }
 
   LOG_I("job_ctrl: machine standby end\r\n");

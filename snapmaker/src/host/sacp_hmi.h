@@ -209,6 +209,7 @@ class HostSACPHMI: public HostSACP {
 
     static err_code_t handle_subscription(void *obj, sacp_hmi_message_t *msg);
     static err_code_t handle_unsubscription(void *obj, sacp_hmi_message_t *msg);
+    static err_code_t handle_unsubscription_by_peer(void *obj, sacp_hmi_message_t *msg);
 
     err_code_t unsubscribe_by_peer(uint32_t peer, uint32_t ch);
 

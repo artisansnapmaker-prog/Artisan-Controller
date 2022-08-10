@@ -1679,6 +1679,12 @@ out_unsubscript:
 }
 
 
+err_code_t HostSACPHMI::handle_unsubscription_by_peer(void *obj, sacp_hmi_message_t *msg) {
+  HostSACPHMI &host = *(HostSACPHMI *)obj;
+  return host.unsubscribe_by_peer(msg->peer, msg->ch);
+}
+
+
 err_code_t HostSACPHMI::unsubscribe_by_peer(uint32_t peer, uint32_t ch) {
   sacp_subscription_client_t *client = NULL;
   sacp_subscription_handle_t *handle = NULL;

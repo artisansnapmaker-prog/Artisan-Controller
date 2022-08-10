@@ -427,7 +427,7 @@ err_code_t SnapmakerPrinter::hmi_cb_set_machine_enter_replace_mode(void *obj, sa
 static void system_thread(void *p) {
   // must init hmi firstly
   host_hmi.init(NULL, NULL);
-  host_hmi.apply_cmd_set_handle(SACP_CMD_SET_GLOBAL_REQ, 26);
+  host_hmi.apply_cmd_set_handle(SACP_CMD_SET_GLOBAL_REQ, 30);
 
   // must do init before initializing modules, by scott
   ClientNode::class_init();
@@ -453,6 +453,8 @@ static void system_thread(void *p) {
       (void *)&host_hmi, HostSACPHMI::handle_subscription);
   host_hmi.register_callback(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_UNSUBSCRIPT,
       (void *)&host_hmi, HostSACPHMI::handle_unsubscription);
+  host_hmi.register_callback(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_UNSUBSCRIPT_BY_PEER,
+      (void *)&host_hmi, HostSACPHMI::handle_unsubscription_by_peer);
 
   host_hmi.register_callback(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOBAL_REQ_RUN_GOCDE,
       (void *)&smprinter, SnapmakerPrinter::hmi_cb_run_gcode);

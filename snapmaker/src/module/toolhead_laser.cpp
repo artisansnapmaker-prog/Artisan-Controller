@@ -26,6 +26,7 @@
 #define SAFETY_STATE_BIT_TUBE_OVERTEMP        (1<<1)
 #define SAFETY_STATE_BIT_ATTITUDE             (1<<2)
 #define SAFETY_STATE_BIT_PWM_PIN              (1<<3)
+#define SAFETY_STATE_BIT_FAN_RUN              (1<<4)
 
 #define MODULE_EXCEP_BIT_TUBE_TEMP_TOO_LOW    (1<<0)
 #define MODULE_EXCEP_BIT_IMU_OVERTEMP         (1<<1)
@@ -794,6 +795,11 @@ void ToolHeadLaser::can_cb_handle_security_status(void *obj, uint8_t *data, uint
                                         EXCEP_BAN_TURN_ON_LASER | EXCEP_BAN_WORKING);
     }
 
+    if (new_state & SAFETY_STATE_BIT_FAN_RUN) {
+      system_svc.raise_exception_async(laser.get_device_id(), LASER_EXCEP_STA_FAN_RUN, EXCEP_ACT_PAUSE_WORKING,
+                                        EXCEP_BAN_TURN_ON_LASER | EXCEP_BAN_WORKING);
+    }
+
     if (clear_state & SAFETY_STATE_BIT_IMU_CONNECTION) {
       system_svc.clear_exception_async(laser.get_device_id(), LASER_EXCEP_STA_IMU_EXCEPTION);
     }
@@ -808,6 +814,10 @@ void ToolHeadLaser::can_cb_handle_security_status(void *obj, uint8_t *data, uint
 
     if (clear_state & SAFETY_STATE_BIT_PWM_PIN) {
       system_svc.clear_exception_async(laser.get_device_id(), LASER_EXCEP_STA_PWM_PIN);
+    }
+
+    if (clear_state & SAFETY_STATE_BIT_FAN_RUN) {
+      system_svc.clear_exception_async(laser.get_device_id(), LASER_EXCEP_STA_FAN_RUN);
     }
   }
 

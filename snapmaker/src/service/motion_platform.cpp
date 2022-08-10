@@ -79,6 +79,7 @@ uint16_t MotionPlatformService::hmi_cb_publish_coordinate_info(void *obj, uint8_
   return sizeof(CoordinateSystemInformation) + 1;
 }
 
+
 uint16_t MotionPlatformService::hmi_cb_publish_feedrate(void *obj, uint8_t *buffer) {
   if (!buffer)
     return 0;
@@ -91,6 +92,28 @@ uint16_t MotionPlatformService::hmi_cb_publish_feedrate(void *obj, uint8_t *buff
 
   return 3;
 }
+
+
+uint16_t MotionPlatformService::hmi_cb_publish_feedrate_percentage(void *obj, uint8_t *buffer) {
+  uint16_t   length = 0;
+  ModuleBase *cur_toolhead;
+
+  if (!buffer)
+    return 0;
+
+  cur_toolhead = smprinter.get_cur_toolhead();
+  if (!cur_toolhead) {
+    buffer[0] = E_HARDWARE;
+    buffer[1] = 0;
+    return 2;
+  }
+
+  buffer[0] = E_SUCCESS;
+  length    = cur_toolhead->get_feedrate_percentage(&buffer[1]);
+
+  return 1 + length;
+}
+
 
 // HMI event callback
 #define COORDINATE_TYPE_LOGICAL (0)
@@ -452,6 +475,9 @@ void MotionPlatformService::init() {
 
   host_hmi.register_subscription(SACP_CMD_SET_WOKRING_FLOW, SACP_CMD_ID_WORKING_FLOW_SUB_FEEDRATE,
             (void *)this, hmi_cb_publish_feedrate);
+
+  host_hmi.register_subscription(SACP_CMD_SET_WOKRING_FLOW, SACP_CMD_ID_WORKING_FLOW_SUB_FEEDRATE_PERCENTAGE,
+            (void *)this, hmi_cb_publish_feedrate_percentage);
 
   host_hmi.register_callback(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_GET_COORDINATE,
             (void *)this, hmi_cb_get_coordinate_info);

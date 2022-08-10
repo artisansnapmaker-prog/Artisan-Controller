@@ -440,7 +440,23 @@ err_code_t EmergencyHandler::hmi_cb_req_recovery_job(void *obj, sacp_hmi_message
   switch (smprinter.get_toolhead_type()) {
   case TH_TYPE_3DP:
     if (!motion_platform_svc.is_all_axes_homed()) {
-      motion_platform_svc.run_gcode((char *)"M104 S120");
+      ModuleBase *fdm = module_svc.get_module(MODULE_DEVICE_ID_FDM_2EXTRUDER_2021, 0);
+      if (fdm == NULL) {
+        fdm = module_svc.get_module(MODULE_DEVICE_ID_FDM_1EXTRUDER_2019, 0);
+      }
+
+      if (!fdm) {
+        LOG_E("EmergencyHandler: can not find fdm object\n");
+
+        msg->data[0] = E_FAILURE;
+        return host_hmi.send_sync(msg, recv_buff, &recv_length);
+      }
+
+      motion_platform_svc.run_gcode((char *)"M104 T0 S120");
+      if (fdm->get_device_id() == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
+        motion_platform_svc.run_gcode((char *)"M104 T1 S120");
+      }
+
       while(!motion_platform_svc.hotends_heatup_to_target()) {
         if (xTaskGetCurrentTaskHandle() == thandle_marlin) {
           // when call from marlin thread, need to keep idle() running

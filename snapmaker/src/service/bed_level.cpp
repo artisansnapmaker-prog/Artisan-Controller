@@ -215,6 +215,7 @@ static err_code_t hmi_req_callback_abort_auto_bedlevel(void *obj, sacp_hmi_messa
   }
 
   bedlevel.need_to_abort_auto_bedlevel = true;
+  LOG_I("hmi request abort auto bedlevel\n");
 
   for (uint32_t i = 0; i < 30; i++) {
     vTaskDelay(pdMS_TO_TICKS(1000));

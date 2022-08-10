@@ -1155,9 +1155,9 @@ err_code_t ToolHeadLaser::post_init() {
 
   // calibration API
   host_hmi.register_callback(SACP_CMD_SET_CALIBRATE_LASER, SACP_CMD_ID_LASER_CALI_SET_MODE, (void *)this,
-    hmi_cb_set_cali_mode);
+    hmi_cb_set_cali_mode, SACP_CB_ATTR_BLOCKED_WITH_MOTION);
   host_hmi.register_callback(SACP_CMD_SET_CALIBRATE_LASER, SACP_CMD_ID_LASER_CALI_REQ_EXIT, (void *)this,
-    hmi_cb_exit_calibraion);
+    hmi_cb_exit_calibraion, SACP_CB_ATTR_BLOCKED_WITH_MOTION);
 
   tube_status = LASER_TUBE_STA_OFF;
 

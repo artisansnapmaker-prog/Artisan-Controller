@@ -1452,16 +1452,22 @@ static void subscription_timer_cb(TimerHandle_t timer) {
   return;
 }
 
-err_code_t HostSACPHMI::handle_subscript(void *obj, sacp_hmi_message_t *msg) {
+
+err_code_t HostSACPHMI::handle_subscription(void *obj, sacp_hmi_message_t *msg) {
   HostSACPHMI &host = *(HostSACPHMI *)obj;
-  err_code_t ret = E_SUCCESS;
-  sacp_subscription_node_t *node = NULL;
-  sacp_subscription_handle_t *handle = NULL;
-  int client_index = 0;
-  int node_index = 0;
-  uint8_t cmd_set;
-  uint8_t cmd_id;
+  err_code_t  ret = E_SUCCESS;
+
   uint16_t period;
+  uint8_t  cmd_set;
+  uint8_t  cmd_id;
+
+  int client_index = 0;
+  int node_index   = 0;
+
+  sacp_subscription_client_t *client = NULL;
+  sacp_subscription_node_t   *node   = NULL;
+  sacp_subscription_handle_t *handle = NULL;
+  TimerHandle_t               timer  = NULL;
 
   if (msg->length < 4) {
     LOG_E("invalid data length[%u] for subscription!\n", msg->length);
@@ -1471,7 +1477,7 @@ err_code_t HostSACPHMI::handle_subscript(void *obj, sacp_hmi_message_t *msg) {
 
   cmd_set = msg->data[0];
   cmd_id  = msg->data[1];
-  period = msg->data[2] | msg->data[3]<<8;
+  period  = msg->data[2] | msg->data[3]<<8;
 
   LOG_I("subscribe cmd[%x:%x], period[%u]!\n", cmd_set, cmd_id, period);
 
@@ -1483,37 +1489,42 @@ err_code_t HostSACPHMI::handle_subscript(void *obj, sacp_hmi_message_t *msg) {
 
   // check firstly if someone has register this node of cmd_set & cmd_id
   for (; node_index < SACP_SUBSCRIPTION_NODE_MAX; node_index++) {
+    // if yes, break out, and node_index record the available node
     if (host.subscription_nodes[node_index].cmd_set == cmd_set &&
         host.subscription_nodes[node_index].cmd_id == cmd_id) {
       break;
     }
   }
 
+  // node is out of range, indicating nobody register handler
   if (node_index >= SACP_SUBSCRIPTION_NODE_MAX) {
     LOG_W("no body registered subscription node for [%x:%x]\n", cmd_set, cmd_id);
     ret = E_NO_RESRC;
     goto out_subscript;
   }
 
-  // check if there is one same client has register this node of cmd_set & cmd_id
+  // check if there is one same client has subscribed this node before
+  client = &host.subscription_clients[0];
   for (; client_index < SACP_SUBSCRIPTION_CLIENT_MAX; client_index++) {
-    node = host.subscription_clients[client_index].node;
+    if (!client)
+      break;
+
+    node = client->node;
 
     // if have same peer and ch, indicate the client send same request again
     // maybe it just want to change period
-    if (host.subscription_clients[client_index].peer == msg->peer &&
-        host.subscription_clients[client_index].ch == msg->ch) {
-
+    if (client->peer == msg->peer && client->ch == msg->ch) {
       if (!node) {
         LOG_I("client didn't subscribe message ok last time!\n");
         break;
       }
+
       if (node->cmd_set == cmd_set && node->cmd_id == cmd_id) {
-        if (host.subscription_clients[client_index].period != period) {
+        if (client->period != period) {
           LOG_I("same client has registered same node, update period!\n");
           // update period and return
-          xTimerChangePeriod(host.subscription_clients[client_index].timer, period, portMAX_DELAY);
-          host.subscription_clients[client_index].period = period;
+          xTimerChangePeriod(client->timer, period, portMAX_DELAY);
+          client->period = period;
         }
         else {
           LOG_I("same client has registered same node with same period!\n");
@@ -1526,45 +1537,57 @@ err_code_t HostSACPHMI::handle_subscript(void *obj, sacp_hmi_message_t *msg) {
     if (!node) {
       // client subcribe message firstly
       // there is new available client
-      LOG_I("client subscribe message firstly!\n");
+      LOG_V("client subscribe message firstly!\n");
       break;
     }
+
+    client++;
   }
 
-  if (client_index >= SACP_SUBSCRIPTION_CLIENT_MAX) {
+  if (client_index >= SACP_SUBSCRIPTION_CLIENT_MAX || !client) {
     LOG_E("no avaliable client for subscription[%x:%x]\n", cmd_set, cmd_id);
     ret = E_NO_RESRC;
     goto out_subscript;
   }
 
   // add new client
-  xSemaphoreTake(host.subscription_lock, portMAX_DELAY);
-  host.subscription_clients[client_index].peer = msg->peer;
-  host.subscription_clients[client_index].ch   = msg->ch;
-  host.subscription_clients[client_index].period = period;
-  host.subscription_clients[client_index].node = &host.subscription_nodes[node_index];
-  xSemaphoreGive(host.subscription_lock);
-  host.subscription_clients[client_index].timer = xTimerCreate(NULL, pdMS_TO_TICKS(period),
-  pdTRUE, (void *)&host.subscription_clients[client_index], subscription_timer_cb);
-  if (!host.subscription_clients[client_index].timer) {
-    LOG_E("cannot create timersubscription[%x:%x]\n", cmd_set, cmd_id);
+  // create timer firstly
+  timer = xTimerCreate(NULL, pdMS_TO_TICKS(period),
+  pdTRUE, (void *)client, subscription_timer_cb);
+  if (!timer) {
+    LOG_E("cannot create timer for subscription[%x:%x]\n", cmd_set, cmd_id);
     return host_hmi.send_ack(msg, E_NO_MEM);
   }
 
-  if (xTimerStart(host.subscription_clients[client_index].timer, portMAX_DELAY) != pdPASS) {
-    LOG_E("failed to start timer for subscribe[%x:%x]\n", cmd_set, cmd_id);
+  // save parameters
+  xSemaphoreTake(host.subscription_lock, portMAX_DELAY);
+  client->peer   = msg->peer;
+  client->ch     = msg->ch;
+  client->period = period;
+  client->node   = &host.subscription_nodes[node_index];
+  client->timer  = timer;
+  xSemaphoreGive(host.subscription_lock);
+
+  // start timer
+  if (xTimerStart(timer, portMAX_DELAY) != pdPASS) {
+    LOG_E("failed to start timer for subscription[%x:%x]\n", cmd_set, cmd_id);
     ret = E_FAILURE;
 
+    if (xTimerDelete(client->timer, portMAX_DELAY) != pdPASS) {
+      LOG_E("failed to delete Timer!!\n");
+    }
+
     xSemaphoreTake(host.subscription_lock, portMAX_DELAY);
-    host.subscription_clients[client_index].peer = SACP_V1_HOST_INVALID;
-    host.subscription_clients[client_index].ch   = SACP_HMI_CH_MAX;
-    host.subscription_clients[client_index].period = portMAX_DELAY;
-    host.subscription_clients[client_index].node = NULL;
+    client->peer   = SACP_V1_HOST_INVALID;
+    client->ch     = SACP_HMI_CH_MAX;
+    client->period = portMAX_DELAY;
+    client->node   = NULL;
+    client->timer  = NULL;
     xSemaphoreGive(host.subscription_lock);
   }
   else {
     LOG_I("subscribe success!\n");
-    handle = host.subscription_nodes[node_index].handle;
+    handle = client->node->handle;
     while (handle) {
       if (handle->notify_cb)
         handle->notify_cb(handle->obj, msg->peer, msg->ch, SACP_SUBS_NOTIFY_TYPE_SUBSCRIBE);
@@ -1578,14 +1601,15 @@ out_subscript:
 }
 
 
-err_code_t HostSACPHMI::handle_unsubscript(void *obj, sacp_hmi_message_t *msg) {
+err_code_t HostSACPHMI::handle_unsubscription(void *obj, sacp_hmi_message_t *msg) {
   HostSACPHMI &host = *(HostSACPHMI *)obj;
-  err_code_t ret = E_SUCCESS;
-  sacp_subscription_node_t *node = NULL;
+  err_code_t  ret   = E_SUCCESS;
+  uint8_t     cmd_set;
+  uint8_t     cmd_id;
+
+  sacp_subscription_client_t *client = NULL;
+  sacp_subscription_node_t   *node   = NULL;
   sacp_subscription_handle_t *handle = NULL;
-  int client_index = 0;
-  uint8_t cmd_set;
-  uint8_t cmd_id;
 
   if (msg->length < 2) {
     LOG_E("invalid data length[%u] for unsubscription!\n", msg->length);
@@ -1599,47 +1623,104 @@ err_code_t HostSACPHMI::handle_unsubscript(void *obj, sacp_hmi_message_t *msg) {
   LOG_I("unsubscript cmd[%x:%x]!\n", cmd_set, cmd_id);
 
   // check if client has register this node of cmd_set & cmd_id
-  for (; client_index < SACP_SUBSCRIPTION_CLIENT_MAX; client_index++) {
+  client = &host.subscription_clients[0];
+  for (int i = 0; i < SACP_SUBSCRIPTION_CLIENT_MAX; i++) {
+    if (!client)
+      break;
+
     // if have same peer and ch, indicate the client send same request again
     // maybe it just want to change period
-    if (host.subscription_clients[client_index].peer == msg->peer &&
-        host.subscription_clients[client_index].ch == msg->ch) {
+    if (client->peer == msg->peer && client->ch == msg->ch) {
+      node = client->node;
 
-      node = host.subscription_clients[client_index].node;
-      if (!node)
-        break;
-      if (node->cmd_set == cmd_set && node->cmd_id == cmd_id) {
-        xTimerDelete(host.subscription_clients[client_index].timer, portMAX_DELAY);
-        handle = node->handle;
-        // deinit client
-        xSemaphoreTake(host.subscription_lock, portMAX_DELAY);
-        host.subscription_clients[client_index].peer = SACP_V1_HOST_INVALID;
-        host.subscription_clients[client_index].timer = NULL;
-        host.subscription_clients[client_index].node = NULL;
-        host.subscription_clients[client_index].ch = SACP_HMI_CH_MAX;
-        host.subscription_clients[client_index].period = 0;
-        xSemaphoreGive(host.subscription_lock);
-        goto out_unsubscript;
+      if (!node) {
+        LOG_E("a client with peer and ch but no valid node!\n");
+        continue;
       }
+
+      if (node->cmd_set != cmd_set || node->cmd_id != cmd_id)
+        continue;
+
+      if (client->timer) {
+        if (xTimerDelete(client->timer, portMAX_DELAY) != pdPASS) {
+          LOG_E("failed to delete Timer!!\n");
+        }
+      }
+
+      // deinit client
+      xSemaphoreTake(host.subscription_lock, portMAX_DELAY);
+      client->peer   = SACP_V1_HOST_INVALID;
+      client->timer  = NULL;
+      client->node   = NULL;
+      client->ch     = SACP_HMI_CH_MAX;
+      client->period = 0;
+      xSemaphoreGive(host.subscription_lock);
+
+      handle = node->handle;
+      while (handle) {
+        if (handle->notify_cb)
+          handle->notify_cb(handle->obj, msg->peer, msg->ch, SACP_SUBS_NOTIFY_TYPE_UNSUBSCRIBE);
+
+        handle = handle->next;
+      }
+
+      goto out_unsubscript;
     }
 
-    if (!host.subscription_clients[client_index].node) {
-      break;
-    }
+    client++;
   }
 
   LOG_E("cannot found match client for unsubscribe [%x:%x]\n", cmd_set, cmd_id);
   ret = E_PARAM;
 
 out_unsubscript:
-  while (handle) {
-    if (handle->notify_cb)
-      handle->notify_cb(handle->obj, msg->peer, msg->ch, SACP_SUBS_NOTIFY_TYPE_UNSUBSCRIBE);
-
-    handle = handle->next;
-  }
 
   return host_hmi.send_ack(msg, ret);
+}
+
+
+err_code_t HostSACPHMI::unsubscribe_by_peer(uint32_t peer, uint32_t ch) {
+  sacp_subscription_client_t *client = NULL;
+  sacp_subscription_handle_t *handle = NULL;
+
+  LOG_I("clear subscription of peer[%x:%x]!\n", peer, ch);
+
+  client = &subscription_clients[0];
+  for (int i = 0; i < SACP_SUBSCRIPTION_CLIENT_MAX; i++) {
+    // if have same peer and ch, indicate the client send same request again
+    // maybe it just want to change period
+    if (client->peer == peer && client->ch == ch) {
+      // send notification
+      if (client->node) {
+        handle = client->node->handle;
+        while (handle) {
+          if (handle->notify_cb)
+            handle->notify_cb(handle->obj, peer, ch, SACP_SUBS_NOTIFY_TYPE_UNSUBSCRIBE);
+
+          handle = handle->next;
+        }
+      }
+
+      if (client->timer) {
+        if (xTimerDelete(client->timer, portMAX_DELAY) != pdPASS) {
+          LOG_E("failed to delete Timer!!\n");
+        }
+      }
+
+      // deinit client
+      xSemaphoreTake(subscription_lock, portMAX_DELAY);
+      client->peer   = SACP_V1_HOST_INVALID;
+      client->timer  = NULL;
+      client->node   = NULL;
+      client->ch     = SACP_HMI_CH_MAX;
+      client->period = 0;
+      xSemaphoreGive(subscription_lock);
+    }
+
+    client++;
+  }
+
+  return E_SUCCESS;
 }
 
 

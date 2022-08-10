@@ -207,8 +207,10 @@ class HostSACPHMI: public HostSACP {
       return &channels[ch];
     }
 
-    static err_code_t handle_subscript(void *obj, sacp_hmi_message_t *msg);
-    static err_code_t handle_unsubscript(void *obj, sacp_hmi_message_t *msg);
+    static err_code_t handle_subscription(void *obj, sacp_hmi_message_t *msg);
+    static err_code_t handle_unsubscription(void *obj, sacp_hmi_message_t *msg);
+
+    err_code_t unsubscribe_by_peer(uint32_t peer, uint32_t ch);
 
     sacp_route_table_t *get_routetable() { return rt_dynamic; }
     err_code_t register_new_route_handle(void *obj, sacp_hmi_notify_new_route_cb cb);

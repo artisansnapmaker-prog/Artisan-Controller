@@ -450,9 +450,9 @@ static void system_thread(void *p) {
   sm2_module_upgrade_init();
 
   host_hmi.register_callback(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_SUBSCRIPT,
-      (void *)&host_hmi, HostSACPHMI::handle_subscript);
+      (void *)&host_hmi, HostSACPHMI::handle_subscription);
   host_hmi.register_callback(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_UNSUBSCRIPT,
-      (void *)&host_hmi, HostSACPHMI::handle_unsubscript);
+      (void *)&host_hmi, HostSACPHMI::handle_unsubscription);
 
   host_hmi.register_callback(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOBAL_REQ_RUN_GOCDE,
       (void *)&smprinter, SnapmakerPrinter::hmi_cb_run_gcode);

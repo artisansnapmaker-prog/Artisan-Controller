@@ -216,7 +216,7 @@ class HostSACPHMI: public HostSACP {
   // private methods
   private:
     err_code_t parse_packets(sacp_channel_t &channel);
-    err_code_t handle_message(sacp_hmi_message_t &msg, sacp_hmi_handle_t *handle);
+    err_code_t handle_message(sacp_hmi_message_t &msg, sacp_hmi_handle_t *handle, bool &busy_flag, MessageBufferHandle_t queue=NULL);
     err_code_t handle_message(sacp_hmi_message_t &msg);
 
     MessageBufferHandle_t get_event_queue_by_cmd(uint8_t *parser_buff, uint8_t channel);
@@ -242,6 +242,9 @@ class HostSACPHMI: public HostSACP {
     MessageBufferHandle_t events_normal;
     MessageBufferHandle_t events_blocked_without_motion;
     MessageBufferHandle_t events_with_motion;
+    bool thread_blocked_without_motion_busy = false;
+    bool thread_blocked_with_motion_busy = false;
+    bool thread_normal_busy = false;
 
     // waiting queue
     xSemaphoreHandle        waiting_lock;

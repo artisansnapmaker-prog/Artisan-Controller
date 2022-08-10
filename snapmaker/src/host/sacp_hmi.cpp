@@ -916,13 +916,25 @@ MessageBufferHandle_t HostSACPHMI::get_event_queue_by_cmd(uint8_t *buffer, uint8
 
   if (handle->cb_attr & SACP_CB_ATTR_BLOCKED_WITH_MOTION) {
     // check sequence
-    if (!is_retransmited_request(buffer[SACP_V1_FRAME_INDEX_SENDER_ID], channel, seq, &result))
-      return events_with_motion;
+    if (!is_retransmited_request(buffer[SACP_V1_FRAME_INDEX_SENDER_ID], channel, seq, &result)) {
+      if (thread_blocked_with_motion_busy) {
+        LOG_E("Drop cmd[%x:%x]\n", cmd_set, cmd_id);
+        return NULL;
+      }
+      else
+        return events_with_motion;
+    }
   }
   else if (handle->cb_attr & SACP_CB_ATTR_BLOCKED_WITHOUT_MOTION) {
     // check sequence
-    if (!is_retransmited_request(buffer[SACP_V1_FRAME_INDEX_SENDER_ID], channel, seq, &result))
-      return events_blocked_without_motion;
+    if (!is_retransmited_request(buffer[SACP_V1_FRAME_INDEX_SENDER_ID], channel, seq, &result)) {
+      if (thread_blocked_without_motion_busy) {
+        LOG_E("Drop cmd[%x:%x]\n", cmd_set, cmd_id);
+        return NULL;
+      }
+      else
+        return events_blocked_without_motion;
+    }
   }
   else {
     return events_normal;
@@ -1139,6 +1151,7 @@ void HostSACPHMI::handle_receive() {
 
 err_code_t HostSACPHMI::handle_message(sacp_hmi_message_t &msg) {
   sacp_hmi_handle_t *handle = NULL;
+  bool busy_flag;
 
   if (!cmd_set_handle[msg.cmd_set] || cmd_set_handle_len[msg.cmd_set] == 0) {
     LOG_E("nobody have registered handle for cmd[%x:%x]\n", msg.cmd_set, msg.cmd_id);
@@ -1152,10 +1165,12 @@ err_code_t HostSACPHMI::handle_message(sacp_hmi_message_t &msg) {
     }
   }
 
-  return handle_message(msg, handle);
+  return handle_message(msg, handle, busy_flag);
 }
 
-err_code_t HostSACPHMI::handle_message(sacp_hmi_message_t &msg, sacp_hmi_handle_t *handle) {
+err_code_t HostSACPHMI::handle_message(sacp_hmi_message_t &msg, sacp_hmi_handle_t *handle, bool &busy_flag, MessageBufferHandle_t queue) {
+  err_code_t ret = E_FAILURE;
+
   if (!handle) {
     LOG_E("no handle for cmd[%x:%x], ver[%u]\n", msg.cmd_set, msg.cmd_id, msg.ver);
     if (msg.ver == SACP_VER_1)
@@ -1167,7 +1182,19 @@ err_code_t HostSACPHMI::handle_message(sacp_hmi_message_t &msg, sacp_hmi_handle_
   if (msg.ver == SACP_VER_1) {
     if (msg.attr & SACP_MESSAGE_ATTR_ACK) {
       if (handle->ack_cb) {
-        return handle->ack_cb(handle->obj, &msg);
+        taskENTER_CRITICAL();
+        busy_flag = true;
+        taskEXIT_CRITICAL();
+
+        if (queue)
+          xMessageBufferReset(queue);
+        ret = handle->ack_cb(handle->obj, &msg);
+
+        taskENTER_CRITICAL();
+        busy_flag = false;
+        taskEXIT_CRITICAL();
+
+        return ret;
       }
       else {
         LOG_E("no V[%u] callback for ACK[%x:%x]\n", msg.ver, msg.cmd_set, msg.cmd_id);
@@ -1175,7 +1202,18 @@ err_code_t HostSACPHMI::handle_message(sacp_hmi_message_t &msg, sacp_hmi_handle_
     }
     else {
       if (handle->req_cb) {
-        return handle->req_cb(handle->obj, &msg);
+        taskENTER_CRITICAL();
+        busy_flag = true;
+        taskEXIT_CRITICAL();
+
+        if (queue)
+          xMessageBufferReset(queue);
+        ret = handle->req_cb(handle->obj, &msg);
+
+        taskENTER_CRITICAL();
+        busy_flag = false;
+        taskEXIT_CRITICAL();
+        return ret;
       }
       else {
         LOG_E("no V[%u] callback for REQ[%x:%x]\n", msg.ver, msg.cmd_set, msg.cmd_id);
@@ -1212,13 +1250,28 @@ MessageBufferHandle_t HostSACPHMI::get_event_queue_by_thread() {
 
 void HostSACPHMI::handle_events() {
   MessageBufferHandle_t event_queue = NULL;
-  sacp_hmi_message_t msg;
-  uint16_t length;
-  uint16_t pdu_length;
-  uint8_t buffer[SACP_V1_PDU_MAX_SIZE];
-  EventHandle *event_handle;
+  sacp_hmi_message_t    msg;
 
-  event_queue = get_event_queue_by_thread();
+  uint16_t    length;
+  uint16_t    pdu_length;
+  uint8_t     buffer[SACP_V1_PDU_MAX_SIZE];
+  EventHandle *event_handle;
+  bool *busy_flag;
+
+  if (xTaskGetCurrentTaskHandle() == thandle_marlin) {
+    event_queue = events_with_motion;
+    busy_flag   = &thread_blocked_with_motion_busy;
+  }
+  else if (xTaskGetCurrentTaskHandle() == thandle_hmi_blocked_event) {
+    event_queue = events_blocked_without_motion;
+    busy_flag   = &thread_blocked_without_motion_busy;
+  }
+  else {
+    event_queue = events_normal;
+    busy_flag   = &thread_normal_busy;
+  }
+
+
   if (!event_queue)
     return;
 
@@ -1280,7 +1333,7 @@ void HostSACPHMI::handle_events() {
     msg.data    = &buffer[SACP_V0_FRAME_INDEX_DATA];
   }
 
-  handle_message(msg, event_handle->handle);
+  handle_message(msg, event_handle->handle, *busy_flag, (event_queue == events_normal)? NULL : event_queue);
 
   if (event_handle->version == SACP_VER_1) {
     // check if this message is received from new route

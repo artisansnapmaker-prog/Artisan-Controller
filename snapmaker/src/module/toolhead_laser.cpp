@@ -781,8 +781,7 @@ void ToolHeadLaser::can_cb_handle_security_status(void *obj, uint8_t *data, uint
     }
 
     if (new_state & SAFETY_STATE_BIT_TUBE_OVERTEMP) {
-      system_svc.raise_exception_async(laser.get_device_id(), LASER_EXCEP_STA_TUBE_TEMP_TOO_HIGH, EXCEP_ACT_PAUSE_WORKING,
-                                        EXCEP_BAN_TURN_ON_LASER | EXCEP_BAN_WORKING);
+      system_svc.raise_exception_async(laser.get_device_id(), LASER_EXCEP_STA_TUBE_TEMP_TOO_HIGH, EXCEP_ACT_PAUSE_WORKING);
     }
 
     if (new_state & SAFETY_STATE_BIT_ATTITUDE) {
@@ -1753,6 +1752,11 @@ err_code_t ToolHeadLaser::prepare_start(void) {
     else if (safety_state & SAFETY_STATE_BIT_PWM_PIN) {
       ret = E_JOB_LASER_INVLAID_PWN_PIN;
     }
+    else if (safety_state & SAFETY_STATE_BIT_FAN_RUN) {
+      ret = E_JOB_LASER_FAN_EXCEPTION;
+    }
+
+    return ret;
   }
 
   if (exception_state) {

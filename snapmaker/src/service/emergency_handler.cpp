@@ -361,11 +361,13 @@ err_code_t EmergencyHandler::hmi_cb_req_recovery_job(void *obj, sacp_hmi_message
   uint8_t   recv_buff[8];
   uint16_t  recv_length = 8;
 
-  JobEnv *job_env = (JobEnv *)handler.env;
+  JobEnv        *job_env = (JobEnv *)handler.env;
   GcodeFileInfo *env_file_info = &job_env->gcode_file_info;
-  int index = 0;
-  uint16_t *str_len;
+
+  int          index = 0;
+  uint16_t     *str_len;
   SystemStatus ret_sta;
+  err_code_t   ret = E_SUCCESS;
 
   LOG_I("EmergencyHandler: hmi_cb_req_recovery_job\n");
 
@@ -374,14 +376,14 @@ err_code_t EmergencyHandler::hmi_cb_req_recovery_job(void *obj, sacp_hmi_message
     return host_hmi.send_ack(msg, E_JOB_IVALID_POWER_LOSE_DATA);
   }
 
-  if (job_env->type != smprinter.get_toolhead_type()) {
-    LOG_E("EmergencyHandler: toolhead is not same with previous power on\n");
-    return host_hmi.send_ack(msg, E_INVALID_STATE);
+  // check if we can start working
+  if ((ret = smprinter.can_start_work()) != E_SUCCESS) {
+    LOG_E("EmergencyHandler: system not allow start working, ret[%u]\n", ret);
+    return host_hmi.send_ack(msg, ret);
   }
 
-  // check if we can recovery in current status
-  if (smprinter.get_sys_status() != SYSTEM_STATUS_IDLE) {
-    LOG_E("EmergencyHandler: current is not in IDLE\n");
+  if (job_env->type != smprinter.get_toolhead_type()) {
+    LOG_E("EmergencyHandler: toolhead is not same with previous power on\n");
     return host_hmi.send_ack(msg, E_INVALID_STATE);
   }
 

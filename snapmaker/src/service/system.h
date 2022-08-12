@@ -84,6 +84,7 @@ class SystemService {
     bool allow_leveling();
     bool allow_turn_on_laser();
     bool allow_turn_on_cnc();
+    bool allow_homing();
 
     /* raise exception from thread env
     *  owner   - device id

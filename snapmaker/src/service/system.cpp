@@ -630,6 +630,17 @@ bool SystemService::allow_moving() {
 }
 
 
+bool SystemService::allow_homing() {
+  if (bans & (EXCEP_BAN_ENABLE_POWER_MOTIVE |
+              EXCEP_BAN_ENABLE_POWER_8P_MOTOR |
+              EXCEP_BAN_MOVING | EXCEP_BAN_HOMING)) {
+    return false;
+  }
+
+  return true;
+}
+
+
 bool SystemService::allow_heating_bed() {
   if (bans & (EXCEP_BAN_ENABLE_POWER_MOTIVE |
               EXCEP_BAN_ENABLE_POWER_BED |

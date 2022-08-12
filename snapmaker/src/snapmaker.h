@@ -181,6 +181,7 @@ extern motor_pins_t pins_map[PORT_INDEX_MAX];
 #define EXCEP_BAN_HEATING_BED                 (1<<11)
 #define EXCEP_BAN_TURN_ON_LASER               (1<<12)
 #define EXCEP_BAN_TURN_ON_CNC                 (1<<13)
+#define EXCEP_BAN_HOMING                      (1<<14)
 
 #define EXCEP_BAN_ALL                         (0x3FFF)
 
@@ -297,7 +298,7 @@ enum PurifierExceptionState {
 enum LinearException {
   LINEAR_EXCEP_STA_OFFLINE = 1,
   LINEAR_EXCEP_STA_NO_LINEAR,
-  LINEAR_EXCEP_STA_MISS_LINEAR,
+  LINEAR_EXCEP_STA_MISS_X,
   LINEAR_EXCEP_STA_MISS_Y,
   LINEAR_EXCEP_STA_MISS_Z
 };
@@ -625,6 +626,7 @@ class SnapmakerPrinter
     bool allow_leveling();
     bool allow_turn_on_laser();
     bool allow_turn_on_cnc();
+    bool allow_homing();
 
     void check_system_voltage();
 

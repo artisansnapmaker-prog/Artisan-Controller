@@ -1664,6 +1664,12 @@ bool SnapmakerPrinter::allow_turn_on_cnc()  {
   return system_svc.allow_turn_on_cnc();
 }
 
+
+bool SnapmakerPrinter::allow_homing() {
+  return system_svc.allow_homing();
+}
+
+
 void SnapmakerPrinter::check_system_voltage() {
   // check if voltage of system is normal
   uint32_t vol1_raw, vol2_raw;

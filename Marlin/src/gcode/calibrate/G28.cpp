@@ -216,6 +216,11 @@ void GcodeSuite::G28() {
   if (DEBUGGING(LEVELING)) log_machine_info();
 
   #if MB_SNAPMAKER
+    if (!smprinter.allow_homing()) {
+      LOG_E("system exception! cannot home!\n");
+      return;
+    }
+
     if (IsStopped()) {
       SERIAL_ECHOLNPGM(STR_ERR_STOPPED);
       return;

@@ -1681,7 +1681,10 @@ out_unsubscript:
 
 err_code_t HostSACPHMI::handle_unsubscription_by_peer(void *obj, sacp_hmi_message_t *msg) {
   HostSACPHMI &host = *(HostSACPHMI *)obj;
-  return host.unsubscribe_by_peer(msg->peer, msg->ch);
+
+  host.unsubscribe_by_peer(msg->peer, msg->ch);
+
+  return host_hmi.send_ack(msg, E_SUCCESS);
 }
 
 

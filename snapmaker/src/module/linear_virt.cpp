@@ -303,31 +303,47 @@ err_code_t LinearVirtual::deinit() {
 
 
 void LinearVirtual::check_initialization() {
-  if (smprinter.get_model() == SNAPMAKER_MODEL_A400) {
-    if (total_online >= 5) {
-      LOG_I("detect all linear, will reset TMC drivers for A400\n");
-      motion_platform_svc.reset_linear_drivers();
-    }
-    else if (total_online > 0) {
-      LOG_W("didn't get all linear modules, won't configure TMC drivers for A400\n");
-      system_svc.raise_exception(MODULE_DEVICE_ID_A400_LINEAR, LINEAR_EXCEP_STA_MISS_LINEAR, EXCEP_BAN_WORKING);
+  if (smprinter.get_model() != SNAPMAKER_MODEL_A400) {
+    LOG_E("unknown model: %u\n", smprinter.get_model());
+    system_svc.raise_exception(MODULE_DEVICE_ID_A400_CONTROLLER, CONTROLLER_EXCEP_STA_UNKNOWN_MODEL, 0, EXCEP_BAN_MOVING | EXCEP_BAN_WORKING);
+    return;
+  }
 
-      if ((objects[MODULE_LINEAR_Y1] && !objects[MODULE_LINEAR_Y2]) ||
-          (!objects[MODULE_LINEAR_Y1] && objects[MODULE_LINEAR_Y2])) {
-        LOG_E("only get one Y axis! cannot move!\n");
-        system_svc.raise_exception(MODULE_DEVICE_ID_A400_LINEAR, LINEAR_EXCEP_STA_MISS_Y, EXCEP_BAN_WORKING);
-      }
-      if ((objects[MODULE_LINEAR_Z1] && !objects[MODULE_LINEAR_Z2]) ||
-          (!objects[MODULE_LINEAR_Z1] && objects[MODULE_LINEAR_Z2])) {
-        LOG_E("only get one Z axis! cannot move!\n");
-        system_svc.raise_exception(MODULE_DEVICE_ID_A400_LINEAR, LINEAR_EXCEP_STA_MISS_Z, EXCEP_BAN_WORKING);
-      }
+  if (total_online >= 5) {
+    LOG_I("detect all linear, will reset TMC drivers for A400\n");
+    motion_platform_svc.reset_linear_drivers();
+  }
+  else if (total_online > 0) {
+    if ((!objects[MODULE_LINEAR_Y1] || objects[MODULE_LINEAR_Y1]->get_status() != MODULE_STATUS_NORMAL) ||
+        (!objects[MODULE_LINEAR_Y2] || objects[MODULE_LINEAR_Y2]->get_status() != MODULE_STATUS_NORMAL)) {
+      LOG_E("didn't get all Y axis! cannot work!\n");
+      system_svc.raise_exception(MODULE_DEVICE_ID_A400_LINEAR, LINEAR_EXCEP_STA_MISS_Y, 0, EXCEP_BAN_WORKING | EXCEP_BAN_HOMING);
+
+      motion_platform_svc.set_soft_endstops((uint8_t)Z_AXIS, (uint8_t)SOFT_ENDSTOP_MIN, (float)(Y_MAX_POS-1));
+      motion_platform_svc.set_soft_endstops((uint8_t)Z_AXIS, (uint8_t)SOFT_ENDSTOP_MAX, (float)Y_MAX_POS);
     }
-    else {
-      LOG_W("didn't get any linear modules!\n");
-      system_svc.raise_exception(MODULE_DEVICE_ID_A400_LINEAR, LINEAR_EXCEP_STA_NO_LINEAR, EXCEP_BAN_MOVING | EXCEP_BAN_WORKING);
-      return;
+
+    if ((!objects[MODULE_LINEAR_Z1] || objects[MODULE_LINEAR_Z1]->get_status() != MODULE_STATUS_NORMAL) ||
+        (!objects[MODULE_LINEAR_Z2] || objects[MODULE_LINEAR_Z2]->get_status() != MODULE_STATUS_NORMAL)) {
+      LOG_E("didn't get all Z axis! cannot work!\n");
+      system_svc.raise_exception(MODULE_DEVICE_ID_A400_LINEAR, LINEAR_EXCEP_STA_MISS_Z, 0, EXCEP_BAN_WORKING | EXCEP_BAN_HOMING);
+
+      motion_platform_svc.set_soft_endstops((uint8_t)Y_AXIS, (uint8_t)SOFT_ENDSTOP_MIN, (float)(Z_MAX_POS-1));
+      motion_platform_svc.set_soft_endstops((uint8_t)Y_AXIS, (uint8_t)SOFT_ENDSTOP_MAX, (float)Z_MAX_POS);
     }
+
+    if (!objects[MODULE_LINEAR_X1] || objects[MODULE_LINEAR_X1]->get_status() != MODULE_STATUS_NORMAL) {
+      LOG_E("didn't get X axis! cannot work!\n");
+      system_svc.raise_exception(MODULE_DEVICE_ID_A400_LINEAR, LINEAR_EXCEP_STA_MISS_X, 0, EXCEP_BAN_WORKING | EXCEP_BAN_HOMING);
+
+      motion_platform_svc.set_soft_endstops((uint8_t)X_AXIS, (uint8_t)SOFT_ENDSTOP_MIN, (float)X_MIN_POS);
+      motion_platform_svc.set_soft_endstops((uint8_t)X_AXIS, (uint8_t)SOFT_ENDSTOP_MAX, (float)(X_MIN_POS+1));
+    }
+  }
+  else {
+    LOG_W("didn't get any linear modules!\n");
+    system_svc.raise_exception(MODULE_DEVICE_ID_A400_LINEAR, LINEAR_EXCEP_STA_NO_LINEAR, 0, EXCEP_BAN_MOVING | EXCEP_BAN_WORKING);
+    return;
   }
 
   for (int i = 0; i < LINEAR_VIRTUAL_OBJECT_MAX; i++) {

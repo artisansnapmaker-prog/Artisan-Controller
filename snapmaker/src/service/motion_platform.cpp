@@ -1299,6 +1299,9 @@ void MotionPlatformService::set_stepper_count(const AxisEnum axis, uint32_t coun
 void MotionPlatformService::show_coordiantes() {
   LOG_I("active coordinate: %d\n\n", gcode.active_coordinate_system);
 
+  LOG_I("software endstop: X[%.3f - %.3f], Y[%.3f - %.3f], Z[%.3f - %.3f]\n\n", soft_endstop.min.x, soft_endstop.max.x,
+          soft_endstop.min.y, soft_endstop.max.y, soft_endstop.min.z, soft_endstop.max.z);
+
   LOG_I("home state: all: %u, X%u, Y%u, Z%u, A%u, B%u\n\n", all_axes_homed(), axis_was_homed(X_AXIS),
       axis_was_homed(Y_AXIS), axis_was_homed(Z_AXIS), axis_was_homed(I_AXIS), axis_was_homed(J_AXIS));
 

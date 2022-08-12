@@ -487,8 +487,16 @@ static void system_thread(void *p) {
   smprinter.check_system_voltage();
   smprinter.get_hw_version();
   debug.set_boot_log_state(false);
+
   BedVirtual::work_mode_bed_check();
+
   LinearVirtual::check_initialization();
+
+  if (smprinter.get_toolhead_type() == TH_TYPE_UNKNOW) {
+    LOG_E("No toolhead plugged!\n");
+    system_svc.raise_exception(MODULE_DEVICE_ID_A400_CONTROLLER, CONTROLLER_EXCEP_STA_NO_TOOLHEAD,
+                                0, EXCEP_BAN_WORKING);
+  }
 
   // loop
   for (;;) {

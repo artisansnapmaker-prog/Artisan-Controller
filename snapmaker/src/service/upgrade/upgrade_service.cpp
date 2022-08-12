@@ -87,7 +87,13 @@ err_code_t UpdateService::sacp_msg_proc(void * obj, sacp_hmi_message_t *msg) {
 
       upgrade.phase = upgrade.upgrade_phase(pit);
       LOG_I("upgread_servicde: upgrade.phase %d\r\n", upgrade.phase);
-      UpdateService::sacp_msg_proc(obj, msg);
+      if (upgrade.phase == UPGRADE_PHASE_INIT) {
+        LOG_E("upgrade_service: unsupported upgrade package types\r\n");
+        upgrade.upgrade_start_ack(msg, RET_UNKNOWN_PACK_TYPE);
+      }
+      else {
+        UpdateService::sacp_msg_proc(obj, msg);
+      }
     break;
 
     case UPGRADE_PAHSE_APP_START:
@@ -190,7 +196,7 @@ void UpdateService::print_packet_info(pack_info_t *pit) {
   LOG_I("fw run addr: 0x%08x\r\n", pit->fw_runaddr);
   LOG_I("peer: %d\r\n", pit->peer);
   LOG_I("link_ch: %d\r\n", pit->link_ch);
-  LOG_I("boot data checksum: 0x%08x", pit->boot_data_checksum);
+  LOG_I("boot data checksum: 0x%08x\r\n", pit->boot_data_checksum);
 }
 
 UpgradePhase UpdateService::set_updgrade_phase(UpgradePhase p) {

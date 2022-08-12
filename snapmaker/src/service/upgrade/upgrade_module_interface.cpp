@@ -52,8 +52,8 @@ UpgradeModuleInfo upgrade_module_info_tab[] = {
   
   {
     ESP32_FW,                                             /* packet type */
-    0,                                                    /* start id    */
-    0,                                                    /* end id      */
+    MODULE_DEVICE_ID_ESP32_NO_PARSM_OV2640,                       /* start id    */
+    MODULE_DEVICE_ID_ESP32_PARSM_OV2640,                          /* end id      */
     esp32_camera_upgrade_handle_init,
     esp32_camera_upgrade_handle_deinit,
     {
@@ -107,14 +107,9 @@ UpgradeModuleInfo *get_module_upgrade_handls(UpdatePackType pack_type, uint16_t 
     if (pack_type != upgrade_module_info_tab[i].pack_type)
       continue;
 
-    if (ESP32_FW == pack_type) {
+    if (upgrade_module_info_tab[i].start_id <= id &&
+        id <= upgrade_module_info_tab[i].end_id) {
       return &(upgrade_module_info_tab[i]);
-    }
-    else if (SM2_MODULE_FW == pack_type) {
-      if (upgrade_module_info_tab[i].start_id <= id && 
-          id <= upgrade_module_info_tab[i].end_id) {
-        return &(upgrade_module_info_tab[i]);
-      }
     }
   }
 

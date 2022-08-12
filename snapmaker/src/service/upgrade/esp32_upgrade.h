@@ -33,9 +33,10 @@
 #define ESP32_UPDATE_OPCODE_END_NOTIFY           (0x02)
 #define ESP32_UPDATE_OPCODE_FAIL_NOTIFY          (0xFF)
 
-#define ESP32_FW_PACK_INDEX_INVALID             (0xFFFFFFFF) 
-#define ESP32_FW_FILE_OFFSET_INVALID            (0xFFFFFFFF) 
+#define ESP32_FW_PACK_INDEX_INVALID             (0xFFFFFFFF)
+#define ESP32_FW_FILE_OFFSET_INVALID            (0xFFFFFFFF)
 #define ESP32_FW_PACK_MAX_LEN                   (UPGRADE_TRANS_BUF_SIZE)
+#define ESP32_SSTP_MIN_VERION_MSG_LEN           (16)
 
 // esp32 upgrade API
 err_code_t esp32_camera_upgrade_handle_init(UpgradeModuleHandle *func_tab);

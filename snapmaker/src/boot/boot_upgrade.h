@@ -36,6 +36,9 @@
 #define RET_TIMEOUT                           (8)
 #define RET_FLASH_ERROR                       (9)
 #define RET_MODULE_UPGRADE_INIT_ERROR         (10)
+#define RET_UNKNOWN_PACK_TYPE                 (11)
+
+#define RET_SKIP_UPGRADE                      (PRIVATE_ERROR_BASE + 0)
 
 typedef void (*cmd_pf_t)(uint8_t *pl, uint32_t len, uint8_t *out, uint32_t &out_len);
 

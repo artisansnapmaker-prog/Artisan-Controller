@@ -84,7 +84,8 @@ class UpgradeHostToModule {
 
     uint32_t host_id;
     uint32_t host_ch;
-    
+    uint32_t msg_seq;
+
     uint32_t offset;
     uint32_t fw_lenght;
     uint32_t checksum;

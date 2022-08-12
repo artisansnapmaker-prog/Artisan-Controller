@@ -30,6 +30,7 @@ UpgradeHostToModule ugr_hm_svc;
 err_code_t UpgradeHostToModule::init(UpdateService *s) {
   ugr_svc = s;
   status = UPGRADE_HM_STATUS_IDLE;
+  msg_seq = 0xFFFFFFFF;
   return E_SUCCESS;
 }
 
@@ -121,6 +122,7 @@ err_code_t UpgradeHostToModule::sacp_msg_proc(sacp_hmi_message_t *msg) {
 
 err_code_t UpgradeHostToModule::start_proc(sacp_hmi_message_t *msg) {
   pack_info_t *pit;
+  err_code_t ret = E_FAILURE;
 
   pit = (pack_info_t *)(msg->data+2);
   if (!boot_info_check(pit)) {
@@ -130,9 +132,15 @@ err_code_t UpgradeHostToModule::start_proc(sacp_hmi_message_t *msg) {
   }
 
   if (UPGRADE_HM_STATUS_IDLE != status) {
-    LOG_E("upgrade_hm: can not start a upgrade as current is not in IDLE status\r\n");
-    reset_to_idle();
-    return start_ack(msg, RET_STATE_ERROR);
+    if (msg->seq == msg_seq && host_id == msg->peer && host_ch == msg->ch) {
+      LOG_I("The current request is already being processed.\r\n");
+      return start_ack(msg, RET_OK);
+    }
+    else  {
+      LOG_E("upgrade_hm: can not start a upgrade as current is not in IDLE status, status:%d\r\n", status);
+      reset_to_idle();
+      return start_ack(msg, RET_STATE_ERROR);
+    }
   }
 
   module_upgrade_info = get_module_upgrade_handls((UpdatePackType)pit->pack_type, pit->start_index);
@@ -158,15 +166,22 @@ err_code_t UpgradeHostToModule::start_proc(sacp_hmi_message_t *msg) {
   msg_cp = *msg;
   host_id = msg->peer;
   host_ch = msg->ch;
+  msg_seq = msg->seq;
   offset = 0;
   fw_lenght = pit->fw_lenght;
   checksum = pit->fw_checksum;
   status = UPGRADE_HM_STATUS_START;
 
-  ugr_svc->set_updgrade_phase(UPGRADE_PHASE_HOST_TO_MODULE);
-  module_upgrade_info->handle.start_req(pit, NULL);
+  ret = module_upgrade_info->handle.start_req(pit, NULL);
   last_start_req_ms = millis();
   start_req_try = 0;
+
+  // Special handling to skip the current upgrade package, currently only available for ESP32
+  if (ret == RET_SKIP_UPGRADE && pit->pack_type == ESP32_FW) {
+    LOG_I("skip the current upgrade package\n");
+    status = UPGRADE_HM_STATUS_END;
+    module_call_end_ack(RET_OK);
+  }
 
   return E_SUCCESS;
 }
@@ -238,6 +253,7 @@ err_code_t UpgradeHostToModule::module_call_start_ack(uint8_t ret) {
   msg.ver = SACP_VER_1;
   msg.peer = host_id;
   msg.ch = host_ch;
+  msg.seq = msg_seq;
   msg.attr = 0;
   msg.cmd_set = CMD_SET_UPGRADE;
   msg.cmd_id = CMD_ID_UPGRADE_START;

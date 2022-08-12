@@ -6,20 +6,23 @@
 #include "src/pins/pins.h"
 #include "src/core/serial.h"
 
+#include "common/utility.h"
+
+#include "host/sacp.h"
+
 #include "service/module.h"
 #include "service/system.h"
 #include "service/motion_platform.h"
 #include "service/emergency_handler.h"
-
-#include "host/sacp.h"
 #include "service/client_node.h"
 #include "service/job_ctrl.h"
-#include "common/utility.h"
 #include "service/upgrade/upgrade_service.h"
 #include "service/upgrade/sm2_upgrade.h"
 
 #include "HAL/interrupt.h"
 #include "HAL/core.h"
+
+#include "module/linear_virt.h"
 
 SnapmakerPrinter smprinter;
 
@@ -485,6 +488,7 @@ static void system_thread(void *p) {
   smprinter.get_hw_version();
   debug.set_boot_log_state(false);
   BedVirtual::work_mode_bed_check();
+  LinearVirtual::check_initialization();
 
   // loop
   for (;;) {

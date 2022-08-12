@@ -4,10 +4,6 @@
 #include "../service/system.h"
 #include "../common/utility.h"
 
-enum LinearException {
-  LINEAR_EXCEPTION_OFFLINE = 1,
-};
-
 #define ROUTINE_TIMEOUT   (200)
 #define OFFLINE_DEBOUNCE  (5)
 
@@ -129,7 +125,7 @@ err_code_t LinearVirtual::pre_init() {
   digitalWrite(standby_pin, EXIT_STANDBY);
   taskEXIT_CRITICAL();
 
-  LOG_I("axis[%s] exit from standby\n", axis_name);
+  LOG_I("axis[%s] exits the standby state\n", axis_name);
 
   return E_SUCCESS;
 }
@@ -150,21 +146,6 @@ err_code_t LinearVirtual::post_init() {
   next_ms = millis() + ROUTINE_TIMEOUT;
 
   total_online++;
-
-  if (smprinter.get_model() == SNAPMAKER_MODEL_A400) {
-    if (total_online >= 5) {
-      LOG_I("detect all linear, will reset TMC drivers for A400\n");
-      motion_platform_svc.reset_linear_drivers();
-    }
-    else {
-      LOG_W("didn't get all linear modules, won't configure TMC drivers for A400\n");
-    }
-  }
-
-  // register callback only one time
-  if (total_online < 2)
-    host_hmi.register_subscription(SACP_CMD_SET_LINEAR_MODULE, SACP_CMD_ID_LINEAR_SUBSCRIBE_STATE,
-              (void *)this, hmi_cb_publish_state);
 
   return E_SUCCESS;
 }
@@ -285,7 +266,7 @@ err_code_t LinearVirtual::routine(void *obj) {
         // standby
         digitalWrite(linear.standby_pin, ENTER_STANDBY);
         // raise exception
-        system_svc.raise_exception(MODULE_DEVICE_ID_A400_LINEAR,  LINEAR_EXCEPTION_OFFLINE,
+        system_svc.raise_exception(MODULE_DEVICE_ID_A400_LINEAR,  LINEAR_EXCEP_STA_OFFLINE,
           EXCEP_ACT_PAUSE_WORKING, EXCEP_BAN_MOVING);
       }
     }
@@ -304,7 +285,7 @@ err_code_t LinearVirtual::routine(void *obj) {
         digitalWrite(linear.standby_pin, EXIT_STANDBY);
         vTaskDelay(pdMS_TO_TICKS(5));
         digitalWrite(TMC_EN, TMC_EN_ON);
-        system_svc.clear_exception(MODULE_DEVICE_ID_A400_LINEAR,  LINEAR_EXCEPTION_OFFLINE);
+        system_svc.clear_exception(MODULE_DEVICE_ID_A400_LINEAR,  LINEAR_EXCEP_STA_OFFLINE);
       }
     }
   }
@@ -318,4 +299,44 @@ err_code_t LinearVirtual::deinit() {
   set_status(MODULE_STATUS_OFFLINE);
 
   return E_SUCCESS;
+}
+
+
+void LinearVirtual::check_initialization() {
+  if (smprinter.get_model() == SNAPMAKER_MODEL_A400) {
+    if (total_online >= 5) {
+      LOG_I("detect all linear, will reset TMC drivers for A400\n");
+      motion_platform_svc.reset_linear_drivers();
+    }
+    else if (total_online > 0) {
+      LOG_W("didn't get all linear modules, won't configure TMC drivers for A400\n");
+      system_svc.raise_exception(MODULE_DEVICE_ID_A400_LINEAR, LINEAR_EXCEP_STA_MISS_LINEAR, EXCEP_BAN_WORKING);
+
+      if ((objects[MODULE_LINEAR_Y1] && !objects[MODULE_LINEAR_Y2]) ||
+          (!objects[MODULE_LINEAR_Y1] && objects[MODULE_LINEAR_Y2])) {
+        LOG_E("only get one Y axis! cannot move!\n");
+        system_svc.raise_exception(MODULE_DEVICE_ID_A400_LINEAR, LINEAR_EXCEP_STA_MISS_Y, EXCEP_BAN_WORKING);
+      }
+      if ((objects[MODULE_LINEAR_Z1] && !objects[MODULE_LINEAR_Z2]) ||
+          (!objects[MODULE_LINEAR_Z1] && objects[MODULE_LINEAR_Z2])) {
+        LOG_E("only get one Z axis! cannot move!\n");
+        system_svc.raise_exception(MODULE_DEVICE_ID_A400_LINEAR, LINEAR_EXCEP_STA_MISS_Z, EXCEP_BAN_WORKING);
+      }
+    }
+    else {
+      LOG_W("didn't get any linear modules!\n");
+      system_svc.raise_exception(MODULE_DEVICE_ID_A400_LINEAR, LINEAR_EXCEP_STA_NO_LINEAR, EXCEP_BAN_MOVING | EXCEP_BAN_WORKING);
+      return;
+    }
+  }
+
+  for (int i = 0; i < LINEAR_VIRTUAL_OBJECT_MAX; i++) {
+    if (objects[i]) {
+      // register callback only one time
+      host_hmi.register_subscription(SACP_CMD_SET_LINEAR_MODULE, SACP_CMD_ID_LINEAR_SUBSCRIBE_STATE,
+                  (void *)objects[i], hmi_cb_publish_state);
+
+      break;
+    }
+  }
 }

@@ -57,6 +57,8 @@ class LinearVirtual: public ModuleBase {
 
     static err_code_t routine(void *obj);
 
+    static void check_initialization();
+
   // private methods
   private:
 

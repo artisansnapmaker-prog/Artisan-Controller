@@ -310,8 +310,8 @@ err_code_t MotionPlatformService::hmi_cb_request_home(void *obj, sacp_hmi_messag
 
   home_axis = msg->data[0];
 
-  if (!system_svc.allow_moving()) {
-    LOG_E("cannot moving as exception[0x%x]\n", system_svc.get_bans());
+  if (!system_svc.allow_homing()) {
+    LOG_E("cannot homing as exception[0x%x]\n", system_svc.get_bans());
     return host_hmi.send_ack(msg, E_HARDWARE);
   }
 
@@ -1229,26 +1229,29 @@ void MotionPlatformService::update_soft_endstops(uint8_t axis, uint8_t minmax, f
 void MotionPlatformService::set_soft_endstops(uint8_t axis, uint8_t minmax, float val) {
   switch (axis) {
     case X_AXIS:
-      if (minmax == 0) {
+      if (minmax == SOFT_ENDSTOP_MIN) {
         soft_endstop.min.x = val;
-      } else if (minmax == 1) {
+      } else if (minmax == SOFT_ENDSTOP_MAX) {
         soft_endstop.max.x = val;
       }
       break;
+
     case Y_AXIS:
-      if (minmax == 0) {
+      if (minmax == SOFT_ENDSTOP_MIN) {
         soft_endstop.min.y = val;
-      } else if (minmax == 1) {
+      } else if (minmax == SOFT_ENDSTOP_MAX) {
         soft_endstop.max.y = val;
       }
       break;
+
     case Z_AXIS:
-      if (minmax == 0) {
+      if (minmax == SOFT_ENDSTOP_MIN) {
         soft_endstop.min.z = val;
-      } else if (minmax == 1) {
+      } else if (minmax == SOFT_ENDSTOP_MAX) {
         soft_endstop.max.z = val;
       }
       break;
+
     default:
       break;
   }

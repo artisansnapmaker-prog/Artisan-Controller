@@ -40,6 +40,9 @@
 #define AXIS_NUM  6
 #define XYZ 3
 
+#define SOFT_ENDSTOP_MIN (0)
+#define SOFT_ENDSTOP_MAX (1)
+
 #define MOTION_PLATFORM_QUEUE_SIZE  (512)
 
 enum AxisKey {

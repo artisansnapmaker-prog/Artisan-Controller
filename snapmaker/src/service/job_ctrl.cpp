@@ -248,7 +248,7 @@ err_code_t JobCtrl::req_stop( enum JobStopType st,
                               job_req_notify_cb_t cb/* = NULL*/,
                               void *p/* = NULL*/) {
   if (!smprinter.can_stop_work()) {
-    LOG_E("job_ctrl: Can not stop a job as current status is no working or paused\r\n");
+    LOG_E("job_ctrl: Can not stop a job as current status is not in working or paused\r\n");
     return E_JOB_NOT_IN_PAUSE_STATUS;
   }
 

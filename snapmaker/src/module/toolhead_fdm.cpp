@@ -1703,7 +1703,7 @@ int16_t ToolHeadFDM::get_extruders_feedrate_percentage(uint8_t e) {
     return E_PARAM;
   }
 
-  LOG_I("get extruder%d feedrate percentage: %d\n", e, extruders_feedrate_percentage[e]);
+  LOG_V("get extruder%d feedrate percentage: %d\n", e, extruders_feedrate_percentage[e]);
   return extruders_feedrate_percentage[e];
 }
 

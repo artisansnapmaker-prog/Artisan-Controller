@@ -258,7 +258,7 @@ err_code_t Enclosure::set_enclosure_dev_func(uint8_t dev_type, uint8_t value, bo
   uint8_t buffer[8];
   uint8_t out[8];
   uint8_t i = 0;
-  uint8_t recv_len = 0;
+  uint8_t recv_len = 8;
   uint8_t real_level = 0; 
   smcan_message_t msg;
   err_code_t ret = E_FAILURE;   

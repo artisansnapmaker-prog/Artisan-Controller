@@ -303,6 +303,7 @@ err_code_t ToolHeadCNC::post_init() {
   
   system_svc.clear_exception_by_owner(get_device_id());
   motion_platform_svc.set_home_offset(0, 0, 0);
+  motion_platform_svc.sync_feedrate_percentage_to_platform(feedrate_percentage);
   smprinter.register_module(MODULE_DEVICE_ID_CNC_50W_2019, this);
   LOG_I("CNC post_init out\n");
   LOG_I("CNC ready!\n");

@@ -648,6 +648,7 @@ err_code_t ToolHeadCNC200W::post_init() {
   }
 
   motion_platform_svc.set_home_offset(0, 0, 0);
+  motion_platform_svc.sync_feedrate_percentage_to_platform(feedrate_percentage);
   smprinter.register_module(MODULE_DEVICE_ID_CNC_200W_2021, this);
 
   system_svc.clear_exception_by_owner(get_device_id());

@@ -513,7 +513,7 @@ err_code_t JobCtrl::machine_standby(void) {
 void JobCtrl::get_gcodes_from_client(void) {
   req_batch_gcode_t req_batch_gcode;
   res_batch_gcode_t res_batch_gcode;
-  uint8_t batch_gcode_buf[GCODE_REQ_BUFFER_MIN];
+  uint8_t batch_gcode_buf[GCODE_REQ_BUFFER_MIN + 1];
   uint8_t retry_times = 0;
 
   // while((uint32_t)_gcode_rb.free() >= _get_gcode_buffer_req_min) {
@@ -530,6 +530,10 @@ void JobCtrl::get_gcodes_from_client(void) {
       LOG_W("job_ctrl: no need to get gcode, line: %d\r\n",__LINE__);
       return;
     }
+
+    if (retry_times >= 3)
+        break;
+
     // LOG_I("job_ctrl: get gcode from client %d, startline %d, buffer %d\r\n", _client_id, req_batch_gcode.line_num, req_batch_gcode.buf_len);
     if(ClientNode::get_batch_gcode(_client_id, req_batch_gcode, res_batch_gcode)) {
       if (E_SUCCESS != res_batch_gcode.result &&
@@ -613,8 +617,6 @@ void JobCtrl::get_gcodes_from_client(void) {
     else {
       // _err_get_batch_gcode_cnt++;
       retry_times++;
-      if (retry_times >= 3)
-        break;
     }
   }
 

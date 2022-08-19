@@ -188,6 +188,8 @@ err_code_t ToolHeadLaser::hmi_cb_get_info(void *obj, sacp_hmi_message_t *message
     return host_hmi.send_ack(message, E_INVALID_MODULE_KEY);
   }
 
+  laser.read_focal_length();
+
   LOG_I("get laser info\n");
 
   message->data[0] = E_SUCCESS;
@@ -223,8 +225,6 @@ err_code_t ToolHeadLaser::hmi_cb_get_info(void *obj, sacp_hmi_message_t *message
   message->length = sizeof(LaserToolHeadInfo) + 1;
 
   host_hmi.send_ack(message);
-
-  laser.read_focal_length();
 
   return laser.report_bt_mac(message->peer, message->ch);
 }
@@ -1372,7 +1372,7 @@ err_code_t ToolHeadLaser::read_focal_length() {
   uint8_t recv_len = 4;
 
   ModuleBase *rotary = module_svc.get_module(MODULE_DEVICE_ID_ROTARY_2020, 0);
-  if (rotary && rotary->get_status() == MODULE_STATUS_NORMAL) {
+  if (rotary/* && rotary->get_status() == MODULE_STATUS_NORMAL*/) {
     // get focal_length in 4-axis condition
     // LOG_I("read focal len with rotary\n");
     buffer[0] = 1;

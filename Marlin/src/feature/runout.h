@@ -121,7 +121,7 @@ class TFilamentMonitor : public FilamentMonitorBase {
     // Give the response a chance to update its counter.
     static inline void run() {
       uint32_t state = smprinter.get_fdm_state();
-      if (enabled && !filament_ran_out && (smprinter.get_sys_status() == SYSTEM_STATUS_PRINTING || smprinter.get_sys_status() == SYSTEM_STATUS_XY_CALIBRATING)) {
+      if (enabled && !filament_ran_out && (smprinter.get_sys_status() == SYSTEM_STATUS_PRINTING || smprinter.get_sys_status() == SYSTEM_STATUS_XY_CALIBRATING_PRINTING)) {
         TERN_(HAS_FILAMENT_RUNOUT_DISTANCE, cli()); // Prevent RunoutResponseDelayed::block_completed from accumulating here
         response.run();
         sensor.run();

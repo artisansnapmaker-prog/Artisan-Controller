@@ -141,7 +141,7 @@ struct JobEnv {
   uint32_t E_stepper_count;
   float print_feadrate;
   float travel_feadrate;
-  bool g0g1_relative_mode;
+  uint16_t g0g1_relative_mode;
   int16_t bed_temp[BED_ZONE_MAX];
   int8_t active_coordinate;
   uint32_t toolhead_env_buf_size;

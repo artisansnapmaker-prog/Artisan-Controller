@@ -159,8 +159,8 @@ class MotionPlatformService {
     void set_feedrate(float);
     float get_travl_feedrate(void);
     void set_travl_feedrate(float);
-    bool get_relative_mode(void);
-    void set_relative_mode(bool);
+    axis_bits_t get_relative_mode(void);
+    void set_relative_mode(axis_bits_t);
     void set_feedrate_percentage(int16_t percentage) {}
 
     // position info API

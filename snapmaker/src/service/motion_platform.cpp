@@ -676,12 +676,12 @@ void MotionPlatformService::set_travl_feedrate(float tfr) {
 #endif
 }
 
-bool MotionPlatformService::get_relative_mode(void) {
-  return relative_mode;
+axis_bits_t MotionPlatformService::get_relative_mode(void) {
+  return gcode.axis_relative;
 }
 
-void MotionPlatformService::set_relative_mode(bool rm) {
-  relative_mode = rm;
+void MotionPlatformService::set_relative_mode(axis_bits_t rm) {
+  gcode.axis_relative = rm;
 }
 
 void MotionPlatformService::set_hotend_temp(int16_t temp, int e) {

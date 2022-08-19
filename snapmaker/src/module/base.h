@@ -354,6 +354,8 @@ class ModuleBase {
     virtual err_code_t factory_reset() { return E_SUCCESS; }
 
     virtual bool check_online() = 0;
+    virtual void start_work_reset_feedrate() {}
+    virtual void stop_work_reset_feedrate() {}
 
     int get_function_priority(uint16_t function_id);
 

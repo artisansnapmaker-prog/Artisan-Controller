@@ -739,6 +739,9 @@ void JobCtrl::do_start(struct JobCtrlReqInfo &jri) {
     break;
   }
 
+  // start printing reset feedrate
+  smprinter.start_work_reset_feedrate();
+
   // requst enter next status
   if( E_SUCCESS != smprinter.set_sys_status(next_status, &ret_sys_status)) {
     LOG_E("job_ctrl: Can not enter to printing mode[%u] at current status[%u]\r\n", next_status, ret_sys_status);
@@ -1010,6 +1013,9 @@ void JobCtrl::do_stop(struct JobCtrlReqInfo &jri) {
   }
 
   // TODO: emergency
+
+  // stop printing reset feedrate
+  smprinter.stop_work_reset_feedrate();
 
   if (E_SUCCESS != machine_standby()) {
     LOG_E("job ctrl: machine standby failure\r\n");

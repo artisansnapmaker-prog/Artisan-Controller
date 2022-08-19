@@ -481,7 +481,7 @@ err_code_t ToolHeadCNC::resume_env(uint8_t *env_buf, uint32_t &len) {
     LOG_I("CNC cur_rpm: %d target_rpm: %d\n",  tmp_info->cur_rpm, tmp_info->target_rpm);
     LOG_I("CNC speed feedrate: %d\n",*((uint16_t*)(env_buf + sizeof(CNCToolHeadInfo))));
 
-    if (!set_speed_feedrate(*((uint16_t*)(env_buf + sizeof(CNCToolHeadInfo))))) {
+    if (!set_speed_feedrate(*((int16_t*)(env_buf + sizeof(CNCToolHeadInfo))))) {
       LOG_E("[%s] resume speed feedrate fail.\n",__FUNCTION__);
       goto resume_out;
     }
@@ -991,17 +991,18 @@ err_code_t ToolHeadCNC::register_hmi_command_func(void *obj) {
   return E_SUCCESS;
 }
 
-bool ToolHeadCNC::set_speed_feedrate(uint16_t feedrate) {
+bool ToolHeadCNC::set_speed_feedrate(int16_t feedrate) {
   bool ret = false;
   if (public_mutex_lock()) {
     feedrate_percentage = feedrate;
     public_mutex_unlock();
     ret = true;
-    motion_platform_svc.sync_feedrate_percentage_to_platform(feedrate_percentage);
   }
   else {
+    feedrate_percentage = feedrate;
     LOG_E("[%s] take public_mutex_lock fail\n", __FUNCTION__);
   }
+  motion_platform_svc.sync_feedrate_percentage_to_platform(feedrate_percentage);
   return ret;
 }
 
@@ -1036,3 +1037,10 @@ uint16_t ToolHeadCNC::get_feedrate_percentage(uint8_t *buffer) {
   return index;
 }
 
+void ToolHeadCNC::start_work_reset_feedrate() {
+  set_speed_feedrate(100);
+}
+
+void ToolHeadCNC::stop_work_reset_feedrate() {
+  set_speed_feedrate(100);
+}

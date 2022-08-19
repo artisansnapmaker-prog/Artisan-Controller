@@ -1838,3 +1838,13 @@ uint16_t ToolHeadLaser::get_feedrate_percentage(uint8_t *buffer) {
 
   return index;
 }
+
+void ToolHeadLaser::start_work_reset_feedrate() {
+  feedrate_percentage = 100;
+  motion_platform_svc.sync_feedrate_percentage_to_platform(feedrate_percentage);
+}
+
+void ToolHeadLaser::stop_work_reset_feedrate() {
+  feedrate_percentage = 100;
+  motion_platform_svc.sync_feedrate_percentage_to_platform(feedrate_percentage);
+}

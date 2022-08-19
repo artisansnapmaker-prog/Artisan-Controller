@@ -634,6 +634,8 @@ class SnapmakerPrinter
 
     void req_quick_stop() { quick_stop = true; }
     void check_if_quickstop();
+    void start_work_reset_feedrate();
+    void stop_work_reset_feedrate();
 
   private:
     enum SystemStatus sys_status;

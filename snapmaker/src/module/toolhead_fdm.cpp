@@ -193,7 +193,6 @@ err_code_t ToolHeadFDM::single_extruder_post_init() {
   smprinter.register_module(get_device_id(), this);
   module_svc.register_routine((void *)this, fdm_callback_routine);
 
-  job_ctrl_svc.register_notify_handle(JOB_NOTIFY_TYPE_STARTED, (void *)this, fdm_callback_start_print);
 
   set_status(MODULE_STATUS_NORMAL);
   LOG_I("fdm single extruder ready\n");
@@ -358,8 +357,6 @@ err_code_t ToolHeadFDM::dual_extruder_post_init() {
 
   smprinter.register_module(get_device_id(), this);
   module_svc.register_routine((void *)this, fdm_callback_routine);
-
-  job_ctrl_svc.register_notify_handle(JOB_NOTIFY_TYPE_STARTED, (void *)this, fdm_callback_start_print);
 
   set_status(MODULE_STATUS_NORMAL);
   LOG_I("fdm dual extruder ready\n");
@@ -2029,12 +2026,12 @@ void ToolHeadFDM::prepare_to_start_a_new_print_job(void) {
   extruders_feedrate_percentage[0] = 100;
   extruders_feedrate_percentage[1] = 100;
   motion_platform_svc.sync_feedrate_percentage_to_platform(100);
-  LOG_I("fdm start a new print job, clear feedrate\n");
+  LOG_I("fdm clear feedrate\n");
 
   extruders_flowrate_percentage[0] = 100;
   extruders_flowrate_percentage[1] = 100;
   motion_platform_svc.sync_flowrate_percentage_to_platform(100, active_extruder);
-  LOG_I("fdm start a new print job, clear flowrate\n");
+  LOG_I("fdm clear flowrate\n");
 }
 
 // called when start a new print job or resume an old print job
@@ -2343,4 +2340,12 @@ err_code_t ToolHeadFDM::set_right_extruder_pos(float raise_for_home_pos, float z
   }
 
   return ret;
+}
+
+void ToolHeadFDM::start_work_reset_feedrate() {
+  prepare_to_start_a_new_print_job();
+}
+
+void ToolHeadFDM::stop_work_reset_feedrate() {
+  prepare_to_start_a_new_print_job();
 }

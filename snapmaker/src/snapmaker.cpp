@@ -1748,7 +1748,17 @@ void SnapmakerPrinter::get_hw_version() {
   LOG_I("vol: %.2fv, hw version: %u\n", ver_vol, hw_ver);
 }
 
+void SnapmakerPrinter::start_work_reset_feedrate() {
+  ModuleBase *module = get_cur_toolhead();
+  if (module)
+    module->start_work_reset_feedrate();
+}
 
+void SnapmakerPrinter::stop_work_reset_feedrate() {
+  ModuleBase *module = get_cur_toolhead();
+  if (module)
+    module->stop_work_reset_feedrate();
+}
 
 
 // must call in marlin idle()

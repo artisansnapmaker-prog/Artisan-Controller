@@ -174,6 +174,8 @@ class ToolHeadLaser: public ModuleBase {
     err_code_t report_bt_mac(uint32_t peer, uint8_t ch);
 
     void show_status();
+    void start_work_reset_feedrate();
+    void stop_work_reset_feedrate();
 
     // speed level: 0 - 255
     err_code_t set_fan(uint8_t speed);

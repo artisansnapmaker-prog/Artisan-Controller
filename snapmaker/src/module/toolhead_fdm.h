@@ -216,6 +216,8 @@ class ToolHeadFDM: public ModuleBase {
     err_code_t set_feedrate_percentage(uint8_t *data, uint16_t length);
     uint16_t get_feedrate_percentage(uint8_t *buffer);
     err_code_t factory_reset();
+    void start_work_reset_feedrate();
+    void stop_work_reset_feedrate();
 
     err_code_t probe_state_sync();
     err_code_t hotend_type_sync();

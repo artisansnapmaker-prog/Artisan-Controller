@@ -646,6 +646,10 @@ static err_code_t hmi_req_callback_set_live_z_offset(void *obj, sacp_hmi_message
     goto EXIT;
   }
 
+  bedlevel.set_live_z_offset(e, offset);
+  if (bedlevel.live_z_offset[e] != offset)
+    ret = E_FAILURE;
+
   // send request as the result of execution
   index              = 0;
   msg->data[index++] = ret;
@@ -654,7 +658,6 @@ static err_code_t hmi_req_callback_set_live_z_offset(void *obj, sacp_hmi_message
   msg->cmd_id        = BEDLEVEL_ERQ_CMD_ID_SET_LIVE_Z_OFFSET_RESULT;
   msg->attr          = 0;
   host_hmi.send_sync(msg, recv_buffer, &recv_len, 2000, 3);
-  bedlevel.set_live_z_offset(e, offset);
   return ret;
 
 EXIT:

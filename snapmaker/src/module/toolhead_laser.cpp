@@ -765,10 +765,6 @@ void ToolHeadLaser::can_cb_handle_security_status(void *obj, uint8_t *data, uint
   laser.offline_count = 0;
 
   laser.safety_state = data[0];
-  if (laser.safety_state > 0) {
-    // when exception appear, turn off laser
-    laser.set_output(0);
-  }
 
   diff_state = laser.safety_state^pre_state;
   pre_state = laser.safety_state;

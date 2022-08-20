@@ -1017,6 +1017,9 @@ void JobCtrl::do_stop(struct JobCtrlReqInfo &jri) {
   // stop printing reset feedrate
   smprinter.stop_work_reset_feedrate();
 
+  if (smprinter.get_toolhead_type() == TH_TYPE_3DP)
+    motion_platform_svc.set_bed_temp(0, BED_ZONE_MAX);
+
   if (E_SUCCESS != machine_standby()) {
     LOG_E("job ctrl: machine standby failure\r\n");
     smprinter.set_sys_status(SYSTEM_STATUS_IDLE, &ret_sys_status);

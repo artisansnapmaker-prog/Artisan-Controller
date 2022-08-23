@@ -492,10 +492,25 @@ err_code_t JobCtrl::machine_standby(void) {
 
   if (TH_TYPE_3DP == _env.type || TH_TYPE_CNC == _env.type) {
     LOG_I("job_ctrl: Z raise to highest\r\n");
+    bool leveling_active = planner.leveling_active;
+    constexpr xyz_float_t endstop_backoff = HOMING_BACKOFF_POST_MM;
+    float z_max = 0;
     motion_platform_svc.update_position_from_platform();
     t_pos = motion_platform_svc.sm_current_position;
-    t_pos.z = 395;
+    // t_pos.z = 395;
+    z_max = Z_MAX_POS - endstop_backoff[Z_AXIS];
+    if (cur_toolhead->get_device_id() == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021)
+      z_max -= DUAL_EXTRUDER_SAFE_SPACE_MAX_Z;
+    NOLESS(t_pos.z, z_max);
+    NOMORE(t_pos.z, soft_endstop.max.z);
+
+    if (leveling_active)
+      set_bed_leveling_enabled(false);
+
     motion_platform_svc.moveto(t_pos, RESUME_Z_FEEDRATE, true);
+
+    if (leveling_active)
+      set_bed_leveling_enabled(true);
 
     if (TH_TYPE_3DP == _env.type) {
       LOG_I("job_ctrl: y move to fronthead\r\n");

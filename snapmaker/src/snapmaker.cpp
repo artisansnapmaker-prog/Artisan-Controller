@@ -929,7 +929,7 @@ enum SystemStatus SnapmakerPrinter::get_sys_status(void) {
 
 err_code_t SnapmakerPrinter::set_sys_status(enum SystemStatus req_status, enum SystemStatus *ret_status) {
   err_code_t ret = E_FAILURE;
-
+  SystemStatus sys_status_bak = sys_status;
   LOCK(status_lock, 0xFFFFFFFF);
   switch (req_status)
   {
@@ -1217,7 +1217,7 @@ err_code_t SnapmakerPrinter::set_sys_status(enum SystemStatus req_status, enum S
     *ret_status = sys_status;
   UNLOCK(status_lock);
 
-  LOG_I("snapmaker: system enter %d\r\n", sys_status);
+  LOG_I("snapmaker: pre system status: %d, system enter: %d, req system status:%d\r\n", sys_status_bak, sys_status, req_status);
 
   return ret;
 }

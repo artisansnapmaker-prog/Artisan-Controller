@@ -247,6 +247,7 @@ class JobCtrl {
     bool gcode_file_info_check(struct GcodeFileInfo *gfi);
 
     err_code_t register_notify_handle(JobNotifyType type, void *obj, job_req_notify_cb_t);
+    SystemStatus get_status_before_start(void) { return status_before_start; }
 
   // private methods
   private:

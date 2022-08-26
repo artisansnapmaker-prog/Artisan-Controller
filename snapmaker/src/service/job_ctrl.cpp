@@ -883,6 +883,7 @@ void JobCtrl::do_pause(struct JobCtrlReqInfo &jri) {
 
 void JobCtrl::do_resume(struct JobCtrlReqInfo &jri) {
   enum SystemStatus ret_sys_status;
+  enum SystemStatus resume_sys_status = SYSTEM_STATUS_PRINTING;
 
   if (E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_RESUMING, &ret_sys_status)) {
     LOG_E("job_ctrl: Can not enter to SYS_RESUMING status\r\n");
@@ -919,7 +920,10 @@ void JobCtrl::do_resume(struct JobCtrlReqInfo &jri) {
 
   motion_platform_svc.stepper_total_offset = 0;
 
-  if (E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_PRINTING, NULL)) {
+  if (status_before_start == SYSTEM_STATUS_XY_CALIBRATING)
+    resume_sys_status = SYSTEM_STATUS_XY_CALIBRATING_PRINTING;
+
+  if (E_SUCCESS != smprinter.set_sys_status(resume_sys_status, NULL)) {
     LOG_E("job ctrl: can not enter SYS_PRINTING status");
     smprinter.set_sys_status(SYSTEM_STATUS_IDLE, &ret_sys_status);
     DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, E_FAILURE);

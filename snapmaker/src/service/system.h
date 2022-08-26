@@ -140,7 +140,7 @@ class SystemService {
 
   // public properties
   public:
-
+    static bool raise_emergency_stop;
   // private properties
   private:
     BaseType_t lock_sta = pdFAIL;

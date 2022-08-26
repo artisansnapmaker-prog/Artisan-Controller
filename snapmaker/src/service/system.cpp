@@ -8,6 +8,8 @@
 
 SystemService system_svc;
 
+bool SystemService::raise_emergency_stop = false;
+
 struct __packed ExceptionInfo {
   uint8_t   level;
   uint16_t owner;
@@ -285,9 +287,12 @@ ack_hmi:
 
   buffer[4] = get_bans(&buffer[5], 140 - 5);
 
-  if (!same_exception && smprinter.get_sys_status() != SYSTEM_STATUS_EMERGENCY_STOP && \
-      smprinter.get_sys_status() != SYSTEM_STATUS_REPLACE_MODE)
+  if (!same_exception && ((!raise_emergency_stop || owner == MODULE_DEVICE_ID_A400_EMERGENCY_STOP) \
+      && smprinter.get_sys_status() != SYSTEM_STATUS_REPLACE_MODE))
     ret = notification_raise_exception(owner, state, buffer, buffer[4] + 5);
+
+  if (owner == MODULE_DEVICE_ID_A400_EMERGENCY_STOP && state == EMERGENCY_STOP_EXCEP_STA_TRIGGERRED)
+    raise_emergency_stop = true;
 
   return ret;
 }

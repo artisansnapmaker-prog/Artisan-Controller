@@ -33,7 +33,7 @@
 static AT_CCRAM StackType_t stack_jobctrl_thread[SYSTEM_TASK_STACK_SIZE];
 static AT_CCRAM StaticTask_t tcb_jobctrl;
 
-static AT_CCRAM uint8_t gcode_ring_buffer[GCODE_RB_SIZE];
+static /*AT_CCRAM*/ uint8_t gcode_ring_buffer[GCODE_RB_SIZE];
 static AT_CCRAM uint8_t issue_ret_rb[4];
 
 static AT_CCRAM uint8_t queue_buffer_jobctrl[JOB_CTRL_REQ_INFO_BUF];
@@ -528,7 +528,7 @@ err_code_t JobCtrl::machine_standby(void) {
 void JobCtrl::get_gcodes_from_client(void) {
   req_batch_gcode_t req_batch_gcode;
   res_batch_gcode_t res_batch_gcode;
-  uint8_t batch_gcode_buf[GCODE_REQ_BUFFER_MIN + 1];
+  uint8_t batch_gcode_buf[GCODE_REQ_BUFFER_MIN];
   uint8_t retry_times = 0;
 
   // while((uint32_t)_gcode_rb.free() >= _get_gcode_buffer_req_min) {

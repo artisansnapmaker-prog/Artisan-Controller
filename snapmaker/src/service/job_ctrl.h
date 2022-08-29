@@ -82,15 +82,15 @@
 #define E_JOB_ISSUE_RET_IVALID_GCODE_LINE_NUMBER        SACP_JOB_PAUSE_ISSUE_RET_IVALID_GCODE_LINE_NUMBER
 #define E_JOB_ISSUE_RET_GET_GCODE_FAILURE               SACP_JOB_PAUSE_ISSUE_RET_GET_GCODE_FAILURE
 
-#define JOB_LOCK_WAIT_TICK (0xFFFFFFFF)
-#define MODULE_ENV_MAX_SIZE 128
-#define GCODE_RB_SIZE 1024
-#define RESUME_XY_FEEDRATE 50
-#define RESUME_Z_FEEDRATE 30
-#define JOB_CTRL_LOOP_TIME_MS (100)
-#define JOB_CTRL_REQ_INFO_BUF ((sizeof(struct JobCtrlReqInfo) + 8) * 4)
-#define DO_JOB_REQ_NOTIFY_CB(cb, p, ret)                do{ if(cb) (cb)(p, ret); } while(0)
-#define GCODE_REQ_BUFFER_MIN 512
+#define JOB_LOCK_WAIT_TICK                 (0xFFFFFFFF)
+#define MODULE_ENV_MAX_SIZE                128
+#define GCODE_RB_SIZE                      (1024*2)
+#define RESUME_XY_FEEDRATE                 50
+#define RESUME_Z_FEEDRATE                  30
+#define JOB_CTRL_LOOP_TIME_MS              (100)
+#define JOB_CTRL_REQ_INFO_BUF              ((sizeof(struct JobCtrlReqInfo) + 8) * 4)
+#define DO_JOB_REQ_NOTIFY_CB(cb, p, ret)   do { if(cb) (cb)(p, ret); } while(0)
+#define GCODE_REQ_BUFFER_MIN               512
 
 #define JOB_CTRL_NOTIFY_QUEUE_SIZE  (16)
 

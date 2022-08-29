@@ -377,6 +377,11 @@ bool ClientNode::sacp_get_batch_gcode(req_batch_gcode_t &req_batch_gcode, res_ba
   sacp_hmi_message_t s_msg;
   uint8_t buf[SEND_BUF_SIZE];
 
+  if (res_batch_gcode.gcode_str == NULL || req_batch_gcode.buf_len < 1) {
+    LOG_E("client_node: res_batch_gcode param error, buf_len: %d\r\n", req_batch_gcode.buf_len);
+    return false;
+  }
+
   // 11 is the start of linenumber end of linenumber and so on
   if (req_batch_gcode.buf_len + 11 > SEND_BUF_SIZE) {
     LOG_E("client_node: sacp_get_batch_gcode req buf len too large\r\n");
@@ -390,10 +395,10 @@ bool ClientNode::sacp_get_batch_gcode(req_batch_gcode_t &req_batch_gcode, res_ba
   s_msg.cmd_set = CMD_SET_JOB_CTRL;
   s_msg.cmd_id = CMD_ID_JOB_CTRL_REQ_GCODE;
   _32_TO_LITTLE_STREAM(req_batch_gcode.line_num, buf);
-  _16_TO_LITTLE_STREAM(req_batch_gcode.buf_len, buf + 4);
+  _16_TO_LITTLE_STREAM((req_batch_gcode.buf_len - 1), buf + 4);
   s_msg.length = 6;
   out_len = SEND_BUF_SIZE;
-  ret = host_hmi.send_sync(&s_msg, buf, &out_len, 3000);
+  ret = host_hmi.send_sync(&s_msg, buf, &out_len, 500);
   if (E_SUCCESS == ret) {
     if(out_len < 8){
       LOG_E("Client node: batch gcode response lenght error, must > 8, but get %d\r\n", out_len);
@@ -406,7 +411,14 @@ bool ClientNode::sacp_get_batch_gcode(req_batch_gcode_t &req_batch_gcode, res_ba
     uint16_t str_len = LITTLE_STREAM_TO_16(p); p += 2;
     // LOG_I("client_node: start line %d, end line %d, strlen %d\r\n", res_batch_gcode.start_line_num, res_batch_gcode.end_line_num, str_len);
     // LOG_I("gcode string: %s\r\n", (char *)p);
-    memcpy(res_batch_gcode.gcode_str, p, str_len); p += str_len;
+    if (str_len >= req_batch_gcode.buf_len) {
+      LOG_E("Client node: get too much data, not enough space, data len %d, buff len %d\r\n", str_len, req_batch_gcode.buf_len - 1);
+      return false;
+    }
+
+    if (str_len)
+      memcpy(res_batch_gcode.gcode_str, p, str_len);
+
     res_batch_gcode.gcode_str[str_len] = '\0';
     return true;
   }

@@ -851,6 +851,9 @@ void SnapmakerPrinter::security_check() {
     if (door_sta)
       limit_power = LASER_POWER_SAFE_LIMIT;
 
+    if (laser->get_safety_lock())
+      limit_power = LASER_POWER_SAFE_LOCK_LIMIT;
+
     if (laser->get_power_limit() !=  limit_power)
       laser->set_power_limit(limit_power);
   }

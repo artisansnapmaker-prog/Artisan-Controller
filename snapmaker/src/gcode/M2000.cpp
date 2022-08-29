@@ -208,6 +208,7 @@ void GcodeSuite::M2000() {
 
   {
     ToolHeadLaser *laser = NULL;
+    ModuleBase *device = NULL;
     sacp_hmi_message_t laser_msg;
     uint8_t buffer[32];
     if (l < 0xff) {
@@ -221,6 +222,9 @@ void GcodeSuite::M2000() {
       laser_msg.data = buffer;
       buffer[0] = laser->get_key();
     }
+
+    device = smprinter.get_cur_toolhead();
+
     switch (l)
     {
     case 0:
@@ -232,7 +236,12 @@ void GcodeSuite::M2000() {
       break;
 
     case 1:
-      // clear security error
+      // set safety lock
+      {
+        if (device && (device->get_device_id() == MODULE_DEVICE_ID_LASER_10W_2021 || \
+            device->get_device_id() == MODULE_DEVICE_ID_LASER_1P6W_2019))
+          ((ToolHeadLaser *)device)->set_safety_lock(!!p);
+      }
       break;
 
     case 2:

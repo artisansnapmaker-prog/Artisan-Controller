@@ -90,6 +90,7 @@ static __attribute__((section(".data"))) uint8_t power_table_10w[]= {
   255
 };
 
+bool ToolHeadLaser::safety_lock = true;
 
 // HMI subscription callbacks
 void ToolHeadLaser::read_safety_state() {
@@ -647,39 +648,44 @@ err_code_t ToolHeadLaser::hmi_cb_exit_calibraion(void *obj, sacp_hmi_message_t *
 err_code_t ToolHeadLaser::hmi_cb_set_safety_lock(void *obj, sacp_hmi_message_t *message) {
   ToolHeadLaser &laser = *(ToolHeadLaser *)obj;
 
+  if (!obj || !message || message->length != 2) {
+    LOG_E("get safety lock: invalid param\n");
+    return host_hmi.send_ack(message, E_PARAM);
+  }
+
+  if (message->data[0] != laser.get_key()) {
+    LOG_E("invalid module key[%u] in cmd[%x:%x]\n", message->data[0], message->cmd_set, message->cmd_id);
+    return host_hmi.send_ack(message, E_INVALID_MODULE_KEY);
+  }
+  laser.set_safety_lock(!!message->data[1]);
+
+  return host_hmi.send_ack(message, E_SUCCESS);
+}
+
+err_code_t ToolHeadLaser::hmi_cb_get_safety_lock(void *obj, sacp_hmi_message_t *message) {
+  ToolHeadLaser &laser = *(ToolHeadLaser *)obj;
+  uint16_t data_len = 0;
+
+  if (!obj || !message || message->length < 1) {
+    LOG_E("get safety lock: invalid param\n");
+    return host_hmi.send_ack(message, E_PARAM);
+  }
+
   if (message->data[0] != laser.get_key()) {
     LOG_E("invalid module key[%u] in cmd[%x:%x]\n", message->data[0], message->cmd_set, message->cmd_id);
     return host_hmi.send_ack(message, E_INVALID_MODULE_KEY);
   }
 
-  if (message->data[1] == UNLOCK_LASER) {
-    if (laser.get_status() == MODULE_STATUS_NORMAL) {
-      host_hmi.send_ack(message, E_SUCCESS);
-    }
+  message->data[data_len++] = E_SUCCESS;
+  message->data[data_len++] = safety_lock;
+  message->length = data_len;
 
-    if (laser.get_status() != MODULE_STATUS_LASER_LOCKED) {
-      LOG_E("cannot unlock laser in state[&u]\n", laser.get_status());
-      return host_hmi.send_ack(message, E_INVALID_STATE);
-    }
+  return host_hmi.send_ack(message, message->data, data_len);
+}
 
-    laser.set_status(MODULE_STATUS_NORMAL);
-  }
-  else {
-    if (laser.get_status() == MODULE_STATUS_LASER_LOCKED) {
-      return host_hmi.send_ack(message, E_SUCCESS);
-    }
-
-    if (laser.get_status() != MODULE_STATUS_NORMAL) {
-      LOG_E("cannot lock laser in state[&u]\n", laser.get_status());
-      return host_hmi.send_ack(message, E_INVALID_STATE);
-    }
-
-    // will turn off laser when it is locked for safety
-    laser.set_output((float)0);
-    laser.set_status(MODULE_STATUS_LASER_LOCKED);
-  }
-
-  return host_hmi.send_ack(message, E_SUCCESS);
+void ToolHeadLaser::set_safety_lock(bool lock_state) {
+  safety_lock = lock_state;
+  LOG_I("laser: set safety_lock: %s\n", safety_lock ? "LOCK" : "UNLOCK");
 }
 
 
@@ -1153,6 +1159,8 @@ err_code_t ToolHeadLaser::post_init() {
     hmi_cb_set_focal_length);
   host_hmi.register_callback(SACP_CMD_SET_LASER, SACP_CMD_ID_LASER_SET_SAFETY_LOCK, (void *)this,
     hmi_cb_set_safety_lock);
+  host_hmi.register_callback(SACP_CMD_SET_LASER, SACP_CMD_ID_LASER_GET_SAFETY_LOCK, (void *)this,
+    hmi_cb_get_safety_lock);
 
   // publish power
   host_hmi.register_subscription(SACP_CMD_SET_LASER, SACP_CMD_ID_LASER_SUBSCRIBE_POWER, (void *)this,
@@ -1652,6 +1660,7 @@ void ToolHeadLaser::show_status() {
   LOG_I("imu temp: %d\n", imu_temp);
   LOG_I("platform hight: %d\n", smsettings->laser_platform_hight);
   LOG_I("4axis center hight: %d\n", smsettings->laser_4axis_center_hight);
+  LOG_I("safety_lock: %s\n", safety_lock ? "LOCK" : "UNLOCK");
 }
 
 typedef struct __packed LaserEnv {
@@ -1731,6 +1740,8 @@ err_code_t ToolHeadLaser::quickstop(void) {
 
 err_code_t ToolHeadLaser::prepare_start(void) {
   err_code_t ret = E_SUCCESS;
+
+  LOG_I("laser prepare start: safety_lock is %s\n", safety_lock ? "LOCK" : "UNLOCK");
 
   if (get_device_id() == MODULE_DEVICE_ID_LASER_1P6W_2019)
     return E_SUCCESS;

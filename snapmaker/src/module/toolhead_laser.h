@@ -23,10 +23,11 @@
 
 #include "base.h"
 
-#define LASER_POWER_MAX           (100)
-#define LASER_POWER_NORMA_LIMIT   (LASER_POWER_MAX)
-#define LASER_POWER_SAFE_LIMIT    (0.5)
-#define LASER_CAMERA_FOCUS_MAX    (65000) // 65mm
+#define LASER_POWER_MAX                    (100)
+#define LASER_POWER_NORMA_LIMIT            (LASER_POWER_MAX)
+#define LASER_POWER_SAFE_LIMIT             (0.5)
+#define LASER_CAMERA_FOCUS_MAX             (65000) // 65mm
+#define LASER_POWER_SAFE_LOCK_LIMIT        (0)
 
 
 #define LASER_PLATFORM_HIGHT_DEFAULT      (50 * 1000)   // 50mm
@@ -47,6 +48,7 @@ enum LaserSACPCommandId {
   SACP_CMD_ID_LASER_SET_SAFETY_LOCK,
   SACP_CMD_ID_LASER_SET_PLATFORM_HIGHT,
   SACP_CMD_ID_LASER_SET_4AXIS_HIGHT,
+  SACP_CMD_ID_LASER_GET_SAFETY_LOCK,
 
   SACP_CMD_ID_LASER_MAX
 };
@@ -176,6 +178,8 @@ class ToolHeadLaser: public ModuleBase {
     void show_status();
     void start_work_reset_feedrate();
     void stop_work_reset_feedrate();
+    void set_safety_lock(bool lock_state);
+    bool get_safety_lock(void) { return safety_lock; }
 
     // speed level: 0 - 255
     err_code_t set_fan(uint8_t speed);
@@ -217,6 +221,7 @@ class ToolHeadLaser: public ModuleBase {
     static err_code_t hmi_cb_set_cali_mode(void *obj, sacp_hmi_message_t *message);
     static err_code_t hmi_cb_exit_calibraion(void *obj, sacp_hmi_message_t *message);
     static err_code_t hmi_cb_set_safety_lock(void *obj, sacp_hmi_message_t *message);
+    static err_code_t hmi_cb_get_safety_lock(void *obj, sacp_hmi_message_t *message);
 
     // callback for HMI publish
     static uint16_t hmi_cb_publish_safety_state(void *obj, uint8_t *buffer);
@@ -245,6 +250,9 @@ class ToolHeadLaser: public ModuleBase {
 
     err_code_t set_feedrate_percentage(uint8_t *data, uint16_t length);
     uint16_t get_feedrate_percentage(uint8_t *buffer);
+
+  public:
+    static bool safety_lock;
 
   private:
     ToolHeadLaserTubeStatus tube_status;

@@ -190,8 +190,8 @@ class ToolHeadLaser: public ModuleBase {
     void check_master_switch(uint16_t new_power_pwm);
     void if_disable_switch();
 
-    // callback for module event and routine
     static void can_cb_handle_security_status(void *obj, uint8_t *data, uint8_t length);
+    // callback for module event and routine
     static void can_cb_handle_focal_len(void *obj, uint8_t *data, uint8_t length);
     static void client_cb_report_bt_mac(void *obj, uint8_t id, SACPRouteStatus status);
     friend err_code_t laser_routine(void *obj);

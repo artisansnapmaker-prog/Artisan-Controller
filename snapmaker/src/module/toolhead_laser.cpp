@@ -1808,6 +1808,7 @@ err_code_t ToolHeadLaser::factory_reset() {
   if (get_device_id() == MODULE_DEVICE_ID_LASER_10W_2021) {
     ret += set_temp_threshold(LASER_10W_TEMP_THRESHOLD_PROTECTED, LASER_10W_TEMP_THRESHOLD_RECOVER);
   }
+  safety_lock = true;
 
   return ret;
 }

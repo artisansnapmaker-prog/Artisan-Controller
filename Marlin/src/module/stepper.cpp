@@ -1668,6 +1668,16 @@ void Stepper::pulse_phase_isr() {
     // motion_platform_svc.stepper_quickstop_finish();
     // motion_platform_svc.stepper_quickstop_cb();
     #endif
+
+    #if MB_SNAPMAKER
+      if (!endstops.z_probe_enabled && smprinter.get_probe_state()) {
+        // Get Z where the steppers were interrupted
+        set_current_from_steppers_for_axis(Z_AXIS);
+
+        // Tell the planner where we actually are
+        sync_plan_position();
+      }
+    #endif
   }
 
   // If there is no current block, do nothing

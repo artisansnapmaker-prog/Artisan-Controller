@@ -1650,6 +1650,11 @@ err_code_t ToolHeadFDM::tool_change(uint8_t new_tool, bool z_compensation/*=true
 
     active_extruder = new_tool;
     motion_platform_svc.update_active_extruder_to_platform(active_extruder);
+    if (active_extruder == 0) {
+      set_probe_sensor(PROBE_SENSOR_LEFT_OPTOCOUPLER);
+    } else if (active_extruder == 1) {
+      set_probe_sensor(PROBE_SENSOR_RIGHT_OPTOCOUPLER);
+    }
 
     if (new_tool == 1) {
       extruder_status_check_ctrl(EXTRUDER_STATUS_IDLE);

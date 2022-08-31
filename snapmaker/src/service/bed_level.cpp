@@ -328,6 +328,10 @@ static err_code_t hmi_req_callback_exit_level(void *obj, sacp_hmi_message_t *msg
     if ((offset < DEFAULT_HOTEND_OFFSET_Z - BIAS_HOTEND_OFFSET_Z) || (offset > DEFAULT_HOTEND_OFFSET_Z + BIAS_HOTEND_OFFSET_Z)) {
       LOG_E("z hotend offset error: %f\n", offset);
       ret = E_PARAM;
+      pos_to_raise = motion_platform_svc.get_current_position(Z_AXIS) + 100;
+      if (pos_to_raise > 400)
+        pos_to_raise = 400;
+      motion_platform_svc.moveto_z(pos_to_raise, 30);
       goto EXIT;
     }
     smprinter.fdm->set_hotend_offset(offset, Z_AXIS);
@@ -547,6 +551,12 @@ static err_code_t hmi_req_callback_probe_sensor_calibration(void *obj, sacp_hmi_
 
   if (bedlevel.get_bedlevel_mode() != BEDLEVEL_MODE_PROBE_SENSOR_CALIBRATE) {
     ret = E_FAILURE;
+    goto EXIT;
+  }
+
+  if (smprinter.fdm->get_fdm_fault_state(FDM_FAULT_EXTRUDER_STATE)) {
+    LOG_I("refuse probe sensor calibration because of extruder state error!\n");
+    ret = E_EXCEPTION;
     goto EXIT;
   }
 

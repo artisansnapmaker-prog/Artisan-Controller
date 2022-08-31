@@ -643,8 +643,10 @@ void _O2 Endstops::report_states() {
 // Check endstops - Could be called from Temperature ISR!
 void Endstops::update() {
 
-  #if !ENDSTOP_NOISE_THRESHOLD
-    if (!abort_enabled()) return;
+  #if !MB_SNAPMAKER
+    #if !ENDSTOP_NOISE_THRESHOLD
+      if (!abort_enabled()) return;
+    #endif
   #endif
 
   #define UPDATE_ENDSTOP_BIT(AXIS, MINMAX) SET_BIT_TO(live_state, _ENDSTOP(AXIS, MINMAX), (READ(_ENDSTOP_PIN(AXIS, MINMAX)) != _ENDSTOP_INVERTING(AXIS, MINMAX)))
@@ -983,6 +985,27 @@ void Endstops::update() {
   #endif
 
   // Signal, after validation, if an endstop limit is pressed or not
+
+  #if MB_SNAPMAKER
+    if (stepper.axis_is_moving(Z_AXIS)) {
+      if (stepper.motor_direction(Z_AXIS_HEAD)) {
+        ModuleBase *toolhead = smprinter.get_cur_toolhead();
+        if (toolhead->get_device_id() == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
+          if (!z_probe_enabled) {
+            if (smprinter.get_probe_state()) {
+              planner.endstop_triggered(Z_AXIS);
+            }
+          }
+        }
+      }
+    }
+  #endif
+
+  #if MB_SNAPMAKER
+    #if !ENDSTOP_NOISE_THRESHOLD
+      if (!abort_enabled()) return;
+    #endif
+  #endif
 
   #if MB_SNAPMAKER
     if (stepper.axis_is_moving(X_AXIS)) {

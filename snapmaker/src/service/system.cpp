@@ -220,17 +220,19 @@ ack_hmi:
     if (smprinter.get_sys_status() == SYSTEM_STATUS_PRINTING) {
         // normal printing
         // pause it firsly
-        err_code_t ret = E_FAILURE;
-        if ((ret = job_ctrl_svc.req_pause(PAUSE_EXCEPTION, NULL, NULL)) == E_SUCCESS)
-          LOG_E("SystemService: pause working as exception to get env!\n");
-        taskYIELD();
 
-        // get env and save it to emergency record
-        if (ret == E_SUCCESS) {
-          JobEnv *env = job_ctrl_svc.get_env();
-          emergency_hdl.save_env_manually((uint8_t *)env, sizeof(JobEnv));
-          LOG_E("SystemService: saved env!\n");
-        }
+        // TODO: Subsequent refinements
+        // err_code_t ret = E_FAILURE;
+        // if ((ret = job_ctrl_svc.req_pause(PAUSE_EXCEPTION, NULL, NULL)) == E_SUCCESS)
+        //   LOG_E("SystemService: pause working as exception to get env!\n");
+        // taskYIELD();
+
+        // // get env and save it to emergency record
+        // if (ret == E_SUCCESS) {
+        //   JobEnv *env = job_ctrl_svc.get_env();
+        //   emergency_hdl.save_env_manually((uint8_t *)env, sizeof(JobEnv));
+        //   LOG_E("SystemService: saved env!\n");
+        // }
 
         // then stop work
         job_ctrl_svc.req_stop(STOP_EXCEPTION, SACP_JOB_PAUSE_ISSUE_RET_EXCEPTION, NULL, NULL);

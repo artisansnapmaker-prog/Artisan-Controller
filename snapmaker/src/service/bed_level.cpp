@@ -244,8 +244,9 @@ static err_code_t hmi_req_callback_exit_level(void *obj, sacp_hmi_message_t *msg
   uint8_t  recv_buffer[4];
   uint16_t recv_len = 4;
   float pos_to_raise;
+  enum SystemStatus sys_status;
 
-  LOG_I("hmi request exit bedlevel mode\n");
+  LOG_I("hmi request exit bedlevel mode, cur system status: %d\n", smprinter.get_sys_status());
 
   // response to hmi first
   index = 0;
@@ -255,6 +256,22 @@ static err_code_t hmi_req_callback_exit_level(void *obj, sacp_hmi_message_t *msg
 
   if (smprinter.get_sys_status() == SYSTEM_STATUS_IDLE) {
     ret = E_SUCCESS;
+    goto EXIT;
+  }
+
+  sys_status = smprinter.get_sys_status();
+  if (!((sys_status >= SYSTEM_STATUS_XY_CALIBRATING && \
+       sys_status <= SYSTEM_STATUS_PROBE_SENSOR_CALIBRATION) || \
+       (job_ctrl_svc.get_status_before_start() == SYSTEM_STATUS_XY_CALIBRATING && smprinter.on_working()))) {
+    LOG_E("The current mode is not in bedlevel mode, exit fail");
+    ret = E_INVALID_STATE;
+    goto EXIT;
+  }
+
+  if (sys_status == SYSTEM_STATUS_PAUSING || sys_status == SYSTEM_STATUS_RESUMING || \
+      sys_status == SYSTEM_STATUS_XY_CALIBRATING_PRINTING) {
+    ret = E_FAILURE;
+    LOG_E("need to stop the current print job to exit the bedlevel mode");
     goto EXIT;
   }
 
@@ -644,6 +661,20 @@ static err_code_t hmi_req_callback_set_live_z_offset(void *obj, sacp_hmi_message
   msg->data[index++] = E_SUCCESS;
   msg->length = index;
   host_hmi.send_ack(msg);
+
+  if (motion_platform_svc.homing_now == true) {
+    ret = E_BUSY;
+    LOG_W("homing now, z_offset is not allowed to be adjusted\n");
+    goto EXIT;
+  }
+
+  if (!(smprinter.get_sys_status() == SYSTEM_STATUS_PAUSED || \
+      smprinter.get_sys_status() == SYSTEM_STATUS_IDLE ||   \
+      smprinter.on_printing())) {
+    ret = E_INVALID_STATE;
+    LOG_W("current state z_offset is not allowed to be adjusted\n");
+    goto EXIT;
+  }
 
   if (ABS(offset) > LIVE_Z_OFFSET_LIMIT) {
     ret = E_PARAM;
@@ -1095,19 +1126,38 @@ void BedLevelService::set_live_z_offset(uint8_t e, float offset) {
     live_z_offset_changed = true;
     LOG_I("z cur height changed: %f\n", offset - live_z_offset[e]);
     if (e == smprinter.fdm->get_active_extruder()) {
-      err_code_t ret = job_ctrl_svc.req_pause(PUASE_LIVE_Z_OFFSET, NULL, NULL);
+      err_code_t ret = E_FAILURE;
+      bool req_pause = false;
+      if (smprinter.on_printing()) {
+        ret = job_ctrl_svc.req_pause(PUASE_LIVE_Z_OFFSET, NULL, NULL);
+        if (ret == E_SUCCESS)
+          req_pause = true;
+      }
+      else {
+        if (smprinter.get_sys_status() == SYSTEM_STATUS_PAUSED || smprinter.get_sys_status() == SYSTEM_STATUS_IDLE) {
+          ret = E_SUCCESS;
+        }
+      }
+
       if (ret != E_SUCCESS) {
-        LOG_E("request pause failed when set live_z_offset\n");
+        LOG_E("The current state does not allow modification of live_z_offsett\n");
         return;
       }
-      while(smprinter.get_sys_status() != SYSTEM_STATUS_PAUSED) {
+
+      // TODO: add plus timeout to jump out
+      while(smprinter.get_sys_status() != SYSTEM_STATUS_PAUSED && \
+            smprinter.get_sys_status() != SYSTEM_STATUS_IDLE) {
         motion_platform_svc.synchronize_planner();
       }
+
       float cur_z = motion_platform_svc.get_current_position(Z_AXIS);
       motion_platform_svc.moveto_z(cur_z + (offset - live_z_offset[e]), 5);
       motion_platform_svc.sm_current_position[Z_AXIS] = cur_z;
       motion_platform_svc.sync_plan_position_to_platform();
-      job_ctrl_svc.req_resume(0, NULL, NULL, RESUME_TYPE_LIVE_Z_OFFSET);
+
+      if (req_pause) {
+        job_ctrl_svc.req_resume(0, NULL, NULL, RESUME_TYPE_LIVE_Z_OFFSET);
+      }
     }
     live_z_offset[e] = offset;
     if (smprinter.get_sys_status() == SYSTEM_STATUS_IDLE) {

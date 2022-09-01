@@ -69,6 +69,7 @@ void JobCtrl::init(void) {
   _statistics_log_last_tick_ms = 0;
   _env.gfi_valid = false;
   abort_resume = false;
+  req_stop_trigger = false;
   status_before_start = SYSTEM_STATUS_IDLE;
   got_last_gcode_packet = false;
 
@@ -125,7 +126,7 @@ void JobCtrl::background_thread(void *p) {
 }
 
 void JobCtrl::request_gcode_process(void *p) {
-  if (!got_last_gcode_packet && smprinter.on_printing()) {
+  if (!got_last_gcode_packet && smprinter.on_printing() && !req_stop_trigger) {
     get_gcodes_from_client();
   }
 
@@ -252,6 +253,11 @@ err_code_t JobCtrl::req_stop( enum JobStopType st,
     return E_JOB_NOT_IN_PAUSE_STATUS;
   }
 
+  if (req_stop_trigger) {
+    LOG_E("job_ctrl: Machine is stopping, no need to repeat stop  system status : %d\n", smprinter.get_sys_status());
+    return E_BUSY;
+  }
+
   abort_resume = true;
 
   JobCtrlReqInfo jri;
@@ -265,6 +271,8 @@ err_code_t JobCtrl::req_stop( enum JobStopType st,
     LOG_E("job_ctrl: can not submit a job ctrl request\r\n");
     return E_NO_RESRC;
   }
+
+  req_stop_trigger = true;
 
   return E_SUCCESS;
 }
@@ -516,7 +524,8 @@ err_code_t JobCtrl::machine_standby(void) {
       LOG_I("job_ctrl: y move to fronthead\r\n");
       motion_platform_svc.update_position_from_platform();
       t_pos = motion_platform_svc.sm_current_position;
-      t_pos.y = 395;
+      if (t_pos.y < 395)
+        t_pos.y = 395;
       motion_platform_svc.moveto(t_pos, RESUME_XY_FEEDRATE, true);
     }
   }
@@ -541,7 +550,7 @@ void JobCtrl::get_gcodes_from_client(void) {
     //}
     res_batch_gcode.gcode_str = batch_gcode_buf;
 
-    if (got_last_gcode_packet || !smprinter.on_printing()) {
+    if (got_last_gcode_packet || !smprinter.on_printing() || req_stop_trigger) {
       LOG_W("job_ctrl: no need to get gcode, line: %d\r\n",__LINE__);
       return;
     }
@@ -604,7 +613,7 @@ void JobCtrl::get_gcodes_from_client(void) {
 
         // gcode ringbuffer guarantee to hold all the gcode string.
         LOCK(_lock, JOB_LOCK_WAIT_TICK);
-        if (!smprinter.on_printing()) {
+        if (!smprinter.on_printing() || req_stop_trigger) {
           UNLOCK(_lock);
           LOG_W("job_ctrl: no need to get gcode, line: %d\r\n",__LINE__);
           return;
@@ -778,6 +787,7 @@ void JobCtrl::do_pause(struct JobCtrlReqInfo &jri) {
   enum SystemStatus ret_sys_status;
   uint32_t start_millis, end_millis;
   bool need_standby = false;
+  err_code_t ret = E_FAILURE;
 
   ret_sys_status = smprinter.get_sys_status();
   if (  SYSTEM_STATUS_PRINTING != ret_sys_status &&
@@ -793,6 +803,18 @@ void JobCtrl::do_pause(struct JobCtrlReqInfo &jri) {
     LOG_E("job ctrl: can not to enter SYS_PAUSEING status\r\n");
     DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, E_FAILURE);
     return;
+  }
+
+  // subsequent requests can be stopped to add interrupt flags
+  while (motion_platform_svc.homing_now == true && !req_stop_trigger) {
+    vTaskDelay(100);
+    LOG_I("job ctrl: req_stop, wait machine homing finish\r\n");
+  }
+
+  if (req_stop_trigger) {
+    // No need to resume printing
+    LOG_I("job ctrl: stop notify trigger abort_pasue, no need to resume printing\r\n");
+    goto abort_pasue;
   }
 
   start_millis = millis();
@@ -826,7 +848,7 @@ void JobCtrl::do_pause(struct JobCtrlReqInfo &jri) {
     break;
   }
 
-  err_code_t ret = save_env();
+  ret = save_env();
   if (E_SUCCESS != ret) {
     LOG_I("job_ctrl:failed to save env, ret=%u\r\n", ret);
     smprinter.set_sys_status(SYSTEM_STATUS_IDLE, &ret_sys_status);
@@ -848,12 +870,18 @@ void JobCtrl::do_pause(struct JobCtrlReqInfo &jri) {
     return;
   }
 
+abort_pasue:
   if (E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_PAUSED, &ret_sys_status)) {
     LOG_E("job ctrl: can not enter SYS_PAUSED status");
     smprinter.set_sys_status(SYSTEM_STATUS_IDLE, &ret_sys_status);
     DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, E_FAILURE);
     return;
   }
+
+  LOCK(_lock, JOB_LOCK_WAIT_TICK);
+  _gcode_rb.reset();
+  got_last_gcode_packet = false;
+  UNLOCK(_lock);
 
   _paused = true;
   if (PAUSE_DOOR_OPEN == jri.req_data.req_pause_data.type) {
@@ -901,6 +929,11 @@ void JobCtrl::do_resume(struct JobCtrlReqInfo &jri) {
     }
   }
 
+  LOCK(_lock, JOB_LOCK_WAIT_TICK);
+  _gcode_rb.reset();
+  got_last_gcode_packet = false;
+  UNLOCK(_lock);
+
   if (E_SUCCESS != resume_env(jri.req_data.req_resume_data.type)) {
     LOG_E("job ctrl: resume env failed\r\n");
     smprinter.set_sys_status(SYSTEM_STATUS_IDLE, &ret_sys_status);
@@ -912,11 +945,6 @@ void JobCtrl::do_resume(struct JobCtrlReqInfo &jri) {
   if (RESUME_TYPE_RECOVERY == jri.req_data.req_resume_data.type) {
     _client_id = jri.req_data.req_resume_data.client_id;
   }
-
-  LOCK(_lock, JOB_LOCK_WAIT_TICK);
-  _gcode_rb.reset();
-  got_last_gcode_packet = false;
-  UNLOCK(_lock);
 
   motion_platform_svc.stepper_total_offset = 0;
 
@@ -961,17 +989,23 @@ void JobCtrl::do_resume(struct JobCtrlReqInfo &jri) {
 
 void JobCtrl::do_stop(struct JobCtrlReqInfo &jri) {
   enum SystemStatus ret_sys_status;
+  req_stop_trigger = true;
 
   if (SYSTEM_STATUS_PRINTING == smprinter.get_sys_status()) {
     if (E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_STOPING, &ret_sys_status)) {
       LOG_E("job_ctrl: Can not enter to SYSTEM_STATUS_STOPING status\r\n");
       DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, E_FAILURE);
       _issue_ret_rb.insert_one(SACP_JOB_PAUSE_ISSUE_RET_STOP_FAILURE);
-      return;
+      goto exit_do_stop;
     }
   }
   else {
     // TODO: do nothing
+  }
+
+  while(motion_platform_svc.homing_now) {
+    vTaskDelay(100);
+    LOG_I("job ctrl: stopping, wait machine homing finish\r\n");
   }
 
   LOCK(_lock, JOB_LOCK_WAIT_TICK);
@@ -1021,13 +1055,13 @@ void JobCtrl::do_stop(struct JobCtrlReqInfo &jri) {
       DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, E_SUCCESS);
       _issue_ret_rb.insert_one(SACP_JOB_PAUSE_ISSUE_RET_EMERGENCY_STOP);
       // return quickly
-      return;
+      goto exit_do_stop;
 
     default:
       LOG_E("Unknow stop type");
       smprinter.set_sys_status(SYSTEM_STATUS_IDLE, NULL);
       _issue_ret_rb.insert_one(SACP_JOB_PAUSE_ISSUE_RET_STOP_PARAM_ERR);
-      return;
+      goto exit_do_stop;
     break;
   }
 
@@ -1044,7 +1078,7 @@ void JobCtrl::do_stop(struct JobCtrlReqInfo &jri) {
     smprinter.set_sys_status(SYSTEM_STATUS_IDLE, &ret_sys_status);
     DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, E_JOB_STANDBY_FAILED);
     _issue_ret_rb.insert_one(SACP_JOB_PAUSE_ISSUE_RET_STOP_FAILURE);
-    return;
+    goto exit_do_stop;
   }
 
   // normal printing
@@ -1054,7 +1088,7 @@ void JobCtrl::do_stop(struct JobCtrlReqInfo &jri) {
       smprinter.set_sys_status(SYSTEM_STATUS_IDLE, &ret_sys_status);
       DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, E_FAILURE);
       _issue_ret_rb.insert_one(SACP_JOB_PAUSE_ISSUE_RET_STOP_FAILURE);
-      return;
+      goto exit_do_stop;
     }
 
     DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, E_SUCCESS);
@@ -1067,7 +1101,7 @@ void JobCtrl::do_stop(struct JobCtrlReqInfo &jri) {
       smprinter.set_sys_status(SYSTEM_STATUS_IDLE, &ret_sys_status);
       _issue_ret_rb.insert_one(SACP_JOB_PAUSE_ISSUE_RET_STOP_FAILURE);
       DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, E_FAILURE);
-      return;
+      goto exit_do_stop;
     }
 
     DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, E_SUCCESS);
@@ -1082,6 +1116,9 @@ void JobCtrl::do_stop(struct JobCtrlReqInfo &jri) {
       notify_handle_stopped[i].cb(notify_handle_stopped[i].obj, jri.req_data.req_stop_data.type);
     }
   }
+
+exit_do_stop:
+  req_stop_trigger = false;
 }
 
 err_code_t JobCtrl::set_env(struct JobEnv &env) {

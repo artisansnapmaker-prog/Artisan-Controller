@@ -282,6 +282,7 @@ class JobCtrl {
     // use for get gcode
     // uint32_t _get_gcode_buffer_req_min;                       /** the minimum buffer use to get gcode                                       */
     bool abort_resume;
+    bool req_stop_trigger;
 
     JobCtrlNotifyHandle notify_handle_started[JOB_CTRL_NOTIFY_QUEUE_SIZE];
     JobCtrlNotifyHandle notify_handle_paused[JOB_CTRL_NOTIFY_QUEUE_SIZE];

@@ -850,7 +850,7 @@ err_code_t BedLevelService::start_manual_bed_leveling(uint8_t grids) {
   LOG_I("start manual bed level, grids: %d\n", grids);
 
   motion_platform_svc.set_leveling_grids(grids);
-  manual_leveling_point_index_ = 25;
+  manual_leveling_point_index_ = GRID_MAX_POINTS;
   manual_leveling_point_sum = 0;
 
   // clear live_z_offset
@@ -881,7 +881,13 @@ err_code_t BedLevelService::goto_leveling_point(uint8_t index) {
       manual_leveling_z_values_[manual_leveling_point_index_] = motion_platform_svc.get_current_position(Z_AXIS);
       LOG_I("P[%d]: (%.2f, %.2f, %.2f)\n",manual_leveling_point_index_, motion_platform_svc.get_current_position(X_AXIS), motion_platform_svc.get_current_position(Y_AXIS), motion_platform_svc.get_current_position(Z_AXIS));
 
-      motion_platform_svc.moveto_z(motion_platform_svc.get_current_position(Z_AXIS) + 3, 10);
+      float z_limit = 34;
+      float z_height = motion_platform_svc.get_current_position(Z_AXIS);
+      if (smprinter.fdm->get_device_id() == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021)
+        z_limit = 20;
+      z_height += 3;
+      NOMORE(z_height, z_limit);
+      motion_platform_svc.moveto_z(z_height, 10);
     }
 
     manual_leveling_point_sum++;

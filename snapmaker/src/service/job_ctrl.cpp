@@ -524,8 +524,7 @@ err_code_t JobCtrl::machine_standby(void) {
       LOG_I("job_ctrl: y move to fronthead\r\n");
       motion_platform_svc.update_position_from_platform();
       t_pos = motion_platform_svc.sm_current_position;
-      if (t_pos.y < 395)
-        t_pos.y = 395;
+      NOLESS(t_pos.y, 395);
       motion_platform_svc.moveto(t_pos, RESUME_XY_FEEDRATE, true);
     }
   }

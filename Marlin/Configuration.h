@@ -977,7 +977,13 @@
 // Limiting the maximum acceleration during CNC operation
 #define SNAPMAKER_CNC_ACCELERATION_LIMIT
 #if ENABLED(SNAPMAKER_CNC_ACCELERATION_LIMIT)
-  #define MAX_CNC_ACCELE_EDIT_VALUES  500       // mm/s
+  #define MAX_CNC_ACCELE_EDIT_VALUES  500
+#endif
+
+// Limiting the maximum acceleration during Laser operation
+#define SNAPMAKER_LASER_ACCELERATION_LIMIT
+#if ENABLED(SNAPMAKER_LASER_ACCELERATION_LIMIT)
+  #define MAX_LASER_ACCELE_EDIT_VALUES  500
 #endif
 
 /**

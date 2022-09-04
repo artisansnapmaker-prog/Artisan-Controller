@@ -148,6 +148,7 @@ struct JobEnv {
   uint8_t toolhead_env_buf[MODULE_ENV_MAX_SIZE];
   uint32_t bed_env_buf_size;
   uint8_t bed_env_buf[MODULE_ENV_MAX_SIZE];
+  uint16_t device_id;
 };
 
 enum JobReqAction {

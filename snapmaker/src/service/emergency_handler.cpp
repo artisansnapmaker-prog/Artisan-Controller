@@ -363,6 +363,7 @@ err_code_t EmergencyHandler::hmi_cb_req_recovery_job(void *obj, sacp_hmi_message
 
   JobEnv        *job_env = (JobEnv *)handler.env;
   GcodeFileInfo *env_file_info = &job_env->gcode_file_info;
+  ModuleBase *cur_toolhead = NULL;
 
   int          index = 0;
   uint16_t     *str_len;
@@ -384,6 +385,12 @@ err_code_t EmergencyHandler::hmi_cb_req_recovery_job(void *obj, sacp_hmi_message
 
   if (job_env->type != smprinter.get_toolhead_type()) {
     LOG_E("EmergencyHandler: toolhead is not same with previous power on\n");
+    return host_hmi.send_ack(msg, E_INVALID_STATE);
+  }
+
+  cur_toolhead = smprinter.get_cur_toolhead();
+  if (!cur_toolhead || cur_toolhead->get_device_id() != job_env->device_id) {
+    LOG_E("EmergencyHandler: device_id does not match, cannot resume printing\n");
     return host_hmi.send_ack(msg, E_INVALID_STATE);
   }
 
@@ -454,9 +461,13 @@ err_code_t EmergencyHandler::hmi_cb_req_recovery_job(void *obj, sacp_hmi_message
         return host_hmi.send_sync(msg, recv_buff, &recv_length);
       }
 
-      motion_platform_svc.run_gcode((char *)"M104 T0 S120");
+      uint8_t active_extruder = ((fdm_recovery_data_t *)(job_env->toolhead_env_buf))->active_extruder;
+      if (active_extruder == 0)
+        motion_platform_svc.run_gcode((char *)"M104 T0 S120");
+
       if (fdm->get_device_id() == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
-        motion_platform_svc.run_gcode((char *)"M104 T1 S120");
+        if (active_extruder == 1)
+          motion_platform_svc.run_gcode((char *)"M104 T1 S120");
       }
 
       while(!motion_platform_svc.hotends_heatup_to_target()) {

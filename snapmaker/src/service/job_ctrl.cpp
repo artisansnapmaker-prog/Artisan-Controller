@@ -339,6 +339,8 @@ err_code_t JobCtrl::save_env(bool from_isr/*=false*/) {
     _env.bed_temp[i] = motion_platform_svc.get_bed_temp(i);
   }
 
+  _env.device_id = cur_toolhead->get_device_id();
+
   // LOG_I("job_ctrl: save cur_line_num %d\r\n", _env.cur_line_num);
   // print_job_env(&_env);
   return E_SUCCESS;

@@ -919,6 +919,14 @@ MessageBufferHandle_t HostSACPHMI::get_event_queue_by_cmd(uint8_t *buffer, uint8
     if (!is_retransmited_request(buffer[SACP_V1_FRAME_INDEX_SENDER_ID], channel, seq, &result)) {
       if (thread_blocked_with_motion_busy) {
         LOG_E("Drop cmd[%x:%x]\n", cmd_set, cmd_id);
+        msg.peer    = buffer[SACP_V1_FRAME_INDEX_SENDER_ID];
+        msg.attr    = buffer[SACP_V1_FRAME_INDEX_ATTR];
+        msg.cmd_set = cmd_set;
+        msg.cmd_id  = cmd_id;
+        msg.ver     = buffer[SACP_V1_FRAME_INDEX_VER];
+        msg.seq     = seq;
+        msg.ch      = channel;
+        send_ack(&msg, E_BUSY);
         return NULL;
       }
       else
@@ -930,6 +938,14 @@ MessageBufferHandle_t HostSACPHMI::get_event_queue_by_cmd(uint8_t *buffer, uint8
     if (!is_retransmited_request(buffer[SACP_V1_FRAME_INDEX_SENDER_ID], channel, seq, &result)) {
       if (thread_blocked_without_motion_busy) {
         LOG_E("Drop cmd[%x:%x]\n", cmd_set, cmd_id);
+        msg.peer    = buffer[SACP_V1_FRAME_INDEX_SENDER_ID];
+        msg.attr    = buffer[SACP_V1_FRAME_INDEX_ATTR];
+        msg.cmd_set = cmd_set;
+        msg.cmd_id  = cmd_id;
+        msg.ver     = buffer[SACP_V1_FRAME_INDEX_VER];
+        msg.seq     = seq;
+        msg.ch      = channel;
+        send_ack(&msg, E_BUSY);
         return NULL;
       }
       else

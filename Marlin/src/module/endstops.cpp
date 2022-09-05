@@ -990,10 +990,12 @@ void Endstops::update() {
     if (stepper.axis_is_moving(Z_AXIS)) {
       if (stepper.motor_direction(Z_AXIS_HEAD)) {
         ModuleBase *toolhead = smprinter.get_cur_toolhead();
-        if (toolhead->get_device_id() == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
-          if (!z_probe_enabled) {
-            if (smprinter.get_probe_state()) {
-              planner.endstop_triggered(Z_AXIS);
+        if (toolhead != NULL) {
+          if (toolhead->get_device_id() == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
+            if (!z_probe_enabled) {
+              if (smprinter.get_probe_state()) {
+                planner.endstop_triggered(Z_AXIS);
+              }
             }
           }
         }

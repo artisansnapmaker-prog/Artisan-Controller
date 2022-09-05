@@ -1398,30 +1398,44 @@ err_code_t ToolHeadFDM::set_hotend_temp(uint16_t temp, uint8_t e) {
   uint8_t fan_speed = 0;
   uint8_t fan_delay = 0;
 
-  if (hotend_temp[e].target >= 60) {
-    fan_speed = 255;
-  } else if (hotend_temp[e].target == 0) {
-    // check if need to delay to turn off fan
-    if (hotend_temp[e].current >= 150) {
-      fan_speed = 0;
-      fan_delay = 120;
-    }
-    else if (hotend_temp[e].target >= 60) {
-      fan_speed = 0;
-      fan_delay = 60;
-    }
-    else {
-      fan_speed = 0;
-      fan_delay = 0;
-    }
-  }
-
   if (get_device_id() == MODULE_DEVICE_ID_FDM_1EXTRUDER_2019) {
+    if (hotend_temp[e].target >= 60) {
+      fan_speed = 255;
+    } else if (hotend_temp[e].target == 0) {
+      // check if need to delay to turn off fan
+      if (hotend_temp[e].current >= 150) {
+        fan_speed = 0;
+        fan_delay = 120;
+      }
+      else if (hotend_temp[e].target >= 60) {
+        fan_speed = 0;
+        fan_delay = 60;
+      }
+      else {
+        fan_speed = 0;
+        fan_delay = 0;
+      }
+    }
     nozzle_fan_index = SINGLE_EXTRUDER_NOZZLE_FAN;
-  }
-  else if (get_device_id() == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
+  } else if (get_device_id() == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
+    if ((hotend_temp[0].target >= 60) || (hotend_temp[1].target >= 60)) {
+      fan_speed = 255;
+    } else if ((hotend_temp[0].target == 0) && (hotend_temp[1].target == 0)) {
+      // check if need to delay to turn off fan
+      if ((hotend_temp[0].current >= 150) || (hotend_temp[1].current >= 150)) {
+        fan_speed = 0;
+        fan_delay = 120;
+      } else if ((hotend_temp[0].target >= 60) || (hotend_temp[1].target >= 60)) {
+        fan_speed = 0;
+        fan_delay = 60;
+      } else {
+        fan_speed = 0;
+        fan_delay = 0;
+      }
+    }
     nozzle_fan_index = DUAL_EXTRUDER_NOZZLE_FAN;
   }
+
 
   set_fan_speed((uint8_t)nozzle_fan_index, fan_speed, fan_delay);
 

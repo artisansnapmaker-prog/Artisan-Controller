@@ -901,7 +901,6 @@ ModuleBase *SnapmakerPrinter::get_cur_toolhead(void) {
     return laser;
   }
 
-  LOG_E("More than one toohead online or No toolhead\r\n");
   return NULL;
 }
 

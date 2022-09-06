@@ -571,11 +571,11 @@ static err_code_t hmi_req_callback_probe_sensor_calibration(void *obj, sacp_hmi_
     goto EXIT;
   }
 
-  if (smprinter.fdm->get_fdm_fault_state(FDM_FAULT_EXTRUDER_STATE)) {
-    LOG_I("refuse probe sensor calibration because of extruder state error!\n");
-    ret = E_EXCEPTION;
-    goto EXIT;
-  }
+  // if (smprinter.fdm->get_fdm_fault_state(FDM_FAULT_EXTRUDER_STATE)) {
+  //   LOG_I("refuse probe sensor calibration because of extruder state error!\n");
+  //   ret = E_EXCEPTION;
+  //   goto EXIT;
+  // }
 
   switch (action) {
     case 0:
@@ -625,6 +625,8 @@ static err_code_t hmi_req_callback_probe_sensor_calibration(void *obj, sacp_hmi_
       LOG_I("probe sensor calibration left extruder manual detect\n");
       bedlevel.hotend_touch_bed_z_[1] = motion_platform_svc.get_current_position(Z_AXIS);
       motion_platform_svc.disable_z_probe();
+      if (bedlevel.hotend_touch_bed_z_[1] < 20)
+        motion_platform_svc.moveto_z(20, 30);
       smprinter.fdm->tool_change(0, false);
       break;
     default:

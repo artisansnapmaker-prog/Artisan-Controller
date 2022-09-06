@@ -844,6 +844,16 @@ void restore_feedrate_and_scaling() {
         #endif
         #if !HAS_SOFTWARE_ENDSTOPS || ENABLED(MAX_SOFTWARE_ENDSTOP_Z)
           NOMORE(target.z, soft_endstop.max.z);
+          #if MB_SNAPMAKER
+            if (!motion_platform_svc.endstop_status()) {
+              if (planner.leveling_active) {
+                xyz_pos_t tmp_coordinate = target;
+                tmp_coordinate.z = soft_endstop.max.z;
+                planner.unapply_leveling(tmp_coordinate);
+                NOMORE(target.z, tmp_coordinate.z);
+              }
+            }
+          #endif
         #endif
       }
     #endif

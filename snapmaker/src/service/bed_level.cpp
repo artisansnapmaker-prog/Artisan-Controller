@@ -335,6 +335,8 @@ static err_code_t hmi_req_callback_exit_level(void *obj, sacp_hmi_message_t *msg
   }
 
   if (bedlevel.get_bedlevel_mode() == BEDLEVEL_MODE_PROBE_SENSOR_CALIBRATE) {
+    set_current_from_steppers_for_axis(Z_AXIS);
+    sync_plan_position();
     bedlevel.hotend_touch_bed_z_[0] = motion_platform_svc.get_current_position(Z_AXIS);
     LOG_I("hotend_touch_bed_z%d: %f\n", 0, bedlevel.hotend_touch_bed_z_[0]);
     bedlevel.z_compensation_[0] = bedlevel.hotend_touch_bed_z_[0] - CALIBRATION_PAPER_THICKNESS - bedlevel.hotend_triggered_z_[0];
@@ -618,13 +620,18 @@ static err_code_t hmi_req_callback_probe_sensor_calibration(void *obj, sacp_hmi_
       break;
     case 2:
       LOG_I("probe sensor calibration right extruder manual detect\n");
-      motion_platform_svc.disable_z_probe();
+      motion_platform_svc.enable_z_probe();
+      // motion_platform_svc.disable_z_probe();
       // smprinter.fdm->tool_change(1, false);
       break;
     case 3:
       LOG_I("probe sensor calibration left extruder manual detect\n");
+      set_current_from_steppers_for_axis(Z_AXIS);
+      sync_plan_position();
       bedlevel.hotend_touch_bed_z_[1] = motion_platform_svc.get_current_position(Z_AXIS);
-      motion_platform_svc.disable_z_probe();
+      LOG_I("hotend_touch_bed_z1: %f\n", bedlevel.hotend_touch_bed_z_[1]);
+      motion_platform_svc.enable_z_probe();
+      // motion_platform_svc.disable_z_probe();
       if (bedlevel.hotend_touch_bed_z_[1] < 20)
         motion_platform_svc.moveto_z(20, 30);
       smprinter.fdm->tool_change(0, false);

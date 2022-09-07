@@ -561,6 +561,11 @@ void GcodeSuite::G28() {
   #if MB_SNAPMAKER
     if (smprinter.get_toolhead_type() == TH_TYPE_3DP) {
       TERN_(CAN_SET_LEVELING_AFTER_G28, if (leveling_restore_state) set_bed_leveling_enabled());
+      // If ENDSTOPS_ALWAYS_ON_DEFAULT is enabled, the default G28 closes the z probe
+      if (!ENABLED(ENDSTOPS_ALWAYS_ON_DEFAULT) && (!(smprinter.get_sys_status() >= SYSTEM_STATUS_AUTO_BEDLEVEL && \
+        smprinter.get_sys_status() <= SYSTEM_STATUS_PROBE_SENSOR_CALIBRATION))) {
+        endstops.enable_z_probe(false);
+      }
     }
   #endif
 

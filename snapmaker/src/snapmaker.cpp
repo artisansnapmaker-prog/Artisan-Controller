@@ -1129,7 +1129,8 @@ err_code_t SnapmakerPrinter::set_sys_status(enum SystemStatus req_status, enum S
   /*********************************************************************************/
   case SYSTEM_STATUS_XY_CALIBRATING:
     if (sys_status == SYSTEM_STATUS_IDLE ||
-        SYSTEM_STATUS_XY_CALIBRATING_PRINTING == sys_status) {
+        SYSTEM_STATUS_XY_CALIBRATING_PRINTING == sys_status || ((sys_status == SYSTEM_STATUS_PAUSED) && \
+        job_ctrl_svc.get_status_before_start() == SYSTEM_STATUS_XY_CALIBRATING)) {
       sys_status = req_status;
       ret = E_SUCCESS;
     } else {

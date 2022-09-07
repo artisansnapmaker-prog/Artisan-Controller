@@ -62,6 +62,7 @@ typedef uint8_t err_code_t;
 
 #define E_NON_HOME              (COMMON_ERR_BASE + 16)     /* didn't home axes */
 
+#define E_MACHINE_PROCESS_BLOCK (COMMON_ERR_BASE + 17)     /* handling thread blocking*/
 
 // for legacy use
 #define E_INVALID_CMD   E_INVALID_CMD_ID

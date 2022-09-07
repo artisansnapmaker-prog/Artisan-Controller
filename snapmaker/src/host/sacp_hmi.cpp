@@ -926,7 +926,7 @@ MessageBufferHandle_t HostSACPHMI::get_event_queue_by_cmd(uint8_t *buffer, uint8
         msg.ver     = buffer[SACP_V1_FRAME_INDEX_VER];
         msg.seq     = seq;
         msg.ch      = channel;
-        send_ack(&msg, E_BUSY);
+        send_ack(&msg, E_MACHINE_PROCESS_BLOCK);
         return NULL;
       }
       else
@@ -945,7 +945,7 @@ MessageBufferHandle_t HostSACPHMI::get_event_queue_by_cmd(uint8_t *buffer, uint8
         msg.ver     = buffer[SACP_V1_FRAME_INDEX_VER];
         msg.seq     = seq;
         msg.ch      = channel;
-        send_ack(&msg, E_BUSY);
+        send_ack(&msg, E_MACHINE_PROCESS_BLOCK);
         return NULL;
       }
       else

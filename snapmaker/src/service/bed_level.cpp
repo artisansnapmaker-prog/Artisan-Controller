@@ -244,9 +244,11 @@ static err_code_t hmi_req_callback_exit_level(void *obj, sacp_hmi_message_t *msg
   uint8_t  recv_buffer[4];
   uint16_t recv_len = 4;
   float pos_to_raise;
+  bool need_save = false;
   enum SystemStatus sys_status;
 
-  LOG_I("hmi request exit bedlevel mode, cur system status: %d\n", smprinter.get_sys_status());
+  need_save = !!msg->data[0];
+  LOG_I("hmi request exit bedlevel mode, cur system status: %d, need save: %d\n", smprinter.get_sys_status(), need_save);
 
   // response to hmi first
   index = 0;
@@ -279,16 +281,19 @@ static err_code_t hmi_req_callback_exit_level(void *obj, sacp_hmi_message_t *msg
 
   if (bedlevel.get_bedlevel_mode() == BEDLEVEL_MODE_MANUAL) {
     LOG_I("finish bedlevel\n");
-    ret = bedlevel.finish_manual_bed_leveling();
-    if (bedlevel.get_end_leveling_process_status() == true) {
-      motion_platform_svc.sync_z_values_to_platform(0);
-      motion_platform_svc.extrapolate_unprobed_points();
-      motion_platform_svc.interpolate_virt_points();
-      motion_platform_svc.print_leveling_grid();
-      motion_platform_svc.print_leveling_grid_virt();
-      motion_platform_svc.disable_z_probe();
-      motion_platform_svc.save_settings();
+    if (need_save) {
+      ret = bedlevel.finish_manual_bed_leveling();
+      if (bedlevel.get_end_leveling_process_status() == true) {
+        motion_platform_svc.sync_z_values_to_platform(0);
+        motion_platform_svc.extrapolate_unprobed_points();
+        motion_platform_svc.interpolate_virt_points();
+        motion_platform_svc.print_leveling_grid();
+        motion_platform_svc.print_leveling_grid_virt();
+        motion_platform_svc.save_settings();
+      }
     }
+
+    motion_platform_svc.disable_z_probe();
     motion_platform_svc.enable_leveling();
     pos_to_raise = motion_platform_svc.get_current_position(Z_AXIS) + 100;
     if (pos_to_raise > 400)
@@ -297,16 +302,19 @@ static err_code_t hmi_req_callback_exit_level(void *obj, sacp_hmi_message_t *msg
   }
 
   if (bedlevel.get_bedlevel_mode() == BEDLEVEL_MODE_AUTO_BED_DETECTION) {
-    smprinter.fdm->set_hotend_offset((bedlevel.detected_bed_z_values[0] + bedlevel.z_compensation_[0]) - (bedlevel.detected_bed_z_values[1] + bedlevel.z_compensation_[1]), Z_AXIS);
-    float compensation = bedlevel.detected_bed_z_values[0] + bedlevel.z_compensation_[0] - bedlevel.z_values_[x_index][y_index];
     LOG_I("auto detect \n");
-    motion_platform_svc.sync_z_values_to_platform(compensation);
-    motion_platform_svc.extrapolate_unprobed_points();
-    motion_platform_svc.interpolate_virt_points();
-    motion_platform_svc.print_leveling_grid();
-    motion_platform_svc.print_leveling_grid_virt();
+    if (need_save) {
+      smprinter.fdm->set_hotend_offset((bedlevel.detected_bed_z_values[0] + bedlevel.z_compensation_[0]) - (bedlevel.detected_bed_z_values[1] + bedlevel.z_compensation_[1]), Z_AXIS);
+      float compensation = bedlevel.detected_bed_z_values[0] + bedlevel.z_compensation_[0] - bedlevel.z_values_[x_index][y_index];
+      motion_platform_svc.sync_z_values_to_platform(compensation);
+      motion_platform_svc.extrapolate_unprobed_points();
+      motion_platform_svc.interpolate_virt_points();
+      motion_platform_svc.print_leveling_grid();
+      motion_platform_svc.print_leveling_grid_virt();
+      motion_platform_svc.save_settings();
+    }
+
     motion_platform_svc.disable_z_probe();
-    motion_platform_svc.save_settings();
     motion_platform_svc.enable_leveling();
     pos_to_raise = motion_platform_svc.get_current_position(Z_AXIS) + 100;
     if (pos_to_raise > 400)
@@ -316,16 +324,19 @@ static err_code_t hmi_req_callback_exit_level(void *obj, sacp_hmi_message_t *msg
   }
 
   if (bedlevel.get_bedlevel_mode() == BEDLEVEL_MODE_MANUAL_BED_DETECTION) {
-    bedlevel.hotend_touch_bed_z_[1] = motion_platform_svc.get_current_position(Z_AXIS);
-    smprinter.fdm->set_hotend_offset(bedlevel.hotend_touch_bed_z_[0] - bedlevel.hotend_touch_bed_z_[1], Z_AXIS);
-    float compensation = bedlevel.hotend_touch_bed_z_[0] - bedlevel.z_values_[x_index][y_index];
-    motion_platform_svc.sync_z_values_to_platform(compensation);
-    motion_platform_svc.extrapolate_unprobed_points();
-    motion_platform_svc.interpolate_virt_points();
-    motion_platform_svc.print_leveling_grid();
-    motion_platform_svc.print_leveling_grid_virt();
+    if (need_save) {
+      bedlevel.hotend_touch_bed_z_[1] = motion_platform_svc.get_current_position(Z_AXIS);
+      smprinter.fdm->set_hotend_offset(bedlevel.hotend_touch_bed_z_[0] - bedlevel.hotend_touch_bed_z_[1], Z_AXIS);
+      float compensation = bedlevel.hotend_touch_bed_z_[0] - bedlevel.z_values_[x_index][y_index];
+      motion_platform_svc.sync_z_values_to_platform(compensation);
+      motion_platform_svc.extrapolate_unprobed_points();
+      motion_platform_svc.interpolate_virt_points();
+      motion_platform_svc.print_leveling_grid();
+      motion_platform_svc.print_leveling_grid_virt();
+      motion_platform_svc.save_settings();
+    }
+
     motion_platform_svc.disable_z_probe();
-    motion_platform_svc.save_settings();
     motion_platform_svc.enable_leveling();
     pos_to_raise = motion_platform_svc.get_current_position(Z_AXIS) + 100;
     if (pos_to_raise > 400)
@@ -337,69 +348,76 @@ static err_code_t hmi_req_callback_exit_level(void *obj, sacp_hmi_message_t *msg
   if (bedlevel.get_bedlevel_mode() == BEDLEVEL_MODE_PROBE_SENSOR_CALIBRATE) {
     set_current_from_steppers_for_axis(Z_AXIS);
     sync_plan_position();
-    bedlevel.hotend_touch_bed_z_[0] = motion_platform_svc.get_current_position(Z_AXIS);
-    LOG_I("hotend_touch_bed_z%d: %f\n", 0, bedlevel.hotend_touch_bed_z_[0]);
-    bedlevel.z_compensation_[0] = bedlevel.hotend_touch_bed_z_[0] - CALIBRATION_PAPER_THICKNESS - bedlevel.hotend_triggered_z_[0];
-    bedlevel.z_compensation_[1] = bedlevel.hotend_touch_bed_z_[1] - CALIBRATION_PAPER_THICKNESS - bedlevel.hotend_triggered_z_[1];
-    LOG_I("z_compensation[%d]: %f, z_compensation[%d]: %f\n", 0, bedlevel.z_compensation_[0], 1, bedlevel.z_compensation_[1]);
-    LOG_I("hotend_offset_z: %f\n", bedlevel.hotend_touch_bed_z_[0] - bedlevel.hotend_touch_bed_z_[1]);
-    float offset = bedlevel.hotend_touch_bed_z_[0] - bedlevel.hotend_touch_bed_z_[1];
-    if ((offset < DEFAULT_HOTEND_OFFSET_Z - BIAS_HOTEND_OFFSET_Z) || (offset > DEFAULT_HOTEND_OFFSET_Z + BIAS_HOTEND_OFFSET_Z)) {
-      LOG_E("z hotend offset error: %f\n", offset);
-      ret = E_PARAM;
-      pos_to_raise = motion_platform_svc.get_current_position(Z_AXIS) + 100;
-      if (pos_to_raise > 400)
-        pos_to_raise = 400;
-      motion_platform_svc.moveto_z(pos_to_raise, 30);
-      goto EXIT;
-    }
-    smprinter.fdm->set_hotend_offset(offset, Z_AXIS);
-    motion_platform_svc.save_settings();
-    // save to module
-    float x_offset, y_offset, z_offset;
-    smprinter.fdm->get_hotend_offset(x_offset, y_offset, z_offset);
-    smprinter.fdm->save_hotend_offset_to_module(z_offset, Z_AXIS);
-    smprinter.fdm->save_z_compensation_to_module(bedlevel.z_compensation_);
-    pos_to_raise = motion_platform_svc.get_current_position(Z_AXIS) + 100;
-    if (pos_to_raise > 400)
-      pos_to_raise = 400;
-    motion_platform_svc.moveto_z(pos_to_raise, 30);
+    if (need_save) {
+      bedlevel.hotend_touch_bed_z_[0] = motion_platform_svc.get_current_position(Z_AXIS);
+      LOG_I("hotend_touch_bed_z%d: %f\n", 0, bedlevel.hotend_touch_bed_z_[0]);
+      bedlevel.z_compensation_[0] = bedlevel.hotend_touch_bed_z_[0] - CALIBRATION_PAPER_THICKNESS - bedlevel.hotend_triggered_z_[0];
+      bedlevel.z_compensation_[1] = bedlevel.hotend_touch_bed_z_[1] - CALIBRATION_PAPER_THICKNESS - bedlevel.hotend_triggered_z_[1];
+      LOG_I("z_compensation[%d]: %f, z_compensation[%d]: %f\n", 0, bedlevel.z_compensation_[0], 1, bedlevel.z_compensation_[1]);
+      LOG_I("hotend_offset_z: %f\n", bedlevel.hotend_touch_bed_z_[0] - bedlevel.hotend_touch_bed_z_[1]);
 
-    // compensate bed o position
-    float compensation = bedlevel.hotend_touch_bed_z_[0] - CALIBRATION_PAPER_THICKNESS - bedlevel.z_values_[x_index][y_index];
-    LOG_I("compensation: %f\n", compensation);
-    motion_platform_svc.sync_z_values_to_platform(compensation);
-    motion_platform_svc.extrapolate_unprobed_points();
-    motion_platform_svc.interpolate_virt_points();
-    motion_platform_svc.print_leveling_grid();
-    motion_platform_svc.print_leveling_grid_virt();
-    motion_platform_svc.disable_z_probe();
-    motion_platform_svc.save_settings();
-    motion_platform_svc.enable_leveling();
+      float offset = bedlevel.hotend_touch_bed_z_[0] - bedlevel.hotend_touch_bed_z_[1];
+      if ((offset < DEFAULT_HOTEND_OFFSET_Z - BIAS_HOTEND_OFFSET_Z) || (offset > DEFAULT_HOTEND_OFFSET_Z + BIAS_HOTEND_OFFSET_Z)) {
+        LOG_E("z hotend offset error: %f\n", offset);
+        ret = E_PARAM;
+        pos_to_raise = motion_platform_svc.get_current_position(Z_AXIS) + 100;
+        if (pos_to_raise > 400)
+          pos_to_raise = 400;
+        motion_platform_svc.moveto_z(pos_to_raise, 30);
+      }
+      else {
+        smprinter.fdm->set_hotend_offset(offset, Z_AXIS);
+        motion_platform_svc.save_settings();
+
+        // save to module
+        float x_offset, y_offset, z_offset;
+        smprinter.fdm->get_hotend_offset(x_offset, y_offset, z_offset);
+        smprinter.fdm->save_hotend_offset_to_module(z_offset, Z_AXIS);
+        smprinter.fdm->save_z_compensation_to_module(bedlevel.z_compensation_);
+        pos_to_raise = motion_platform_svc.get_current_position(Z_AXIS) + 100;
+        if (pos_to_raise > 400)
+          pos_to_raise = 400;
+        motion_platform_svc.moveto_z(pos_to_raise, 30);
+        // compensate bed o position
+        float compensation = bedlevel.hotend_touch_bed_z_[0] - CALIBRATION_PAPER_THICKNESS - bedlevel.z_values_[x_index][y_index];
+        LOG_I("compensation: %f\n", compensation);
+        motion_platform_svc.sync_z_values_to_platform(compensation);
+        motion_platform_svc.extrapolate_unprobed_points();
+        motion_platform_svc.interpolate_virt_points();
+        motion_platform_svc.print_leveling_grid();
+        motion_platform_svc.print_leveling_grid_virt();
+        motion_platform_svc.save_settings();
+      }
+
+      motion_platform_svc.disable_z_probe();
+      motion_platform_svc.enable_leveling();
+    }
   }
 
   if (bedlevel.get_bedlevel_mode() == BEDLEVEL_MODE_AUTO) {
-    if (bedlevel.get_end_leveling_process_status() == true) {
-      // compensated trigger travel
-      LOG_I("z_compensation: %f\n", bedlevel.z_compensation_[0]);
-      motion_platform_svc.sync_z_values_to_platform(bedlevel.z_compensation_[0]);
-      motion_platform_svc.extrapolate_unprobed_points();
-      motion_platform_svc.interpolate_virt_points();
-      motion_platform_svc.print_leveling_grid();
-      motion_platform_svc.print_leveling_grid_virt();
-      motion_platform_svc.disable_z_probe();
+    if (need_save) {
+      if (bedlevel.get_end_leveling_process_status() == true) {
+        // compensated trigger travel
+        LOG_I("z_compensation: %f\n", bedlevel.z_compensation_[0]);
+        motion_platform_svc.sync_z_values_to_platform(bedlevel.z_compensation_[0]);
+        motion_platform_svc.extrapolate_unprobed_points();
+        motion_platform_svc.interpolate_virt_points();
+        motion_platform_svc.print_leveling_grid();
+        motion_platform_svc.print_leveling_grid_virt();
 
-      // save z_values
-      motion_platform_svc.save_settings();
+        // save z_values
+        motion_platform_svc.save_settings();
+      }
     }
 
+    motion_platform_svc.disable_z_probe();
+    motion_platform_svc.enable_leveling();
     motion_platform_svc.update_position_from_platform();
     pos_to_raise = motion_platform_svc.get_current_position(Z_AXIS) + 100;
     if (pos_to_raise > 400)
       pos_to_raise = 400;
     motion_platform_svc.moveto_z(pos_to_raise, 50);
     motion_platform_svc.synchronize_planner();
-    motion_platform_svc.enable_leveling();
   }
 
   bedlevel.set_bedlevel_mode(BEDLEVEL_MODE_IDLE);
@@ -878,6 +896,8 @@ err_code_t BedLevelService::goto_leveling_point(uint8_t index) {
     smprinter.fdm->tool_change(0);
 
     motion_platform_svc.disable_leveling();
+    motion_platform_svc.disable_z_probe();
+
     if (smprinter.fdm->get_device_id() == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
       motion_platform_svc.moveto_z(20, 30);
     } else if (smprinter.fdm->get_device_id() == MODULE_DEVICE_ID_FDM_1EXTRUDER_2019) {

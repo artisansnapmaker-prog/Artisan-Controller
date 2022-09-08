@@ -393,6 +393,12 @@ void GcodeSuite::G28() {
     #if MB_SNAPMAKER
       if (doX || doY || doZ || doI || doJ)
         smprinter.clear_exception(SM_EXCEP_OWNER_SYSTEM, CONTROLLER_EXCEP_STA_HOME_FAILED);
+
+      if (smprinter.get_toolhead_type() == TH_TYPE_3DP) {
+        if (smprinter.fdm->get_device_id() == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
+          smprinter.tool_change(0);
+        }
+      }
     #endif
 
     #if HAS_Z_AXIS
@@ -414,7 +420,6 @@ void GcodeSuite::G28() {
           else {
             smprinter.clear_exception(SM_EXCEP_OWNER_TOOLHEAD, FDM_EXCEP_STA_EXTRUDER_HOME_FAILED);
           }
-          smprinter.tool_change(0);
         }
       }
     #endif

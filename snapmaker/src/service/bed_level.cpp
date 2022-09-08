@@ -8,6 +8,7 @@
 #include "../config.h"
 
 BedLevelService bedlevel_svc;
+static sacp_hmi_message_t abort_auto_bedlevel_msg;
 
 // hmi request callback
 static err_code_t hmi_req_callback_set_level_mode(void *obj, sacp_hmi_message_t *msg);
@@ -149,11 +150,26 @@ static err_code_t hmi_req_callback_start_level(void *obj, sacp_hmi_message_t *ms
   host_hmi.send_ack(msg, E_SUCCESS);
 
   if (mode == BEDLEVEL_MODE_AUTO) {
+    bedlevel_svc.auto_bedlevel_enable = true;
     ret = bedlevel.start_auto_bed_leveling(grid, msg);
     if (ret != E_SUCCESS) {
       smprinter.raise_exception(SM_EXCEP_OWNER_TOOLHEAD, FDM_EXCEP_STA_PROBE_ERROR, EXCEP_ACT_STOP_WORKING);
     }
-    bedlevel.set_end_leveling_process_status(true);
+    bedlevel_svc.auto_bedlevel_enable = false;
+    if (bedlevel_svc.need_to_abort_auto_bedlevel) {
+      err_code_t result = E_SUCCESS;
+      abort_auto_bedlevel_msg.cmd_set = SACP_CMD_SET_CALIBRATE_FDM;
+      abort_auto_bedlevel_msg.cmd_id = BEDLEVEL_REQ_CMD_ID_EXIT_AUTO_BEDLEVEL_RESULT;
+      abort_auto_bedlevel_msg.attr = 0;
+      abort_auto_bedlevel_msg.length = 1;
+      abort_auto_bedlevel_msg.data = &result;
+      host_hmi.send(&abort_auto_bedlevel_msg);
+      LOG_I("send abort auto bedlevel finish to hmi\n");
+    }
+    else {
+      bedlevel.set_end_leveling_process_status(true);
+    }
+    bedlevel_svc.need_to_abort_auto_bedlevel = false;
   } else if (mode == BEDLEVEL_MODE_MANUAL) {
     ret = bedlevel.start_manual_bed_leveling(grid);
   }
@@ -204,26 +220,39 @@ static err_code_t hmi_req_callback_abort_auto_bedlevel(void *obj, sacp_hmi_messa
   BedLevelService &bedlevel = *(BedLevelService *)obj;
   err_code_t ret = E_FAILURE;
 
+  LOG_I("hmi request abort auto bedlevel, bedlevel_mode: %d abort_flag: %d auto_bedlevel:%d\n",  \
+          bedlevel.get_bedlevel_mode(), bedlevel.need_to_abort_auto_bedlevel, bedlevel.auto_bedlevel_enable);
+
   if (bedlevel.get_bedlevel_mode() != BEDLEVEL_MODE_AUTO) {
     ret = E_INVALID_STATE;
     goto EXIT;
   }
 
   if (bedlevel.need_to_abort_auto_bedlevel == true) {
-    ret = E_INVALID_STATE;
+    ret = E_BUSY;
     goto EXIT;
   }
 
-  bedlevel.need_to_abort_auto_bedlevel = true;
-  LOG_I("hmi request abort auto bedlevel\n");
-
-  for (uint32_t i = 0; i < 30; i++) {
-    vTaskDelay(pdMS_TO_TICKS(1000));
-    if (bedlevel.need_to_abort_auto_bedlevel == false) {
-      ret = E_SUCCESS;
-      break;
-    }
+  if (bedlevel.auto_bedlevel_enable) {
+    bedlevel.need_to_abort_auto_bedlevel = true;
+    abort_auto_bedlevel_msg.ver = msg->ver;
+    abort_auto_bedlevel_msg.peer = msg->peer;
+    abort_auto_bedlevel_msg.ch = msg->ch;
+    ret = E_SUCCESS;
   }
+  else {
+    LOG_W("not currently in auto-leveling mode");
+  }
+
+  // bedlevel.need_to_abort_auto_bedlevel = true;
+
+  // for (uint32_t i = 0; i < 30; i++) {
+  //   vTaskDelay(pdMS_TO_TICKS(1000));
+  //   if (bedlevel.need_to_abort_auto_bedlevel == false) {
+  //     ret = E_SUCCESS;
+  //     break;
+  //   }
+  // }
 
 EXIT:
   uint8_t index = 0;
@@ -963,7 +992,7 @@ err_code_t BedLevelService::start_auto_bed_leveling(uint8_t grids, sacp_hmi_mess
   float z;
   int dir_idx = 0;
 
-  need_to_abort_auto_bedlevel = false;
+  // need_to_abort_auto_bedlevel = false;
   set_end_leveling_process_status(false);
 
   motion_platform_svc.set_leveling_grids(grids);
@@ -1005,7 +1034,7 @@ err_code_t BedLevelService::start_auto_bed_leveling(uint8_t grids, sacp_hmi_mess
     LOG_I("Probing No. %d\n", k);
     LOG_I("x: %f, y: %f\n", _GET_MESH_X(cur_x), _GET_MESH_Y(cur_y));
     if (need_to_abort_auto_bedlevel == true) {
-      need_to_abort_auto_bedlevel = false;
+      // need_to_abort_auto_bedlevel = false;
       ret = E_SUCCESS;
       goto EXIT;
     }
@@ -1028,6 +1057,11 @@ err_code_t BedLevelService::start_auto_bed_leveling(uint8_t grids, sacp_hmi_mess
     msg->data[0] = E_SUCCESS;
     msg->data[1] = (uint8_t)(cur_y * GRID_MAX_POINTS_X + cur_x + 1);
     msg->data[2] = 0;
+
+    if (need_to_abort_auto_bedlevel) {
+      ret = E_SUCCESS;
+      goto EXIT;
+    }
 
     host_hmi.send_ack(msg);
 

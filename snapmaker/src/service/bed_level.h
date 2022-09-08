@@ -48,6 +48,7 @@ typedef enum {
 
   BEDLEVEL_REQ_CMD_ID_GOTO_PROBE_POINT_RESULT         = 0x0b,
   BEDLEVEL_REQ_CMD_ID_EXIT_LEVEL_RESULT               = 0x0c,
+  BEDLEVEL_REQ_CMD_ID_EXIT_AUTO_BEDLEVEL_RESULT       = 0x0e,
   BEDLEVEL_REQ_CMD_ID_BED_POSITION_DETECTION_RESULT   = 0x17,
   BEDLEVEL_REQ_CMD_ID_PROBE_SENSOR_CALIBRATION_RESULT = 0x18,
   BEDLEVEL_ERQ_CMD_ID_SET_LIVE_Z_OFFSET_RESULT        = 0x19,
@@ -86,6 +87,7 @@ class BedLevelService {
       z_compensation_[1] = 1.5;
       live_z_offset_changed = false;
       need_to_abort_auto_bedlevel = false;
+      auto_bedlevel_enable = false;
     }
 
     void init();
@@ -124,6 +126,8 @@ class BedLevelService {
     float live_z_offset[EXTRUDERS];
     bool live_z_offset_changed;
     bool need_to_abort_auto_bedlevel;
+    bool auto_bedlevel_enable;
+
   private:
     uint8_t bedlevel_mode;
     uint8_t manual_leveling_point_index_;

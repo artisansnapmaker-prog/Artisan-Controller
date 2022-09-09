@@ -258,6 +258,7 @@ class MotionPlatformService {
 
     float get_motherboard_current_temp(uint8_t index);
     void abort_heating();
+    bool marlin_is_paused() { return marlin_paused; }
 
   private:
     MessageBufferHandle_t gcode_queue;
@@ -265,7 +266,7 @@ class MotionPlatformService {
     TaskHandle_t      motion_owner;
     xSemaphoreHandle  motion_owner_lock;
     uint32_t          paused_nested;
-    bool              marlin_paused;
+    bool              marlin_paused = false;
 
     SemaphoreHandle_t quickstop_in_stepper_binary_sem;
     SemaphoreHandle_t quickstop_binary_sem;

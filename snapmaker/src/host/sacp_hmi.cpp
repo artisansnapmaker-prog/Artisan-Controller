@@ -1,6 +1,8 @@
 #include "sacp_hmi.h"
 #include "snapmaker.h"
 
+#include "../service/motion_platform.h"
+
 static AT_CCRAM uint8_t queue_buffer_to_marlin[SACP_PDU_MAX_SIZE];
 static AT_CCRAM StaticMessageBuffer_t queue_strcut_to_marlin;
 
@@ -917,7 +919,7 @@ MessageBufferHandle_t HostSACPHMI::get_event_queue_by_cmd(uint8_t *buffer, uint8
   if (handle->cb_attr & SACP_CB_ATTR_BLOCKED_WITH_MOTION) {
     // check sequence
     if (!is_retransmited_request(buffer[SACP_V1_FRAME_INDEX_SENDER_ID], channel, seq, &result)) {
-      if (thread_blocked_with_motion_busy) {
+      if (thread_blocked_with_motion_busy || motion_platform_svc.marlin_is_paused()) {
         LOG_E("Drop cmd[%x:%x]\n", cmd_set, cmd_id);
         msg.peer    = buffer[SACP_V1_FRAME_INDEX_SENDER_ID];
         msg.attr    = buffer[SACP_V1_FRAME_INDEX_ATTR];

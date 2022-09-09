@@ -353,6 +353,8 @@ static err_code_t hmi_req_callback_exit_level(void *obj, sacp_hmi_message_t *msg
   }
 
   if (bedlevel.get_bedlevel_mode() == BEDLEVEL_MODE_MANUAL_BED_DETECTION) {
+    motion_platform_svc.update_position_from_stepper();
+    sync_plan_position();
     if (need_save) {
       bedlevel.hotend_touch_bed_z_[1] = motion_platform_svc.get_current_position(Z_AXIS);
       smprinter.fdm->set_hotend_offset(bedlevel.hotend_touch_bed_z_[0] - bedlevel.hotend_touch_bed_z_[1], Z_AXIS);
@@ -375,7 +377,7 @@ static err_code_t hmi_req_callback_exit_level(void *obj, sacp_hmi_message_t *msg
   }
 
   if (bedlevel.get_bedlevel_mode() == BEDLEVEL_MODE_PROBE_SENSOR_CALIBRATE) {
-    set_current_from_steppers_for_axis(Z_AXIS);
+    motion_platform_svc.update_position_from_stepper();
     sync_plan_position();
     if (need_save) {
       bedlevel.hotend_touch_bed_z_[0] = motion_platform_svc.get_current_position(Z_AXIS);
@@ -562,11 +564,15 @@ static err_code_t hmi_req_callback_bed_position_detection(void *obj, sacp_hmi_me
       smprinter.fdm->tool_change(0);
 
       motion_platform_svc.disable_leveling();
+      motion_platform_svc.enable_z_probe();
       motion_platform_svc.moveto_xy(x, y, 180);
       motion_platform_svc.moveto_z(20, 30);
     }
     else if (extruder_index == 1) {
       motion_platform_svc.disable_leveling();
+      motion_platform_svc.enable_z_probe();
+      motion_platform_svc.update_position_from_stepper();
+      sync_plan_position();
       bedlevel.hotend_touch_bed_z_[0] = motion_platform_svc.get_current_position(Z_AXIS);
       LOG_I("manual bed detection: %f\n", bedlevel.hotend_touch_bed_z_[0]);
       motion_platform_svc.moveto_z(motion_platform_svc.get_current_position(Z_AXIS) + 5, 30);
@@ -658,6 +664,8 @@ static err_code_t hmi_req_callback_probe_sensor_calibration(void *obj, sacp_hmi_
     case 1:
       LOG_I("probe sensor calibration right extruder auto detect\n");
       motion_platform_svc.enable_z_probe();
+      if (bedlevel.hotend_triggered_z_[0] < 20)
+        motion_platform_svc.moveto_z(20, 30);
       smprinter.fdm->tool_change(1, false);
       smprinter.fdm->set_probe_sensor(PROBE_SENSOR_RIGHT_OPTOCOUPLER);
       smprinter.set_extruder_check_state(EXTRUDER_STATUS_IDLE);
@@ -673,7 +681,7 @@ static err_code_t hmi_req_callback_probe_sensor_calibration(void *obj, sacp_hmi_
       break;
     case 3:
       LOG_I("probe sensor calibration left extruder manual detect\n");
-      set_current_from_steppers_for_axis(Z_AXIS);
+      motion_platform_svc.update_position_from_stepper();
       sync_plan_position();
       bedlevel.hotend_touch_bed_z_[1] = motion_platform_svc.get_current_position(Z_AXIS);
       LOG_I("hotend_touch_bed_z1: %f\n", bedlevel.hotend_touch_bed_z_[1]);

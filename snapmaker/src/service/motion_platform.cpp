@@ -603,7 +603,7 @@ void MotionPlatformService::req_live_Z_offset_quickstop(void) {
   while(req_motion_platform_quickstop) vTaskDelay(pdMS_TO_TICKS(5));
   req_motion_platform_quickstop = true;
 
-  planner_clean_cnt = 0;
+  planner_clean_cnt = TEMP_TIMER_FREQUENCY/4;
   smprinter.req_quick_stop();
 
   take_quickstop_sem(0xffffffff);
@@ -1419,7 +1419,12 @@ void MotionPlatformService::run() {
 
 
 void MotionPlatformService::do_quickstop() {
-  quickstop_stepper();
+  // quickstop_stepper();
+  planner.quick_stop();
+  #if MB_SNAPMAKER
+  // motion_platform_svc.stepper_quickstop_finish();
+  motion_platform_svc.stepper_quickstop_cb();
+  #endif
 }
 
 

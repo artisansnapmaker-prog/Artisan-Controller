@@ -1834,6 +1834,7 @@ bool Planner::_buffer_steps(const xyze_long_t &target
 
   #if MB_SNAPMAKER
   block->file_position = queue.file_line_number();
+  block->mark = queue.file_mark_number();
   #endif
 
   // If this is the first added movement, reload the delay, otherwise, cancel it.

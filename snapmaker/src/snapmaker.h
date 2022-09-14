@@ -324,7 +324,7 @@ class SnapmakerPrinter
     */
     uint32_t gcode_file_position;
     uint32_t gcode_file_pass_line_number;
-    void update_gcode_file_pass_line_number(uint32_t l);
+    void update_gcode_file_pass_line_number(uint32_t l, uint8_t mark);
 
   public:
     uint32_t power_domains;
@@ -351,7 +351,7 @@ class SnapmakerPrinter
     void reset_home_offset();
 
     // API for gcode
-    bool get_gcode_from_job(uint8_t *cmd, uint16_t max_len, uint32_t *line);
+    bool get_gcode_from_job(uint8_t *cmd, uint16_t max_len, uint32_t *line, uint8_t *mark);
     bool get_gcode_from_run_gcode_buffer(uint8_t *cmd, uint16_t max_len, uint32_t *line);
 
     // API for marlin

@@ -256,6 +256,7 @@ typedef struct block_t {
   uint32_t file_position;
   int e_stepper_offset;
   long e_actual_stepps_counter;
+  uint8_t mark;
   #endif
 } block_t;
 

@@ -549,10 +549,12 @@ void GCodeQueue::get_serial_commands() {
 #if MB_SNAPMAKER
 void GCodeQueue::get_snapmaker_commands() {
   uint32_t lines;
+  uint8_t mark;
 
-  while(!ring_buffer.full() && smprinter.get_gcode_from_job((uint8_t *)ring_buffer.commands[ring_buffer.index_w].buffer, MAX_CMD_SIZE, &lines)) {
+  while(!ring_buffer.full() && smprinter.get_gcode_from_job((uint8_t *)ring_buffer.commands[ring_buffer.index_w].buffer, MAX_CMD_SIZE, &lines, &mark)) {
     ring_buffer.commands[ring_buffer.index_w].lines = lines;
     ring_buffer.commands[ring_buffer.index_w].skip_ok = true;
+    ring_buffer.commands[ring_buffer.index_w].mark = mark;
     ring_buffer.advance_pos(ring_buffer.index_w, 1);
   }
 

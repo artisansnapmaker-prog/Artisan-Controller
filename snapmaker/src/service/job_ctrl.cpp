@@ -40,6 +40,7 @@ static AT_CCRAM uint8_t queue_buffer_jobctrl[JOB_CTRL_REQ_INFO_BUF];
 static AT_CCRAM StaticMessageBuffer_t queue_strcut_jobctrl;
 
 JobCtrl AT_CCRAM job_ctrl_svc;
+JobSaveLineStep job_save_line_step = JOB_SAVE_LINE_STEP_STOP;
 
 
 void job_ctrl_thread_entry(void *p) {
@@ -325,7 +326,10 @@ err_code_t JobCtrl::save_env(bool from_isr/*=false*/) {
   _env.active_coordinate = motion_platform_svc.get_active_coordinate_system();
   if (!from_isr)
     LOCK(_lock, JOB_LOCK_WAIT_TICK);
-  _env.cur_line_num = smprinter.gcode_file_position;
+  if (job_save_line_step != JOB_SAVE_LINE_STEP_MOVE)
+    _env.cur_line_num = smprinter.gcode_file_pass_line_number;
+  else
+    _env.cur_line_num = smprinter.gcode_file_position;
   if (!from_isr)
     UNLOCK(_lock);
   _env.print_feadrate = motion_platform_svc.get_feedrate();
@@ -739,7 +743,10 @@ void JobCtrl::do_start(struct JobCtrlReqInfo &jri) {
   _env.cur_line_num = 0;
   _env.req_line_num = 0;
   got_last_gcode_packet = false;
+  job_save_line_step = JOB_SAVE_LINE_STEP_STOP;
+  update_job_print_mark();
   UNLOCK(_lock);
+  smprinter.gcode_file_pass_line_number = _env.cur_line_num;
   _env.time_elape = 0;
   // _err_get_batch_gcode_cnt = 0;
   _env.gfi_valid = true;
@@ -933,7 +940,10 @@ void JobCtrl::do_resume(struct JobCtrlReqInfo &jri) {
   LOCK(_lock, JOB_LOCK_WAIT_TICK);
   _gcode_rb.reset();
   got_last_gcode_packet = false;
+  job_save_line_step = JOB_SAVE_LINE_STEP_STOP;
+  update_job_print_mark();
   UNLOCK(_lock);
+  smprinter.gcode_file_pass_line_number = _env.cur_line_num;
 
   if (E_SUCCESS != resume_env(jri.req_data.req_resume_data.type)) {
     LOG_E("job ctrl: resume env failed\r\n");
@@ -1136,7 +1146,7 @@ err_code_t JobCtrl::update_env(bool from_isr/*=false*/) {
   return save_env(from_isr);
 }
 
-bool JobCtrl::consume_a_gcode(uint8_t *cmd, uint16_t max_len, uint32_t *line) {
+bool JobCtrl::consume_a_gcode(uint8_t *cmd, uint16_t max_len, uint32_t *line, uint8_t *mark) {
   bool ret;
   uint8_t c;
   ModuleBase *cur_toolhead;
@@ -1167,6 +1177,8 @@ bool JobCtrl::consume_a_gcode(uint8_t *cmd, uint16_t max_len, uint32_t *line) {
       // LOG_I("job_ctrl: marlin consume a gcode %d: %s\r\n", *line, cmd);
       // last_gcode_execute_by_platform = false;
       ret = true;
+      if (mark)
+        *mark = get_job_print_mark();
 
       if (_paused){
         if (!(cur_toolhead = smprinter.get_cur_toolhead())) {
@@ -1263,4 +1275,11 @@ err_code_t JobCtrl::register_notify_handle(JobNotifyType type, void *obj, job_re
   LOG_I("has register notify handle for type:[%u]\n", type);
 
   return E_SUCCESS;
+}
+
+void JobCtrl::update_job_print_mark(void) {
+  if (job_print_mark < 0xFF)
+    job_print_mark += 1;
+  else
+    job_print_mark = 1;
 }

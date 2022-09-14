@@ -635,10 +635,12 @@ void SnapmakerPrinter::post_init() {
   vTaskStartScheduler();
 }
 
-void SnapmakerPrinter::update_gcode_file_pass_line_number(uint32_t l) {
-  gcode_file_pass_line_number = l;
-  job_ctrl_svc.update_gcode_file_pass_line_number(l);
-};
+void SnapmakerPrinter::update_gcode_file_pass_line_number(uint32_t l, uint8_t mark) {
+  if (smprinter.on_printing() && mark == job_ctrl_svc.get_job_print_mark()) {
+    gcode_file_pass_line_number = l;
+    job_ctrl_svc.update_gcode_file_pass_line_number(l);
+  }
+}
 
 
 void SnapmakerPrinter::register_module(uint16_t type, ModuleBase *module) {
@@ -882,8 +884,8 @@ void SnapmakerPrinter::reset_home_offset() {
 }
 
 // API for gcode
-bool SnapmakerPrinter::get_gcode_from_job(uint8_t *cmd, uint16_t max_len, uint32_t *line) {
-  return job_ctrl_svc.consume_a_gcode(cmd, max_len, line);
+bool SnapmakerPrinter::get_gcode_from_job(uint8_t *cmd, uint16_t max_len, uint32_t *line, uint8_t *mark) {
+  return job_ctrl_svc.consume_a_gcode(cmd, max_len, line, mark);
 }
 
 bool SnapmakerPrinter::get_gcode_from_run_gcode_buffer(uint8_t *cmd, uint16_t max_len, uint32_t *line) {

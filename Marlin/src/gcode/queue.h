@@ -61,6 +61,7 @@ public:
     bool skip_ok;                   //!< Skip sending ok when command is processed?
     #if MB_SNAPMAKER
     uint32_t lines;                 //!< position of gcode of this command in the file
+    uint8_t mark;
     #endif
     #if HAS_MULTI_SERIAL
       serial_index_t port;          //!< Serial port the command was received on
@@ -210,6 +211,7 @@ public:
 
   #if MB_SNAPMAKER
   static inline uint32_t file_line_number() {return ring_buffer.peek_next_command().lines;}
+  static inline uint8_t  file_mark_number() {return ring_buffer.peek_next_command().mark;}
   #endif
 
   #if ENABLED(BUFFER_MONITORING)

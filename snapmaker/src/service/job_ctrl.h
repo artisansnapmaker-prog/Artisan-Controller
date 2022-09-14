@@ -129,6 +129,11 @@ enum JobNotifyType {
   JOB_NOTIFY_TYPE_STOPPED,
 };
 
+enum JobSaveLineStep {
+  JOB_SAVE_LINE_STEP_STOP,
+  JOB_SAVE_LINE_STEP_NO_MOVE,
+  JOB_SAVE_LINE_STEP_MOVE,
+};
 
 struct JobEnv {
   toolHeadType type;                                          /** job type :                                                            */
@@ -244,11 +249,13 @@ class JobCtrl {
     void update_gcode_file_pass_line_number(uint32_t l);
 
     // gcode
-    bool consume_a_gcode(uint8_t *cmd, uint16_t max_len, uint32_t *line);
+    bool consume_a_gcode(uint8_t *cmd, uint16_t max_len, uint32_t *line, uint8_t *mark);
     bool gcode_file_info_check(struct GcodeFileInfo *gfi);
 
     err_code_t register_notify_handle(JobNotifyType type, void *obj, job_req_notify_cb_t);
     SystemStatus get_status_before_start(void) { return status_before_start; }
+
+    inline uint8_t get_job_print_mark(void) { return job_print_mark; }
 
   // private methods
   private:
@@ -262,6 +269,7 @@ class JobCtrl {
     err_code_t machine_standby(void);                           /** set the machine in standby status                                     */
     void issue_nodify(uint8_t issue_ret);
     void get_gcodes_from_client(void);
+    void update_job_print_mark(void);
 
     SemaphoreHandle_t _lock;                                    /** lock, TODO:should use the snapmaker's API, not the freeRTOS           */
     MessageBufferHandle_t _req_queue;                           /** job control request enqueue this queue, the background thread outqueue requst and do it            */
@@ -284,6 +292,8 @@ class JobCtrl {
     // uint32_t _get_gcode_buffer_req_min;                       /** the minimum buffer use to get gcode                                       */
     bool abort_resume;
     bool req_stop_trigger;
+
+    uint8_t job_print_mark = 0xFF;
 
     JobCtrlNotifyHandle notify_handle_started[JOB_CTRL_NOTIFY_QUEUE_SIZE];
     JobCtrlNotifyHandle notify_handle_paused[JOB_CTRL_NOTIFY_QUEUE_SIZE];

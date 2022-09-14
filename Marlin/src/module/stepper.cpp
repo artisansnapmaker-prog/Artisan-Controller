@@ -100,6 +100,7 @@ uint8_t E_ENABLE_ON = 1;
 #if MB_SNAPMAKER
 #include "../../snapmaker/src/snapmaker.h"
 #include "../../snapmaker/src/service/motion_platform.h"
+#include "../../snapmaker/src/service/job_ctrl.h"
 #endif
 
 #if ENABLED(INTEGRATED_BABYSTEPPING)
@@ -2335,6 +2336,11 @@ uint32_t Stepper::block_phase_isr() {
       accelerate_until = current_block->accelerate_until << oversampling;
       decelerate_after = current_block->decelerate_after << oversampling;
       #if MB_SNAPMAKER
+      extern JobSaveLineStep job_save_line_step;
+      if (job_save_line_step != JOB_SAVE_LINE_STEP_MOVE) {
+        if (smprinter.on_printing() && current_block->mark == job_ctrl_svc.get_job_print_mark())
+          job_save_line_step = JOB_SAVE_LINE_STEP_MOVE;
+      }
       smprinter.gcode_file_position = current_block->file_position;
       #endif
 

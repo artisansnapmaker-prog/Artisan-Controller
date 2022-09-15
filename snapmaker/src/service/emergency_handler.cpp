@@ -204,12 +204,15 @@ void EmergencyHandler::power_loss() {
   JobEnv   *job_env;
   uint32_t *flag = NULL, *checksum_addr = NULL;
   volatile uint32_t checksum;
+  SystemStatus sys_status = job_ctrl_svc.get_status_before_start();
 
   // - disable All ISR
   disable_all_interrupts();
 
   // need to check if we need save env and write flash
-  if (smprinter.on_working()) {
+  if (smprinter.on_working() && \
+      (!(sys_status == SYSTEM_STATUS_XY_CALIBRATING || (sys_status >= SYSTEM_STATUS_LASER_CAMERA_CAPTURE && \
+        sys_status <= SYSTEM_STATUS_LASER_DETECT_4AXIS_CENTER_POSITION)))) {
   // {
     // - get env
     motion_platform_svc.update_position_from_stepper();
@@ -252,6 +255,7 @@ void EmergencyHandler::power_loss() {
 void EmergencyHandler::emergency_stop() {
   JobEnv   *job_env = (JobEnv *)env;
   volatile uint32_t *flag, *checksum;
+  SystemStatus sys_status = job_ctrl_svc.get_status_before_start();
 
   // - disable All ISR
   disable_all_interrupts();
@@ -260,7 +264,9 @@ void EmergencyHandler::emergency_stop() {
 
   // need to check if we need save env and write flash
   // - get env
-  if (smprinter.on_working()) {
+  if (smprinter.on_working() && \
+      (!(sys_status == SYSTEM_STATUS_XY_CALIBRATING || (sys_status >= SYSTEM_STATUS_LASER_CAMERA_CAPTURE && \
+        sys_status <= SYSTEM_STATUS_LASER_DETECT_4AXIS_CENTER_POSITION)))) {
     motion_platform_svc.update_position_from_stepper();
 
     if (smprinter.on_printing())

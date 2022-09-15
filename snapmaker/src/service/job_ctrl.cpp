@@ -809,6 +809,10 @@ void JobCtrl::do_pause(struct JobCtrlReqInfo &jri) {
     return;
   }
 
+  // pre-saved, the env saved here will not be used under normal circumstances
+  if (SYSTEM_STATUS_RESUMING != ret_sys_status)
+    save_env();
+
   if (E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_PAUSING, &ret_sys_status)) {
     LOG_E("job ctrl: can not to enter SYS_PAUSEING status\r\n");
     DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, E_FAILURE);

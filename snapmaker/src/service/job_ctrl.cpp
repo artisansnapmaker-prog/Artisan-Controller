@@ -201,6 +201,7 @@ err_code_t JobCtrl::req_pause( enum JobPauseType pt,
                                       job_req_notify_cb_t cb/* = NULL*/, void *p/* = NULL*/) {
   if (  SYSTEM_STATUS_PRINTING != smprinter.get_sys_status() &&
         SYSTEM_STATUS_XY_CALIBRATING_PRINTING != smprinter.get_sys_status() &&
+        SYSTEM_STATUS_LASER_CALIBRATION_PRINTING != smprinter.get_sys_status() &&
         SYSTEM_STATUS_RESUMING != smprinter.get_sys_status()) {
     LOG_E("job client: can not pause a job as current status is no printing\r\n");
     return E_JOB_NOT_IN_WORKING_STATUS;
@@ -800,6 +801,7 @@ void JobCtrl::do_pause(struct JobCtrlReqInfo &jri) {
   ret_sys_status = smprinter.get_sys_status();
   if (  SYSTEM_STATUS_PRINTING != ret_sys_status &&
         SYSTEM_STATUS_XY_CALIBRATING_PRINTING != ret_sys_status &&
+        SYSTEM_STATUS_LASER_CALIBRATION_PRINTING != ret_sys_status &&
         SYSTEM_STATUS_RESUMING != ret_sys_status) {
 
     LOG_E("job client: can not pause a job as current status[%u] is no printing\r\n", ret_sys_status);
@@ -961,6 +963,9 @@ void JobCtrl::do_resume(struct JobCtrlReqInfo &jri) {
 
   if (status_before_start == SYSTEM_STATUS_XY_CALIBRATING)
     resume_sys_status = SYSTEM_STATUS_XY_CALIBRATING_PRINTING;
+  else if (status_before_start >= SYSTEM_STATUS_LASER_CAMERA_CAPTURE && \
+          status_before_start <= SYSTEM_STATUS_LASER_DETECT_4AXIS_CENTER_POSITION)
+    resume_sys_status = SYSTEM_STATUS_LASER_CALIBRATION_PRINTING;
 
   if (E_SUCCESS != smprinter.set_sys_status(resume_sys_status, NULL)) {
     LOG_E("job ctrl: can not enter SYS_PRINTING status");

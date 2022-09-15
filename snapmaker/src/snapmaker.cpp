@@ -965,7 +965,8 @@ err_code_t SnapmakerPrinter::set_sys_status(enum SystemStatus req_status, enum S
     break;
 
   case SYSTEM_STATUS_PAUSING:
-    if ((SYSTEM_STATUS_PRINTING == sys_status) || (SYSTEM_STATUS_XY_CALIBRATING_PRINTING == sys_status)) {
+    if ((SYSTEM_STATUS_PRINTING == sys_status) || (SYSTEM_STATUS_XY_CALIBRATING_PRINTING == sys_status) || \
+        (SYSTEM_STATUS_LASER_CALIBRATION_PRINTING == sys_status)) {
       sys_status = req_status;
       ret = E_SUCCESS;
     }
@@ -1089,7 +1090,10 @@ err_code_t SnapmakerPrinter::set_sys_status(enum SystemStatus req_status, enum S
   case SYSTEM_STATUS_LASER_DETECT_FOCAL_LENGTH:
   case SYSTEM_STATUS_LASER_DETECT_4AXIS_CENTER_POSITION:
     if (sys_status != SYSTEM_STATUS_IDLE &&
-        sys_status != SYSTEM_STATUS_LASER_CALIBRATION_PRINTING) {
+        sys_status != SYSTEM_STATUS_LASER_CALIBRATION_PRINTING && \
+        (!(sys_status == SYSTEM_STATUS_PAUSED && \
+          (job_ctrl_svc.get_status_before_start() >= SYSTEM_STATUS_LASER_CAMERA_CAPTURE && \
+           job_ctrl_svc.get_status_before_start() <= SYSTEM_STATUS_LASER_DETECT_4AXIS_CENTER_POSITION)))) {
       ret = E_FAILURE;
     }
     else {
@@ -1099,7 +1103,10 @@ err_code_t SnapmakerPrinter::set_sys_status(enum SystemStatus req_status, enum S
     break;
 
   case SYSTEM_STATUS_LASER_CALIBRATION_PRINTING:
-    if (sys_status <= SYSTEM_STATUS_LASER_CALI_END && sys_status >= SYSTEM_STATUS_LASER_CALI_START) {
+    if ((sys_status <= SYSTEM_STATUS_LASER_CALI_END && sys_status >= SYSTEM_STATUS_LASER_CALI_START) || \
+        ((sys_status == SYSTEM_STATUS_PAUSED || sys_status == SYSTEM_STATUS_RESUMING) && \
+          (job_ctrl_svc.get_status_before_start() >= SYSTEM_STATUS_LASER_CAMERA_CAPTURE && \
+           job_ctrl_svc.get_status_before_start() <= SYSTEM_STATUS_LASER_DETECT_4AXIS_CENTER_POSITION))) {
       sys_status = req_status;
       ret = E_SUCCESS;
     }

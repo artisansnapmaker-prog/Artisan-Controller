@@ -627,7 +627,8 @@ err_code_t ToolHeadLaser::hmi_cb_exit_calibraion(void *obj, sacp_hmi_message_t *
     return host_hmi.send_ack(message, E_INVALID_STATE);
   }
 
-  if (smprinter.get_sys_status() == SYSTEM_STATUS_LASER_CALIBRATION_PRINTING) {
+  if (smprinter.get_sys_status() == SYSTEM_STATUS_LASER_CALIBRATION_PRINTING || \
+      smprinter.get_sys_status() == SYSTEM_STATUS_PAUSING || smprinter.get_sys_status() == SYSTEM_STATUS_RESUMING) {
     LOG_E("now we are printing in laser calibration mode\n");
     return host_hmi.send_ack(message, E_INVALID_STATE);
   }

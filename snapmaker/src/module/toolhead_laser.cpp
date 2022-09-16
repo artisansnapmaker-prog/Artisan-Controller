@@ -1715,6 +1715,7 @@ err_code_t ToolHeadLaser::standby(void) {
     set_status(MODULE_STATUS_NORMAL);
   }
 
+  update_power(0);
   update_output(0);
 
   return E_SUCCESS;

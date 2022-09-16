@@ -784,15 +784,15 @@ void MotionPlatformService::set_leveling_grids(uint8_t grids) {
   GRID_MAX_CELLS_Y  = GRID_MAX_POINTS_Y - 1;
 
   if (smprinter.fdm->get_device_id() == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
-    startx = 49.497;
-    endx   = 349.091;
-    starty = 49.406;
-    endy   = 350.305;
+    startx = DOUBLE_EXTRUDER_X_BILINEAR_START_POINT;
+    endx   = DOUBLE_EXTRUDER_X_BILINEAR_END_POINT;
+    starty = DOUBLE_EXTRUDER_Y_BILINEAR_START_POINT;
+    endy   = DOUBLE_EXTRUDER_Y_BILINEAR_END_POINT;
   } else if (smprinter.fdm->get_device_id() == MODULE_DEVICE_ID_FDM_1EXTRUDER_2019) {
-    startx = 49.7;
-    endx   = 349.6;
-    starty = 41;
-    endy   = 342.6;
+    startx = SINGLE_EXTRUDER_X_BILINEAR_START_POINT;
+    endx   = SINGLE_EXTRUDER_X_BILINEAR_END_POINT;
+    starty = SINGLE_EXTRUDER_Y_BILINEAR_START_POINT;
+    endy   = SINGLE_EXTRUDER_Y_BILINEAR_END_POINT;
   }
 
   LOG_I("startx: %f, endx: %f, starty: %f, endy: %f\n", startx, endx, starty, endy);

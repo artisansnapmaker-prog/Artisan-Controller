@@ -482,11 +482,11 @@ static err_code_t hmi_req_callback_bed_position_detection(void *obj, sacp_hmi_me
   err_code_t ret = E_SUCCESS;
   uint8_t extruder_index = msg->data[0];
   float x, y;
-  uint8_t x_index, y_index;
-  x_index = GRID_MAX_POINTS_X / 2;
-  y_index = GRID_MAX_POINTS_Y / 2;
-  x = _GET_MESH_X(x_index);
-  y = _GET_MESH_Y(y_index);
+  // uint8_t x_index, y_index;
+  // x_index = GRID_MAX_POINTS_X / 2;
+  // y_index = GRID_MAX_POINTS_Y / 2;
+  // x = _GET_MESH_X(x_index);
+  // y = _GET_MESH_Y(y_index);
   uint16_t index = 0;
   uint8_t  recv_buffer[4];
   uint16_t recv_len = 4;
@@ -500,6 +500,11 @@ static err_code_t hmi_req_callback_bed_position_detection(void *obj, sacp_hmi_me
   msg->data[index++] = E_SUCCESS;
   msg->length = index;
   host_hmi.send_ack(msg);
+
+  // It is currently not supported to call this function with a single nozzle
+  // Only dual nozzles will use this function
+  x = RAW_X_POSITION(DOUBLE_EXTRUDER_X_BILINEAR_START_POINT + (DOUBLE_EXTRUDER_X_BILINEAR_END_POINT - DOUBLE_EXTRUDER_X_BILINEAR_START_POINT)/2);
+  y = RAW_Y_POSITION(DOUBLE_EXTRUDER_Y_BILINEAR_START_POINT + (DOUBLE_EXTRUDER_Y_BILINEAR_END_POINT - DOUBLE_EXTRUDER_Y_BILINEAR_START_POINT)/2);
 
   if ((bedlevel.get_bedlevel_mode() != BEDLEVEL_MODE_AUTO_BED_DETECTION) && (bedlevel.get_bedlevel_mode() != BEDLEVEL_MODE_MANUAL_BED_DETECTION)) {
     ret = E_FAILURE;

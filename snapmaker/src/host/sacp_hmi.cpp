@@ -1700,7 +1700,14 @@ out_unsubscript:
 err_code_t HostSACPHMI::handle_unsubscription_by_peer(void *obj, sacp_hmi_message_t *msg) {
   HostSACPHMI &host = *(HostSACPHMI *)obj;
 
-  host.unsubscribe_by_peer(msg->peer, msg->ch);
+  if (!obj || !msg || msg->length < 1) {
+    LOG_W("handle_unsubscription param error\n");
+    return host_hmi.send_ack(msg, E_PARAM);
+  }
+
+  LOG_I("unsubscribe peer: %d, ch: %d\n", msg->data[0], msg->ch);
+
+  host.unsubscribe_by_peer(msg->data[0], msg->ch);
 
   return host_hmi.send_ack(msg, E_SUCCESS);
 }

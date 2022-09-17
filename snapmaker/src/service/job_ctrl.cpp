@@ -259,6 +259,10 @@ err_code_t JobCtrl::req_stop( enum JobStopType st,
     LOG_E("job_ctrl: Machine is stopping, no need to repeat stop  system status : %d\n", smprinter.get_sys_status());
     return E_BUSY;
   }
+  else {
+    req_stop_trigger = true;
+    LOG_E("job_ctrl line: %d req_stop_trigger set: %d\n", __LINE__, req_stop_trigger);
+  }
 
   abort_resume = true;
 
@@ -271,10 +275,10 @@ err_code_t JobCtrl::req_stop( enum JobStopType st,
 
   if (sizeof(jri) != xMessageBufferSend(_req_queue, &jri, sizeof(jri), pdMS_TO_TICKS(100))) {
     LOG_E("job_ctrl: can not submit a job ctrl request\r\n");
+    req_stop_trigger = false;
+    LOG_E("job_ctrl: req_stop_trigger set: %d\n", req_stop_trigger);
     return E_NO_RESRC;
   }
-
-  req_stop_trigger = true;
 
   return E_SUCCESS;
 }
@@ -1009,7 +1013,6 @@ void JobCtrl::do_resume(struct JobCtrlReqInfo &jri) {
 
 void JobCtrl::do_stop(struct JobCtrlReqInfo &jri) {
   enum SystemStatus ret_sys_status;
-  req_stop_trigger = true;
 
   if (SYSTEM_STATUS_PRINTING == smprinter.get_sys_status()) {
     if (E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_STOPING, &ret_sys_status)) {
@@ -1139,6 +1142,7 @@ void JobCtrl::do_stop(struct JobCtrlReqInfo &jri) {
 
 exit_do_stop:
   req_stop_trigger = false;
+  LOG_I("job_ctrl line: %d req_stop_trigger set: %d\n", __LINE__, req_stop_trigger);
 }
 
 err_code_t JobCtrl::set_env(struct JobEnv &env) {

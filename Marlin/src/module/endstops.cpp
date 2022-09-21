@@ -1003,11 +1003,11 @@ void Endstops::update() {
   //   }
   // #endif
 
-  #if MB_SNAPMAKER
-    #if !ENDSTOP_NOISE_THRESHOLD
-      if (!abort_enabled()) return;
-    #endif
-  #endif
+  // #if MB_SNAPMAKER
+  //   #if !ENDSTOP_NOISE_THRESHOLD
+  //     if (!abort_enabled()) return;
+  //   #endif
+  // #endif
 
   #if MB_SNAPMAKER
     if (stepper.axis_is_moving(X_AXIS)) {

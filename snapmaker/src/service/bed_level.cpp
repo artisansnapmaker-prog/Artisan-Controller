@@ -391,10 +391,6 @@ static err_code_t hmi_req_callback_exit_level(void *obj, sacp_hmi_message_t *msg
       if ((offset < DEFAULT_HOTEND_OFFSET_Z - BIAS_HOTEND_OFFSET_Z) || (offset > DEFAULT_HOTEND_OFFSET_Z + BIAS_HOTEND_OFFSET_Z)) {
         LOG_E("z hotend offset error: %f\n", offset);
         ret = E_PARAM;
-        pos_to_raise = motion_platform_svc.get_current_position(Z_AXIS) + 100;
-        if (pos_to_raise > 400)
-          pos_to_raise = 400;
-        motion_platform_svc.moveto_z(pos_to_raise, 30);
       }
       else {
         smprinter.fdm->set_hotend_offset(offset, Z_AXIS);
@@ -406,10 +402,8 @@ static err_code_t hmi_req_callback_exit_level(void *obj, sacp_hmi_message_t *msg
         smprinter.fdm->save_hotend_offset_to_module(z_offset, Z_AXIS);
         smprinter.fdm->save_z_compensation_to_module(bedlevel.z_compensation_);
         pos_to_raise = motion_platform_svc.get_current_position(Z_AXIS) + 100;
-        if (pos_to_raise > 400)
-          pos_to_raise = 400;
-        motion_platform_svc.moveto_z(pos_to_raise, 30);
-        // compensate bed o position
+
+        // compensate bed oposition
         float compensation = bedlevel.hotend_touch_bed_z_[0] - CALIBRATION_PAPER_THICKNESS - bedlevel.z_values_[x_index][y_index];
         LOG_I("compensation: %f\n", compensation);
         motion_platform_svc.sync_z_values_to_platform(compensation);
@@ -419,10 +413,14 @@ static err_code_t hmi_req_callback_exit_level(void *obj, sacp_hmi_message_t *msg
         motion_platform_svc.print_leveling_grid_virt();
         motion_platform_svc.save_settings();
       }
-
-      motion_platform_svc.disable_z_probe();
-      motion_platform_svc.enable_leveling();
     }
+
+    motion_platform_svc.disable_z_probe();
+    motion_platform_svc.enable_leveling();
+    pos_to_raise = motion_platform_svc.get_current_position(Z_AXIS) + 100;
+    if (pos_to_raise > 400)
+      pos_to_raise = 400;
+    motion_platform_svc.moveto_z(pos_to_raise, 30);
   }
 
   if (bedlevel.get_bedlevel_mode() == BEDLEVEL_MODE_AUTO) {
@@ -566,6 +564,7 @@ static err_code_t hmi_req_callback_bed_position_detection(void *obj, sacp_hmi_me
         goto EXIT;
       }
 
+      smprinter.fdm->set_probe_sensor(PROBE_SENSOR_LEFT_OPTOCOUPLER);
       smprinter.fdm->tool_change(0);
 
       motion_platform_svc.disable_leveling();

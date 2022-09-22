@@ -42,8 +42,8 @@
 #define DUAL_EXTRUDER_SAFE_SPACE_MAX_X          35
 #define DUAL_EXTRUDER_SAFE_SPACE_MIN_Y          2
 #define DUAL_EXTRUDER_SAFE_SPACE_MAX_Y          2
-#define DUAL_EXTRUDER_SAFE_SPACE_MAX_Z          6
-#define TOOL_CHANGE_RAISE_SPACE                 1
+#define DUAL_EXTRUDER_SAFE_SPACE_MAX_Z          0
+#define TOOL_CHANGE_RAISE_SPACE                 0.5
 
 #define DEFAULT_HOTEND_OFFSET_X                 26
 #define DEFAULT_HOTEND_OFFSET_Y                 0

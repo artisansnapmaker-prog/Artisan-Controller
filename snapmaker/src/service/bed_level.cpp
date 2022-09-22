@@ -277,7 +277,8 @@ static err_code_t hmi_req_callback_exit_level(void *obj, sacp_hmi_message_t *msg
   enum SystemStatus sys_status;
 
   need_save = !!msg->data[0];
-  LOG_I("hmi request exit bedlevel mode, cur system status: %d, need save: %d\n", smprinter.get_sys_status(), need_save);
+  LOG_I("hmi request exit bedlevel mode, cur system status: %d, need save: %d, x_index: %d, y_index: %d\n", \
+        smprinter.get_sys_status(), need_save, x_index, y_index);
 
   // response to hmi first
   index = 0;
@@ -353,7 +354,7 @@ static err_code_t hmi_req_callback_exit_level(void *obj, sacp_hmi_message_t *msg
   }
 
   if (bedlevel.get_bedlevel_mode() == BEDLEVEL_MODE_MANUAL_BED_DETECTION) {
-    motion_platform_svc.update_position_from_stepper();
+    set_current_from_steppers_for_axis(Z_AXIS);
     sync_plan_position();
     if (need_save) {
       bedlevel.hotend_touch_bed_z_[1] = motion_platform_svc.get_current_position(Z_AXIS);
@@ -377,7 +378,7 @@ static err_code_t hmi_req_callback_exit_level(void *obj, sacp_hmi_message_t *msg
   }
 
   if (bedlevel.get_bedlevel_mode() == BEDLEVEL_MODE_PROBE_SENSOR_CALIBRATE) {
-    motion_platform_svc.update_position_from_stepper();
+    set_current_from_steppers_for_axis(Z_AXIS);
     sync_plan_position();
     if (need_save) {
       bedlevel.hotend_touch_bed_z_[0] = motion_platform_svc.get_current_position(Z_AXIS);
@@ -421,6 +422,7 @@ static err_code_t hmi_req_callback_exit_level(void *obj, sacp_hmi_message_t *msg
     if (pos_to_raise > 400)
       pos_to_raise = 400;
     motion_platform_svc.moveto_z(pos_to_raise, 30);
+    smprinter.fdm->tool_change(0, false);
   }
 
   if (bedlevel.get_bedlevel_mode() == BEDLEVEL_MODE_AUTO) {
@@ -480,9 +482,9 @@ static err_code_t hmi_req_callback_bed_position_detection(void *obj, sacp_hmi_me
   err_code_t ret = E_SUCCESS;
   uint8_t extruder_index = msg->data[0];
   float x, y;
-  // uint8_t x_index, y_index;
-  // x_index = GRID_MAX_POINTS_X / 2;
-  // y_index = GRID_MAX_POINTS_Y / 2;
+  uint8_t x_index, y_index;
+  x_index = GRID_MAX_POINTS_X / 2;
+  y_index = GRID_MAX_POINTS_Y / 2;
   // x = _GET_MESH_X(x_index);
   // y = _GET_MESH_Y(y_index);
   uint16_t index = 0;
@@ -501,8 +503,12 @@ static err_code_t hmi_req_callback_bed_position_detection(void *obj, sacp_hmi_me
 
   // It is currently not supported to call this function with a single nozzle
   // Only dual nozzles will use this function
+  // If the number of leveling points is even, you cannot assign this value directly here
   x = RAW_X_POSITION(DOUBLE_EXTRUDER_X_BILINEAR_START_POINT + (DOUBLE_EXTRUDER_X_BILINEAR_END_POINT - DOUBLE_EXTRUDER_X_BILINEAR_START_POINT)/2);
   y = RAW_Y_POSITION(DOUBLE_EXTRUDER_Y_BILINEAR_START_POINT + (DOUBLE_EXTRUDER_Y_BILINEAR_END_POINT - DOUBLE_EXTRUDER_Y_BILINEAR_START_POINT)/2);
+
+  LOG_I("x_index: %d, y_index: %d, x: %f, y: %f, start.x: %f, start.y: %f, spacing.x: %f, spacing.y: %f\n", \
+      x_index, y_index, x, y, bilinear_start.x, bilinear_start.y, bilinear_grid_spacing.x, bilinear_grid_spacing.y);
 
   if ((bedlevel.get_bedlevel_mode() != BEDLEVEL_MODE_AUTO_BED_DETECTION) && (bedlevel.get_bedlevel_mode() != BEDLEVEL_MODE_MANUAL_BED_DETECTION)) {
     ret = E_FAILURE;
@@ -575,7 +581,7 @@ static err_code_t hmi_req_callback_bed_position_detection(void *obj, sacp_hmi_me
     else if (extruder_index == 1) {
       motion_platform_svc.disable_leveling();
       motion_platform_svc.enable_z_probe();
-      motion_platform_svc.update_position_from_stepper();
+      set_current_from_steppers_for_axis(Z_AXIS);
       sync_plan_position();
       bedlevel.hotend_touch_bed_z_[0] = motion_platform_svc.get_current_position(Z_AXIS);
       LOG_I("manual bed detection: %f\n", bedlevel.hotend_touch_bed_z_[0]);
@@ -620,10 +626,18 @@ static err_code_t hmi_req_callback_probe_sensor_calibration(void *obj, sacp_hmi_
   }
   x_index = GRID_MAX_POINTS_X / 2;
   y_index = GRID_MAX_POINTS_Y / 2;
-  x = _GET_MESH_X(x_index);
-  y = _GET_MESH_Y(y_index);
+  // x = _GET_MESH_X(x_index);
+  // y = _GET_MESH_Y(y_index);
 
   LOG_I("hmi request probe sensor calibration\n");
+
+  // It is currently not supported to call this function with a single nozzle
+  // Only dual nozzles will use this function
+  // If the number of leveling points is even, you cannot assign this value directly here
+  x = RAW_X_POSITION(DOUBLE_EXTRUDER_X_BILINEAR_START_POINT + (DOUBLE_EXTRUDER_X_BILINEAR_END_POINT - DOUBLE_EXTRUDER_X_BILINEAR_START_POINT)/2);
+  y = RAW_Y_POSITION(DOUBLE_EXTRUDER_Y_BILINEAR_START_POINT + (DOUBLE_EXTRUDER_Y_BILINEAR_END_POINT - DOUBLE_EXTRUDER_Y_BILINEAR_START_POINT)/2);
+  LOG_I("x_index: %d, y_index: %d, x: %f, y: %f, start.x: %f, start.y: %f, spacing.x: %f, spacing.y: %f\n", \
+        x_index, y_index, x, y, bilinear_start.x, bilinear_start.y, bilinear_grid_spacing.x, bilinear_grid_spacing.y);
 
   if (bedlevel.get_bedlevel_mode() != BEDLEVEL_MODE_PROBE_SENSOR_CALIBRATE) {
     ret = E_FAILURE;
@@ -685,7 +699,7 @@ static err_code_t hmi_req_callback_probe_sensor_calibration(void *obj, sacp_hmi_
       break;
     case 3:
       LOG_I("probe sensor calibration left extruder manual detect\n");
-      motion_platform_svc.update_position_from_stepper();
+      set_current_from_steppers_for_axis(Z_AXIS);
       sync_plan_position();
       bedlevel.hotend_touch_bed_z_[1] = motion_platform_svc.get_current_position(Z_AXIS);
       LOG_I("hotend_touch_bed_z1: %f\n", bedlevel.hotend_touch_bed_z_[1]);

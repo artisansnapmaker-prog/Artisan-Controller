@@ -33,6 +33,16 @@
   constexpr bool g29_in_progress = false;
 #endif
 
+#define SINGLE_EXTRUDER_X_BILINEAR_START_POINT            49.7
+#define SINGLE_EXTRUDER_X_BILINEAR_END_POINT              349.6
+#define SINGLE_EXTRUDER_Y_BILINEAR_START_POINT            41
+#define SINGLE_EXTRUDER_Y_BILINEAR_END_POINT              342.6
+
+#define DOUBLE_EXTRUDER_X_BILINEAR_START_POINT            49.497
+#define DOUBLE_EXTRUDER_X_BILINEAR_END_POINT              349.091
+#define DOUBLE_EXTRUDER_Y_BILINEAR_START_POINT            49.406
+#define DOUBLE_EXTRUDER_Y_BILINEAR_END_POINT              350.305
+
 extern uint8_t GRID_MAX_POINTS_X;
 extern uint8_t GRID_MAX_POINTS_Y;
 extern uint8_t GRID_MAX_CELLS_X;

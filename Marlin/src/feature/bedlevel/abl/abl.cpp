@@ -35,10 +35,11 @@
   #include "../../../lcd/extui/ui_api.h"
 #endif
 
-float startx = 49.695;
-float endx   = 349.298;
-float starty = 47;
-float endy   = 347;
+float startx = DOUBLE_EXTRUDER_X_BILINEAR_START_POINT;
+float endx   = DOUBLE_EXTRUDER_X_BILINEAR_END_POINT;
+float starty = DOUBLE_EXTRUDER_Y_BILINEAR_START_POINT;
+float endy   = DOUBLE_EXTRUDER_Y_BILINEAR_END_POINT;
+
 xy_pos_t bilinear_grid_spacing, bilinear_start;
 xy_float_t bilinear_grid_factor;
 bed_mesh_t z_values;

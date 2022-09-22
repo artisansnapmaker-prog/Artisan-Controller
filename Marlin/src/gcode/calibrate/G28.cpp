@@ -369,7 +369,7 @@ void GcodeSuite::G28() {
 
     #define _UNSAFE(A) (homeZ && TERN0(Z_SAFE_HOMING, axes_should_home(_BV(A##_AXIS))))
 
-    const bool homeZ = TERN0(HAS_Z_AXIS, parser.seen_test('Z')),
+    bool homeZ = TERN0(HAS_Z_AXIS, parser.seen_test('Z')),
                LINEAR_AXIS_LIST(              // Other axes should be homed before Z safe-homing
                  needX = _UNSAFE(X), needY = _UNSAFE(Y), needZ = false, // UNUSED
                  needI = _UNSAFE(I), needJ = _UNSAFE(J), needK = _UNSAFE(K)
@@ -396,6 +396,7 @@ void GcodeSuite::G28() {
 
       if (smprinter.get_toolhead_type() == TH_TYPE_3DP) {
         if (smprinter.fdm->get_device_id() == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
+          doX = doY = doZ = true;
           smprinter.tool_change(0);
         }
       }

@@ -113,6 +113,9 @@ static err_code_t hmi_req_callback_set_level_mode(void *obj, sacp_hmi_message_t 
       break;
   }
 
+  if (ret == E_SUCCESS)
+    bedlevel.set_z_drop_limit_check(false);
+
 EXIT:
   msg->data[0] = ret;
   msg->length  = 1;
@@ -308,6 +311,7 @@ static err_code_t hmi_req_callback_exit_level(void *obj, sacp_hmi_message_t *msg
   }
 
   ret = smprinter.set_sys_status(SYSTEM_STATUS_IDLE, &ret_status);
+  bedlevel.set_z_drop_limit_check(false);
 
   if (bedlevel.get_bedlevel_mode() == BEDLEVEL_MODE_MANUAL) {
     LOG_I("finish bedlevel\n");
@@ -556,6 +560,7 @@ static err_code_t hmi_req_callback_bed_position_detection(void *obj, sacp_hmi_me
     smprinter.fdm->extruder_status_check_ctrl(EXTRUDER_STATUS_CHECK);
     LOG_I("auto bed detction%d: %f\n", extruder_index, bedlevel.detected_bed_z_values[extruder_index]);
   } else if (bedlevel.get_bedlevel_mode() == BEDLEVEL_MODE_MANUAL_BED_DETECTION) {
+    bedlevel.set_z_drop_limit_check(true);
     if (extruder_index == 0) {
       // need go home
       // clear live_z_offset
@@ -643,6 +648,11 @@ static err_code_t hmi_req_callback_probe_sensor_calibration(void *obj, sacp_hmi_
     ret = E_FAILURE;
     goto EXIT;
   }
+
+  if (action == 2 || action == 3)
+    bedlevel.set_z_drop_limit_check(true);
+  else
+    bedlevel.set_z_drop_limit_check(false);
 
   // if (smprinter.fdm->get_fdm_fault_state(FDM_FAULT_EXTRUDER_STATE)) {
   //   LOG_I("refuse probe sensor calibration because of extruder state error!\n");
@@ -1446,4 +1456,18 @@ void BedLevelService::report_probe_sensor_compensation() {
   }
 
   LOG_I("compensation, extruder0: %f, extruder1: %f\n", z_compensation_[0], z_compensation_[1]);
+}
+
+bool BedLevelService::get_z_drop_limit_status() {
+  bool ret = false;
+  SystemStatus sys_staus = smprinter.get_sys_status();
+
+  // To reduce the impact range, the limit is only detected in leveling mode
+  if (sys_staus == SYSTEM_STATUS_PROBE_SENSOR_CALIBRATION || sys_staus == SYSTEM_STATUS_MANUAL_BED_DETECTION) {
+    if (z_drop_limit_check && endstops.z_probe_enabled && smprinter.get_probe_state()) {
+      ret = true;
+    }
+  }
+  LOG_I("sys_staus: %d, z_drop_limit_check: %d, z_probe_enabled: %d, state: %d\n", sys_staus, z_drop_limit_check, endstops.z_probe_enabled, smprinter.get_probe_state());
+  return ret;
 }

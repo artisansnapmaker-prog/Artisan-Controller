@@ -23,6 +23,8 @@
 
 #include "base.h"
 
+#define E_LINEAR_NO_ALLOW_DOWN                  (PRIVATE_ERROR_BASE + COMMON_ERR_BASE)
+
 enum LinearSACPCommandId {
   SACP_CMD_ID_LINEAR_GET_INFO = 1,
   SACP_CMD_ID_LINEAR_SET_ENDSTOP,

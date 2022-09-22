@@ -88,6 +88,7 @@ class BedLevelService {
       live_z_offset_changed = false;
       need_to_abort_auto_bedlevel = false;
       auto_bedlevel_enable = false;
+      z_drop_limit_check = false;
     }
 
     void init();
@@ -116,6 +117,8 @@ class BedLevelService {
     void toolhead_auto_calibation();
     void update_soft_endstop_max_z();
     void report_probe_sensor_compensation();
+    bool get_z_drop_limit_status(void);
+    void set_z_drop_limit_check(bool enable) { z_drop_limit_check = enable; }
 
 
     float z_values_[GRID_MAX_NUM][GRID_MAX_NUM];
@@ -135,6 +138,7 @@ class BedLevelService {
     float manual_leveling_z_values_[GRID_MAX_NUM*GRID_MAX_NUM];
     bool is_bed_leveled;
     bool end_of_leveling_process;
+    bool z_drop_limit_check;
 };
 
 

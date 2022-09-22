@@ -93,8 +93,9 @@ class SystemService {
     *            the macros start with prefix 'EXCEP_ACT_'
     *  ban     - when an exception exists, the behaviors you want to ban,
     *            the macros start with prefix 'EXCEP_BAN_'
+    *  forced  - throw exceptions regardless of whether they already exist or not
     */
-    err_code_t raise_exception(uint16_t owner, uint8_t state, uint32_t actions = 0, uint32_t ban = 0);
+    err_code_t raise_exception(uint16_t owner, uint8_t state, uint32_t actions = 0, uint32_t ban = 0, bool forced = false);
 
     /* clear exception from thread env
     *  owner   - device id

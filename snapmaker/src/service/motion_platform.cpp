@@ -244,6 +244,17 @@ err_code_t MotionPlatformService::hmi_cb_move_absoluty(void *obj, sacp_hmi_messa
     }
   }
 
+  if (bedlevel_svc.get_z_drop_limit_status()) {
+    if (dest.z < motion->sm_current_position.z) {
+      #ifndef E_LINEAR_NO_ALLOW_DOWN
+        #define E_LINEAR_NO_ALLOW_DOWN    (PRIVATE_ERROR_BASE + COMMON_ERR_BASE)
+      #endif
+      err_code_t ret = host_hmi.send_ack(msg, E_LINEAR_NO_ALLOW_DOWN);
+      system_svc.raise_exception(MODULE_DEVICE_ID_A400_LINEAR, LINEAR_EXCEP_STA_LIMIT_Z_DOWN, 0, 0, true);
+      return ret;
+    }
+  }
+
   feedrate = *(uint16_t *)(msg->data + 1 + sizeof(coordinate_info_t) * number);
   if (feedrate) {
     feedrate = (feedrate / 60.0);

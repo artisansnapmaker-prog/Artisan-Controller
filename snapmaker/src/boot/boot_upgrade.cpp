@@ -24,6 +24,20 @@
 
 #define UPGRADE_TRANS_PACK_SIZE     (2000)
 
+#ifndef ADDR_CONTROLLER_SN
+  #define ADDR_CONTROLLER_SN            (0x8007FFC)
+#endif
+
+#ifndef ADDR_PRODUCTION_SN
+  #define ADDR_PRODUCTION_SN            (0x8007FBC)
+#endif
+
+#ifndef PRODUCTION_SN_STRING_LENGTH
+  #define PRODUCTION_SN_STRING_LENGTH   (30)
+#endif
+
+#define DEFAULT_REPORT_SN_LENGTH        (20)
+
 
 /********************************************************************************/
 // TYPEDEF
@@ -84,6 +98,7 @@ void upgrade_loop(void) {
     break;
 
     case UPGRADE_STATE_START:
+      Serial.println("ready to start requesting upgrade data");
       flash_erase(*(upgrade_info.app_partition));
       set_boot_upgrade_state_and_flush_to_flash(UPGRADE_STATE_TRANS);
       upgrade_trans_req();
@@ -155,19 +170,42 @@ void cmd_get_sys_info(uint8_t *pl, uint32_t len, uint8_t *out, uint32_t &out_len
   Serial.println("cmd_get_sys_info");
 
   uint16_t ver_str_len = strlen((char *)BOOT_VERSION);
-  out[0] = CMD_SET_SYSTEM;
-  out[1] = CMD_ID_MACHIN_INFO;
-  out[2] = MACHINE_TYPE;
-  out[3] = 0;
-  out[4] = 0;
-  out[5] = 0;
-  out[6] = 0;
-  out[7] = 0;
-  out[8] = ver_str_len & 0xFF;
-  out[9] = (ver_str_len>>8) & 0xFF;
-  memcpy(out + 10, BOOT_VERSION, ver_str_len);
-  out_len = 10 + ver_str_len;
+  uint16_t index = 0;
+  uint16_t cal_check_sum = 0;
 
+  out[index++] = CMD_SET_SYSTEM;
+  out[index++] = CMD_ID_MACHIN_INFO;
+  out[index++] = RET_OK;
+  out[index++] = MACHINE_TYPE;
+  out[index++] = 0xFF;  // hw version
+  *((uint32_t *)(out + index)) = *((uint32_t *)ADDR_CONTROLLER_SN);
+  index += 4;
+  *((uint16_t *)(out + index)) = ver_str_len;
+  index += 2;
+  memcpy(out + index, BOOT_VERSION, ver_str_len);
+  index += ver_str_len;
+  *((uint16_t *)(out + index)) = DEFAULT_REPORT_SN_LENGTH;
+  index += 2;
+
+  cal_check_sum = (uint16_t)sacp_calculate_checksum((uint8_t *)ADDR_PRODUCTION_SN, PRODUCTION_SN_STRING_LENGTH);
+  if (cal_check_sum == *((uint16_t *)(ADDR_PRODUCTION_SN + PRODUCTION_SN_STRING_LENGTH))) {
+    memcpy(out + index, (uint8_t *)ADDR_PRODUCTION_SN, DEFAULT_REPORT_SN_LENGTH);
+    Serial.print("effective production sn:");
+  }
+  else {
+    cal_check_sum = (uint16_t)sacp_calculate_checksum((uint8_t *)(ADDR_PRODUCTION_SN + PRODUCTION_SN_STRING_LENGTH + 2), PRODUCTION_SN_STRING_LENGTH);
+    if (cal_check_sum == *((uint16_t *)(ADDR_PRODUCTION_SN + 2 * PRODUCTION_SN_STRING_LENGTH + 2))) {
+      memcpy(out + index, (uint8_t *)(ADDR_PRODUCTION_SN + PRODUCTION_SN_STRING_LENGTH + 2), DEFAULT_REPORT_SN_LENGTH);
+      Serial.print("effective backup production sn:");
+    }
+    else {
+      memset(out + index, '6', DEFAULT_REPORT_SN_LENGTH);
+      Serial.print("invalid production sn:");
+    }
+  }
+  out[index + DEFAULT_REPORT_SN_LENGTH] = '\0';
+  Serial.println((char *)(out + index));
+  out_len = index + DEFAULT_REPORT_SN_LENGTH;
 }
 
 void cmd_upgrade_start(uint8_t *pl, uint32_t len, uint8_t *out, uint32_t &out_len) {

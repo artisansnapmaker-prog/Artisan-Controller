@@ -300,7 +300,7 @@ void JobCtrl::print_job_env(struct JobEnv *env) {
   for (uint32_t i = 0; i < env->toolhead_env_buf_size; i++) LOG_I("%02X ", env->toolhead_env_buf[i]);
 }
 
-err_code_t JobCtrl::save_env(bool from_isr/*=false*/) {
+err_code_t JobCtrl::save_env(bool from_isr/*=false*/, bool save_all_info/*=true*/) {
   ModuleBase *cur_toolhead;
 
   if (!(cur_toolhead = smprinter.get_cur_toolhead())) {
@@ -308,16 +308,18 @@ err_code_t JobCtrl::save_env(bool from_isr/*=false*/) {
     return E_JOB_NO_TOOLHEAD;
   }
 
-  _env.toolhead_env_buf_size = MODULE_ENV_MAX_SIZE;
-  if (E_SUCCESS != cur_toolhead->save_env(_env.toolhead_env_buf, _env.toolhead_env_buf_size)) {
-    // LOG_E("Toolhead save env error\r\n");
-    return E_JOB_SAVE_ENV_FAILURE;
+  if (save_all_info) {
+    _env.toolhead_env_buf_size = MODULE_ENV_MAX_SIZE;
+    if (E_SUCCESS != cur_toolhead->save_env(_env.toolhead_env_buf, _env.toolhead_env_buf_size)) {
+      // LOG_E("Toolhead save env error\r\n");
+      return E_JOB_SAVE_ENV_FAILURE;
+    }
   }
 
   if (TH_TYPE_3DP == _env.type){
     ModuleBase *bed;
     bed = module_svc.get_module(MODULE_DEVICE_ID_A400_BED, 0);
-    if (bed) {
+    if (bed && save_all_info) {
       _env.bed_env_buf_size = MODULE_ENV_MAX_SIZE;
       if (E_SUCCESS != bed->save_env(_env.bed_env_buf, _env.bed_env_buf_size)) {
         // LOG_E("job_ctrl: bed save env failure\r\n");
@@ -331,10 +333,12 @@ err_code_t JobCtrl::save_env(bool from_isr/*=false*/) {
   _env.active_coordinate = motion_platform_svc.get_active_coordinate_system();
   if (!from_isr)
     LOCK(_lock, JOB_LOCK_WAIT_TICK);
-  if (job_save_line_step != JOB_SAVE_LINE_STEP_MOVE)
-    _env.cur_line_num = smprinter.gcode_file_pass_line_number;
-  else
-    _env.cur_line_num = smprinter.gcode_file_position;
+  if (save_all_info) {
+    if (job_save_line_step != JOB_SAVE_LINE_STEP_MOVE)
+      _env.cur_line_num = smprinter.gcode_file_pass_line_number;
+    else
+      _env.cur_line_num = smprinter.gcode_file_position;
+  }
   if (!from_isr)
     UNLOCK(_lock);
   _env.print_feadrate = motion_platform_svc.get_feedrate();
@@ -344,8 +348,10 @@ err_code_t JobCtrl::save_env(bool from_isr/*=false*/) {
   _env.current_pos = motion_platform_svc.sm_current_position;
   _env.E_stepper_count = motion_platform_svc.get_stepper_count(E_AXIS);
 
-  for (int i = 0; i < BED_ZONE_MAX; i++) {
-    _env.bed_temp[i] = motion_platform_svc.get_bed_temp(i);
+  if (save_all_info) {
+    for (int i = 0; i < BED_ZONE_MAX; i++) {
+      _env.bed_temp[i] = motion_platform_svc.get_bed_temp(i);
+    }
   }
 
   _env.device_id = cur_toolhead->get_device_id();
@@ -410,7 +416,16 @@ err_code_t JobCtrl::resume_env(JobResumeType rt) {
     return E_JOB_RESUME_ENV_FAILURE;
   }
 
+  if (smprinter.get_toolhead_type() == TH_TYPE_3DP) {
+    for (int i = 0; i < BED_ZONE_MAX; i++) {
+      LOG_I("job_ctrl: recover zone[%d] temp to %d\r\n", i, _env.bed_temp[i]);
+      motion_platform_svc.set_bed_temp(_env.bed_temp[i], i);
+    }
+  }
+
   if (rt != RESUME_TYPE_LIVE_Z_OFFSET && TH_TYPE_3DP == _env.type) {
+    LOG_I("job_ctrl: nozzle0 to reach target temp: c[%.2f]@t[%d]\r\n",thermalManager.degHotend(0), thermalManager.degTargetHotend(0));
+    LOG_I("job_ctrl: nozzle1 to reach target temp: c[%.2f]@t[%d]\r\n",thermalManager.degHotend(1), thermalManager.degTargetHotend(1));
     while(!abort_resume &&
           (!motion_platform_svc.bed_heatup_to_target() ||
           !motion_platform_svc.hotends_heatup_to_target())) {
@@ -813,9 +828,8 @@ void JobCtrl::do_pause(struct JobCtrlReqInfo &jri) {
     return;
   }
 
-  // pre-saved, the env saved here will not be used under normal circumstances
-  if (SYSTEM_STATUS_RESUMING != ret_sys_status)
-    save_env();
+  // pre save, save all information needed for recovery efforts
+  save_env();
 
   if (E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_PAUSING, &ret_sys_status)) {
     LOG_E("job ctrl: can not to enter SYS_PAUSEING status\r\n");
@@ -866,7 +880,8 @@ void JobCtrl::do_pause(struct JobCtrlReqInfo &jri) {
     break;
   }
 
-  ret = save_env();
+  // only some information needs to be updated
+  ret = save_env(false, false);
   if (E_SUCCESS != ret) {
     LOG_I("job_ctrl:failed to save env, ret=%u\r\n", ret);
     smprinter.set_sys_status(SYSTEM_STATUS_IDLE, &ret_sys_status);

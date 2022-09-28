@@ -705,7 +705,7 @@ int16_t MotionPlatformService::get_bed_temp(int zone_index) {
     return thermalManager.degTargetBed();
 
   case 1:
-    return thermalManager.degChamber();
+    return thermalManager.degTargetChamber();
 
   default:
     return 0;

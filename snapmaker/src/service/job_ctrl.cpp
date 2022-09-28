@@ -41,7 +41,9 @@ static AT_CCRAM StaticMessageBuffer_t queue_strcut_jobctrl;
 
 JobCtrl AT_CCRAM job_ctrl_svc;
 JobSaveLineStep job_save_line_step = JOB_SAVE_LINE_STEP_STOP;
-
+TimerHandle_t JobCtrl::job_print_timer = NULL;
+volatile uint32_t job_print_seconds = 0;
+bool job_printing_flag = false;
 
 void job_ctrl_thread_entry(void *p) {
   for(;;) {
@@ -54,6 +56,11 @@ void job_request_gcode(void *p) {
     job_ctrl_svc.request_gcode_process(p);
     vTaskDelay(pdMS_TO_TICKS(50));
   }
+}
+
+void job_print_timer_callback(TimerHandle_t timer) {
+  if (smprinter.on_printing() || job_printing_flag)
+    job_print_seconds += 1;
 }
 
 void JobCtrl::init(void) {
@@ -73,6 +80,28 @@ void JobCtrl::init(void) {
   req_stop_trigger = false;
   status_before_start = SYSTEM_STATUS_IDLE;
   got_last_gcode_packet = false;
+
+  if (!job_print_timer) {
+    job_print_timer = xTimerCreate( "job_print_timer",
+                                    pdMS_TO_TICKS(JOB_PRINT_TIME_INTERVAL),
+                                    pdTRUE,
+                                    NULL,
+                                    job_print_timer_callback);
+
+    if (job_print_timer) {
+      if (xTimerStart(job_print_timer, portMAX_DELAY) != pdTRUE) {
+        LOG_E("job_print_timer start fail!!!\n");
+        xTimerDelete(job_print_timer, portMAX_DELAY);
+        job_print_timer = NULL;
+      }
+      else{
+         LOG_I("job_print_timer start success\n");
+      }
+    }
+    else{
+      LOG_E("Create job_print_timer fail!!!\n");
+    }
+  }
 
   TaskHandle_t jobctrl_task = xTaskCreateStatic((TaskFunction_t)(job_ctrl_thread_entry), "jobctrl", SYSTEM_TASK_STACK_SIZE,
         (void *)(this), HIGHEST_TASK_PRIORITY,  stack_jobctrl_thread, &tcb_jobctrl);
@@ -349,6 +378,7 @@ err_code_t JobCtrl::save_env(bool from_isr/*=false*/, bool save_all_info/*=true*
   _env.E_stepper_count = motion_platform_svc.get_stepper_count(E_AXIS);
 
   if (save_all_info) {
+    _env.time_elape = job_print_seconds;
     for (int i = 0; i < BED_ZONE_MAX; i++) {
       _env.bed_temp[i] = motion_platform_svc.get_bed_temp(i);
     }
@@ -767,6 +797,7 @@ void JobCtrl::do_start(struct JobCtrlReqInfo &jri) {
   update_job_print_mark();
   UNLOCK(_lock);
   smprinter.gcode_file_pass_line_number = _env.cur_line_num;
+  job_print_seconds = 0;
   _env.time_elape = 0;
   // _err_get_batch_gcode_cnt = 0;
   _env.gfi_valid = true;
@@ -969,6 +1000,7 @@ void JobCtrl::do_resume(struct JobCtrlReqInfo &jri) {
   update_job_print_mark();
   UNLOCK(_lock);
   smprinter.gcode_file_pass_line_number = _env.cur_line_num;
+  job_print_seconds = _env.time_elape;
 
   if (E_SUCCESS != resume_env(jri.req_data.req_resume_data.type)) {
     LOG_E("job ctrl: resume env failed\r\n");
@@ -1028,6 +1060,7 @@ void JobCtrl::do_resume(struct JobCtrlReqInfo &jri) {
 
 void JobCtrl::do_stop(struct JobCtrlReqInfo &jri) {
   enum SystemStatus ret_sys_status;
+  uint32_t tmp = 0;
 
   if (SYSTEM_STATUS_PRINTING == smprinter.get_sys_status()) {
     if (E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_STOPING, &ret_sys_status)) {
@@ -1043,7 +1076,11 @@ void JobCtrl::do_stop(struct JobCtrlReqInfo &jri) {
 
   while(motion_platform_svc.homing_now) {
     vTaskDelay(100);
-    LOG_I("job ctrl: stopping, wait machine homing finish\r\n");
+    tmp++;
+    if (tmp % 10 == 0) {
+      LOG_I("job ctrl: stopping, wait machine homing finish\r\n");
+      tmp = 0;
+    }
   }
 
   LOCK(_lock, JOB_LOCK_WAIT_TICK);
@@ -1054,12 +1091,14 @@ void JobCtrl::do_stop(struct JobCtrlReqInfo &jri) {
     case STOP_NORMAL:
     {
       uint32_t cnt = 30;
+      job_printing_flag = true;
       while (motion_platform_svc.planner_busy()/* || !last_gcode_execute_by_platform*/) {
         vTaskDelay(10);
         if (0 == cnt % 30)
           LOG_I("gcode_file_pass_line_number %d\r\n", smprinter.gcode_file_pass_line_number);
         cnt++;
       }
+      job_printing_flag = false;
     }
     break;
 
@@ -1310,4 +1349,8 @@ void JobCtrl::update_job_print_mark(void) {
     job_print_mark += 1;
   else
     job_print_mark = 1;
+}
+
+uint32_t JobCtrl::get_job_print_seconds(void) {
+  return job_print_seconds;
 }

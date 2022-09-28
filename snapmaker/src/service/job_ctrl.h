@@ -94,6 +94,8 @@
 
 #define JOB_CTRL_NOTIFY_QUEUE_SIZE  (16)
 
+#define JOB_PRINT_TIME_INTERVAL            (1000)
+
 enum JobPauseType {
   PAUSE_CLIENT_REQ,
   PAUSE_FILM_RUNOUT,
@@ -256,6 +258,7 @@ class JobCtrl {
     SystemStatus get_status_before_start(void) { return status_before_start; }
 
     inline uint8_t get_job_print_mark(void) { return job_print_mark; }
+    uint32_t get_job_print_seconds(void);
 
   // private methods
   private:
@@ -294,6 +297,7 @@ class JobCtrl {
     bool req_stop_trigger;
 
     uint8_t job_print_mark = 0xFF;
+    static TimerHandle_t job_print_timer;
 
     JobCtrlNotifyHandle notify_handle_started[JOB_CTRL_NOTIFY_QUEUE_SIZE];
     JobCtrlNotifyHandle notify_handle_paused[JOB_CTRL_NOTIFY_QUEUE_SIZE];

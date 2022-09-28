@@ -241,6 +241,7 @@ class MotionPlatformService {
     static uint16_t hmi_cb_publish_coordinate_info(void *obj, uint8_t *buffer);
     static uint16_t hmi_cb_publish_feedrate(void *obj, uint8_t *buffer);
     static uint16_t hmi_cb_publish_feedrate_percentage(void *obj, uint8_t *buffer);
+    static uint16_t hmi_cb_publish_job_print_time(void *obj, uint8_t *buffer);
     static err_code_t hmi_cb_get_coordinate_info(void *obj, sacp_hmi_message_t *msg);
     static err_code_t hmi_cb_set_active_coordinate_system(void *obj, sacp_hmi_message_t *msg);
     static err_code_t hmi_cb_set_origin(void *obj, sacp_hmi_message_t *msg);

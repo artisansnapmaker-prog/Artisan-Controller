@@ -2023,7 +2023,7 @@ err_code_t ToolHeadFDM::standby(void) {
   }
 
   enum SystemStatus status = smprinter.get_sys_status();
-  if (status == SYSTEM_STATUS_STOPING) {
+  if (status != SYSTEM_STATUS_PAUSING) {
     if (get_device_id() == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
       motion_platform_svc.set_hotend_temp(0, 0);
       motion_platform_svc.set_hotend_temp(0, 1);

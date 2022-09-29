@@ -201,6 +201,9 @@
 
 // Enable SNAPMAKER_DOUBLE_ZONE_BED will treat the chamber as a second hotbed
 #define SNAPMAKER_DOUBLE_ZONE_BED
+#if ENABLED(SNAPMAKER_DOUBLE_ZONE_BED)
+  #define DOUBLE_ZONE_BED_TOGETHER_ALLOW_MAX_TEMP                  80
+#endif
 
 // Generally expected filament diameter (1.75, 2.85, 3.0, ...). Used for Volumetric, Filament Width Sensor, etc.
 #define DEFAULT_NOMINAL_FILAMENT_DIA 1.75

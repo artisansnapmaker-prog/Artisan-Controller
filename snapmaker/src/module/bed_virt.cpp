@@ -68,6 +68,11 @@ err_code_t hmi_set_bed_target_temp(void *obj, sacp_hmi_message_t *msg) {
 
   LOG_I("bed_index: %d, target_temp: %d\n", bed_index, target_temp);
 
+  if (target_temp < 0) {
+    LOG_E("[%s] invalid temp parameter\n", __FUNCTION__);
+    return host_hmi.send_ack(msg, E_PARAM);
+  }
+
   #if DISABLED(SNAPMAKER_DOUBLE_ZONE_BED)
   bed_index = 0;  // index not considered if only one bed
   #endif
@@ -80,12 +85,14 @@ err_code_t hmi_set_bed_target_temp(void *obj, sacp_hmi_message_t *msg) {
     taskENTER_CRITICAL();
     if (bed_index == 0)
       thermalManager.setTargetBed(target_temp);
+#if ENABLED(SNAPMAKER_DOUBLE_ZONE_BED)
     else if (bed_index == 1)
       thermalManager.setTargetChamber(target_temp);
     else {
       thermalManager.setTargetBed(target_temp);
       thermalManager.setTargetChamber(target_temp);
     }
+#endif
     taskEXIT_CRITICAL();
     result = E_SUCCESS;
   }
@@ -121,7 +128,7 @@ uint16_t hmi_subscribe_bed_func(void *obj, uint8_t *buff) {
 
 err_code_t BedVirtual::pre_init() {
   //TODO: check if the bed is plugged
-  uint32_t zone0_adc = 0; 
+  uint32_t zone0_adc = 0;
   pinMode(TEMP_BED_PIN, INPUT_ANALOG);
   pinMode(BED_SW1_DETECT, INPUT);
   #if ENABLED(SNAPMAKER_DOUBLE_ZONE_BED)
@@ -131,7 +138,7 @@ err_code_t BedVirtual::pre_init() {
   #endif
 
   vTaskDelay(pdMS_TO_TICKS(10));
-  
+
   taskENTER_CRITICAL();
   zone0_adc = analogRead(TEMP_BED_PIN);
   #if ENABLED(SNAPMAKER_DOUBLE_ZONE_BED)
@@ -144,7 +151,7 @@ err_code_t BedVirtual::pre_init() {
     LOG_I("Bed: zone1 ADC: %u\n", zone1_adc);
   #endif
 
-  if (zone0_adc > BED_INEXISTENT_ADC 
+  if (zone0_adc > BED_INEXISTENT_ADC
     #if ENABLED(SNAPMAKER_DOUBLE_ZONE_BED)
       || zone1_adc > BED_INEXISTENT_ADC
     #endif
@@ -365,5 +372,5 @@ err_code_t BedVirtual::deinit(void) {
     thermalManager.setTargetChamber(0);
   #endif
   taskEXIT_CRITICAL();
-  return E_SUCCESS;  
+  return E_SUCCESS;
 }

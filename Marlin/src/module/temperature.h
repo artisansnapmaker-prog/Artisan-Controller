@@ -816,8 +816,19 @@ class Temperature {
       // Start watching the Bed to make sure it's really heating up
       static inline void start_watching_bed() { TERN_(WATCH_BED, watch_bed.restart(degBed(), degTargetBed())); }
 
-      static void setTargetBed(const celsius_t celsius) {
+      static void setTargetBed(celsius_t celsius) {
         TERN_(AUTO_POWER_CONTROL, if (celsius) powerManager.power_on());
+        #if ENABLED(SNAPMAKER_DOUBLE_ZONE_BED)
+          // add maximum temperature limit for simultaneous heating of dual zone bed
+          if (celsius > 0 && temp_chamber.target > 0) {
+            celsius = _MIN(celsius, DOUBLE_ZONE_BED_TOGETHER_ALLOW_MAX_TEMP);
+
+            if (temp_chamber.target > DOUBLE_ZONE_BED_TOGETHER_ALLOW_MAX_TEMP) {
+              temp_chamber.target = _MIN(DOUBLE_ZONE_BED_TOGETHER_ALLOW_MAX_TEMP, CHAMBER_MAX_TARGET);
+              start_watching_chamber();
+            }
+          }
+        #endif
         temp_bed.target = _MIN(celsius, BED_MAX_TARGET);
         start_watching_bed();
       }
@@ -860,7 +871,19 @@ class Temperature {
     #endif
 
     #if HAS_HEATED_CHAMBER
-      static void setTargetChamber(const celsius_t celsius) {
+      static void setTargetChamber(celsius_t celsius) {
+        TERN_(AUTO_POWER_CONTROL, if (celsius) powerManager.power_on());
+        #if ENABLED(SNAPMAKER_DOUBLE_ZONE_BED)
+          // add maximum temperature limit for simultaneous heating of dual zone bed
+          if (celsius > 0 && temp_bed.target > 0) {
+            celsius = _MIN(celsius, DOUBLE_ZONE_BED_TOGETHER_ALLOW_MAX_TEMP);
+
+            if (temp_bed.target > DOUBLE_ZONE_BED_TOGETHER_ALLOW_MAX_TEMP) {
+              temp_bed.target = _MIN(DOUBLE_ZONE_BED_TOGETHER_ALLOW_MAX_TEMP, BED_MAX_TARGET);
+              start_watching_bed();
+            }
+          }
+        #endif
         temp_chamber.target = _MIN(celsius, CHAMBER_MAX_TARGET);
         start_watching_chamber();
       }

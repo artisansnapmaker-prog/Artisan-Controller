@@ -1466,6 +1466,8 @@ void SnapmakerPrinter::reset_settings() {
   // reset live_z_offset
   settings.bedlevel_settings.live_z_offset[0] = BEDLEVEL_LIVE_Z_OFFSET_DEFAULT;
   settings.bedlevel_settings.live_z_offset[1] = BEDLEVEL_LIVE_Z_OFFSET_DEFAULT;
+  bedlevel_svc.live_z_offset[0] = BEDLEVEL_LIVE_Z_OFFSET_DEFAULT;
+  bedlevel_svc.live_z_offset[1] = BEDLEVEL_LIVE_Z_OFFSET_DEFAULT;
 
   // reset e axis steps per unit
   settings.fdm_settings.single_extruder_steps_per_unit  = SINGLE_EXTRUDER_STEPS_PER_UNIT_DEFAULT;

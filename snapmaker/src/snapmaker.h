@@ -638,6 +638,8 @@ class SnapmakerPrinter
     void start_work_reset_feedrate();
     void stop_work_reset_feedrate();
 
+    bool is_interrupt_block_heating(void);
+
   private:
     enum SystemStatus sys_status;
     SemaphoreHandle_t status_lock;

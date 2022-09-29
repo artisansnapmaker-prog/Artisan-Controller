@@ -3913,6 +3913,11 @@ void Temperature::isr() {
               break;
             }
           }
+
+          if (smprinter.is_interrupt_block_heating()) {
+            LOG_I("need interrupt hotend blocking heating!!!\n");
+            break;
+          }
         #endif
 
         // Target temperature might be changed during the loop
@@ -4065,6 +4070,13 @@ void Temperature::isr() {
           // Exit if S<lower>, continue if S<higher>, R<lower>, or R<higher>
           if (no_wait_for_cooling && wants_to_cool) break;
         }
+
+        #if MB_SNAPMAKER
+          if (smprinter.is_interrupt_block_heating()) {
+            LOG_I("need interrupt bed0 blocking heating!!!\n");
+            break;
+          }
+        #endif
 
         now = millis();
         if (ELAPSED(now, next_temp_ms)) { //Print Temp Reading every 1 second while heating up.
@@ -4258,6 +4270,13 @@ void Temperature::isr() {
           // Exit if S<lower>, continue if S<higher>, R<lower>, or R<higher>
           if (no_wait_for_cooling && wants_to_cool) break;
         }
+
+        #if MB_SNAPMAKER
+          if (smprinter.is_interrupt_block_heating()) {
+            LOG_I("need interrupt bed1 blocking heating!!!\n");
+            break;
+          }
+        #endif
 
         now = millis();
         if (ELAPSED(now, next_temp_ms)) { // Print Temp Reading every 1 second while heating up.

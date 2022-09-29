@@ -1788,6 +1788,10 @@ void SnapmakerPrinter::check_if_quickstop() {
   motion_platform_svc.do_quickstop();
 }
 
+bool SnapmakerPrinter::is_interrupt_block_heating(void) {
+  return (smprinter.get_sys_status() == SYSTEM_STATUS_PAUSING || job_ctrl_svc.get_req_stop_trigger());
+}
+
 extern "C" {
   // hook for failing to apply memory in freeRTOS
   void vApplicationMallocFailedHook( void ) {

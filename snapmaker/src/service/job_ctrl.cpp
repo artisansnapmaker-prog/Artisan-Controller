@@ -76,7 +76,7 @@ void JobCtrl::init(void) {
   _statistics_log_interval_ms = 0;
   _statistics_log_last_tick_ms = 0;
   _env.gfi_valid = false;
-  abort_resume = false;
+  // abort_resume = false;
   req_stop_trigger = false;
   status_before_start = SYSTEM_STATUS_IDLE;
   got_last_gcode_packet = false;
@@ -293,7 +293,7 @@ err_code_t JobCtrl::req_stop( enum JobStopType st,
     LOG_E("job_ctrl line: %d req_stop_trigger set: %d\n", __LINE__, req_stop_trigger);
   }
 
-  abort_resume = true;
+  // abort_resume = true;
 
   JobCtrlReqInfo jri;
   jri.req_action = REQ_STOP;
@@ -456,14 +456,14 @@ err_code_t JobCtrl::resume_env(JobResumeType rt) {
   if (rt != RESUME_TYPE_LIVE_Z_OFFSET && TH_TYPE_3DP == _env.type) {
     LOG_I("job_ctrl: nozzle0 to reach target temp: c[%.2f]@t[%d]\r\n",thermalManager.degHotend(0), thermalManager.degTargetHotend(0));
     LOG_I("job_ctrl: nozzle1 to reach target temp: c[%.2f]@t[%d]\r\n",thermalManager.degHotend(1), thermalManager.degTargetHotend(1));
-    while(!abort_resume &&
+    while(!req_stop_trigger &&
           (!motion_platform_svc.bed_heatup_to_target() ||
           !motion_platform_svc.hotends_heatup_to_target())) {
       LOG_I("job_ctrl: wait for bed and hotends heatup to target\r\n");
       vTaskDelay(pdMS_TO_TICKS(1000));
     }
   }
-  abort_resume = false;
+  // abort_resume = false;
 
 __pos_resume:
   LOCK(_lock, JOB_LOCK_WAIT_TICK);

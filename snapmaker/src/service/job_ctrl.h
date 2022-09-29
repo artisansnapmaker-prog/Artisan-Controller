@@ -259,6 +259,7 @@ class JobCtrl {
 
     inline uint8_t get_job_print_mark(void) { return job_print_mark; }
     uint32_t get_job_print_seconds(void);
+    bool get_req_stop_trigger(void) { return req_stop_trigger; }
 
   // private methods
   private:
@@ -293,7 +294,7 @@ class JobCtrl {
 
     // use for get gcode
     // uint32_t _get_gcode_buffer_req_min;                       /** the minimum buffer use to get gcode                                       */
-    bool abort_resume;
+    // bool abort_resume;
     bool req_stop_trigger;
 
     uint8_t job_print_mark = 0xFF;

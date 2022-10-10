@@ -25,7 +25,7 @@
 
 #define LASER_POWER_MAX                    (100)
 #define LASER_POWER_NORMA_LIMIT            (LASER_POWER_MAX)
-#define LASER_POWER_SAFE_LIMIT             (0.5)
+#define LASER_POWER_SAFE_LIMIT             (1)
 #define LASER_CAMERA_FOCUS_MAX             (65000) // 65mm
 #define LASER_POWER_SAFE_LOCK_LIMIT        (0)
 

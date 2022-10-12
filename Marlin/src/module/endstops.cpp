@@ -651,6 +651,9 @@ void Endstops::update() {
 
   #define UPDATE_ENDSTOP_BIT(AXIS, MINMAX) SET_BIT_TO(live_state, _ENDSTOP(AXIS, MINMAX), (READ(_ENDSTOP_PIN(AXIS, MINMAX)) != _ENDSTOP_INVERTING(AXIS, MINMAX)))
   #define COPY_LIVE_STATE(SRC_BIT, DST_BIT) SET_BIT_TO(live_state, DST_BIT, TEST(live_state, SRC_BIT))
+  #define EITHER_UPDATE_ENDSTOP_BIT(AXIS, AXIS1_PIN, MINMAX) SET_BIT_TO(live_state, _ENDSTOP(AXIS, MINMAX), \
+                                                            (READ(_ENDSTOP_PIN(AXIS, MINMAX)) != _ENDSTOP_INVERTING(AXIS, MINMAX) || \
+                                                            READ(AXIS1_PIN) != _ENDSTOP_INVERTING(AXIS, MINMAX)))
 
   #if ENABLED(G38_PROBE_TARGET) && NONE(CORE_IS_XY, CORE_IS_XZ, MARKFORGED_XY, MARKFORGED_XY)
     #define HAS_G38_PROBE 1
@@ -727,6 +730,10 @@ void Endstops::update() {
       #else
         COPY_LIVE_STATE(Y_MAX, Y2_MAX);
       #endif
+    #else
+      #if ENABLED(Y_DUAL_EITHER_ENDSTOPS)
+        EITHER_UPDATE_ENDSTOP_BIT(Y, ANOTHER_Y_ENDSTOP_PIN, MAX);
+      #endif
     #endif
   #endif
 
@@ -787,7 +794,11 @@ void Endstops::update() {
       #endif
     #elif TERN1(USES_Z_MIN_PROBE_PIN, Z_MAX_PIN != Z_MIN_PROBE_PIN)
       // If this pin isn't the bed probe it's the Z endstop
-      UPDATE_ENDSTOP_BIT(Z, MAX);
+      #if ENABLED(Z_DUAL_EITHER_ENDSTOPS)
+        EITHER_UPDATE_ENDSTOP_BIT(Z, ANOTHER_Z_ENDSTOP_PIN, MAX);
+      #else
+        UPDATE_ENDSTOP_BIT(Z, MAX);
+      #endif
     #endif
   #endif
 

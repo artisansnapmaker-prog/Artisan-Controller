@@ -742,6 +742,12 @@
   #if ENABLED(Y_DUAL_ENDSTOPS)
     #define Y2_USE_ENDSTOP _YMAX_
     #define Y2_ENDSTOP_ADJUSTMENT  0
+  #else
+    #define Y_DUAL_EITHER_ENDSTOPS
+    #if ENABLED(Y_DUAL_EITHER_ENDSTOPS)
+      #define ANOTHER_Y_ENDSTOP_PIN Y2_MAX_PIN
+      #define Y2_MAX_ENDSTOP_INVERTING Y_MAX_ENDSTOP_INVERTING
+    #endif
   #endif
 #endif
 
@@ -767,6 +773,12 @@
     #if NUM_Z_STEPPER_DRIVERS >= 4
       #define Z4_USE_ENDSTOP        _ZMAX_
       #define Z4_ENDSTOP_ADJUSTMENT 0
+    #endif
+  #else
+    #define Z_DUAL_EITHER_ENDSTOPS
+    #if ENABLED(Z_DUAL_EITHER_ENDSTOPS)
+      #define ANOTHER_Z_ENDSTOP_PIN Z2_MAX_PIN
+      #define Z2_MAX_ENDSTOP_INVERTING Z_MAX_ENDSTOP_INVERTING
     #endif
   #endif
 #endif

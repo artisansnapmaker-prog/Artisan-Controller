@@ -225,7 +225,7 @@ enum FDMExceptionState {
   FDM_EXCEP_STA_PROBE_ERROR,
   FDM_EXCEP_STA_PORT_ERROR,
   FDM_EXCEP_STA_EXTRUDER_HOME_FAILED,
-  FDM_EXCEP_STA_POST_INIT_FAIL,
+  FDM_EXCEP_STA_POST_INIT_FAIL
 };
 
 // exception state for heated Bed
@@ -639,6 +639,7 @@ class SnapmakerPrinter
     void stop_work_reset_feedrate();
 
     bool is_interrupt_block_heating(void);
+    bool is_fdm_bed_level_mode(void);
 
   private:
     enum SystemStatus sys_status;

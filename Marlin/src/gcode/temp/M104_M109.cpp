@@ -109,6 +109,12 @@ void GcodeSuite::M104_M109(const bool isM109) {
       thermalManager.singlenozzle_temp[target_extruder] = temp;
       if (target_extruder != active_extruder) return;
     #endif
+
+    if (temp > 0 && !smprinter.allow_heating_hotend()) {
+      LOG_E("Hotend is not allowed to be heated\n");
+      return;
+    }
+
     thermalManager.setTargetHotend(temp, target_extruder);
 
     #if ENABLED(DUAL_X_CARRIAGE)

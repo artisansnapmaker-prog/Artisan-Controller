@@ -415,7 +415,7 @@ void GcodeSuite::G28() {
         if (smprinter.fdm->get_device_id() == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
           if (smprinter.right_extruder_move_to_destination(GO_HOME) != E_SUCCESS) {
             LOG_I("right extruder go home failed\n");
-            smprinter.raise_exception(SM_EXCEP_OWNER_TOOLHEAD, FDM_EXCEP_STA_EXTRUDER_HOME_FAILED, EXCEP_ACT_STOP_WITH_RECOVERY);
+            smprinter.raise_exception(SM_EXCEP_OWNER_TOOLHEAD, FDM_EXCEP_STA_EXTRUDER_HOME_FAILED, EXCEP_ACT_PAUSE_WORKING, EXCEP_BAN_WORKING);
             return;
           }
           else {

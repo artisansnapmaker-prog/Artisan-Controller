@@ -489,6 +489,10 @@ err_code_t EmergencyHandler::hmi_cb_req_recovery_job(void *obj, sacp_hmi_message
         }
       }
       motion_platform_svc.run_gcode((char *)"G53");
+      msg->data[0] = fdm->prepare_start();
+      if (msg->data[0]) {
+        return host_hmi.send_sync(msg, recv_buff, &recv_length);
+      }
       motion_platform_svc.run_gcode((char *)"G28");
     }
     break;

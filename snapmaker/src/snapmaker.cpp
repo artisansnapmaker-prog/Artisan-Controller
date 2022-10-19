@@ -1792,6 +1792,11 @@ bool SnapmakerPrinter::is_interrupt_block_heating(void) {
   return (smprinter.get_sys_status() == SYSTEM_STATUS_PAUSING || job_ctrl_svc.get_req_stop_trigger());
 }
 
+bool SnapmakerPrinter::is_fdm_bed_level_mode(void) {
+  SystemStatus sys_staus = smprinter.get_sys_status();
+  return (sys_staus >= SYSTEM_STATUS_AUTO_BEDLEVEL && sys_staus <= SYSTEM_STATUS_PROBE_SENSOR_CALIBRATION);
+}
+
 extern "C" {
   // hook for failing to apply memory in freeRTOS
   void vApplicationMallocFailedHook( void ) {

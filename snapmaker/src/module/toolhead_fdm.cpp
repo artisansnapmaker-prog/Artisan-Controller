@@ -66,6 +66,16 @@ static module_func_prio_t prio_map_single_extruder[] = {
   {MODULE_FUNCTION_ID_INVALID, MODULE_FUNCTION_PRIORITY_INVALID}
 };
 
+/*
+* bit0 hotend E0 temperature error
+* bit1 hotend E0 type error
+* bit2 hotend E1 temperature error
+* bit3 hotend E1 type error
+* bit4 hotend E0 max temperature error
+* bit5 hotend E1 max temperature error
+*/
+uint32_t hotend_error_sta = 0;
+
 err_code_t fdm_callback_routine(void *obj);
 void fdm_callback_start_print(void *, uint8_t status_before_start);
 static void fdm_callback_probe_state(void *obj, uint8_t *data, uint8_t length);
@@ -539,6 +549,7 @@ static err_code_t hmi_req_callback_get_toolhead_info(void *obj, sacp_hmi_message
 static err_code_t hmi_req_callback_set_hotend_temp(void *obj, sacp_hmi_message_t *msg) {
   ToolHeadFDM &fdm = *(ToolHeadFDM *)obj;
   err_code_t ret = E_SUCCESS;
+  int16_t target_temp = 0;
 
   LOG_I("hmi request set hotend%d_temp: %d\n", msg->data[1], msg->data[2] | msg->data[3] << 8);
 
@@ -549,9 +560,22 @@ static err_code_t hmi_req_callback_set_hotend_temp(void *obj, sacp_hmi_message_t
     goto EXIT;
   }
 
+  target_temp = msg->data[2] | msg->data[3] << 8;
+  if (target_temp < 0) {
+    LOG_E("[%s] invalid temp parameter\n", __FUNCTION__);
+    ret = E_PARAM;
+    goto EXIT;
+  }
+
+  if (target_temp > 0 && !smprinter.allow_heating_hotend()) {
+    ret = E_HARDWARE;
+    LOG_E("[%s] Hotend is not allowed to be heated\n", __FUNCTION__);
+    goto EXIT;
+  }
+
   {
     char gcode_cmd[32];
-    snprintf(gcode_cmd, 32, "M104 T%d S%d\n", msg->data[1], msg->data[2] | msg->data[3] << 8);
+    snprintf(gcode_cmd, 32, "M104 T%d S%d\n", msg->data[1], target_temp);
     // motion_platform_svc.run_gcode(gcode_cmd);
     parser.parse(gcode_cmd);
     gcode.process_parsed_command();
@@ -1205,9 +1229,20 @@ void ToolHeadFDM::set_hotend_type(uint8_t *data) {
       #endif
     }
   } else {
-    fdm_exception_trigger(FDM_FAULT_NOZZLE_IDENTIFY);
-    // TBD
-    system_svc.raise_exception(get_device_id(), FDM_EXCEP_STA_NOZZLE_TYPE_ERROR, EXCEP_ACT_STOP_WORKING | EXCEP_ACT_DISABLE_POWER_8P_TOOLHEAD);
+    // detects a change in nozzle type, stops the current print job, and does not allow the nozzle to be heated
+    // currently only reboot recovery is allowed
+    bool disable_motor = smprinter.is_fdm_bed_level_mode();
+    if (!get_fdm_fault_state(FDM_FAULT_NOZZLE_IDENTIFY)) {
+        fdm_exception_trigger(FDM_FAULT_NOZZLE_IDENTIFY);
+        LOG_E("nozzle type has changed and is not allowed to continue working\n");
+        system_svc.raise_exception(get_device_id(), FDM_EXCEP_STA_NOZZLE_TYPE_ERROR, \
+                                    EXCEP_ACT_PAUSE_WORKING | EXCEP_ACT_DISABLE_HEATING_HOTEND | EXCEP_ACT_DISABLE_POWER_8P_TOOLHEAD |
+                                    (disable_motor ? EXCEP_ACT_DISABLE_POWER_8P_MOTOR : 0), \
+                                    EXCEP_BAN_HEATING_HOTEND | EXCEP_BAN_WORKING | EXCEP_BAN_MOVING);
+    }
+    // fdm_exception_trigger(FDM_FAULT_NOZZLE_IDENTIFY);
+    // // TBD
+    // system_svc.raise_exception(get_device_id(), FDM_EXCEP_STA_NOZZLE_TYPE_ERROR, EXCEP_ACT_STOP_WORKING | EXCEP_ACT_DISABLE_POWER_8P_TOOLHEAD);
   }
 }
 
@@ -1231,23 +1266,105 @@ void ToolHeadFDM::report_extruder_info(uint8_t *data) {
 }
 
 void ToolHeadFDM::update_hotend_temp(uint8_t *data) {
+  uint32_t temp_error = 0;
+  uint32_t temp_error_update_bit = 0;
   hotend_temp[0].current = data[0] << 8 | data[1];
 
-  if (data[2] == 1) {
-    motion_platform_svc.set_hotend_temp(0, 0);
-    fdm_exception_trigger(FDM_FAULT_NOZZLE_TEMP);
-    system_svc.raise_exception(get_device_id(), FDM_EXCEP_STA_THERMAL_RUNAWAY_E0, EXCEP_ACT_STOP_WORKING | EXCEP_ACT_DISABLE_POWER_8P_TOOLHEAD);
+
+  if (data[2] & (1 << 0)) {
+    temp_error |= (1 << 0);
+    // motion_platform_svc.set_hotend_temp(0, 0);
+    // fdm_exception_trigger(FDM_FAULT_NOZZLE_TEMP);
+    // system_svc.raise_exception(get_device_id(), FDM_EXCEP_STA_OVERTEMP_ERROR_E0, EXCEP_ACT_STOP_WORKING | EXCEP_ACT_DISABLE_POWER_8P_TOOLHEAD);
+  }
+
+  if (data[2] & (1 << 1)) {
+    temp_error |= (1 << 2);
   }
 
   if (get_device_id() == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
     hotend_temp[1].current = data[4] << 8 | data[5];
-    if (data[6] == 1) {
-      motion_platform_svc.set_hotend_temp(0, 1);
-      fdm_exception_trigger(FDM_FAULT_NOZZLE_TEMP);
-      system_svc.raise_exception(get_device_id(), FDM_EXCEP_STA_THERMAL_RUNAWAY_E1, EXCEP_ACT_STOP_WORKING | EXCEP_ACT_DISABLE_POWER_8P_TOOLHEAD);
+    if (data[6] & (1 << 0)) {
+      temp_error |= (1 << 1);
+      // motion_platform_svc.set_hotend_temp(0, 1);
+      // fdm_exception_trigger(FDM_FAULT_NOZZLE_TEMP);
+      // system_svc.raise_exception(get_device_id(), FDM_EXCEP_STA_OVERTEMP_ERROR_E1, EXCEP_ACT_STOP_WORKING | EXCEP_ACT_DISABLE_POWER_8P_TOOLHEAD);
+    }
+
+    if (data[6] & (1 << 1)) {
+      temp_error |= (1 << 3);
     }
   }
 
+  // check if the exception status is updated
+  if (temp_error != (hotend_error_sta & 0xF)) {
+    for (int i = 0; i < 4; i++) {
+      if ((temp_error & (1 << i)) ^ (hotend_error_sta & (1 << i)))
+        temp_error_update_bit |=  (1 << i);
+    }
+  }
+
+  if (temp_error_update_bit) {
+    bool disable_motor = smprinter.is_fdm_bed_level_mode();
+    LOG_I("temp_error_update_bit: 0x%x temp_error:0x%x\n",temp_error_update_bit, temp_error);
+    if (temp_error_update_bit & (1 << 0)) {
+      if (temp_error & (1 << 0)) {
+        LOG_E("check E0 temperature out of detection range\n");
+        system_svc.raise_exception(get_device_id(), FDM_EXCEP_STA_OVERTEMP_ERROR_E0, \
+                                                    EXCEP_ACT_PAUSE_WORKING | EXCEP_ACT_DISABLE_POWER_8P_TOOLHEAD | EXCEP_ACT_DISABLE_HEATING_HOTEND | \
+                                                    (disable_motor ? EXCEP_ACT_DISABLE_POWER_8P_MOTOR : 0), \
+                                                    EXCEP_BAN_HEATING_HOTEND | EXCEP_BAN_WORKING | EXCEP_BAN_MOVING);
+      }
+      else {
+        LOG_E("check E0 temperature is normal\n");
+        // current errors are not allowed to be cleared at this time
+        // system_svc.clear_exception(get_device_id(), FDM_EXCEP_STA_OVERTEMP_ERROR_E0);
+      }
+    }
+
+    if (temp_error_update_bit & (1 << 1)) {
+      if (temp_error & (1 << 1)) {
+        LOG_E("check E1 temperature out of detection range\n");
+        system_svc.raise_exception(get_device_id(), FDM_EXCEP_STA_OVERTEMP_ERROR_E1, \
+                                                    EXCEP_ACT_PAUSE_WORKING | EXCEP_ACT_DISABLE_POWER_8P_TOOLHEAD | EXCEP_ACT_DISABLE_HEATING_HOTEND | \
+                                                    (disable_motor ? EXCEP_ACT_DISABLE_POWER_8P_MOTOR: 0), \
+                                                    EXCEP_BAN_HEATING_HOTEND | EXCEP_BAN_WORKING | EXCEP_BAN_MOVING);
+      }
+      else {
+        LOG_E("check E1 temperature is normal\n");
+        // current errors are not allowed to be cleared at this time
+        // system_svc.clear_exception(get_device_id(), FDM_EXCEP_STA_OVERTEMP_ERROR_E1);
+      }
+    }
+
+    // this error is not currently cleared automatically
+    // requires machine reboot to clear
+    if ((temp_error_update_bit & (1 << 2)) || ((temp_error_update_bit & (1 << 3)))) {
+      if ((temp_error & (1 << 2)) || ((temp_error & (1 << 3)))) {
+        if (!get_fdm_fault_state(FDM_FAULT_NOZZLE_IDENTIFY)) {
+          fdm_exception_trigger(FDM_FAULT_NOZZLE_IDENTIFY);
+          system_svc.raise_exception(get_device_id(), FDM_EXCEP_STA_NOZZLE_TYPE_ERROR, \
+                                      EXCEP_ACT_PAUSE_WORKING | EXCEP_ACT_DISABLE_POWER_8P_TOOLHEAD | EXCEP_ACT_DISABLE_HEATING_HOTEND | \
+                                      (disable_motor ? EXCEP_ACT_DISABLE_POWER_8P_MOTOR : 0), \
+                                      EXCEP_BAN_HEATING_HOTEND | EXCEP_BAN_MOVING);
+        }
+      }
+      LOG_I("hotend E0 type: %s, hotend E1 type: %s\n", temp_error & (1 << 2) ? "invalid" : "normal", temp_error & (1 << 3) ? "invalid" : "normal");
+    }
+  }
+
+  if ((temp_error & 0x3)) {
+    if (!get_fdm_fault_state(FDM_FAULT_NOZZLE_TEMP)) {
+      fdm_exception_trigger(FDM_FAULT_NOZZLE_TEMP);
+    }
+  }
+  else {
+    if (get_fdm_fault_state(FDM_FAULT_NOZZLE_TEMP)) {
+      fdm_exception_clear(FDM_FAULT_NOZZLE_TEMP);
+    }
+  }
+
+  hotend_error_sta |= (temp_error & 0xF);
   last_recv_time = millis();
 }
 
@@ -1863,8 +1980,12 @@ err_code_t fdm_callback_routine(void *obj) {
       LOG_E("fdm offline\n");
       fdm.is_fdm_online = false;
       fdm.set_status(MODULE_STATUS_OFFLINE);
-      if (smprinter.get_sys_status() != SYSTEM_STATUS_MODULE_UPGRADE) {
-        system_svc.raise_exception(fdm.get_device_id(), FDM_EXCEP_STA_OFFLINE, EXCEP_ACT_STOP_WORKING | EXCEP_ACT_DISABLE_POWER_8P_TOOLHEAD);
+      // active power failure triggered offline does not report to the screen
+      if (smprinter.get_sys_status() != SYSTEM_STATUS_MODULE_UPGRADE && (smprinter.power_domains & POWER_DOMAIN_8P_TOOLHEAD)) {
+        bool disable_motor = smprinter.is_fdm_bed_level_mode();
+        system_svc.raise_exception(fdm.get_device_id(), FDM_EXCEP_STA_OFFLINE, EXCEP_ACT_STOP_WORKING | EXCEP_ACT_DISABLE_HEATING_HOTEND | \
+                                    EXCEP_ACT_DISABLE_POWER_8P_TOOLHEAD | (disable_motor ? EXCEP_ACT_DISABLE_POWER_8P_MOTOR: 0),
+                                    EXCEP_BAN_HEATING_HOTEND | EXCEP_BAN_WORKING | EXCEP_BAN_MOVING);
       }
     }
   } else {

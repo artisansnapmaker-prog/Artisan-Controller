@@ -1085,6 +1085,7 @@ void Temperature::_temp_error(const heater_id_t heater_id, FSTR_P const serial_m
 }
 
 void Temperature::max_temp_error(const heater_id_t heater_id) {
+  bool disable_motor = false;
   #if HAS_DWIN_E3V2_BASIC && (HAS_HOTEND || HAS_HEATED_BED)
     DWIN_Popup_Temperature(1);
   #endif
@@ -1096,6 +1097,25 @@ void Temperature::max_temp_error(const heater_id_t heater_id) {
       }
       else
         return;
+    }
+    else if (heater_id == H_E0 || heater_id == H_E1) {
+      // prevents duplicate access
+      extern uint32_t hotend_error_sta;
+      if (heater_id == H_E0) {
+        if ((hotend_error_sta & (1 << 4)))
+          return;
+        else
+          hotend_error_sta |= (1 << 4);
+      }
+      else {
+        if ((hotend_error_sta & (1 << 5)))
+          return;
+        else
+          hotend_error_sta |= (1 << 5);
+      }
+
+      if (smprinter.is_fdm_bed_level_mode())
+        disable_motor = true;
     }
   #endif
 
@@ -1116,12 +1136,16 @@ void Temperature::max_temp_error(const heater_id_t heater_id) {
 
   case H_E0:
     smprinter.raise_exception(SM_EXCEP_OWNER_TOOLHEAD, FDM_EXCEP_STA_OVERTEMP_ERROR_E0,
-                              EXCEP_ACT_PAUSE_WORKING | EXCEP_ACT_DISABLE_HEATING_HOTEND);
+                              EXCEP_ACT_PAUSE_WORKING | EXCEP_ACT_DISABLE_HEATING_HOTEND | EXCEP_ACT_DISABLE_POWER_8P_TOOLHEAD | \
+                              (disable_motor ? EXCEP_ACT_DISABLE_POWER_8P_MOTOR : 0),
+                              EXCEP_BAN_HEATING_HOTEND | EXCEP_BAN_MOVING);
     break;
 
   case H_E1:
     smprinter.raise_exception(SM_EXCEP_OWNER_TOOLHEAD, FDM_EXCEP_STA_OVERTEMP_ERROR_E1,
-                              EXCEP_ACT_PAUSE_WORKING | EXCEP_ACT_DISABLE_HEATING_HOTEND);
+                              EXCEP_ACT_PAUSE_WORKING | EXCEP_ACT_DISABLE_HEATING_HOTEND | EXCEP_ACT_DISABLE_POWER_8P_TOOLHEAD | \
+                              (disable_motor ? EXCEP_ACT_DISABLE_POWER_8P_MOTOR : 0),
+                              EXCEP_BAN_HEATING_HOTEND | EXCEP_BAN_MOVING);
     break;
 
   default:

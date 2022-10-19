@@ -39,6 +39,8 @@ EmergencyHandler emergency_hdl;
 sacp_hmi_message_t EmergencyHandler::msg_notify_stop;
 sacp_hmi_message_t EmergencyHandler::msg_notify_recovery;
 
+static uint32_t write_flash_checksum = 0;
+
 // EXTI_IRQ_SUBPRIO
 // EXTI_IRQ_PRIO
 static void interrupt_cb_stop_button() {
@@ -238,6 +240,7 @@ void EmergencyHandler::power_loss() {
 
     checksum_addr = (uint32_t *)(env + ENV_CHECKSUM_ADDR);
     checksum = host_hmi.calculate_checksum(env, EMERGENCY_ENV_SIZE - 4);
+    write_flash_checksum = checksum;
     *checksum_addr = checksum;
     if (flash_write_buffer(env, EMERGENCY_ENV_SIZE, ENV_START_IN_FLASH) != EMERGENCY_ENV_SIZE) {
       while (1);
@@ -281,6 +284,7 @@ void EmergencyHandler::emergency_stop() {
 
     checksum  = (uint32_t *)(env + ENV_CHECKSUM_ADDR);
     *checksum = host_hmi.calculate_checksum(env, EMERGENCY_ENV_SIZE - 4);
+    write_flash_checksum = *checksum;
     flash_write_buffer(env, EMERGENCY_ENV_SIZE, ENV_START_IN_FLASH);
   }
 
@@ -552,8 +556,9 @@ void EmergencyHandler::background() {
   JobEnv *jenv = (JobEnv *)env;
   if (powerloss_state == PIN_STATE_TRIGGERED) {
     powerloss_state = PIN_STATE_NORMAL;
-    LOG_I("powerloss pos: X%.3f, Y%.3f, Z%.3f, I%.3f, J%3.f\n", jenv->current_pos.x,
-            jenv->current_pos.y, jenv->current_pos.z, jenv->current_pos.i, jenv->current_pos.j);
+    LOG_I("powerloss pos: X%.3f, Y%.3f, Z%.3f, I%.3f, J%3.f, save checksum: 0x%x, read checksum: 0x%x\n", jenv->current_pos.x,
+            jenv->current_pos.y, jenv->current_pos.z, jenv->current_pos.i, jenv->current_pos.j, write_flash_checksum, \
+            *((uint32_t*)(ENV_START_IN_FLASH + ENV_CHECKSUM_ADDR)));
     smprinter.set_sys_status(SYSTEM_STATUS_POWER_LOSS, NULL);
     // host_hmi.test_interface(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_REBOOT, NULL, 0);
     return;
@@ -564,8 +569,9 @@ void EmergencyHandler::background() {
     job_cb_notify_emergency_stop(&msg_notify_stop, E_SUCCESS);
 
     if (button_state == PIN_STATE_TRIGGERED) {
-      LOG_I("emergency stop pos: X%.3f, Y%.3f, Z%.3f, I%.3f, J%3.f\n", jenv->current_pos.x,
-              jenv->current_pos.y, jenv->current_pos.z, jenv->current_pos.i, jenv->current_pos.j);
+      LOG_I("emergency stop pos: X%.3f, Y%.3f, Z%.3f, I%.3f, J%3.f, save checksum: 0x%x, read checksum: 0x%x\n", jenv->current_pos.x,
+              jenv->current_pos.y, jenv->current_pos.z, jenv->current_pos.i, jenv->current_pos.j, write_flash_checksum, \
+            *((uint32_t*)(ENV_START_IN_FLASH + ENV_CHECKSUM_ADDR)));
     }
   }
 

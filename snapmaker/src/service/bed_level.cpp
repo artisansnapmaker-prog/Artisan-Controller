@@ -278,10 +278,19 @@ static err_code_t hmi_req_callback_exit_level(void *obj, sacp_hmi_message_t *msg
   float pos_to_raise;
   bool need_save = false;
   enum SystemStatus sys_status;
+  bool exception_trigger = false;
 
   need_save = !!msg->data[0];
   LOG_I("hmi request exit bedlevel mode, cur system status: %d, need save: %d, x_index: %d, y_index: %d\n", \
         smprinter.get_sys_status(), need_save, x_index, y_index);
+
+  if (need_save) {
+    if (!(smprinter.power_domains & POWER_DOMAIN_8P_TOOLHEAD)) {
+      LOG_E("8p toolhead power is off, leveling data is not allowed to save\n");
+      need_save = false;
+      exception_trigger = true;
+    }
+  }
 
   // response to hmi first
   index = 0;
@@ -457,6 +466,9 @@ static err_code_t hmi_req_callback_exit_level(void *obj, sacp_hmi_message_t *msg
 
   bedlevel.set_bedlevel_mode(BEDLEVEL_MODE_IDLE);
   smprinter.fdm->extruder_status_check_ctrl(EXTRUDER_STATUS_CHECK);
+
+  if (exception_trigger)
+    ret = E_HARDWARE;
 
 EXIT:
   // send request as the result of execution

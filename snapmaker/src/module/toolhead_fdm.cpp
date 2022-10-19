@@ -1596,7 +1596,7 @@ uint32_t ToolHeadFDM::get_fdm_state() {
 }
 
 uint8_t ToolHeadFDM::get_fdm_fault_state(fdm_fault_e fault_type) {
-  return (fdm_state >> fault_type) & 0xff;
+  return ((fdm_state >> fault_type) & 0x1) & 0xff;
 }
 
 void ToolHeadFDM::clear_fdm_state(fdm_fault_e state) {

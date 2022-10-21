@@ -5,7 +5,9 @@
 #include "../common/error.h"
 #include "../host/sacp_hmi.h"
 
-#define EMERGENCY_ENV_SIZE                    (4 *1024)
+#define JOB_ENV_MAX_SIZE                      (1024)
+#define JOB_ENV_BACKUP_NUM                    (4)
+#define EMERGENCY_ENV_SIZE                    (JOB_ENV_BACKUP_NUM * JOB_ENV_MAX_SIZE)
 
 enum EmergencyStopSource {
   EMERGENCY_STOP_SOURCE_BUTTON,

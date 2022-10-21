@@ -24,10 +24,10 @@ static uint32_t power_loss_det = POWER_LOSS_DETECT;
 
 #define ENV_START_IN_FLASH          (0x0800C000)
 
-#define ENV_CHECKSUM_ADDR           (EMERGENCY_ENV_SIZE - 4)
+#define ENV_CHECKSUM_ADDR           (JOB_ENV_MAX_SIZE - 4)
 
 #define ENV_VALID_FLAG              (0x12345678)
-#define ENV_VALID_FLAG_ADDR         (EMERGENCY_ENV_SIZE - 8)
+#define ENV_VALID_FLAG_ADDR         (JOB_ENV_MAX_SIZE - 8)
 #define ENV_VALID_FLAG_ADDR_FLASH   (ENV_START_IN_FLASH + ENV_VALID_FLAG_ADDR)
 
 #define RECORD_FLASH_SECTOR (3)
@@ -79,8 +79,8 @@ void EmergencyHandler::init() {
   msg_notify_stop.cmd_id   = SACP_CMD_ID_GLOABL_REQ_NOTIFY_EMERGENCY_STOP;
   msg_notify_stop.length   = 1;
 
-  if (sizeof(JobEnv) >= (EMERGENCY_ENV_SIZE - 4)) {
-    LOG_E("EmergencyHandler: env size[%u] is out of range of emergency record[4096]\n", sizeof(JobEnv));
+  if (sizeof(JobEnv) >= (JOB_ENV_MAX_SIZE - 8)) {
+    LOG_E("EmergencyHandler: env size[%u] is out of range of emergency record[%d]\n", sizeof(JobEnv), JOB_ENV_MAX_SIZE - 8);
     return;
   }
 
@@ -122,26 +122,38 @@ void EmergencyHandler::init() {
 }
 
 bool EmergencyHandler::check_record() {
-  volatile uint32_t *flag, *checksum_saved;
-  volatile uint32_t checksum_calc;
+  uint32_t *flag, *checksum_saved;
+  uint32_t checksum_calc;
   JobEnv *jenv;
+  uint8_t i = 0;
 
   memcpy(env, (uint8_t *)(ENV_START_IN_FLASH), EMERGENCY_ENV_SIZE);
+  for (i = 0; i < JOB_ENV_BACKUP_NUM; i++) {
+    checksum_calc = host_hmi.calculate_checksum(env + i * JOB_ENV_MAX_SIZE, JOB_ENV_MAX_SIZE - 4);
+    flag = (uint32_t *)(env + i * JOB_ENV_MAX_SIZE + ENV_VALID_FLAG_ADDR);
+    checksum_saved = (uint32_t *)(env + i * JOB_ENV_MAX_SIZE + ENV_CHECKSUM_ADDR);
 
-  checksum_calc = host_hmi.calculate_checksum(env, EMERGENCY_ENV_SIZE - 4);
+    if (!((checksum_calc == *checksum_saved) && (*flag == ENV_VALID_FLAG))) {
+      if (checksum_calc != *checksum_saved) {
+        LOG_E("EmergencyHandler: env backup%d checksum error, saved:[0x%x], calc[0x%x]\n", i, *checksum_saved, checksum_calc);
+       }
 
-  flag = (uint32_t *)(env + ENV_VALID_FLAG_ADDR);
-  checksum_saved = (uint32_t *)(env + ENV_CHECKSUM_ADDR);
-
-  if (checksum_calc != *checksum_saved) {
-    LOG_E("EmergencyHandler: checksum error, saved:[0x%x], calc[0x%x]\n", *checksum_saved, checksum_calc);
-    return false;
+      if (*flag != ENV_VALID_FLAG) {
+        LOG_E("EmergencyHandler: env backup%d invalid flag\n", i);
+      }
+    }
+    else {
+      // find valid env data
+      break;
+    }
   }
 
-  if (*flag != ENV_VALID_FLAG) {
-    LOG_E("EmergencyHandler: invalid flag\n");
+  // not getting valid env data
+  if (i >= JOB_ENV_BACKUP_NUM)
     return false;
-  }
+
+  if (i > 0)
+    memcpy(env, env + i * JOB_ENV_MAX_SIZE, JOB_ENV_MAX_SIZE);
 
   jenv = (JobEnv *)env;
   // won't check toohead type here, because now we have not initialized modules.
@@ -204,8 +216,6 @@ void EmergencyHandler::prepare_flash() {
 
 void EmergencyHandler::power_loss() {
   JobEnv   *job_env;
-  uint32_t *flag = NULL, *checksum_addr = NULL;
-  volatile uint32_t checksum;
   SystemStatus sys_status = job_ctrl_svc.get_status_before_start();
 
   // - disable All ISR
@@ -224,7 +234,7 @@ void EmergencyHandler::power_loss() {
       job_ctrl_svc.update_env(true);
     // if failed to update env, show LED?
     job_env = job_ctrl_svc.get_env();
-    memcpy(env, job_env, sizeof(JobEnv));
+    memcpy(env, (uint8_t *)job_env, sizeof(JobEnv));
 
     // - make modules enter standby
     module_svc.quick_stop_all();  // quick stop firstly
@@ -234,14 +244,19 @@ void EmergencyHandler::power_loss() {
     smprinter.disable_power_domain(POWER_DOMAIN_POWERLOSS);
 
     // need to check if we need save env and write flash
-    // - write flash
-    flag  = (uint32_t *)(env + ENV_VALID_FLAG_ADDR);
-    *flag = ENV_VALID_FLAG;
+    *((uint32_t *)(env + ENV_VALID_FLAG_ADDR)) = ENV_VALID_FLAG;
+    *((uint32_t *)(env + ENV_CHECKSUM_ADDR)) = host_hmi.calculate_checksum(env, JOB_ENV_MAX_SIZE - 4);
+    write_flash_checksum = *((uint32_t *)(env + ENV_CHECKSUM_ADDR));
 
-    checksum_addr = (uint32_t *)(env + ENV_CHECKSUM_ADDR);
-    checksum = host_hmi.calculate_checksum(env, EMERGENCY_ENV_SIZE - 4);
-    write_flash_checksum = checksum;
-    *checksum_addr = checksum;
+    // backup data
+    for (int i = 1; i < JOB_ENV_BACKUP_NUM; i++) {
+      memcpy(env + (i * JOB_ENV_MAX_SIZE), env, JOB_ENV_MAX_SIZE);
+    }
+
+    // - erase flash
+    flash_erase_sector(RECORD_FLASH_SECTOR);
+
+    // - write flash
     if (flash_write_buffer(env, EMERGENCY_ENV_SIZE, ENV_START_IN_FLASH) != EMERGENCY_ENV_SIZE) {
       while (1);
     }
@@ -257,7 +272,6 @@ void EmergencyHandler::power_loss() {
 
 void EmergencyHandler::emergency_stop() {
   JobEnv   *job_env = (JobEnv *)env;
-  volatile uint32_t *flag, *checksum;
   SystemStatus sys_status = job_ctrl_svc.get_status_before_start();
 
   // - disable All ISR
@@ -276,15 +290,21 @@ void EmergencyHandler::emergency_stop() {
       job_ctrl_svc.update_env(true);
 
     job_env = job_ctrl_svc.get_env();
-    memcpy(env, job_env, sizeof(JobEnv));
+    memcpy(env, (uint8_t *)job_env, sizeof(JobEnv));
+
+    *((uint32_t *)(env + ENV_VALID_FLAG_ADDR)) = ENV_VALID_FLAG;
+    *((uint32_t *)(env + ENV_CHECKSUM_ADDR)) = host_hmi.calculate_checksum(env, JOB_ENV_MAX_SIZE - 4);
+    write_flash_checksum = *((uint32_t *)(env + ENV_CHECKSUM_ADDR));
+
+    // backup Data
+    for (int i = 1; i < JOB_ENV_BACKUP_NUM; i++) {
+      memcpy(env + (i * JOB_ENV_MAX_SIZE), env, JOB_ENV_MAX_SIZE);
+    }
+
+    // - erase flash
+    flash_erase_sector(RECORD_FLASH_SECTOR);
 
     // - write flash
-    flag  = (uint32_t *)(env + ENV_VALID_FLAG_ADDR);
-    *flag = ENV_VALID_FLAG;
-
-    checksum  = (uint32_t *)(env + ENV_CHECKSUM_ADDR);
-    *checksum = host_hmi.calculate_checksum(env, EMERGENCY_ENV_SIZE - 4);
-    write_flash_checksum = *checksum;
     flash_write_buffer(env, EMERGENCY_ENV_SIZE, ENV_START_IN_FLASH);
   }
 
@@ -556,9 +576,9 @@ void EmergencyHandler::background() {
   JobEnv *jenv = (JobEnv *)env;
   if (powerloss_state == PIN_STATE_TRIGGERED) {
     powerloss_state = PIN_STATE_NORMAL;
-    LOG_I("powerloss pos: X%.3f, Y%.3f, Z%.3f, I%.3f, J%3.f, save checksum: 0x%x, read checksum: 0x%x\n", jenv->current_pos.x,
+    LOG_I("powerloss pos: X%.3f, Y%.3f, Z%.3f, I%.3f, J%3.f, save checksum: 0x%x, read checksum: 0x%x cal checksum: 0x%x\n", jenv->current_pos.x,
             jenv->current_pos.y, jenv->current_pos.z, jenv->current_pos.i, jenv->current_pos.j, write_flash_checksum, \
-            *((uint32_t*)(ENV_START_IN_FLASH + ENV_CHECKSUM_ADDR)));
+            *((uint32_t*)(ENV_START_IN_FLASH + ENV_CHECKSUM_ADDR)), host_hmi.calculate_checksum(env, JOB_ENV_MAX_SIZE - 4));
     smprinter.set_sys_status(SYSTEM_STATUS_POWER_LOSS, NULL);
     // host_hmi.test_interface(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_REBOOT, NULL, 0);
     return;
@@ -569,9 +589,9 @@ void EmergencyHandler::background() {
     job_cb_notify_emergency_stop(&msg_notify_stop, E_SUCCESS);
 
     if (button_state == PIN_STATE_TRIGGERED) {
-      LOG_I("emergency stop pos: X%.3f, Y%.3f, Z%.3f, I%.3f, J%3.f, save checksum: 0x%x, read checksum: 0x%x\n", jenv->current_pos.x,
+      LOG_I("emergency stop pos: X%.3f, Y%.3f, Z%.3f, I%.3f, J%3.f, save checksum: 0x%x, read checksum: 0x%x cal checksum: 0x%x\n", jenv->current_pos.x,
               jenv->current_pos.y, jenv->current_pos.z, jenv->current_pos.i, jenv->current_pos.j, write_flash_checksum, \
-            *((uint32_t*)(ENV_START_IN_FLASH + ENV_CHECKSUM_ADDR)));
+            *((uint32_t*)(ENV_START_IN_FLASH + ENV_CHECKSUM_ADDR)), host_hmi.calculate_checksum(env, JOB_ENV_MAX_SIZE - 4));
     }
   }
 
@@ -613,30 +633,33 @@ void EmergencyHandler::background() {
 
 
 err_code_t EmergencyHandler::save_env_manually(uint8_t *new_env, uint32_t size) {
-  uint32_t *flag, *checksum_addr;
-  uint32_t checksum;
-
   if (!new_env) {
     LOG_E(" env to be saved is null");
     return E_PARAM;
   }
 
-  if (size > (EMERGENCY_ENV_SIZE - 8)) {
-    LOG_E("size[%u] of env to be saved is out of range[%u]\n", size, EMERGENCY_ENV_SIZE - 8);
+  if (size > (JOB_ENV_MAX_SIZE - 8)) {
+    LOG_E("size[%u] of env to be saved is out of range[%u]\n", size, JOB_ENV_MAX_SIZE - 8);
     return E_PARAM;
   }
 
   memcpy(env, new_env, size);
 
   // need to check if we need save env and write flash
-  // - write flash
-  flag  = (uint32_t *)(env + ENV_VALID_FLAG_ADDR);
-  *flag = ENV_VALID_FLAG;
+  *((uint32_t *)(env + ENV_VALID_FLAG_ADDR)) = ENV_VALID_FLAG;
+  *((uint32_t *)(env + ENV_CHECKSUM_ADDR)) = host_hmi.calculate_checksum(env, JOB_ENV_MAX_SIZE - 4);
+  write_flash_checksum = *((uint32_t *)(env + ENV_CHECKSUM_ADDR));
 
-  checksum_addr = (uint32_t *)(env + ENV_CHECKSUM_ADDR);
-  checksum = host_hmi.calculate_checksum(env, EMERGENCY_ENV_SIZE - 4);
-  *checksum_addr = checksum;
+  // backup data
+  for (int i = 1; i < JOB_ENV_BACKUP_NUM; i++) {
+    memcpy(env + (i * JOB_ENV_MAX_SIZE), env, JOB_ENV_MAX_SIZE);
+  }
+
   disable_all_interrupts();
+  // - erase flash
+  flash_erase_sector(RECORD_FLASH_SECTOR);
+
+  // - write flash
   size = flash_write_buffer(env, EMERGENCY_ENV_SIZE, ENV_START_IN_FLASH);
   enable_all_interrupts();
 

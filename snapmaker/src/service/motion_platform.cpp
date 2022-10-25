@@ -780,6 +780,10 @@ bool MotionPlatformService::hotends_heatup_to_target(void) {
     return true;
   }
 
+  if (!smprinter.allow_heating_hotend()) {
+    return true;
+  }
+
   if ((thermalManager.degTargetHotend(0) > 0.0) && (thermalManager.degHotend(0) < thermalManager.degTargetHotend(0))) {
     LOG_I("job_ctrl: wait for nozzle0 to reach target temp: c[%.2f]@t[%d]\r\n",
           thermalManager.degHotend(0), thermalManager.degTargetHotend(0));

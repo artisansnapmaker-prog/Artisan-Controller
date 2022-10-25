@@ -40,6 +40,7 @@ sacp_hmi_message_t EmergencyHandler::msg_notify_stop;
 sacp_hmi_message_t EmergencyHandler::msg_notify_recovery;
 
 static uint32_t write_flash_checksum = 0;
+uint8_t power_loss_signal_trigger = 0;
 
 // EXTI_IRQ_SUBPRIO
 // EXTI_IRQ_PRIO
@@ -170,9 +171,10 @@ uint8_t EmergencyHandler::read_button() {
   return digitalRead(stop_button);
 }
 
-void EmergencyHandler::prepare_flash() {
+void EmergencyHandler::prepare_flash(bool is_forced) {
   LOG_I("EmergencyHandler::prepare_flash\n");
   err_code_t ret = E_SUCCESS;
+  bool allow_erase = true;
 
   if ((*(uint32_t *)(ENV_START_IN_FLASH) == 0xFFFFFFFF) &&
   (*(uint32_t *)(ENV_VALID_FLAG_ADDR_FLASH) == 0xFFFFFFFF)) {
@@ -187,11 +189,24 @@ void EmergencyHandler::prepare_flash() {
   int timeout = 10;
   do {
     disable_all_interrupts();
-    ret = flash_erase_sector(RECORD_FLASH_SECTOR);
+    if (is_forced) {
+      ret = flash_erase_sector(RECORD_FLASH_SECTOR);
+    }
+    else {
+      if (!(power_loss_signal_trigger & (1 << 1)))
+        ret = flash_erase_sector(RECORD_FLASH_SECTOR);
+      else
+        allow_erase = false;
+    }
     enable_all_interrupts();
 
     if (ret != E_SUCCESS) {
       LOG_E("EmergencyHandler: failed to erase flash: ret=%u\n", ret);
+    }
+
+    if (!allow_erase) {
+      LOG_E("EmergencyHandler: power-down storage operation detected, non-forced operation mode does not allow erasure\n");
+      return;
     }
 
     vTaskDelay(pdMS_TO_TICKS(500));
@@ -220,6 +235,8 @@ void EmergencyHandler::power_loss() {
 
   // - disable All ISR
   disable_all_interrupts();
+
+  power_loss_signal_trigger |= (1 << 0);
 
   // need to check if we need save env and write flash
   if (smprinter.on_working() && \
@@ -260,6 +277,8 @@ void EmergencyHandler::power_loss() {
     if (flash_write_buffer(env, EMERGENCY_ENV_SIZE, ENV_START_IN_FLASH) != EMERGENCY_ENV_SIZE) {
       while (1);
     }
+
+    power_loss_signal_trigger |= (1 << 1);
   }
 
   enable_all_interrupts();
@@ -276,6 +295,8 @@ void EmergencyHandler::emergency_stop() {
 
   // - disable All ISR
   disable_all_interrupts();
+
+  power_loss_signal_trigger |= (1 << 0);
 
   smprinter.disable_power_domain(POWER_DOMAIN_EMERGENCY_STOP);
 
@@ -306,6 +327,8 @@ void EmergencyHandler::emergency_stop() {
 
     // - write flash
     flash_write_buffer(env, EMERGENCY_ENV_SIZE, ENV_START_IN_FLASH);
+
+    power_loss_signal_trigger |= (1 << 1);
   }
 
   // - stop planner and stepper, make sure planner and stepper have no oppotunity to run
@@ -558,7 +581,7 @@ err_code_t EmergencyHandler::hmi_cb_clear_record(void *obj, sacp_hmi_message_t *
 
   LOG_I("hmi_cb_clear_record\n");
   // clear eeprom
-  handler.prepare_flash();
+  handler.prepare_flash(true);
 
   return host_hmi.send_ack(msg, E_SUCCESS);
 }

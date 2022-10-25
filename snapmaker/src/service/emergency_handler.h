@@ -20,7 +20,7 @@ class EmergencyHandler {
   public:
     void init();
 
-    void prepare_flash();
+    void prepare_flash(bool is_forced=false);
 
     uint8_t read_button();
     void emergency_stop();
@@ -50,5 +50,5 @@ class EmergencyHandler {
 };
 
 extern EmergencyHandler emergency_hdl;
-
+extern uint8_t power_loss_signal_trigger;
 #endif

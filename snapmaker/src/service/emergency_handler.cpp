@@ -46,6 +46,11 @@ uint8_t power_loss_signal_trigger = 0;
 // EXTI_IRQ_PRIO
 static void interrupt_cb_stop_button() {
   int debounce = ISR_DEBOUNCE;
+
+  // no need to repeatedly perform power-down processing
+  if (power_loss_signal_trigger)
+    return;
+
   while (--debounce > 0); // about 1ms
 
   if (digitalRead(stop_button) != PIN_STATE_TRIGGERED)
@@ -55,6 +60,10 @@ static void interrupt_cb_stop_button() {
 }
 
 static void interrupt_cb_power_loss() {
+  // no need to repeatedly perform power-down processing
+  if (power_loss_signal_trigger)
+    return;
+
   // show red LED whatever if powerloss appear
   digitalWrite(LED_GREEN_PIN, LOW);
   digitalWrite(LED_BLUE_PIN, LOW);
@@ -236,6 +245,9 @@ void EmergencyHandler::power_loss() {
   // - disable All ISR
   disable_all_interrupts();
 
+  // - turn off all power domain if power loss
+  smprinter.disable_power_domain(POWER_DOMAIN_POWERLOSS);
+
   power_loss_signal_trigger |= (1 << 0);
 
   // need to check if we need save env and write flash
@@ -256,9 +268,6 @@ void EmergencyHandler::power_loss() {
     // - make modules enter standby
     module_svc.quick_stop_all();  // quick stop firstly
     // module_svc.standby_all(); // when powerloss, will turn off motive power firstly
-
-    // - turn off all power domain if power loss
-    smprinter.disable_power_domain(POWER_DOMAIN_POWERLOSS);
 
     // need to check if we need save env and write flash
     *((uint32_t *)(env + ENV_VALID_FLAG_ADDR)) = ENV_VALID_FLAG;
@@ -281,6 +290,9 @@ void EmergencyHandler::power_loss() {
     power_loss_signal_trigger |= (1 << 1);
   }
 
+  // - stop planner and stepper, make sure planner and stepper have no oppotunity to run
+  motion_platform_svc.req_emergency_stop();
+  motion_platform_svc.do_quickstop();
   enable_all_interrupts();
 
   // reboot the machine
@@ -602,7 +614,9 @@ void EmergencyHandler::background() {
     LOG_I("powerloss pos: X%.3f, Y%.3f, Z%.3f, I%.3f, J%3.f, save checksum: 0x%x, read checksum: 0x%x cal checksum: 0x%x\n", jenv->current_pos.x,
             jenv->current_pos.y, jenv->current_pos.z, jenv->current_pos.i, jenv->current_pos.j, write_flash_checksum, \
             *((uint32_t*)(ENV_START_IN_FLASH + ENV_CHECKSUM_ADDR)), host_hmi.calculate_checksum(env, JOB_ENV_MAX_SIZE - 4));
-    smprinter.set_sys_status(SYSTEM_STATUS_POWER_LOSS, NULL);
+    system_svc.raise_exception(MODULE_DEVICE_ID_A400_EMERGENCY_STOP, EMERGENCY_STOP_EXCEP_STA_TRIGGERRED,
+      EXCEP_ACT_ALL&(~EXCEP_ACT_DISABLE_POWER_HMI), EXCEP_BAN_ALL);
+    // smprinter.set_sys_status(SYSTEM_STATUS_POWER_LOSS, NULL);
     // host_hmi.test_interface(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_REBOOT, NULL, 0);
     return;
   }

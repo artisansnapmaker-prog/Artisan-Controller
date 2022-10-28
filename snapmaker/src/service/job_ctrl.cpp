@@ -1012,6 +1012,7 @@ void JobCtrl::do_resume(struct JobCtrlReqInfo &jri) {
   // update client id only in power-loss recovery
   if (RESUME_TYPE_RECOVERY == jri.req_data.req_resume_data.type) {
     _client_id = jri.req_data.req_resume_data.client_id;
+    emergency_hdl.prepare_flash();
   }
 
   motion_platform_svc.stepper_total_offset = 0;
@@ -1037,7 +1038,7 @@ void JobCtrl::do_resume(struct JobCtrlReqInfo &jri) {
     // set this flash to make jobctrl thinks it recovery from paused
     _paused = true;
     // prepare flash for possible emergency event
-    emergency_hdl.prepare_flash();
+    // emergency_hdl.prepare_flash();
     break;
 
   case RESUME_TYPE_PAUSE:

@@ -156,6 +156,8 @@ struct JobEnv {
   uint32_t bed_env_buf_size;
   uint8_t bed_env_buf[MODULE_ENV_MAX_SIZE];
   uint16_t device_id;
+  bool position_invalid;
+  xyze_pos_t destination;
 };
 
 enum JobReqAction {
@@ -249,6 +251,7 @@ class JobCtrl {
     void statistics_output(void);
     void stepper_quickstop_cb(void);
     void update_gcode_file_pass_line_number(uint32_t l);
+    void reset_relative_line(uint8_t mark);
 
     // gcode
     bool consume_a_gcode(uint8_t *cmd, uint16_t max_len, uint32_t *line, uint8_t *mark);

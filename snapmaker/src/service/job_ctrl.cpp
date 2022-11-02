@@ -44,6 +44,9 @@ JobSaveLineStep job_save_line_step = JOB_SAVE_LINE_STEP_STOP;
 TimerHandle_t JobCtrl::job_print_timer = NULL;
 volatile uint32_t job_print_seconds = 0;
 bool job_printing_flag = false;
+bool resume_relative_switch = false;
+uint32_t resume_file_line = 0xFFFFFFFF;
+xyze_pos_t relative_position;
 
 void job_ctrl_thread_entry(void *p) {
   for(;;) {
@@ -76,10 +79,13 @@ void JobCtrl::init(void) {
   _statistics_log_interval_ms = 0;
   _statistics_log_last_tick_ms = 0;
   _env.gfi_valid = false;
+  _env.position_invalid = true;
   // abort_resume = false;
   req_stop_trigger = false;
   status_before_start = SYSTEM_STATUS_IDLE;
   got_last_gcode_packet = false;
+  resume_file_line = 0xFFFFFFFF;
+  resume_relative_switch = false;
 
   if (!job_print_timer) {
     job_print_timer = xTimerCreate( "job_print_timer",
@@ -362,17 +368,27 @@ err_code_t JobCtrl::save_env(bool from_isr/*=false*/, bool save_all_info/*=true*
   _env.active_coordinate = motion_platform_svc.get_active_coordinate_system();
   if (!from_isr)
     LOCK(_lock, JOB_LOCK_WAIT_TICK);
-  if (save_all_info) {
+  // if (save_all_info) {
     if (job_save_line_step != JOB_SAVE_LINE_STEP_MOVE)
       _env.cur_line_num = smprinter.gcode_file_pass_line_number;
     else
       _env.cur_line_num = smprinter.gcode_file_position;
-  }
+  // }
   if (!from_isr)
     UNLOCK(_lock);
-  _env.print_feadrate = motion_platform_svc.get_feedrate();
+
+  if (job_save_line_step != JOB_SAVE_LINE_STEP_MOVE) {
+    _env.position_invalid = true;
+    _env.g0g1_relative_mode = motion_platform_svc.get_relative_mode();
+  }
+  else {
+    _env.position_invalid   = smprinter.position_invalid;
+    _env.g0g1_relative_mode = smprinter.axis_relative;
+  }
+  _env.destination     = smprinter.destination;
+  _env.print_feadrate  = motion_platform_svc.get_feedrate();
   _env.travel_feadrate = motion_platform_svc.get_travl_feedrate();
-  _env.g0g1_relative_mode = motion_platform_svc.get_relative_mode();
+  // _env.g0g1_relative_mode = motion_platform_svc.get_relative_mode();
   motion_platform_svc.update_position_from_platform();
   _env.current_pos = motion_platform_svc.sm_current_position;
   _env.E_stepper_count = motion_platform_svc.get_stepper_count(E_AXIS);
@@ -424,6 +440,7 @@ err_code_t JobCtrl::recover_env(void) {
 err_code_t JobCtrl::resume_env(JobResumeType rt) {
   ModuleBase *cur_toolhead;
   xyze_pos_t dest;
+  bool special_proc = false;
 
   if (rt == RESUME_TYPE_LIVE_Z_OFFSET) {
     goto __pos_resume;
@@ -466,8 +483,25 @@ err_code_t JobCtrl::resume_env(JobResumeType rt) {
   // abort_resume = false;
 
 __pos_resume:
+  // valid location data
+  if (!_env.position_invalid) {
+    LOOP_LINEAR_AXES(i) {
+      if (gcode.axis_is_relative(AxisEnum(i)))
+        special_proc = true;
+    }
+
+    if (gcode.axis_is_relative(E_AXIS)) {
+      special_proc = true;
+    }
+  }
+
+  relative_position = _env.destination;
   LOCK(_lock, JOB_LOCK_WAIT_TICK);
   _env.req_line_num = _env.cur_line_num;
+  if (special_proc)
+    resume_file_line = _env.req_line_num;
+  else
+    resume_file_line = 0xFFFFFFFF;
   UNLOCK(_lock);
 
   // wait for all movement done
@@ -792,8 +826,10 @@ void JobCtrl::do_start(struct JobCtrlReqInfo &jri) {
   _gcode_rb.reset();
   _env.cur_line_num = 0;
   _env.req_line_num = 0;
+  _env.position_invalid = true;
   got_last_gcode_packet = false;
   job_save_line_step = JOB_SAVE_LINE_STEP_STOP;
+  resume_file_line = 0xFFFFFFFF;
   update_job_print_mark();
   UNLOCK(_lock);
   smprinter.gcode_file_pass_line_number = _env.cur_line_num;
@@ -945,6 +981,7 @@ abort_pasue:
   LOCK(_lock, JOB_LOCK_WAIT_TICK);
   _gcode_rb.reset();
   got_last_gcode_packet = false;
+  resume_file_line = 0xFFFFFFFF;
   UNLOCK(_lock);
 
   _paused = true;
@@ -1086,6 +1123,8 @@ void JobCtrl::do_stop(struct JobCtrlReqInfo &jri) {
 
   LOCK(_lock, JOB_LOCK_WAIT_TICK);
   _gcode_rb.reset();
+  _env.position_invalid = true;
+  resume_file_line = 0xFFFFFFFF;
   UNLOCK(_lock);
 
   switch(jri.req_data.req_stop_data.type) {
@@ -1354,4 +1393,14 @@ void JobCtrl::update_job_print_mark(void) {
 
 uint32_t JobCtrl::get_job_print_seconds(void) {
   return job_print_seconds;
+}
+
+void JobCtrl::reset_relative_line(uint8_t mark) {
+  if (mark == job_print_mark && smprinter.on_printing()) {
+    LOCK(_lock, JOB_LOCK_WAIT_TICK);
+    if (mark == job_print_mark && smprinter.on_printing()) {
+      resume_file_line = 0xFFFFFFFF;
+    }
+    UNLOCK(_lock);
+  }
 }

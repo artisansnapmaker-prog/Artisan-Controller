@@ -109,6 +109,10 @@ void GCodeQueue::RingBuffer::commit_command(bool skip_ok
   commands[index_w].skip_ok = skip_ok;
   TERN_(HAS_MULTI_SERIAL, commands[index_w].port = serial_ind);
   TERN_(POWER_LOSS_RECOVERY, recovery.commit_sdpos(index_w));
+  #if MB_SNAPMAKER
+    commands[index_w].mark = 0;
+    commands[index_w].lines = 0;
+  #endif
   advance_pos(index_w, 1);
 }
 
@@ -561,6 +565,7 @@ void GCodeQueue::get_snapmaker_commands() {
   while(!ring_buffer.full() && smprinter.get_gcode_from_run_gcode_buffer((uint8_t *)ring_buffer.commands[ring_buffer.index_w].buffer, MAX_CMD_SIZE, &lines)) {
     ring_buffer.commands[ring_buffer.index_w].lines = lines;
     ring_buffer.commands[ring_buffer.index_w].skip_ok = true;
+    ring_buffer.commands[ring_buffer.index_w].mark = 0;
     ring_buffer.advance_pos(ring_buffer.index_w, 1);
   }
 }

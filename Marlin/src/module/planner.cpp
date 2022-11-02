@@ -1833,8 +1833,20 @@ bool Planner::_buffer_steps(const xyze_long_t &target
   }
 
   #if MB_SNAPMAKER
-  block->file_position = queue.file_line_number();
-  block->mark = queue.file_mark_number();
+    if (xTaskGetCurrentTaskHandle() == thandle_marlin) {
+      block->file_position = queue.file_line_number();
+      block->mark = queue.file_mark_number();
+      block->position_invalid = false;
+    }
+    else {
+      block->file_position = 0;
+      block->mark = 0;
+      block->position_invalid = true;
+    }
+    if (motion_platform_svc.homing_now)
+      block->position_invalid = true;
+    block->axis_relative = gcode.axis_relative;
+    block->destination = destination;
   #endif
 
   // If this is the first added movement, reload the delay, otherwise, cancel it.

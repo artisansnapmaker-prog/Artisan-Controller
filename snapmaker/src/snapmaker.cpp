@@ -169,6 +169,9 @@ typedef struct __packed ProductionSN {
   char     sn[0];
 } production_sn_t;
 
+extern uint32_t resume_file_line;
+extern bool resume_relative_switch;
+
 #define PC_PORT_PROTOCOL_GCODE  (0)
 #define PC_PORT_PROTOCOL_SACP   (1)
 #define PC_PORT_PROTOCOL_MAX    (PC_PORT_PROTOCOL_SACP)
@@ -1795,6 +1798,22 @@ bool SnapmakerPrinter::is_interrupt_block_heating(void) {
 bool SnapmakerPrinter::is_fdm_bed_level_mode(void) {
   SystemStatus sys_staus = smprinter.get_sys_status();
   return (sys_staus >= SYSTEM_STATUS_AUTO_BEDLEVEL && sys_staus <= SYSTEM_STATUS_PROBE_SENSOR_CALIBRATION);
+}
+
+void SnapmakerPrinter::resume_relative_position_check(uint32_t cmd_line, uint8_t cmd_mark) {
+  // relative mode position recovery
+  if (resume_file_line != 0xFFFFFFFF) {
+    if (smprinter.on_printing() && resume_file_line == cmd_line && cmd_mark == job_ctrl_svc.get_job_print_mark()) {
+      resume_relative_switch = true;
+    }
+  }
+}
+
+void SnapmakerPrinter::resume_relative_position_clear(uint8_t cmd_mark) {
+  if (resume_relative_switch == true) {
+    resume_relative_switch = false;
+    job_ctrl_svc.reset_relative_line(cmd_mark);
+  }
 }
 
 extern "C" {

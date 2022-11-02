@@ -178,14 +178,34 @@ void GcodeSuite::get_destination_from_command() {
     constexpr bool skip_move = false;
   #endif
 
+  #if MB_SNAPMAKER
+    extern bool resume_relative_switch;
+    extern uint32_t resume_file_line;
+    extern xyze_pos_t relative_position;
+    bool relative_spec_proc = false;
+  #endif
+
   // Get new XYZ position, whether absolute or relative
   LOOP_LINEAR_AXES(i) {
     if ( (seen[i] = parser.seenval(AXIS_CHAR(i))) ) {
       const float v = parser.value_axis_units((AxisEnum)i);
       if (skip_move)
         destination[i] = current_position[i];
-      else
-        destination[i] = axis_is_relative(AxisEnum(i)) ? current_position[i] + v : LOGICAL_TO_NATIVE(v, i);
+      else {
+      #if MB_SNAPMAKER
+        relative_spec_proc = false;
+        if (resume_relative_switch && xTaskGetCurrentTaskHandle() == thandle_marlin) {
+          if (smprinter.on_printing() && queue.file_line_number() == resume_file_line) {
+            if (axis_is_relative(AxisEnum(i))) {
+              destination[i] = relative_position[i];
+              relative_spec_proc = true;
+            }
+          }
+        }
+        if (!relative_spec_proc)
+      #endif
+          destination[i] = axis_is_relative(AxisEnum(i)) ? current_position[i] + v : LOGICAL_TO_NATIVE(v, i);
+      }
     }
     else
       destination[i] = current_position[i];
@@ -195,7 +215,19 @@ void GcodeSuite::get_destination_from_command() {
     // Get new E position, whether absolute or relative
     if ( (seen.e = parser.seenval('E')) ) {
       const float v = parser.value_axis_units(E_AXIS);
-      destination.e = axis_is_relative(E_AXIS) ? current_position.e + v : v;
+      #if MB_SNAPMAKER
+        relative_spec_proc = false;
+        if (resume_relative_switch && xTaskGetCurrentTaskHandle() == thandle_marlin) {
+            if (smprinter.on_printing() && queue.file_line_number() == resume_file_line) {
+              if (axis_is_relative(E_AXIS)) {
+                destination.e = relative_position.e;
+                relative_spec_proc = true;
+              }
+            }
+        }
+        if (!relative_spec_proc)
+      #endif
+          destination.e = axis_is_relative(E_AXIS) ? current_position.e + v : v;
     }
     else
       destination.e = current_position.e;
@@ -1134,11 +1166,15 @@ void GcodeSuite::process_next_command() {
     #endif
   }
 
+  #if MB_SNAPMAKER
+    smprinter.resume_relative_position_check(command.lines, command.mark);
+  #endif
   // Parse the next command in the queue
   parser.parse(command.buffer);
   process_parsed_command();
   #if MB_SNAPMAKER
-  smprinter.update_gcode_file_pass_line_number(command.lines, command.mark);
+    smprinter.resume_relative_position_clear(command.mark);
+    smprinter.update_gcode_file_pass_line_number(command.lines, command.mark);
   #endif
 }
 

@@ -17,6 +17,8 @@
 #include "module/purifier.h"
 #include "service/bed_level.h"
 
+#include "../../../Marlin/src/core/types.h"
+
 #define EVENT_GROUP_MODULE_READY      (0x00000001)
 #define EVENT_GROUP_WAIT_FOR_HEATING  (0X00000002)
 
@@ -325,6 +327,9 @@ class SnapmakerPrinter
     */
     uint32_t gcode_file_position;
     uint32_t gcode_file_pass_line_number;
+    xyze_pos_t destination;
+    axis_bits_t axis_relative;
+    bool position_invalid;
     void update_gcode_file_pass_line_number(uint32_t l, uint8_t mark);
 
   public:
@@ -637,6 +642,8 @@ class SnapmakerPrinter
     void check_if_quickstop();
     void start_work_reset_feedrate();
     void stop_work_reset_feedrate();
+    void resume_relative_position_check(uint32_t cmd_line, uint8_t cmd_mark);
+    void resume_relative_position_clear(uint8_t cmd_mark);
 
     bool is_interrupt_block_heating(void);
     bool is_fdm_bed_level_mode(void);

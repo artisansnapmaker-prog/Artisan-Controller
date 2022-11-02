@@ -257,6 +257,9 @@ typedef struct block_t {
   int e_stepper_offset;
   long e_actual_stepps_counter;
   uint8_t mark;
+  bool position_invalid;
+  xyze_pos_t destination;
+  axis_bits_t axis_relative;
   #endif
 } block_t;
 

@@ -85,8 +85,13 @@
 #define JOB_LOCK_WAIT_TICK                 (0xFFFFFFFF)
 #define MODULE_ENV_MAX_SIZE                128
 #define GCODE_RB_SIZE                      (1024*2)
-#define RESUME_XY_FEEDRATE                 50
+#define RESUME_XY_FEEDRATE                 60
 #define RESUME_Z_FEEDRATE                  30
+#define EXTRUSION_E_FEEDRATE               5
+#define RETRACT_E_FEEDRATE                 50
+#define RESUME_EXTRUSION_E_LENGTH          20
+#define RESUME_RETRACT_E_LENGTH            6
+
 #define JOB_CTRL_LOOP_TIME_MS              (100)
 #define JOB_CTRL_REQ_INFO_BUF              ((sizeof(struct JobCtrlReqInfo) + 8) * 4)
 #define DO_JOB_REQ_NOTIFY_CB(cb, p, ret)   do { if(cb) (cb)(p, ret); } while(0)

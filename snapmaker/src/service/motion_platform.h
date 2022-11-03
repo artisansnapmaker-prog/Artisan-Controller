@@ -110,6 +110,7 @@ class MotionPlatformService {
     void moveto_b(float b, float feedrate, bool blocked=true) {}
     void moveto_e(float e, float feedrate, bool blocked=true);
     void moveto_e(float e, uint8_t extruder, float feedrate, bool blocked=true) {}
+    void block_moveto_e(float e, float feedrate);
     void moveto(xyze_pos_t target, float feedrate, bool blocked=true);
     void synchronize_planner(void);
     bool is_axis_homed(ModuleLinearIndex axis);

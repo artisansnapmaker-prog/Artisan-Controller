@@ -483,6 +483,10 @@ err_code_t JobCtrl::resume_env(JobResumeType rt) {
   // abort_resume = false;
 
 __pos_resume:
+  // stop request received, no need to perform subsequent recovery actions
+  if (req_stop_trigger)
+    return E_SUCCESS;
+
   // valid location data
   if (!_env.position_invalid) {
     LOOP_LINEAR_AXES(i) {
@@ -509,12 +513,29 @@ __pos_resume:
   motion_platform_svc.update_position_from_platform();
 
   dest   = motion_platform_svc.sm_current_position;
+
+  if (rt != RESUME_TYPE_LIVE_Z_OFFSET && TH_TYPE_3DP == _env.type) {
+    // pre-extrusion
+    dest.e += RESUME_EXTRUSION_E_LENGTH;
+    motion_platform_svc.block_moveto_e(dest.e, EXTRUSION_E_FEEDRATE);
+
+    // try to cut out filament
+    dest.e -= RESUME_RETRACT_E_LENGTH;
+    motion_platform_svc.block_moveto_e(dest.e, RETRACT_E_FEEDRATE);
+  }
+
   dest.x = _env.current_pos.x;
   dest.y = _env.current_pos.y;
   motion_platform_svc.moveto(dest, RESUME_XY_FEEDRATE);
 
   dest.z = _env.current_pos.z;
   motion_platform_svc.moveto(dest, RESUME_Z_FEEDRATE);
+
+  if (rt != RESUME_TYPE_LIVE_Z_OFFSET && TH_TYPE_3DP == _env.type) {
+    // extrusion compensation
+    dest.e += RESUME_RETRACT_E_LENGTH + 0.2;
+    motion_platform_svc.block_moveto_e(dest.e, EXTRUSION_E_FEEDRATE);
+  }
 
   motion_platform_svc.set_feedrate(_env.print_feadrate);
   motion_platform_svc.set_travl_feedrate(_env.travel_feadrate);
@@ -573,7 +594,7 @@ err_code_t JobCtrl::machine_standby(void) {
     motion_platform_svc.update_position_from_platform();
     t_pos =  motion_platform_svc.sm_current_position;
     t_pos.e -= 5;
-    motion_platform_svc.moveto(t_pos, 10, true);
+    motion_platform_svc.block_moveto_e(t_pos.e , 60);
     break;
 
   case TH_TYPE_CNC:

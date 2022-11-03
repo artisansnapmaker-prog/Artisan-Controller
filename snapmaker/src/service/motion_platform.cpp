@@ -1104,6 +1104,21 @@ void MotionPlatformService::moveto(xyze_pos_t target, float feedrate, bool block
   return;
 }
 
+void MotionPlatformService::block_moveto_e(float e, float feedrate) {
+  if (pause_marlin() != E_SUCCESS)
+    return;
+
+  current_position[E_AXIS] = e;
+  line_to_current_position(feedrate);
+
+  while (planner.busy()) {
+    idle();
+    vTaskDelay(pdMS_TO_TICKS(10));
+  }
+
+  resume_marlin();
+}
+
 void MotionPlatformService::synchronize_planner() {
   while (planner.busy()) {
     vTaskDelay(pdMS_TO_TICKS(10));

@@ -1453,6 +1453,14 @@ err_code_t ToolHeadFDM::set_fan_speed(uint8_t fan_index, uint16_t speed, uint8_t
 
   fan_speed[fan_index] = speed;
 
+  // the current fdm_2extruder module synchronizes the left and right fans
+  if (get_device_id() == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
+    if (fan_index >= 0 && fan_index <= 1) {
+      fan_speed[0] = speed;
+      fan_speed[1] = speed;
+    }
+  }
+
   switch ((uint8_t)fan_index) {
     case 0:
       msg.id = get_message_id(MODULE_FUNC_SET_FAN1);
@@ -1476,7 +1484,7 @@ err_code_t ToolHeadFDM::set_fan_speed(uint8_t fan_index, uint16_t speed, uint8_t
   buffer[0] = delay_time;
   buffer[1] = speed;
 
-  LOG_I("fan message id: %d\n", msg.id);
+  LOG_I("fan message id: %d, fan_index: %d, speed: %d\n", msg.id, fan_index, speed);
 
   msg.ch     = get_channel();
   msg.data   = buffer;

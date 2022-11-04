@@ -145,7 +145,7 @@ err_code_t MotionPlatformService::hmi_cb_set_active_coordinate_system(void *obj,
   uint8_t id = msg->data[0];
   MotionPlatformService *motion = (MotionPlatformService *)obj;
 
-  LOG_I("set active coordinate[%u]\n", id);
+  LOG_I("hmi set active coordinate[%u]\n", id);
 
   switch (id) {
   case 0:

@@ -377,21 +377,25 @@ err_code_t JobCtrl::save_env(bool from_isr/*=false*/, bool save_all_info/*=true*
   if (!from_isr)
     UNLOCK(_lock);
 
-  if (job_save_line_step != JOB_SAVE_LINE_STEP_MOVE) {
-    _env.position_invalid = true;
-    _env.g0g1_relative_mode = motion_platform_svc.get_relative_mode();
+  // no need to update env data in special cases
+  if (!(job_save_line_step != JOB_SAVE_LINE_STEP_MOVE && resume_file_line == _env.cur_line_num && \
+        resume_file_line != 0xFFFFFFFF)) {
+    if (job_save_line_step != JOB_SAVE_LINE_STEP_MOVE) {
+      _env.position_invalid = true;
+      _env.g0g1_relative_mode = motion_platform_svc.get_relative_mode();
+    }
+    else {
+      _env.position_invalid   = smprinter.position_invalid;
+      _env.g0g1_relative_mode = smprinter.axis_relative;
+    }
+    _env.destination     = smprinter.destination;
+    _env.print_feadrate  = motion_platform_svc.get_feedrate();
+    _env.travel_feadrate = motion_platform_svc.get_travl_feedrate();
+    // _env.g0g1_relative_mode = motion_platform_svc.get_relative_mode();
+    motion_platform_svc.update_position_from_platform();
+    _env.current_pos = motion_platform_svc.sm_current_position;
+    _env.E_stepper_count = motion_platform_svc.get_stepper_count(E_AXIS);
   }
-  else {
-    _env.position_invalid   = smprinter.position_invalid;
-    _env.g0g1_relative_mode = smprinter.axis_relative;
-  }
-  _env.destination     = smprinter.destination;
-  _env.print_feadrate  = motion_platform_svc.get_feedrate();
-  _env.travel_feadrate = motion_platform_svc.get_travl_feedrate();
-  // _env.g0g1_relative_mode = motion_platform_svc.get_relative_mode();
-  motion_platform_svc.update_position_from_platform();
-  _env.current_pos = motion_platform_svc.sm_current_position;
-  _env.E_stepper_count = motion_platform_svc.get_stepper_count(E_AXIS);
 
   if (save_all_info) {
     _env.time_elape = job_print_seconds;
@@ -490,11 +494,11 @@ __pos_resume:
   // valid location data
   if (!_env.position_invalid) {
     LOOP_LINEAR_AXES(i) {
-      if (gcode.axis_is_relative(AxisEnum(i)))
+      if (TEST(_env.g0g1_relative_mode, AxisEnum(i)))
         special_proc = true;
     }
 
-    if (gcode.axis_is_relative(E_AXIS)) {
+    if (TEST(_env.g0g1_relative_mode, E_MODE_REL)) {
       special_proc = true;
     }
   }

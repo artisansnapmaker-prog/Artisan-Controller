@@ -356,8 +356,8 @@ err_code_t ToolHeadFDM::dual_extruder_post_init() {
   motion_platform_svc.set_e_axis_enable_on_state(1);
   motion_platform_svc.set_steps_per_unit(dual_extruder_steps_per_unit[0], E_AXIS);
   motion_platform_svc.set_home_offset(-31.601, -5.594, 0);
-  motion_platform_svc.set_hotend_maxtemp(0, 315);
-  motion_platform_svc.set_hotend_maxtemp(1, 315);
+  motion_platform_svc.set_hotend_maxtemp(0, 350);
+  motion_platform_svc.set_hotend_maxtemp(1, 350);
   motion_platform_svc.pins_post_init();
   bedlevel_svc.update_soft_endstop_max_z();
   extruders_feedrate_percentage[0] = motion_platform_svc.get_feedrate_percentage();

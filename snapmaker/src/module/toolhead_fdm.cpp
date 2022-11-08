@@ -1217,32 +1217,43 @@ void ToolHeadFDM::report_pid(uint8_t *data) {
 
 void ToolHeadFDM::set_hotend_type(uint8_t *data) {
   if (hotend_type_initialized == false) {
+    // The default module has identified the nozzle completion
+    // Identifies the nozzle type only once after power-up
+    bool hotend_type_error = false;
     hotend_type_initialized = true;
     for (uint32_t i = 0; i < EXTRUDERS; i++) {
       if (data[i] < HOTEND_INFO_MAX) {
         hotend_type[i] = hotend_info[data[i]].model;
         hotend_diameter[i] = hotend_info[data[i]].diameter;
+
+        if (hotend_type[i] == 0xff) {
+          hotend_type_error = true;
+          LOG_I("nozzle%d: no support type index: %d\n", i, data[i]);
+        }
+      }
+      else {
+        hotend_type_error = true;
+        LOG_I("nozzle%d: error type index: %d\n", i, data[i]);
       }
 
       #ifdef USE_FDM_INTERRUPT_LOG
         LOG_I("nozzle_index: %d, type: %d\n", i, hotend_type[i]);
       #endif
     }
-  } else {
+
     // detects a change in nozzle type, stops the current print job, and does not allow the nozzle to be heated
     // currently only reboot recovery is allowed
-    bool disable_motor = smprinter.is_fdm_bed_level_mode();
-    if (!get_fdm_fault_state(FDM_FAULT_NOZZLE_IDENTIFY)) {
-        fdm_exception_trigger(FDM_FAULT_NOZZLE_IDENTIFY);
-        LOG_E("nozzle type has changed and is not allowed to continue working\n");
-        system_svc.raise_exception(get_device_id(), FDM_EXCEP_STA_NOZZLE_TYPE_ERROR, \
-                                    EXCEP_ACT_PAUSE_WORKING | EXCEP_ACT_DISABLE_HEATING_HOTEND | EXCEP_ACT_DISABLE_POWER_8P_TOOLHEAD |
-                                    (disable_motor ? EXCEP_ACT_DISABLE_POWER_8P_MOTOR : 0), \
-                                    EXCEP_BAN_HEATING_HOTEND | EXCEP_BAN_WORKING | EXCEP_BAN_MOVING);
+    if (hotend_type_error) {
+      bool disable_motor = smprinter.is_fdm_bed_level_mode();
+      if (!get_fdm_fault_state(FDM_FAULT_NOZZLE_IDENTIFY)) {
+          fdm_exception_trigger(FDM_FAULT_NOZZLE_IDENTIFY);
+          LOG_E("nozzle type recognition abnormal, not allowed to continue working\n");
+          system_svc.raise_exception(get_device_id(), FDM_EXCEP_STA_NOZZLE_TYPE_ERROR, \
+                                      EXCEP_ACT_PAUSE_WORKING | EXCEP_ACT_DISABLE_HEATING_HOTEND |
+                                      (disable_motor ? EXCEP_ACT_DISABLE_POWER_8P_MOTOR : 0), \
+                                      EXCEP_BAN_HEATING_HOTEND | EXCEP_BAN_WORKING | EXCEP_BAN_MOVING);
+      }
     }
-    // fdm_exception_trigger(FDM_FAULT_NOZZLE_IDENTIFY);
-    // // TBD
-    // system_svc.raise_exception(get_device_id(), FDM_EXCEP_STA_NOZZLE_TYPE_ERROR, EXCEP_ACT_STOP_WORKING | EXCEP_ACT_DISABLE_POWER_8P_TOOLHEAD);
   }
 }
 
@@ -1273,27 +1284,23 @@ void ToolHeadFDM::update_hotend_temp(uint8_t *data) {
 
   if (data[2] & (1 << 0)) {
     temp_error |= (1 << 0);
-    // motion_platform_svc.set_hotend_temp(0, 0);
-    // fdm_exception_trigger(FDM_FAULT_NOZZLE_TEMP);
-    // system_svc.raise_exception(get_device_id(), FDM_EXCEP_STA_OVERTEMP_ERROR_E0, EXCEP_ACT_STOP_WORKING | EXCEP_ACT_DISABLE_POWER_8P_TOOLHEAD);
   }
 
-  if (data[2] & (1 << 1)) {
-    temp_error |= (1 << 2);
-  }
+  // no longer relies on this flag bit to determine if the nozzle type is abnormal
+  // if (data[2] & (1 << 1)) {
+  //   temp_error |= (1 << 2);
+  // }
 
   if (get_device_id() == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
     hotend_temp[1].current = data[4] << 8 | data[5];
     if (data[6] & (1 << 0)) {
       temp_error |= (1 << 1);
-      // motion_platform_svc.set_hotend_temp(0, 1);
-      // fdm_exception_trigger(FDM_FAULT_NOZZLE_TEMP);
-      // system_svc.raise_exception(get_device_id(), FDM_EXCEP_STA_OVERTEMP_ERROR_E1, EXCEP_ACT_STOP_WORKING | EXCEP_ACT_DISABLE_POWER_8P_TOOLHEAD);
     }
 
-    if (data[6] & (1 << 1)) {
-      temp_error |= (1 << 3);
-    }
+    // no longer relies on this flag bit to determine if the nozzle type is abnormal
+    // if (data[6] & (1 << 1)) {
+    //   temp_error |= (1 << 3);
+    // }
   }
 
   // check if the exception status is updated
@@ -1344,7 +1351,7 @@ void ToolHeadFDM::update_hotend_temp(uint8_t *data) {
         if (!get_fdm_fault_state(FDM_FAULT_NOZZLE_IDENTIFY)) {
           fdm_exception_trigger(FDM_FAULT_NOZZLE_IDENTIFY);
           system_svc.raise_exception(get_device_id(), FDM_EXCEP_STA_NOZZLE_TYPE_ERROR, \
-                                      EXCEP_ACT_PAUSE_WORKING | EXCEP_ACT_DISABLE_POWER_8P_TOOLHEAD | EXCEP_ACT_DISABLE_HEATING_HOTEND | \
+                                      EXCEP_ACT_PAUSE_WORKING | EXCEP_ACT_DISABLE_HEATING_HOTEND | \
                                       (disable_motor ? EXCEP_ACT_DISABLE_POWER_8P_MOTOR : 0), \
                                       EXCEP_BAN_HEATING_HOTEND | EXCEP_BAN_MOVING);
         }

@@ -56,6 +56,12 @@ static err_code_t hmi_req_callback_set_level_mode(void *obj, sacp_hmi_message_t 
     goto EXIT;
   }
 
+  if (!smprinter.allow_leveling()) {
+    ret = E_EXCEPTION;
+    LOG_E("bans: 0x%x, abnormal machine status cannot start leveling!!!!!!!!\n", system_svc.get_bans());
+    goto EXIT;
+  }
+
   switch (msg->data[0]) {
     case BEDLEVEL_MODE_AUTO:
       req_status = SYSTEM_STATUS_AUTO_BEDLEVEL;
@@ -147,6 +153,11 @@ static err_code_t hmi_req_callback_start_level(void *obj, sacp_hmi_message_t *ms
   if (!motion_platform_svc.is_all_axes_homed()) {
     // send request as the result of execution
     return host_hmi.send_ack(msg, E_FAILURE);
+  }
+
+  if (!smprinter.allow_leveling()) {
+    LOG_E("bans: 0x%x, abnormal machine status cannot start leveling!!!!\n", system_svc.get_bans());
+    return host_hmi.send_ack(msg, E_EXCEPTION);
   }
 
   // send request as the result of execution

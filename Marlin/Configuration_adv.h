@@ -2272,6 +2272,8 @@
 #define MAX_CMD_SIZE 96
 #define BUFSIZE 4
 
+#define SHAPED_WAITING_MIN_TIME 20
+
 // Transmission to Host Buffer Size
 // To save 386 bytes of PROGMEM (and TX_BUFFER_SIZE+3 bytes of RAM) set to 0.
 // To buffer a simple "ok" you need 4 bytes.

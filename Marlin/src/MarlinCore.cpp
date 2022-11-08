@@ -44,6 +44,7 @@
 
 #include "module/motion.h"
 #include "module/planner.h"
+#include "module/AxisManager.h"
 #include "module/endstops.h"
 #include "module/temperature.h"
 #include "module/settings.h"
@@ -793,6 +794,8 @@ void idle(bool no_stepper_sleep/*=false*/) {
   // Manage Heaters (and Watchdog)
   thermalManager.manage_heater();
 
+  planner.shaped_loop();
+
   // Max7219 heartbeat, animation, etc
   TERN_(MAX7219_DEBUG, max7219.idle_tasks());
 
@@ -1372,6 +1375,8 @@ void setup() {
   SETUP_RUN(endstops.init());         // Init endstops and pullups
 
   SETUP_RUN(stepper.init());          // Init stepper. This enables interrupts!
+
+  SETUP_RUN(axisManager.init());
 
   #if HAS_SERVOS
     SETUP_RUN(servo_init());

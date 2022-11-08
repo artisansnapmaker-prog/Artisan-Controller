@@ -25,6 +25,7 @@
   #define __has_include(...) 1
 #endif
 
+#define NUM_AXIS 4
 #define ABCE 4
 #define XYZE 4
 #define ABC  3

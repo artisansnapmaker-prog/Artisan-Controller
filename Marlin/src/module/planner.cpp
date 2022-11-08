@@ -68,6 +68,7 @@
 #include "temperature.h"
 #include "../lcd/marlinui.h"
 #include "../gcode/parser.h"
+#include "AxisManager.h"
 
 #include "../MarlinCore.h"
 
@@ -126,6 +127,7 @@ block_t Planner::block_buffer[BLOCK_BUFFER_SIZE];
 volatile uint8_t Planner::block_buffer_head,    // Index of the next block to be pushed
                  Planner::block_buffer_nonbusy, // Index of the first non-busy block
                  Planner::block_buffer_planned, // Index of the optimally planned block
+                 Planner::block_buffer_shaped,
                  Planner::block_buffer_tail;    // Index of the busy block, if any
 uint16_t Planner::cleaning_buffer_counter;      // A counter to disable queuing of blocks
 uint8_t Planner::delay_before_delivering;       // This counter delays delivery of blocks when queue becomes empty to allow the opportunity of merging blocks
@@ -731,16 +733,32 @@ block_t* Planner::get_current_block() {
   if (nr_moves) {
 
     // If there is still delay of delivery of blocks running, decrement it
+    // if (delay_before_delivering) {
+    //   --delay_before_delivering;
+    //   // If the number of movements queued is less than 3, and there is still time
+    //   //  to wait, do not deliver anything
+    //   if (nr_moves < 3 && delay_before_delivering) return nullptr;
+    //   delay_before_delivering = 0;
+    // }
     if (delay_before_delivering) {
-      --delay_before_delivering;
+      // TODO TEST
+      // if (delay_before_delivering > 1) {
+        --delay_before_delivering;
+      // }
       // If the number of movements queued is less than 3, and there is still time
       //  to wait, do not deliver anything
-      if (nr_moves < 3 && delay_before_delivering) return nullptr;
+      if (axisManager.getRemainingConsumeTime() < SHAPED_WAITING_MIN_TIME) {
+          return nullptr;
+      }
       delay_before_delivering = 0;
     }
 
     // If we are here, there is no excuse to deliver the block
     block_t * const block = &block_buffer[block_buffer_tail];
+
+    if (!block->shaper_data.is_create_move) {
+      return nullptr;
+    }
 
     // No trapezoid calculated? Don't execute yet.
     if (TEST(block->flag, BLOCK_BIT_RECALCULATE)) return nullptr;
@@ -1182,6 +1200,8 @@ void Planner::recalculate_trapezoids() {
             // NOTE: Entry and exit factors always > 0 by all previous logic operations.
             const float current_nominal_speed = SQRT(block->nominal_speed_sqr),
                         nomr = 1.0f / current_nominal_speed;
+            block->initial_speed = current_entry_speed;
+            block->final_speed = next_entry_speed;
             calculate_trapezoid_for_block(block, current_entry_speed * nomr, next_entry_speed * nomr);
             #if ENABLED(LIN_ADVANCE)
               if (block->use_advance_lead) {
@@ -1221,6 +1241,8 @@ void Planner::recalculate_trapezoids() {
 
       const float next_nominal_speed = SQRT(next->nominal_speed_sqr),
                   nomr = 1.0f / next_nominal_speed;
+      next->initial_speed = next_entry_speed;
+      next->final_speed = 0.0;
       calculate_trapezoid_for_block(next, next_entry_speed * nomr, float(MINIMUM_PLANNER_SPEED) * nomr);
       #if ENABLED(LIN_ADVANCE)
         if (next->use_advance_lead) {
@@ -1246,6 +1268,207 @@ void Planner::recalculate() {
     forward_pass();
   }
   recalculate_trapezoids();
+}
+
+
+static float last_remaining_consume_time = -1;
+// static float start_t = -1;
+// static float end_t = -1;
+static int count = 10000;
+static int c2 = 500000;
+static bool log111 = true;
+
+void Planner::shaped_loop() {
+    // if (xTaskGetCurrentTaskHandle() != thandle_marlin)
+    //   return;
+
+    const uint8_t nr_moves = movesplanned();
+
+    if (axisManager.req_abort) {
+      axisManager.abort();
+      clear_block_buffer();
+      return;
+    }
+
+    if (!nr_moves) {
+        return;
+    }
+
+    // stepper_isr();
+
+    c2--;
+    if (c2 <= 0) {
+        c2 = 500000;
+        // float t = (float)axisManager.counts[4] / (float)axisManager.counts[3] / 3.0f;
+        // float max_t = (float)axisManager.counts[5] / 3.0f;
+        // LOG_I("c0: %d, time: %lf, max_t: %lf, max_size: %d, %d\n",  axisManager.counts[0], t, max_t, axisManager.axis[0].func_manager.max_size, axisManager.axis[1].func_manager.max_size);
+        // LOG_I("c0: %d, c1: %d, c2: %d, c6: %d, c7: %d, time: %lf, max_t: %lf, c11: %d, c12: %d\n", axisManager.counts[0], axisManager.counts[1], axisManager.counts[2], axisManager.counts[6],axisManager.counts[7], t, max_t, axisManager.counts[11], axisManager.counts[12]);
+        // LOG_I("c10: %d, c11: %d, c12: %d\n", axisManager.counts[10], axisManager.counts[11], axisManager.counts[12]);
+    }
+
+    float remaining_consume_time = axisManager.getRemainingConsumeTime();
+
+    if (remaining_consume_time > SHAPED_WAITING_MIN_TIME) {
+      if (remaining_consume_time == last_remaining_consume_time) {
+        count--;
+        // if(count == 999) {
+        //   start_t = remaining_consume_time;
+        // }
+        // if(count == 0) {
+        //   end_t = remaining_consume_time;
+        // }
+      } else {
+        count = 10000;
+        log111 = true;
+      }
+      last_remaining_consume_time = remaining_consume_time;
+      if (count <= 0 && log111) {
+        log111 = false;
+        // LOG_I("remaining_t: %lf\n", remaining_consume_time);
+        // LOG_I("m: %d, %d\n", moveQueue.move_tail, moveQueue.move_head);
+        // Move& m = moveQueue.moves[moveQueue.prevMoveIndex(moveQueue.move_head)];
+        // LOG_I("t: %lf, flag: %d\n", m.end_t.toDouble(), m.flag);
+        // for (size_t i = 0; i < 4; i++)
+        // {
+        //   FuncManager& f = axisManager.axis[i].func_manager;
+        //   LOG_I("i: %d, last_time: %lf, last_pos: %lf\n",i, f.last_time.toDouble(), f.last_pos);
+
+        //   FuncParams& p = f.funcParams[f.prevFuncParamsIndex(f.func_params_head)];
+        //   LOG_I("i: %d, right_time: %lf, right_pos: %lf\n",i, p.right_time.toDouble(), p.right_pos);
+
+        //   LOG_I("i: %d, print_time: %lf, print_pos: %lf, print_step: %d, null: %d, is_c: %d\n",i, f.print_time.toDouble(), f.print_pos, f.print_step,
+        //   axisManager.axis[i].is_consumed, axisManager.axis[i].is_get_next_step_null);
+
+        //   int ids = f.func_params_use;
+        //   int ide = f.func_params_head;
+        //   LOG_I("tail: %d, use: %d, head:%d, max_size: %d\n", f.func_params_tail, f.func_params_use, f.func_params_head, f.max_size);
+        //   while (ids != ide)
+        //   {
+        //     LOG_I("id: %d, rx: %lf, rp: %lf, t: %d\n", ids, f.funcParams[ids].right_time.toDouble(), f.funcParams[ids].right_pos, f.funcParams[ids].type);
+        //     ids = f.nextFuncParamsIndex(ids);
+        //   }
+
+        // }
+
+        // LOG_I("print_time: %lf, min_last_time: %lf\n", axisManager.print_time.toDouble(), axisManager.min_last_time.toDouble());
+      }
+      return;
+    }
+
+    // if (nr_moves < 2 && delay_before_delivering > SHAPED_WAITING_MIN_TIME) {
+    //     delay_before_delivering = 0;
+    //     return;
+    // }
+    if (nr_moves < 6 && delay_before_delivering > SHAPED_WAITING_MIN_TIME) {
+        return;
+    }
+    delay_before_delivering = 0;
+    // LOG_I("r: %lf\n", remaining_consume_time);
+
+    // uint8_t tail_index = block_buffer_tail;
+    uint8_t shaped_index = block_buffer_shaped;
+    uint8_t planned_index = block_buffer_planned;
+    uint8_t head_index = block_buffer_head;
+    block_t *block;
+    uint8_t index = shaped_index;
+
+    if (shaped_index == head_index) {
+      return;
+    }
+
+    // LOG_I("t: %lf\n", remaining_consume_time);
+
+    // if (moveQueue.is_start) {
+    //     axisManager.addEmptyMove();
+    //     moveQueue.is_start = false;
+    // }
+
+    float planed_time = 0;
+    while (index != planned_index) {
+        block = &block_buffer[index];
+        if (!block->shaper_data.is_create_move) {
+          // LOG_I("b0: %d\n", index);
+            if (TEST(block->flag, BLOCK_BIT_RECALCULATE)) {
+              axisManager.counts[7]++;
+              break;
+            }
+
+            moveQueue.calculateMoves(block);
+            block->shaper_data.is_create_move = true;
+        }
+        if (!block->shaper_data.is_zero_speed)
+        {
+          planed_time += block->shaper_data.block_time;
+        } else {
+          axisManager.counts[6]++;
+        }
+
+        index = next_block_index(index);
+    }
+
+    float need_shaped_time = SHAPED_WAITING_MIN_TIME + axisManager.shaped_right_delta;
+
+    if (index != head_index && planed_time + remaining_consume_time < need_shaped_time) {
+        while (index != head_index) {
+            axisManager.counts[2]++;
+            block = &block_buffer[index];
+            if (!block->shaper_data.is_create_move) {
+              // LOG_I("b1: %d\n", index);
+                if (TEST(block->flag, BLOCK_BIT_RECALCULATE)) {
+                  axisManager.counts[7]++;
+                  break;
+                }
+
+                moveQueue.calculateMoves(block);
+                block->shaper_data.is_create_move = true;
+            }
+
+            if (!block->shaper_data.is_zero_speed)
+            {
+              planed_time += block->shaper_data.block_time;
+            } else {
+              axisManager.counts[6]++;
+            }
+
+            index = next_block_index(index);
+
+            if (planed_time + remaining_consume_time >= need_shaped_time) {
+                break;
+            }
+        }
+
+        if (index == head_index || planed_time + remaining_consume_time < need_shaped_time) {
+            axisManager.counts[0]++;
+            // LOG_I("addEmptyMove\n");
+            axisManager.addEmptyMove();
+            block = &block_buffer[prev_block_index(index)];
+            block->shaper_data.last_print_time += axisManager.shaped_left_delta;
+        }
+    }
+
+    block_buffer_planned = index;
+
+    shaped_index = block_buffer_shaped;
+    planned_index = block_buffer_planned;
+
+    while (shaped_index != planned_index) {
+        block = &block_buffer[shaped_index];
+
+        if (!block->shaper_data.is_zero_speed)
+        {
+          if (!axisManager.generateAllAxisFuncParams(shaped_index, block)) {
+            break;
+          }
+        }
+
+        // uint8_t move_index = moveQueue.calculateMoveStart(block->shaper_data.move_end, axisManager.shaped_delta);
+
+        shaped_index = next_block_index(shaped_index);
+    }
+
+    // LOG_I("remainingConsumeTime: %lf, %d, %d, %d, %d\n", axisManager.getRemainingConsumeTime(), tail_index, shaped_index, planned_index, head_index);
+
+    block_buffer_shaped = shaped_index;
 }
 
 #if HAS_FAN && DISABLED(LASER_SYNCHRONOUS_M106_M107)
@@ -1667,7 +1890,7 @@ void Planner::quick_stop() {
   const bool was_enabled = stepper.suspend();
 
   // Drop all queue entries
-  block_buffer_nonbusy = block_buffer_planned = block_buffer_head = block_buffer_tail;
+  block_buffer_nonbusy = block_buffer_planned = block_buffer_head = block_buffer_tail = block_buffer_shaped;
 
   // Restart the block delay for the first movement - As the queue was
   // forced to empty, there's no risk the ISR will touch this.
@@ -2176,6 +2399,17 @@ bool Planner::_populate_block(block_t * const block, bool split_move,
   }
 
   TERN_(HAS_EXTRUDERS, block->steps.e = esteps);
+    if (block->millimeters > 0) {
+      block->axis_r.x = da / block->millimeters;
+      block->axis_r.y = db / block->millimeters;
+      block->axis_r.z = dc / block->millimeters;
+      block->axis_r.e = de / block->millimeters;
+  } else {
+      block->axis_r.x = 0;
+      block->axis_r.y = 0;
+      block->axis_r.z = 0;
+      block->axis_r.e = 0;
+  }
 
   block->step_event_count = _MAX(LOGICAL_AXIS_LIST(
     esteps, block->steps.a, block->steps.b, block->steps.c, block->steps.i, block->steps.j, block->steps.k
@@ -2336,7 +2570,8 @@ bool Planner::_populate_block(block_t * const block, bool split_move,
     if (was_enabled) stepper.wake_up();
   #endif
 
-  block->nominal_speed_sqr = sq(block->millimeters * inverse_secs);   // (mm/sec)^2 Always > 0
+  block->nominal_speed = block->millimeters * inverse_secs;
+  block->nominal_speed_sqr = sq(block->nominal_speed);   // (mm/sec)^2 Always > 0
   block->nominal_rate = CEIL(block->step_event_count * inverse_secs); // (step/sec) Always > 0
 
   #if ENABLED(FILAMENT_WIDTH_SENSOR)
@@ -2432,6 +2667,7 @@ bool Planner::_populate_block(block_t * const block, bool split_move,
   if (speed_factor < 1.0f) {
     current_speed *= speed_factor;
     block->nominal_rate *= speed_factor;
+    block->nominal_speed = block->nominal_speed * speed_factor;
     block->nominal_speed_sqr = block->nominal_speed_sqr * sq(speed_factor);
   }
 

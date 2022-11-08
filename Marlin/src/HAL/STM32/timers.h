@@ -55,6 +55,7 @@
 extern uint32_t GetStepperTimerClkFreq();
 #define STEPPER_TIMER_PRESCALE (GetStepperTimerClkFreq() / (STEPPER_TIMER_RATE))
 #define STEPPER_TIMER_TICKS_PER_US ((STEPPER_TIMER_RATE) / 1000000) // stepper timer ticks per µs
+#define STEPPER_TIMER_TICKS_PER_MS ((STEPPER_TIMER_RATE) / 1000) // stepper timer ticks per ms
 
 #define PULSE_TIMER_RATE STEPPER_TIMER_RATE
 #define PULSE_TIMER_PRESCALE STEPPER_TIMER_PRESCALE

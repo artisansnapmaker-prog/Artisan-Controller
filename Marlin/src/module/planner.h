@@ -31,6 +31,7 @@
  */
 
 #include "../MarlinCore.h"
+#include "shaper/TimeDouble.h"
 
 #if ENABLED(JD_HANDLE_SMALL_SEGMENTS)
   // Enable this option for perfect accuracy but maximum
@@ -158,6 +159,28 @@ enum BlockFlag : char {
 
 #endif
 
+typedef struct shaper_data_t {
+    float block_time;
+    bool is_create_move;
+    bool is_start;
+    bool is_end;
+    bool is_zero_speed;
+    uint8_t move_start;
+    uint8_t move_end;
+
+    time_double_t last_print_time;
+
+    void init() {
+        is_create_move = false;
+        is_zero_speed = false;
+        block_time = 0;
+        is_start = false;
+        is_end = false;
+        last_print_time = 0;
+    }
+
+} shaper_data_t;
+
 /**
  * struct block_t
  *
@@ -172,12 +195,15 @@ typedef struct block_t {
   volatile uint8_t flag;                    // Block flags (See BlockFlag enum above) - Modified by ISR and main thread!
 
   // Fields used by the motion planner to manage acceleration
-  float nominal_speed_sqr,                  // The nominal speed for this block in (mm/sec)^2
+  float nominal_speed,
+        nominal_speed_sqr,                  // The nominal speed for this block in (mm/sec)^2
         entry_speed_sqr,                    // Entry speed at previous-current junction in (mm/sec)^2
         max_entry_speed_sqr,                // Maximum allowable junction entry speed in (mm/sec)^2
         millimeters,                        // The total travel of this block in mm
         acceleration;                       // acceleration mm/sec^2
-
+  
+  xyze_float_t axis_r;
+  shaper_data_t shaper_data;
   union {
     abce_ulong_t steps;                     // Step count along each axis
     abce_long_t position;                   // New position to force when this sync block is executed
@@ -218,6 +244,10 @@ typedef struct block_t {
              final_adv_steps;               // advance steps due to exit speed
     float e_D_ratio;
   #endif
+
+  float cruise_speed;
+  float initial_speed;
+  float final_speed;
 
   uint32_t nominal_rate,                    // The nominal step rate for this block in step_events/sec
            initial_rate,                    // The jerk-adjusted step rate at start of block
@@ -351,6 +381,7 @@ class Planner {
     static volatile uint8_t block_buffer_head,      // Index of the next block to be pushed
                             block_buffer_nonbusy,   // Index of the first non busy block
                             block_buffer_planned,   // Index of the optimally planned block
+                            block_buffer_shaped,
                             block_buffer_tail;      // Index of the busy block, if any
     static uint16_t cleaning_buffer_counter;        // A counter to disable queuing of blocks
     static uint8_t delay_before_delivering;         // This counter delays delivery of blocks when queue becomes empty to allow the opportunity of merging blocks
@@ -455,6 +486,8 @@ class Planner {
         refresh_frequency_limit();
       }
     #endif
+
+    static void shaped_loop();
 
   private:
 
@@ -701,7 +734,7 @@ class Planner {
     FORCE_INLINE static uint8_t nonbusy_movesplanned() { return BLOCK_MOD(block_buffer_head - block_buffer_nonbusy); }
 
     // Remove all blocks from the buffer
-    FORCE_INLINE static void clear_block_buffer() { block_buffer_nonbusy = block_buffer_planned = block_buffer_head = block_buffer_tail = 0; }
+    FORCE_INLINE static void clear_block_buffer() { block_buffer_nonbusy = block_buffer_planned = block_buffer_head = block_buffer_tail = block_buffer_shaped = 0; }
 
     // Check if movement queue is full
     FORCE_INLINE static bool is_full() { return block_buffer_tail == next_block_index(block_buffer_head); }
@@ -723,7 +756,9 @@ class Planner {
 
       // Return the first available block
       next_buffer_head = next_block_index(block_buffer_head);
-      return &block_buffer[block_buffer_head];
+      block_t *res = &block_buffer[block_buffer_head];
+      res->shaper_data.init();
+      return res;
     }
 
     /**
@@ -883,7 +918,7 @@ class Planner {
     // Blocks are queued, or we're running out moves, or the closed loop controller is waiting
     static inline bool busy() {
       return (has_blocks_queued() || cleaning_buffer_counter
-          || TERN0(EXTERNAL_CLOSED_LOOP_CONTROLLER, CLOSED_LOOP_WAITING())
+          || TERN0(EXTERNAL_CLOSED_LOOP_CONTROLLER, CLOSED_LOOP_WAITING() || axisManager.req_abort)
       );
     }
 
@@ -943,22 +978,6 @@ class Planner {
       }
     #endif
 
-  private:
-
-    #if ENABLED(AUTOTEMP)
-      #if ENABLED(AUTOTEMP_PROPORTIONAL)
-        static void _autotemp_update_from_hotend();
-      #else
-        static inline void _autotemp_update_from_hotend() {}
-      #endif
-    #endif
-
-    /**
-     * Get the index of the next / previous block in the ring buffer
-     */
-    static constexpr uint8_t next_block_index(const uint8_t block_index) { return BLOCK_MOD(block_index + 1); }
-    static constexpr uint8_t prev_block_index(const uint8_t block_index) { return BLOCK_MOD(block_index - 1); }
-
     /**
      * Calculate the distance (not time) it takes to accelerate
      * from initial_rate to target_rate using the given acceleration:
@@ -980,6 +999,22 @@ class Planner {
       if (accel == 0) return 0; // accel was 0, set intersection distance to 0
       return (accel * 2 * distance - sq(initial_rate) + sq(final_rate)) / (accel * 4);
     }
+
+  private:
+
+    #if ENABLED(AUTOTEMP)
+      #if ENABLED(AUTOTEMP_PROPORTIONAL)
+        static void _autotemp_update_from_hotend();
+      #else
+        static inline void _autotemp_update_from_hotend() {}
+      #endif
+    #endif
+
+    /**
+     * Get the index of the next / previous block in the ring buffer
+     */
+    static constexpr uint8_t next_block_index(const uint8_t block_index) { return BLOCK_MOD(block_index + 1); }
+    static constexpr uint8_t prev_block_index(const uint8_t block_index) { return BLOCK_MOD(block_index - 1); }
 
     /**
      * Calculate the maximum allowable speed squared at this point, in order

@@ -1282,7 +1282,7 @@ void ToolHeadFDM::update_hotend_temp(uint8_t *data) {
   hotend_temp[0].current = data[0] << 8 | data[1];
 
 
-  if (data[2] & (1 << 0)) {
+  if (data[2] & (1 << 0) || (thermalManager.temp_range[0].maxtemp  < hotend_temp[0].current / 10)) {
     temp_error |= (1 << 0);
   }
 
@@ -1293,7 +1293,7 @@ void ToolHeadFDM::update_hotend_temp(uint8_t *data) {
 
   if (get_device_id() == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
     hotend_temp[1].current = data[4] << 8 | data[5];
-    if (data[6] & (1 << 0)) {
+    if (data[6] & (1 << 0) || (thermalManager.temp_range[1].maxtemp  < hotend_temp[1].current / 10)) {
       temp_error |= (1 << 1);
     }
 
@@ -1316,7 +1316,7 @@ void ToolHeadFDM::update_hotend_temp(uint8_t *data) {
     LOG_I("temp_error_update_bit: 0x%x temp_error:0x%x\n",temp_error_update_bit, temp_error);
     if (temp_error_update_bit & (1 << 0)) {
       if (temp_error & (1 << 0)) {
-        LOG_E("check E0 temperature out of detection range\n");
+        LOG_E("check E0 temperature out of detection range, temp: %d\n", (hotend_temp[0].current / 10));
         system_svc.raise_exception(get_device_id(), FDM_EXCEP_STA_OVERTEMP_ERROR_E0, \
                                                     EXCEP_ACT_PAUSE_WORKING | EXCEP_ACT_DISABLE_POWER_8P_TOOLHEAD | EXCEP_ACT_DISABLE_HEATING_HOTEND | \
                                                     (disable_motor ? EXCEP_ACT_DISABLE_POWER_8P_MOTOR : 0), \
@@ -1331,7 +1331,7 @@ void ToolHeadFDM::update_hotend_temp(uint8_t *data) {
 
     if (temp_error_update_bit & (1 << 1)) {
       if (temp_error & (1 << 1)) {
-        LOG_E("check E1 temperature out of detection range\n");
+        LOG_E("check E1 temperature out of detection range, temp: %d\n", (hotend_temp[1].current / 10));
         system_svc.raise_exception(get_device_id(), FDM_EXCEP_STA_OVERTEMP_ERROR_E1, \
                                                     EXCEP_ACT_PAUSE_WORKING | EXCEP_ACT_DISABLE_POWER_8P_TOOLHEAD | EXCEP_ACT_DISABLE_HEATING_HOTEND | \
                                                     (disable_motor ? EXCEP_ACT_DISABLE_POWER_8P_MOTOR: 0), \

@@ -1085,12 +1085,12 @@ void Temperature::_temp_error(const heater_id_t heater_id, FSTR_P const serial_m
 }
 
 void Temperature::max_temp_error(const heater_id_t heater_id) {
-  bool disable_motor = false;
   #if HAS_DWIN_E3V2_BASIC && (HAS_HOTEND || HAS_HEATED_BED)
     DWIN_Popup_Temperature(1);
   #endif
 
   #if MB_SNAPMAKER
+    bool disable_motor = false;
     if (heater_id == H_BED || heater_id == H_CHAMBER) {
       if (bed_inserted && bed_error_sta == 0 && (smprinter.power_domains & POWER_DOMAIN_BED)) {
         bed_error_sta = 0xff;
@@ -1099,20 +1099,9 @@ void Temperature::max_temp_error(const heater_id_t heater_id) {
         return;
     }
     else if (heater_id == H_E0 || heater_id == H_E1) {
-      // prevents duplicate access
-      extern uint32_t hotend_error_sta;
-      if (heater_id == H_E0) {
-        if ((hotend_error_sta & (1 << 4)))
-          return;
-        else
-          hotend_error_sta |= (1 << 4);
-      }
-      else {
-        if ((hotend_error_sta & (1 << 5)))
-          return;
-        else
-          hotend_error_sta |= (1 << 5);
-      }
+      // nozzle temperature exceeding the maximum limit is handled uniformly in the module callback function,
+      // the current function does not do any processing
+      return;
 
       if (smprinter.is_fdm_bed_level_mode())
         disable_motor = true;

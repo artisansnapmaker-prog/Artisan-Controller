@@ -258,12 +258,18 @@ err_code_t enclosure_a400_callback_routine(void *obj) {
   return E_SUCCESS;
 }
 
-bool EnclosureA400::get_enclosure_hw_verion(uint8_t *version) {
+bool EnclosureA400::get_enclosure_hw_version(uint8_t *version) {
   smcan_message_t msg;
   bool ret = false;
   err_code_t result = E_FAILURE;
   uint8_t out_buf[8] = {0};
   uint8_t out_len = sizeof(out_buf);
+
+  if (!version) {
+    LOG_E("[%s] invalid parameters\n", __FUNCTION__);
+    return false;
+  }
+
   msg.id = get_message_id(MODULE_FUNC_GET_HW_VERSION);
   if (msg.id != MODULE_MESSAGE_ID_INVALID) {
     msg.ch     = get_channel();
@@ -271,6 +277,7 @@ bool EnclosureA400::get_enclosure_hw_verion(uint8_t *version) {
     msg.length = 0;
     result = host_can_rou.send_sync(&msg, out_buf, &out_len, 200);
   }
+
   if (result == E_SUCCESS) {
     *version = out_buf[0];
     ret = true;
@@ -280,14 +287,14 @@ bool EnclosureA400::get_enclosure_hw_verion(uint8_t *version) {
 
 err_code_t EnclosureA400::post_init() {
   LOG_I("Enclosure A400 post_init in\n");
-  uint8_t hw_verion = 0xff;
+  uint8_t hw_version = 0xff;
 
-  if (!get_enclosure_hw_verion(&hw_verion)) {
+  if (!get_enclosure_hw_version(&hw_version)) {
     LOG_E("Enclosure A400 GET_HW_VERSION fail\n");
     // return E_FAILURE;
   }
 
-  LOG_I("Enclosure A400 HW_VERSION: 0x%x\n", hw_verion);  
+  LOG_I("Enclosure A400 HW_VERSION: 0x%x\n", hw_version);  
 
   uint16_t msg_id = get_message_id(MODULE_FUNC_ENCLOSURE_DOOR_STATE);
   if (msg_id == MODULE_MESSAGE_ID_INVALID) {
@@ -314,7 +321,7 @@ err_code_t EnclosureA400::post_init() {
     tick = xTaskGetTickCount();
     online = true;
     set_status(MODULE_STATUS_NORMAL);
-    set_hw_version(hw_verion);
+    set_hw_version(hw_version);
     public_mutex_unlock();
   }
   else {

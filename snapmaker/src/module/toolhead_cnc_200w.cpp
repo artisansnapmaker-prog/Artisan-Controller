@@ -251,12 +251,18 @@ err_code_t hp_cnc_callback_routine(void *obj) {
   return E_SUCCESS;
 }
 
-bool ToolHeadCNC200W::get_cnc_hw_verion(uint8_t *version) {
+bool ToolHeadCNC200W::get_cnc_hw_version(uint8_t *version) {
   smcan_message_t msg;
   bool ret = false;
   err_code_t result = E_FAILURE;
   uint8_t out_buf[8] = {0};
   uint8_t out_len = sizeof(out_buf);
+
+  if (!version) {
+    LOG_E("[%s] invalid parameters\n", __FUNCTION__);
+    return false;
+  }
+
   msg.id = get_message_id(MODULE_FUNC_GET_HW_VERSION);
   if (msg.id != MODULE_MESSAGE_ID_INVALID) {
     msg.ch     = get_channel();
@@ -585,14 +591,14 @@ err_code_t ToolHeadCNC200W::start_spindle_self_test(void) {
 
 err_code_t ToolHeadCNC200W::post_init() {
   LOG_I("HP_CNC post_init in\n");
-  uint8_t hw_verion = 0xff;
+  uint8_t hw_version = 0xff;
 
-  if (!get_cnc_hw_verion(&hw_verion)) {
+  if (!get_cnc_hw_version(&hw_version)) {
     LOG_E("HP_CNC GET_HW_VERSION fail\n");
     // return E_FAILURE;
   }
 
-  LOG_I("HP_CNC HW_VERSION: 0x%x\n", hw_verion);  
+  LOG_I("HP_CNC HW_VERSION: 0x%x\n", hw_version);  
 
   uint16_t msg_id = get_message_id(MODULE_FUNC_REPORT_SPINDLE_RUN_INFO);
   if (msg_id == MODULE_MESSAGE_ID_INVALID) {
@@ -639,7 +645,7 @@ err_code_t ToolHeadCNC200W::post_init() {
     safe_check_tick = CNC_SAFE_CHECK_INVALID_VALUE;
     online = true;
     set_status(MODULE_STATUS_NORMAL);
-    set_hw_version(hw_verion);
+    set_hw_version(hw_version);
     public_mutex_unlock();
   }
   else {

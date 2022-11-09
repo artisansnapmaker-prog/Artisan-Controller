@@ -51,7 +51,7 @@ class EnclosureA400: public Enclosure {
     friend uint16_t hmi_subscribe_enclosure_a400_func(void *obj, uint8_t *buff);
   
   private:
-    bool get_enclosure_hw_verion(uint8_t *version);
+    bool get_enclosure_hw_version(uint8_t *version);
 
   private:
     uint16_t light_adc = 0;

@@ -202,6 +202,7 @@ class MotionPlatformService {
     float probe_y(float probe_position);
     void sync_leveling_limit_to_platform(float x_start, float x_end, float y_start, float y_end);
     void sync_z_values_to_platform(float compensation);
+    void sync_manual_z_values_to_platform(float compensation);
     void sync_z_values_from_platform();
     void extrapolate_unprobed_points() {extrapolate_unprobed_bed_level();}
     void interpolate_virt_points() {refresh_bed_level();}

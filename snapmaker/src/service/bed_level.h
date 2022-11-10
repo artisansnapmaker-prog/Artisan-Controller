@@ -25,6 +25,7 @@
 // #include "motion_platform.h"
 #include "../config.h"
 #include "../module/toolhead_fdm.h"
+#include "../../../Marlin/src/core/types.h"
 
 #define CALIBRATION_PAPER_THICKNESS   0.1
 #define LIVE_Z_OFFSET_LIMIT           0.5
@@ -79,6 +80,20 @@ typedef struct {
   float live_z_offset[EXTRUDERS];
 } __attribute__((packed)) bedlevel_settings_t;
 
+typedef struct {
+  bool     valid;
+  uint8_t  grid_max_points_x;
+  uint8_t  grid_max_points_y;
+  uint8_t  grid_max_cells_x;
+  uint8_t  grid_max_cells_y;
+  float    startx;
+  float    endx;
+  float    starty;
+  float    endy;
+  xy_pos_t bilinear_start;
+  xy_pos_t bilinear_grid_spacing;
+} BedlevelEnvInfo;
+
 class BedLevelService {
   public:
     BedLevelService() {
@@ -89,6 +104,7 @@ class BedLevelService {
       need_to_abort_auto_bedlevel = false;
       auto_bedlevel_enable = false;
       z_drop_limit_check = false;
+      env_info.valid = false;
     }
 
     void init();
@@ -119,6 +135,9 @@ class BedLevelService {
     void report_probe_sensor_compensation();
     bool get_z_drop_limit_status(void);
     void set_z_drop_limit_check(bool enable) { z_drop_limit_check = enable; }
+    bool set_bedlevel_env_info(uint8_t grids);
+    // void clear_bedlevel_env_info(void);
+    void pre_bedlevel_clear_live_z_offset(void);
 
 
     float z_values_[GRID_MAX_NUM][GRID_MAX_NUM];
@@ -130,6 +149,7 @@ class BedLevelService {
     bool live_z_offset_changed;
     bool need_to_abort_auto_bedlevel;
     bool auto_bedlevel_enable;
+    BedlevelEnvInfo  env_info;
 
   private:
     uint8_t bedlevel_mode;

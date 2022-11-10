@@ -858,6 +858,17 @@ void MotionPlatformService::sync_z_values_to_platform(float compensation) {
   }
 }
 
+// This function needs to be called to update the data for manual leveling of the double extrusion module
+void MotionPlatformService::sync_manual_z_values_to_platform(float compensation) {
+  memcpy(z_values_raw, bedlevel_svc.z_values_, sizeof(z_values));
+  memcpy(z_values, bedlevel_svc.z_values_, sizeof(z_values));
+  for (uint32_t i = 0; i < GRID_MAX_NUM; i++) {
+    for (uint32_t j = 0; j < GRID_MAX_NUM; j++) {
+      z_values_raw[i][j] -= compensation;
+    }
+  }
+}
+
 void MotionPlatformService::sync_z_values_from_platform() {
   memcpy(bedlevel_svc.z_values_, z_values_raw, sizeof(z_values));
 }

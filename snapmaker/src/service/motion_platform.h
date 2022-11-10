@@ -82,6 +82,42 @@ typedef struct __packed MovingCommand {
   extern feedRate_t fast_move_feedrate;
 #endif
 
+#define MOTION_REQUEST_MAX    (5)
+#define MOTION_REQ_GCODE_SIZE (80)
+enum MotionRequestType {
+  MQ_TYPE_DIRECT_ABSOLUTE,
+  MQ_TYPE_DIRECT_RELATIVE,
+  MQ_TYPE_GCODE,
+  MQ_TYPE_HOME,
+
+  MQ_INVALID
+};
+
+enum MotionRequestState {
+  MQ_STATE_IDLE,
+  MQ_STATE_RECEIVED,
+  MQ_STATE_PLANNED,
+  MQ_STATE_MOVING,
+  MQ_STATE_END,
+};
+
+typedef struct motion_request {
+  MotionRequestType type;
+  MotionRequestState current_state;
+  MotionRequestState to_be_state;
+  bool blocked;
+  SemaphoreHandle_t ack;
+  list_node node;
+
+  union {
+    struct {
+    xyze_pos_t position;
+    float      feedrate;
+    } target;
+    char gcode[MOTION_REQ_GCODE_SIZE];
+  };
+} motion_request_t;
+
 class MotionPlatformService {
   public:
     bool homing_now;
@@ -145,11 +181,11 @@ class MotionPlatformService {
 
     // home API
     bool is_all_axes_homed() {return all_axes_homed();}
-    err_code_t home(bool block = true) { return run_gcode((char *)"G28 ", block); }
-    err_code_t home_x(bool block = true) { return run_gcode((char *)"G28 X  ", block); }
+    err_code_t home(bool block = true) { return run_gcode((char *)"G28", block); }
+    err_code_t home_x(bool block = true) { return run_gcode((char *)"G28 X", block); }
     err_code_t home_y(bool block = true) { return run_gcode((char *)"G28 Y", block); }
-    err_code_t home_z(bool block = true) { return run_gcode((char *)"G28 Z ", block); }
-    err_code_t home_b(bool block = true) { return run_gcode((char *)"G28 B ", block); }
+    err_code_t home_z(bool block = true) { return run_gcode((char *)"G28 Z", block); }
+    err_code_t home_b(bool block = true) { return run_gcode((char *)"G28 B", block); }
     void set_axis_to_homed(AxisEnum axis) { set_axis_homed(axis); }
     float get_home_offset(AxisEnum axis) { return home_offset[axis]; }
     void home_offset_init();
@@ -263,6 +299,16 @@ class MotionPlatformService {
     void abort_heating();
     bool marlin_is_paused() { return marlin_paused; }
 
+    void dispatch_motion_request();
+    void run_motion_request(motion_request_t *mq);
+
+  private:
+    void init_motion_request();
+    motion_request_t *malloc_motion_request(MotionRequestType target_type);
+    void free_motion_request(motion_request_t *mq);
+    err_code_t submit_motion_request(motion_request_t *mq, MotionRequestState sta = MQ_STATE_END);
+    void wait_for_motion_request(motion_request_t *mq);
+
   private:
     MessageBufferHandle_t gcode_queue;
     xSemaphoreHandle  marlin_signal;
@@ -273,6 +319,11 @@ class MotionPlatformService {
 
     SemaphoreHandle_t quickstop_in_stepper_binary_sem;
     SemaphoreHandle_t quickstop_binary_sem;
+
+    motion_request_t motion_request_cache[MOTION_REQUEST_MAX];
+    list_head mq_busy_list, mq_free_list;
+    SemaphoreHandle_t motion_request_lock;
+    bool quick_stop_mq = false;
 };
 
 

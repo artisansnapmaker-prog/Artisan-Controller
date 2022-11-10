@@ -438,23 +438,25 @@ void MotionPlatformService::motion_background(void *p) {
     host_hmi.handle_events();
     loop();
 
-    // check if I need to pause to let other thread to use motion resourse
-    while (uxSemaphoreGetCount(motion.marlin_signal) > 0) {
-      if (!motion.marlin_paused) {
-        LOG_I("Marlin PAUSED!!!\n");
-      }
-      // tell other thread I have paused
-      // then they can use motion resource safely
-      motion.marlin_paused = true;
-      // release CPU for other thread
-      taskYIELD();
-    }
+    motion.dispatch_motion_request();
 
-    if (motion.marlin_paused) {
-      LOG_I("Marlin RESUME!!!\n");
-    }
+    // // check if I need to pause to let other thread to use motion resourse
+    // while (uxSemaphoreGetCount(motion.marlin_signal) > 0) {
+    //   if (!motion.marlin_paused) {
+    //     LOG_I("Marlin PAUSED!!!\n");
+    //   }
+    //   // tell other thread I have paused
+    //   // then they can use motion resource safely
+    //   motion.marlin_paused = true;
+    //   // release CPU for other thread
+    //   taskYIELD();
+    // }
 
-    motion.marlin_paused = false;
+    // if (motion.marlin_paused) {
+    //   LOG_I("Marlin RESUME!!!\n");
+    // }
+
+    // motion.marlin_paused = false;
   }
 }
 
@@ -507,16 +509,16 @@ void MotionPlatformService::init() {
             (void *)this, hmi_cb_get_coordinate_info);
 
   host_hmi.register_callback(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_SET_ACTIVE_COORDINATE,
-            (void *)this, hmi_cb_set_active_coordinate_system, SACP_CB_ATTR_BLOCKED_WITH_MOTION);
+            (void *)this, hmi_cb_set_active_coordinate_system, SACP_CB_ATTR_BLOCKED_WITHOUT_MOTION);
 
   host_hmi.register_callback(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_SET_ORIGIN,
-            (void *)this, hmi_cb_set_origin, SACP_CB_ATTR_BLOCKED_WITH_MOTION);
+            (void *)this, hmi_cb_set_origin, SACP_CB_ATTR_BLOCKED_WITHOUT_MOTION);
 
   host_hmi.register_callback(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_MOVE_ABSOLUTELY,
-            (void *)this, hmi_cb_move_absoluty, SACP_CB_ATTR_BLOCKED_WITH_MOTION);
+            (void *)this, hmi_cb_move_absoluty, SACP_CB_ATTR_BLOCKED_WITHOUT_MOTION);
 
   host_hmi.register_callback(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_HOME,
-            (void *)this, hmi_cb_request_home, SACP_CB_ATTR_BLOCKED_WITH_MOTION);
+            (void *)this, hmi_cb_request_home, SACP_CB_ATTR_BLOCKED_WITHOUT_MOTION);
 
   LOG_I("Creating marlin task...");
   thandle_marlin = xTaskCreateStatic((TaskFunction_t)motion_background, "marlin", MOTION_TASK_STACK_SIZE, (void *)this,
@@ -532,6 +534,8 @@ void MotionPlatformService::init() {
   // disable endstop globally by default,
   // and endstop is valid only in G28
   endstops.enable_globally(false);
+
+  init_motion_request();
 }
 
 void MotionPlatformService::pins_post_init() {
@@ -989,34 +993,37 @@ err_code_t MotionPlatformService::run_gcode(char *gcode_cmd, bool blocked /* = f
 
 #endif
   err_code_t ret = E_SUCCESS;
+  motion_request_t *mq;
 
-  if (pause_marlin() != E_SUCCESS)
-    return E_FAILURE;
-
-  LOG_I("submitted gocde: %s\n", gcode_cmd);
-
-  parser.parse((char *)gcode_cmd);
-  gcode.process_parsed_command();
-
-  // block with moving or heating
-  if (blocked) {
-    blocked_timeout = millis() + blocked_timeout;
-    while (planner.busy()) {
-      if (PENDING((millis()), blocked_timeout)) {
-        // because now marlin has been paused or have no opportunity to run
-        // so we need to run idle() to make sure marlin system be normal
-        idle();
-        // release CPU for other threads
-        vTaskDelay(pdMS_TO_TICKS(10));
-      }
-      else {
-        ret = E_TIMEOUT;
-        break;
-      }
-    }
+  if (strlen(gcode_cmd) > MOTION_REQ_GCODE_SIZE) {
+    LOG_E("internal gcode is too long: %s\n", gcode_cmd);
+    return E_PARAM;
   }
 
-  resume_marlin();
+  if (xTaskGetCurrentTaskHandle() == thandle_marlin) {
+    parser.parse(gcode_cmd);
+    gcode.process_parsed_command();
+    if (blocked)
+      planner.synchronize();
+    return ret;
+  }
+
+  mq = malloc_motion_request(MQ_TYPE_GCODE);
+  if (!mq) {
+    LOG_E("failed to apply motion request!\n");
+    return E_NO_RESRC;
+  }
+
+  strncpy(mq->gcode, gcode_cmd, MOTION_REQ_GCODE_SIZE);
+
+  ret = submit_motion_request(mq);
+  if (ret != E_SUCCESS) {
+    LOG_E("failed to submit motion request!");
+    return ret;
+  }
+
+  if (blocked)
+    wait_for_motion_request(mq);
 
   return ret;
 }
@@ -1048,69 +1055,32 @@ bool MotionPlatformService::is_original_position_offset() {
 
 
 void MotionPlatformService::moveto(xyze_pos_t target, float feedrate, bool blocked) {
-  if (pause_marlin() != E_SUCCESS)
+  motion_request *mq;
+
+  if (xTaskGetCurrentTaskHandle() == thandle_marlin) {
+    current_position = target;
+    apply_motion_limits(current_position);
+    line_to_current_position(feedrate);
+
+    if (blocked) {
+      planner.synchronize();
+    }
+    return;
+  }
+
+  mq = malloc_motion_request(MQ_TYPE_DIRECT_ABSOLUTE);
+  if (!mq)
     return;
 
-// LINEAR_AXIS_ARGS(const float), const_feedRate_t fr_mm_s/*=0.0f*/
+  mq->target.position = target;
+  mq->target.feedrate = feedrate;
+  mq->blocked = blocked;
 
-  const feedRate_t xy_feedrate = feedrate ?: feedRate_t(XY_PROBE_FEEDRATE_MM_S);
+  if (submit_motion_request(mq) != E_SUCCESS)
+    return;
 
-  #if HAS_Z_AXIS
-    const feedRate_t z_feedrate = feedrate ?: homing_feedrate(Z_AXIS);
-  #endif
-
-  apply_motion_limits(target);
-
-  #if HAS_Z_AXIS
-    // If Z needs to raise, do it before moving XY
-    if (current_position.z < target.z) {
-      current_position.z = target.z;
-      line_to_current_position(z_feedrate);
-    }
-  #endif
-
-  Rotary *rotary = (Rotary *)module_svc.get_module(MODULE_DEVICE_ID_ROTARY_2020);
-  if (rotary) {
-    current_position.set(current_position.x, current_position.y, current_position.z, current_position.i, target.j);
-    line_to_current_position(xy_feedrate);
-  }
-
-  current_position.set(target.x, target.y);
-  line_to_current_position(xy_feedrate);
-
-  #if HAS_Z_AXIS
-    // If Z needs to lower, do it after moving XY
-    if (current_position.z > target.z) {
-      current_position.z = target.z;
-      line_to_current_position(z_feedrate);
-    }
-  #endif
-
-  // moving ijk
-  #if LINEAR_AXES >= 4
-    current_position.i = target.i;
-  #endif
-
-  #if LINEAR_AXES >= 5
-    current_position.j = target.j;
-  #endif
-
-  #if LINEAR_AXES >= 6
-    current_position.k = target.k;
-  #endif
-
-  #if LINEAR_AXES >= 4
-    line_to_current_position(feedrate);
-  #endif
-
-  if (blocked) {
-    while (planner.busy()) {
-      idle();
-      vTaskDelay(pdMS_TO_TICKS(10));
-    }
-  }
-
-  resume_marlin();
+  if (blocked)
+    wait_for_motion_request(mq);
 
   return;
 }
@@ -1474,6 +1444,7 @@ void MotionPlatformService::run() {
 
 void MotionPlatformService::do_quickstop() {
   // quickstop_stepper();
+  quick_stop_mq = true;
   planner.quick_stop();
   #if MB_SNAPMAKER
   // motion_platform_svc.stepper_quickstop_finish();
@@ -1496,3 +1467,214 @@ void MotionPlatformService::abort_heating() {
 bool MotionPlatformService::is_moving() {
   return planner.has_blocks_queued();
 }
+
+void MotionPlatformService::init_motion_request() {
+  list_init(&mq_busy_list);
+  list_init(&mq_free_list);
+
+  for (int i = 0; i < MOTION_REQUEST_MAX; i++) {
+    motion_request_cache[i].ack = xSemaphoreCreateBinary();
+    configASSERT(motion_request_cache[i].ack);
+    list_add_tail(&motion_request_cache[i].node, &mq_free_list);
+  }
+
+  motion_request_lock = xSemaphoreCreateMutex();
+  configASSERT(motion_request_lock);
+
+}
+
+
+motion_request_t *MotionPlatformService::malloc_motion_request(MotionRequestType target_type) {
+  motion_request_t *mq = NULL;
+
+  if (target_type >= MQ_INVALID) {
+    LOG_E("invalid target type!\n");
+    return mq;
+  }
+
+  if (quick_stop_mq)
+    return NULL;
+
+  if (list_empty(&mq_free_list))
+    return NULL;
+
+  xSemaphoreTake(motion_request_lock, portMAX_DELAY);
+
+  mq = list_first_entry(&mq_free_list, motion_request_t, node);
+  list_del(&mq->node);
+  mq->current_state = MQ_STATE_IDLE;
+  mq->type          = target_type;
+  mq->blocked       = true;
+  mq->to_be_state   = MQ_STATE_END;
+
+  xSemaphoreGive(motion_request_lock);
+
+  return mq;
+}
+
+
+void MotionPlatformService::free_motion_request(motion_request_t *mq) {
+  if (!mq)
+    return;
+
+  xSemaphoreTake(motion_request_lock, portMAX_DELAY);
+
+  list_del(&mq->node);
+  list_add_tail(&mq->node, &mq_free_list);
+
+  xSemaphoreGive(motion_request_lock);
+}
+
+
+err_code_t MotionPlatformService::submit_motion_request(motion_request_t *mq, MotionRequestState sta/* = MQ_STATE_END*/) {
+  err_code_t err = E_FAILURE;
+
+  if (quick_stop_mq)
+    return err;
+
+  mq->to_be_state = sta;
+
+  // if there is already somebody give message to it, clear Semaphore
+  if (uxSemaphoreGetCount(mq->ack) > 0) {
+    xSemaphoreTake(mq->ack, 0);
+  }
+
+  xSemaphoreTake(motion_request_lock, portMAX_DELAY);
+
+  if (!quick_stop_mq) {
+    err = E_SUCCESS;
+    list_add_tail(&mq->node, &mq_busy_list);
+  }
+
+  xSemaphoreGive(motion_request_lock);
+
+  return err;
+}
+
+
+void MotionPlatformService::wait_for_motion_request(motion_request_t *mq) {
+  if (quick_stop_mq)
+    return;
+
+  // wait for the ack from marlin thread
+  xSemaphoreTake(mq->ack, portMAX_DELAY);
+}
+
+void MotionPlatformService::dispatch_motion_request() {
+  motion_request_t *mq = NULL, *next = NULL;
+
+  if (list_empty(&mq_busy_list))
+    return;
+
+
+  list_for_each_entry_safe(mq, next, &mq_busy_list, node) {
+    if (quick_stop_mq) {
+      break;
+    }
+    if (mq->current_state < mq->to_be_state) {
+      run_motion_request(mq);
+    }
+
+    if (mq->type == MQ_INVALID || mq->current_state >= mq->to_be_state) {
+      xSemaphoreGive(mq->ack);
+      free_motion_request(mq);
+    }
+
+    // TODO: handle quick stop
+
+  }
+
+  // TODO: handle quick stop
+  if (quick_stop_mq) {
+    list_for_each_entry_safe(mq, next, &mq_busy_list, node) {
+      xSemaphoreGive(mq->ack);
+      free_motion_request(mq);
+    }
+    quick_stop_mq = false;
+  }
+}
+
+void MotionPlatformService::run_motion_request(motion_request_t *mq) {
+  if (!mq)
+    return;
+
+  switch (mq->type) {
+  case MQ_TYPE_DIRECT_ABSOLUTE:
+    mq->current_state = MQ_STATE_RECEIVED;
+    planner.synchronize();
+
+    if (quick_stop_mq)
+      break;
+
+    apply_motion_limits(mq->target.position);
+    current_position = mq->target.position;
+
+    LOG_I("internal abs move: %.3f, %.3f, %.3f, %.3f, %.3f, %.3f\n", current_position[X_AXIS], current_position[Y_AXIS],
+          current_position[Z_AXIS], current_position[A_AXIS], current_position[B_AXIS], current_position[E_AXIS]);
+
+    line_to_current_position(mq->target.feedrate);
+    if (mq->blocked) {
+      planner.synchronize();
+    }
+    mq->current_state = MQ_STATE_END;
+    break;
+
+  case MQ_TYPE_DIRECT_RELATIVE:
+    mq->current_state = MQ_STATE_RECEIVED;
+    planner.synchronize();
+
+    if (quick_stop_mq)
+      break;
+
+    current_position = current_position + mq->target.position;
+    apply_motion_limits(current_position);
+
+    LOG_I("internal rel move: %.3f, %.3f, %.3f, %.3f, %.3f, %.3f\n", current_position[X_AXIS], current_position[Y_AXIS],
+          current_position[Z_AXIS], current_position[A_AXIS], current_position[B_AXIS], current_position[E_AXIS]);
+
+    line_to_current_position(mq->target.feedrate);
+
+    if (mq->blocked) {
+      planner.synchronize();
+    }
+    mq->current_state = MQ_STATE_END;
+    break;
+
+  case MQ_TYPE_GCODE:
+    mq->current_state = MQ_STATE_RECEIVED;
+    LOG_I("run internal gocde: %s\n", mq->gcode);
+
+    if (quick_stop_mq)
+      break;
+
+    parser.parse((char *)mq->gcode);
+    gcode.process_parsed_command();
+    mq->current_state = MQ_STATE_PLANNED;
+    if (mq->blocked) {
+      planner.synchronize();
+    }
+
+    mq->current_state = MQ_STATE_END;
+    break;
+
+  case MQ_TYPE_HOME:
+    mq->current_state = MQ_STATE_RECEIVED;
+    LOG_I("internal home: %s\n");
+
+    if (quick_stop_mq)
+      break;
+
+    parser.parse((char *)"G28\n");
+    gcode.process_parsed_command();
+
+    mq->current_state = MQ_STATE_END;
+    break;
+
+  default:
+    LOG_E("receive invalid MQ");
+    break;
+  }
+
+  mq->type = MQ_INVALID;
+}
+

@@ -1202,6 +1202,7 @@ void Planner::recalculate_trapezoids() {
                         nomr = 1.0f / current_nominal_speed;
             block->initial_speed = current_entry_speed;
             block->final_speed = next_entry_speed;
+            block->cruise_speed = current_nominal_speed;
             calculate_trapezoid_for_block(block, current_entry_speed * nomr, next_entry_speed * nomr);
             #if ENABLED(LIN_ADVANCE)
               if (block->use_advance_lead) {
@@ -1243,6 +1244,7 @@ void Planner::recalculate_trapezoids() {
                   nomr = 1.0f / next_nominal_speed;
       next->initial_speed = next_entry_speed;
       next->final_speed = 0.0;
+      next->cruise_speed = next_nominal_speed;
       calculate_trapezoid_for_block(next, next_entry_speed * nomr, float(MINIMUM_PLANNER_SPEED) * nomr);
       #if ENABLED(LIN_ADVANCE)
         if (next->use_advance_lead) {
@@ -1279,8 +1281,8 @@ static int c2 = 500000;
 static bool log111 = true;
 
 void Planner::shaped_loop() {
-    // if (xTaskGetCurrentTaskHandle() != thandle_marlin)
-    //   return;
+    if (xTaskGetCurrentTaskHandle() != thandle_marlin)
+      return;
 
     const uint8_t nr_moves = movesplanned();
 
@@ -1299,9 +1301,9 @@ void Planner::shaped_loop() {
     c2--;
     if (c2 <= 0) {
         c2 = 500000;
-        // float t = (float)axisManager.counts[4] / (float)axisManager.counts[3] / 3.0f;
-        // float max_t = (float)axisManager.counts[5] / 3.0f;
-        // LOG_I("c0: %d, time: %lf, max_t: %lf, max_size: %d, %d\n",  axisManager.counts[0], t, max_t, axisManager.axis[0].func_manager.max_size, axisManager.axis[1].func_manager.max_size);
+        float t = (float)axisManager.counts[4] / (float)axisManager.counts[3] / 3.0f;
+        float max_t = (float)axisManager.counts[5] / 2.0f;
+        LOG_I("c0: %d, time: %lf, max_t: %lf, max_size: %d, %d\n",  axisManager.counts[0], t, max_t, axisManager.axis[0].func_manager.max_size, axisManager.axis[1].func_manager.max_size);
         // LOG_I("c0: %d, c1: %d, c2: %d, c6: %d, c7: %d, time: %lf, max_t: %lf, c11: %d, c12: %d\n", axisManager.counts[0], axisManager.counts[1], axisManager.counts[2], axisManager.counts[6],axisManager.counts[7], t, max_t, axisManager.counts[11], axisManager.counts[12]);
         // LOG_I("c10: %d, c11: %d, c12: %d\n", axisManager.counts[10], axisManager.counts[11], axisManager.counts[12]);
     }

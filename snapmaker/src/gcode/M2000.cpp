@@ -655,6 +655,13 @@ void GcodeSuite::M2000() {
         }
         break;
 
+      case 18:
+        {
+          ToolHeadFDM *fdm = NULL;
+          fdm = (ToolHeadFDM *)module_svc.get_module(MODULE_DEVICE_ID_FDM_2EXTRUDER_2021, 0);
+          fdm->right_extruder_move_to_destination(GO_HOME, 0);
+        }
+        break;
       case 100:
         {
           ToolHeadFDM *fdm = NULL;

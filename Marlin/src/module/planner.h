@@ -32,6 +32,7 @@
 
 #include "../MarlinCore.h"
 #include "shaper/TimeDouble.h"
+#include "../snapmaker/src/snapmaker.h"
 
 #if ENABLED(JD_HANDLE_SMALL_SEGMENTS)
   // Enable this option for perfect accuracy but maximum

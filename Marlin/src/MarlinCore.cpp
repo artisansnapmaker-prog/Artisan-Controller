@@ -885,7 +885,7 @@ void idle(bool no_stepper_sleep/*=false*/) {
 
   IDLE_DONE:
   TERN_(MARLIN_DEV_MODE, idle_depth--);
-  
+
   return;
 }
 
@@ -1686,6 +1686,7 @@ void loop() {
     #if MB_SNAPMAKER
     extern bool req_motion_platform_quickstop;
     if (req_motion_platform_quickstop) {
+      axisManager.abort();
       quickstop_stepper();
       req_motion_platform_quickstop = false;
       queue.clear();

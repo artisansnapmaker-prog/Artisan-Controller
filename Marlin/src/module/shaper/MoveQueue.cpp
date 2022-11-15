@@ -154,7 +154,8 @@ void MoveQueue::setMove(uint8_t move_index, float start_v, float end_v, float ac
         //     LOG_I("debug1: %lf, %lf\n", move.start_pos[i], move.end_pos[i]);
         // }
 
-        if (i <= 1 && (move.end_pos[i] < -48000 || move.end_pos[i] > 48000)) {
+        // when quick home xy, distance will be 410 * 15 = 615
+        if (i <= 1 && (move.end_pos[i] < -56000 || move.end_pos[i] > 56000)) {
             LOG_I("debug: %d, %lf, %lf\n", i, move.distance, move.end_pos[i]);
         }
     }

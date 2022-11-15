@@ -1282,13 +1282,16 @@ static bool log111 = true;
 
 void Planner::shaped_loop() {
     if (xTaskGetCurrentTaskHandle() != thandle_marlin)
+
       return;
 
     const uint8_t nr_moves = movesplanned();
 
     if (axisManager.req_abort) {
+      delay_before_delivering = BLOCK_DELAY_FOR_1ST_MOVE;
+      cleaning_buffer_counter = motion_platform_svc.planner_clean_cnt;
+      block_buffer_shaped = block_buffer_nonbusy = block_buffer_planned = block_buffer_head = block_buffer_tail;
       axisManager.abort();
-      clear_block_buffer();
       return;
     }
 
@@ -2011,6 +2014,12 @@ float Planner::get_axis_position_mm(const AxisEnum axis) {
   #endif
 
   return axis_steps * mm_per_step[axis];
+}
+
+bool Planner::busy() {
+  return (has_blocks_queued() || cleaning_buffer_counter || axisManager.req_abort
+      || TERN0(EXTERNAL_CLOSED_LOOP_CONTROLLER, CLOSED_LOOP_WAITING())
+  );
 }
 
 /**

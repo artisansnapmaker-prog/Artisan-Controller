@@ -1665,7 +1665,6 @@ void Stepper::pulse_phase_isr() {
   // If we must abort the current block, do so!
   if (abort_current_block) {
     abort_current_block = false;
-
     is_start = true;
     axisManager.req_abort = true;
 
@@ -1689,6 +1688,8 @@ void Stepper::pulse_phase_isr() {
     //     sync_plan_position();
     //   }
     // #endif
+
+    return;
   }
 
   // If there is no current block, do nothing
@@ -1705,7 +1706,7 @@ void Stepper::pulse_phase_isr() {
       CBI(current_direction_bits, E_AXIS);
     } else {
       CBI(current_direction_bits, axis_stepper.axis);
-    }    
+    }
   } else if(axis_stepper.dir < 0) {
     if (axis_stepper.axis == 3) {
       SBI(current_direction_bits, E_AXIS);
@@ -2545,6 +2546,13 @@ uint32_t Stepper::block_phase_isr() {
       #endif
 
       if (is_start) {
+        /* actully we should check the result returned by getNextAxisStepper():
+          if (!axisManager.getNextAxisStepper()) {
+            axis_stepper.axis = -1;
+            axis_stepper.dir = 0;
+            return interval;
+          }
+        */
         axisManager.getNextAxisStepper();
         axisManager.getCurrentAxisStepper(&axis_stepper);
         is_start = false;
@@ -2558,7 +2566,7 @@ uint32_t Stepper::block_phase_isr() {
             CBI(current_direction_bits, E_AXIS);
           } else {
             CBI(current_direction_bits, axis_stepper.axis);
-          }    
+          }
         } else if(axis_stepper.dir < 0) {
           if (axis_stepper.axis == 3) {
             SBI(current_direction_bits, E_AXIS);

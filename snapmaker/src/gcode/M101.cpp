@@ -25,7 +25,7 @@
  *
  * This code watches the free memory defined for each task in the FreeRTOS environment
  * It is useful to determine how much memory each task has available.
- * 
+ *
  * Initial version...  More Marlin-specific information to be added.
  */
 
@@ -50,7 +50,7 @@ void GcodeSuite::M101() {
   /* Generate raw status information about each task. */
   n_tasks = uxTaskGetSystemState( TaskStatArray, MAX_TASKS, NULL);
 
-  LOG_I("Free Heap: %u\n", xPortGetFreeHeapSize());
+  LOG_I("Free Heap: %u Bytes\n", xPortGetFreeHeapSize());
 
   LOG_I("n_tasks: %u\n", n_tasks);
 
@@ -69,7 +69,7 @@ void GcodeSuite::M101() {
     LOG_I(" Base_Priority: %u", TaskStatArray[x].uxBasePriority);
 
     LOG_I(" Stack: 0x%08x ", TaskStatArray[x].pxStackBase);
-    LOG_I(" Free_Mem: %u ", (unsigned int) TaskStatArray[x].usStackHighWaterMark);
+    LOG_I(" Free_Mem: %u Bytes", (unsigned int) TaskStatArray[x].usStackHighWaterMark * sizeof( StackType_t ));
     LOG_I(" State: ");
     switch( TaskStatArray[x].eCurrentState ) {
       case eRunning:   LOG_I("Running\n");   break;

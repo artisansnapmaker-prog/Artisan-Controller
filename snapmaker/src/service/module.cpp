@@ -6,7 +6,7 @@
 
 #define BACKGROUND_BROADCAST_DURATION (1000)
 
-ModuleService module_svc;
+ModuleService AT_CCRAM module_svc;
 
 static AT_CCRAM StackType_t stack_can_event_thread[MODULE_EVENT_TASK_STACK_DEPTH];
 static AT_CCRAM StackType_t stack_can_recv_thread[MODULE_RECEIVE_TASK_STACK_DEPTH];

@@ -19,21 +19,21 @@
 
 // parameters for system task
 #define SYSTEM_TASK_PRIORITY          (3)
-#define SYSTEM_TASK_STACK_SIZE        (2048)  // 8kBytes
+#define SYSTEM_TASK_STACK_SIZE        (1024)  // 4kBytes
 
 // parameters for motion service
 #define MOTION_TASK_PRIORITY          (3)
-#define MOTION_TASK_STACK_SIZE        (2048)  // 8kBytes
+#define MOTION_TASK_STACK_SIZE        (1024)  // 4kBytes
 
 // parameters for HMI(screen & luban) event handler task
 #define HMI_RECV_TASK_PRIORITY       (4)
 #define HMI_RECV_TASK_STACK_SIZE     (512)  // 2kBytes
 // parameters for HMI(screen & luban) receive handler task
 #define HMI_EVENT_TASK_PRIORITY      (3)
-#define HMI_EVENT_TASK_STACK_SIZE    (2048) // 8kBytes
+#define HMI_EVENT_TASK_STACK_SIZE    (1024) // 4kBytes
 
 #define HMI_BLOCKED_EVENT_TASK_PRIORITY      (3)
-#define HMI_BLOCKED_EVENT_TASK_STACK_SIZE    (2048) // 8kBytes
+#define HMI_BLOCKED_EVENT_TASK_STACK_SIZE    (1024) // 4kBytes
 
 // parameters for module event handler task
 #define MODULE_EVENT_TASK_PRIORITY      (3)
@@ -43,7 +43,9 @@
 #define MODULE_RECEIVE_TASK_STACK_DEPTH (512) // 2kBytes
 
 #define JOB_REQUEST_GCODE_TASK_PRIORITY       (3)
-#define JOB_REQUEST_GCODE_TASK_STACK_SIZE     (1024)
+#define JOB_REQUEST_GCODE_TASK_STACK_SIZE     (768)  // 3kBytes
+
+#define JOBCTRL_TASK_STACK_SIZE               (768)  // 3kBytes
 
 
 // priority for UARTs

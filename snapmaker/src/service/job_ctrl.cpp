@@ -30,23 +30,26 @@
 #include "emergency_handler.h"
 
 
-static AT_CCRAM StackType_t stack_jobctrl_thread[SYSTEM_TASK_STACK_SIZE];
+static AT_CCRAM StackType_t stack_jobctrl_thread[JOBCTRL_TASK_STACK_SIZE];
 static AT_CCRAM StaticTask_t tcb_jobctrl;
 
-static /*AT_CCRAM*/ uint8_t gcode_ring_buffer[GCODE_RB_SIZE];
+static AT_CCRAM StackType_t stack_req_gcode_thread[JOB_REQUEST_GCODE_TASK_STACK_SIZE];
+static AT_CCRAM StaticTask_t tcb_req_gcode;
+
+static AT_CCRAM uint8_t gcode_ring_buffer[GCODE_RB_SIZE];
 static AT_CCRAM uint8_t issue_ret_rb[4];
 
 static AT_CCRAM uint8_t queue_buffer_jobctrl[JOB_CTRL_REQ_INFO_BUF];
 static AT_CCRAM StaticMessageBuffer_t queue_strcut_jobctrl;
 
 JobCtrl AT_CCRAM job_ctrl_svc;
-JobSaveLineStep job_save_line_step = JOB_SAVE_LINE_STEP_STOP;
-TimerHandle_t JobCtrl::job_print_timer = NULL;
-volatile uint32_t job_print_seconds = 0;
-bool job_printing_flag = false;
-bool resume_relative_switch = false;
-uint32_t resume_file_line = 0xFFFFFFFF;
-xyze_pos_t relative_position;
+JobSaveLineStep AT_CCRAM job_save_line_step = JOB_SAVE_LINE_STEP_STOP;
+TimerHandle_t AT_CCRAM JobCtrl::job_print_timer = NULL;
+volatile uint32_t AT_CCRAM job_print_seconds = 0;
+bool AT_CCRAM job_printing_flag = false;
+bool AT_CCRAM resume_relative_switch = false;
+uint32_t AT_CCRAM resume_file_line = 0xFFFFFFFF;
+xyze_pos_t AT_CCRAM relative_position;
 
 void job_ctrl_thread_entry(void *p) {
   for(;;) {
@@ -110,16 +113,17 @@ void JobCtrl::init(void) {
     }
   }
 
-  TaskHandle_t jobctrl_task = xTaskCreateStatic((TaskFunction_t)(job_ctrl_thread_entry), "jobctrl", SYSTEM_TASK_STACK_SIZE,
+  TaskHandle_t jobctrl_task = xTaskCreateStatic((TaskFunction_t)(job_ctrl_thread_entry), "jobctrl", JOBCTRL_TASK_STACK_SIZE,
         (void *)(this), HIGHEST_TASK_PRIORITY,  stack_jobctrl_thread, &tcb_jobctrl);
   if (!jobctrl_task) {
     LOG_E("job_ctrl: cant not create thread\r\n");
     while(1);
   }
 
-  if (xTaskCreate((TaskFunction_t)job_request_gcode, "request_gcode", JOB_REQUEST_GCODE_TASK_STACK_SIZE,
-        (void *)(this), JOB_REQUEST_GCODE_TASK_PRIORITY,  NULL) != pdPASS) {
-    LOG_E("job_ctrl: request gcode thread create failed");
+  jobctrl_task = xTaskCreateStatic((TaskFunction_t)(job_request_gcode), "request_gcode", JOB_REQUEST_GCODE_TASK_STACK_SIZE,
+        (void *)(this), JOB_REQUEST_GCODE_TASK_PRIORITY,  stack_req_gcode_thread, &tcb_req_gcode);
+  if (!jobctrl_task) {
+    LOG_E("job_ctrl: request gcode thread create failed\r\n");
     while(1);
   }
 }

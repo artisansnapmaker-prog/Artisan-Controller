@@ -89,6 +89,8 @@ enum MotionRequestType {
   MQ_TYPE_DIRECT_RELATIVE,
   MQ_TYPE_GCODE,
   MQ_TYPE_HOME,
+  MQ_TYPE_CHANGE_TOOL,
+  MQ_TYPE_SYNC_PLAN_POSITION,
 
   MQ_INVALID
 };
@@ -111,6 +113,10 @@ typedef struct motion_request {
 
   union {
     struct {
+      uint32_t index;
+      bool compensate_z;
+    } change_tool;
+    struct {
     xyze_pos_t position;
     float      feedrate;
     } target;
@@ -125,8 +131,6 @@ class MotionPlatformService {
     MotionPlatformService() {}
     void init();
     void pins_post_init();
-    err_code_t pause_marlin(uint32_t timeout = 600 * 1000);
-    err_code_t resume_marlin();
 
     // time API
     uint32_t get_millis() { return millis(); }
@@ -146,15 +150,17 @@ class MotionPlatformService {
     void moveto_b(float b, float feedrate, bool blocked=true) {}
     void moveto_e(float e, float feedrate, bool blocked=true);
     void moveto_e(float e, uint8_t extruder, float feedrate, bool blocked=true) {}
-    void block_moveto_e(float e, float feedrate);
     void moveto(xyze_pos_t target, float feedrate, bool blocked=true);
     void synchronize_planner(void);
+
     bool is_axis_homed(ModuleLinearIndex axis);
     bool endstop_status() { return endstops.global_enabled(); }
     void set_endstop(bool status);
+
     void sync_feedrate_percentage_to_platform(int16_t percentage) { feedrate_percentage = percentage; }
     void sync_flowrate_percentage_to_platform(int16_t percentage, uint8_t e) { planner.set_flow(e, percentage); }
     int16_t get_flowrate_percentage(uint8_t e) { return planner.flow_percentage[e]; }
+
     void set_steps_per_unit(float steps_per_unit, uint8_t axis);
     float get_steps_per_unit(uint8_t axis);
     void set_e_axis_enable_on_state(uint8_t state) { E_ENABLE_ON = state; }
@@ -271,7 +277,6 @@ class MotionPlatformService {
     void save_settings();
 
     err_code_t run_gcode(char *gcode, bool blocked = false, uint32_t blocked_timeout=180000);
-    bool consume_a_gcode(uint8_t *cmd, uint16_t max_len, uint32_t *line);
 
     int8_t get_active_coordinate_system() { return gcode.active_coordinate_system; }
     bool is_original_position_offset();
@@ -297,26 +302,19 @@ class MotionPlatformService {
 
     float get_motherboard_current_temp(uint8_t index);
     void abort_heating();
-    bool marlin_is_paused() { return marlin_paused; }
 
     void dispatch_motion_request();
     void run_motion_request(motion_request_t *mq);
 
-  private:
-    void init_motion_request();
     motion_request_t *malloc_motion_request(MotionRequestType target_type);
-    void free_motion_request(motion_request_t *mq);
     err_code_t submit_motion_request(motion_request_t *mq, MotionRequestState sta = MQ_STATE_END);
     void wait_for_motion_request(motion_request_t *mq);
 
   private:
-    MessageBufferHandle_t gcode_queue;
-    xSemaphoreHandle  marlin_signal;
-    TaskHandle_t      motion_owner;
-    xSemaphoreHandle  motion_owner_lock;
-    uint32_t          paused_nested;
-    bool              marlin_paused = false;
+    void init_motion_request();
+    void free_motion_request(motion_request_t *mq);
 
+  private:
     SemaphoreHandle_t quickstop_in_stepper_binary_sem;
     SemaphoreHandle_t quickstop_binary_sem;
 

@@ -243,7 +243,8 @@ class ToolHeadFDM: public ModuleBase {
     uint8_t get_fdm_fault_state(fdm_fault_e fault_type);
     uint8_t get_extruder_status(uint8_t e);
     err_code_t extruder_status_check_ctrl(extruder_status_e status);
-    err_code_t tool_change(uint8_t new_tool, bool z_compensation=true);
+    err_code_t tool_change(uint8_t new_tool, bool compensate_z=true);
+    err_code_t tool_change_unlimited(uint8_t new_tool, bool compensate_z=true);
     err_code_t switch_extruder(uint8_t e);
     void switch_extruder_without_move(uint8_t e);
     err_code_t get_hotend_offset(float &x_offset, float &y_offset, float &z_offset);

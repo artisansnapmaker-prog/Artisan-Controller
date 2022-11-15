@@ -439,24 +439,6 @@ void MotionPlatformService::motion_background(void *p) {
     loop();
 
     motion.dispatch_motion_request();
-
-    // // check if I need to pause to let other thread to use motion resourse
-    // while (uxSemaphoreGetCount(motion.marlin_signal) > 0) {
-    //   if (!motion.marlin_paused) {
-    //     LOG_I("Marlin PAUSED!!!\n");
-    //   }
-    //   // tell other thread I have paused
-    //   // then they can use motion resource safely
-    //   motion.marlin_paused = true;
-    //   // release CPU for other thread
-    //   taskYIELD();
-    // }
-
-    // if (motion.marlin_paused) {
-    //   LOG_I("Marlin RESUME!!!\n");
-    // }
-
-    // motion.marlin_paused = false;
   }
 }
 
@@ -476,21 +458,10 @@ void MotionPlatformService::init() {
     motion_platform_svc.print_leveling_grid_virt();
   }
 
-  gcode_queue = xMessageBufferCreate(MOTION_PLATFORM_QUEUE_SIZE);
-  configASSERT(gcode_queue);
-
-  marlin_signal = xSemaphoreCreateCounting(65536, 0);
-  configASSERT(marlin_signal);
-  motion_owner_lock = xSemaphoreCreateMutex();
-  configASSERT(motion_owner_lock);
-  motion_owner = NULL;
-  paused_nested = 0;
-
   quickstop_in_stepper_binary_sem = xSemaphoreCreateBinary();
   configASSERT(quickstop_in_stepper_binary_sem);
   quickstop_binary_sem = xSemaphoreCreateBinary();
   configASSERT(quickstop_binary_sem);
-  marlin_paused = false;
   homing_now = false;
 
   host_hmi.register_subscription(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_SUB_COORDINATE,
@@ -543,55 +514,60 @@ void MotionPlatformService::pins_post_init() {
 }
 
 void MotionPlatformService::moveto_xy(float x, float y, float feedrate, bool blocked) {
-  do_blocking_move_to_xy(x, y, feedrate);
-  if (blocked) {
-    synchronize_planner();
-    update_position_from_platform();
-  }
+  xyze_pos_t target = current_position;
+
+  target.x = x;
+  target.y = y;
+
+  moveto(target, feedrate, blocked);
+  if (blocked)
+    sm_current_position = current_position;
 }
 
 void MotionPlatformService::moveto_xyz(float x, float y, float z, float feedrate, bool blocked) {
-  xy_pos_t xy;
-  xy.x = x;
-  xy.y = y;
-  do_blocking_move_to_xy_z(xy, z, feedrate);
-  if (blocked) {
-    synchronize_planner();
-    update_position_from_platform();
-  }
+  xyze_pos_t target = current_position;
+
+  target.x = x;
+  target.y = y;
+  target.z = z;
+
+  moveto(target, feedrate, blocked);
+  if (blocked)
+    sm_current_position = current_position;
 }
 
 void MotionPlatformService::moveto_x(float x, float feedrate, bool blocked) {
-  do_blocking_move_to_x(x, feedrate);
-  if (blocked) {
-    synchronize_planner();
-    update_position_from_platform();
-  }
+  xyze_pos_t target = current_position;
+  target.x = x;
+  moveto(target, feedrate, blocked);
+  if (blocked)
+    sm_current_position = current_position;
 }
 
 void MotionPlatformService::moveto_y(float y, float feedrate, bool blocked) {
-  do_blocking_move_to_y(y, feedrate);
-  if (blocked) {
-    synchronize_planner();
-    update_position_from_platform();
-  }
+  xyze_pos_t target = current_position;
+  target.y = y;
+  moveto(target, feedrate, blocked);
+  if (blocked)
+    sm_current_position = current_position;
 }
 
 void MotionPlatformService::moveto_z(float z, float feedrate, bool blocked) {
-  do_blocking_move_to_z(z, feedrate);
-  if (blocked) {
-    synchronize_planner();
-    update_position_from_platform();
-  }
+  xyze_pos_t target = current_position;
+  target.z = z;
+  moveto(target, feedrate, blocked);
+  if (blocked)
+    sm_current_position = current_position;
 }
 
 void MotionPlatformService::moveto_e(float e, float feedrate, bool blocked/*=true*/) {
-  current_position[E_AXIS] = e;
-  line_to_current_position(feedrate);
-  if (blocked) {
-    synchronize_planner();
-    update_position_from_platform();
-  }
+  xyze_pos_t target = current_position;
+
+  target.e = e;
+
+  moveto(target, feedrate, blocked);
+  if (blocked)
+    sm_current_position = current_position;
 }
 
 void MotionPlatformService::sync_leveling_limit_to_platform(float x_start, float x_end, float y_start, float y_end) {
@@ -960,38 +936,7 @@ int16_t target_bed_temp(uint8_t area_id = 0) {
 
 err_code_t MotionPlatformService::run_gcode(char *gcode_cmd, bool blocked /* = false*/,
     uint32_t blocked_timeout/*= 180 * 1000 ms*/) {
-#if 0
-  int length = strlen(gcode) + 1;
 
-  if (length > MAX_CMD_SIZE) {
-    LOG_E("length of gcode is out of range: %d\n", MAX_CMD_SIZE);
-    return E_PARAM;
-  }
-
-  int wl = xMessageBufferSend(gcode_queue, gcode, length, pdMS_TO_TICKS(100));
-  if (wl != length) {
-    LOG_E("fail to submit gcode: %s\n", gcode);
-    return E_TIMEOUT;
-  }
-
-  LOG_I("submitted gocde: %s\n", gcode);
-
-  // for now just blocked with moving
-  if (blocked) {
-    // wait firsly 100ms to make marlin get the gcode
-    vTaskDelay(pdMS_TO_TICKS(100));
-    while (planner.busy()) {
-      vTaskDelay(pdMS_TO_TICKS(10));
-      if (blocked_timeout > 10) {
-        blocked_timeout -= 10;
-      }
-      else {
-        return E_TIMEOUT;
-      }
-    }
-  }
-
-#endif
   err_code_t ret = E_SUCCESS;
   motion_request_t *mq;
 
@@ -1026,21 +971,6 @@ err_code_t MotionPlatformService::run_gcode(char *gcode_cmd, bool blocked /* = f
     wait_for_motion_request(mq);
 
   return ret;
-}
-
-bool MotionPlatformService::consume_a_gcode(uint8_t *cmd, uint16_t max_len, uint32_t *line) {
-  char gcode_cmd[MAX_CMD_SIZE + 4];
-  size_t gcode_len = 0;
-
-  gcode_len = xMessageBufferReceive(gcode_queue, gcode_cmd, MAX_CMD_SIZE + 4, 0);
-  if (gcode_len > max_len)
-    return false;
-  if (gcode_len < 2 || gcode_len > MAX_CMD_SIZE)
-    return false;
-
-  memcpy(cmd, gcode_cmd, gcode_len);
-  *line = 0;
-  return true;
 }
 
 bool MotionPlatformService::is_original_position_offset() {
@@ -1085,24 +1015,13 @@ void MotionPlatformService::moveto(xyze_pos_t target, float feedrate, bool block
   return;
 }
 
-void MotionPlatformService::block_moveto_e(float e, float feedrate) {
-  if (pause_marlin() != E_SUCCESS)
-    return;
-
-  current_position[E_AXIS] = e;
-  line_to_current_position(feedrate);
-
-  while (planner.busy()) {
-    idle();
-    vTaskDelay(pdMS_TO_TICKS(10));
-  }
-
-  resume_marlin();
-}
-
 void MotionPlatformService::synchronize_planner() {
   while (planner.busy()) {
-    vTaskDelay(pdMS_TO_TICKS(10));
+    if (xTaskGetCurrentTaskHandle() == thandle_marlin) {
+      idle();
+    }
+    else
+      vTaskDelay(pdMS_TO_TICKS(10));
   }
 }
 
@@ -1160,16 +1079,24 @@ float MotionPlatformService::get_current_position(uint8_t axis) {
 }
 
 void MotionPlatformService::sync_plan_position_to_platform() {
-  err_code_t ret = E_FAILURE;
+  motion_request_t *mq;
 
-  ret = pause_marlin();
-
-  current_position = sm_current_position;
-  sync_plan_position();
-
-  if (ret == E_SUCCESS) {
-    resume_marlin();
+  if (xTaskGetCurrentTaskHandle() == thandle_marlin) {
+    current_position = sm_current_position;
+    sync_plan_position();
+    return;
   }
+
+  mq = malloc_motion_request(MQ_TYPE_SYNC_PLAN_POSITION);
+  if (!mq)
+    return;
+
+  mq->target.position = sm_current_position;
+
+  if (submit_motion_request(mq) != E_SUCCESS)
+    return;
+
+  wait_for_motion_request(mq);
 }
 
 float MotionPlatformService::get_max_position(uint8_t axis) {
@@ -1349,84 +1276,6 @@ void MotionPlatformService::show_coordiantes() {
       NATIVE_TO_LOGICAL(current_position[I_AXIS], I_AXIS), NATIVE_TO_LOGICAL(current_position[J_AXIS], J_AXIS));
 }
 
-
-err_code_t MotionPlatformService::pause_marlin(uint32_t timeout/* = 600 * 1000*/) {
-
-  if (xTaskGetCurrentTaskHandle() == thandle_marlin) {
-    return E_SUCCESS;
-  }
-
-  if (motion_owner == xTaskGetCurrentTaskHandle()) {
-    xSemaphoreTake(motion_owner_lock, portMAX_DELAY);
-    paused_nested++;
-    xSemaphoreGive(motion_owner_lock);
-    return E_SUCCESS;
-  }
-
-  while (uxSemaphoreGetCount(marlin_signal) > 0) {
-    vTaskDelay(pdMS_TO_TICKS(10));
-    if (timeout > 10) {
-      timeout -= 10;
-    }
-    else {
-      LOG_E("timeout to wait another thread release marlin\n");
-      return E_TIMEOUT;
-    }
-  }
-
-  if (xSemaphoreGive(marlin_signal) != pdPASS) {
-    LOG_I("failed to send signal to pause marlin\n");
-    return E_NO_RESRC;
-  }
-
-  while (marlin_paused != true) {
-    vTaskDelay(pdMS_TO_TICKS(10));
-    if (timeout > 10) {
-      timeout -= 10;
-    }
-    else {
-      xSemaphoreTake(marlin_signal, 0);
-      LOG_I("timeout to pause marlin\n");
-      return E_TIMEOUT;
-    }
-  }
-
-  xSemaphoreTake(motion_owner_lock, portMAX_DELAY);
-  motion_owner = xTaskGetCurrentTaskHandle();
-  xSemaphoreGive(motion_owner_lock);
-
-  return E_SUCCESS;
-}
-
-err_code_t MotionPlatformService::resume_marlin() {
-  if (xTaskGetCurrentTaskHandle() == thandle_marlin) {
-    return E_SUCCESS;
-  }
-
-  if (motion_owner != xTaskGetCurrentTaskHandle()) {
-    LOG_E("can only release marlin with owner!\n");
-    return E_FAILURE;
-  }
-
-  if (paused_nested > 0) {
-    xSemaphoreTake(motion_owner_lock, portMAX_DELAY);
-    paused_nested--;
-    xSemaphoreGive(motion_owner_lock);
-    return E_SUCCESS;
-  }
-
-  if (xSemaphoreTake(marlin_signal, 0) != pdPASS) {
-    LOG_I("failed to take signal for pausing marlin\n");
-    return E_FAILURE;
-  }
-
-  xSemaphoreTake(motion_owner_lock, portMAX_DELAY);
-  motion_owner = NULL;
-  xSemaphoreGive(motion_owner_lock);
-
-  return E_SUCCESS;
-}
-
 void MotionPlatformService::reset_linear_drivers() {
   reset_stepper_drivers();
 }
@@ -1595,6 +1444,7 @@ void MotionPlatformService::dispatch_motion_request() {
 }
 
 void MotionPlatformService::run_motion_request(motion_request_t *mq) {
+  ModuleBase *module;
   if (!mq)
     return;
 
@@ -1668,6 +1518,21 @@ void MotionPlatformService::run_motion_request(motion_request_t *mq) {
     gcode.process_parsed_command();
 
     mq->current_state = MQ_STATE_END;
+    break;
+
+  case MQ_TYPE_CHANGE_TOOL:
+    module = smprinter.get_cur_toolhead();
+    if (!module || module->get_device_id() != MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
+      LOG_E("cannot switch extr with non-3DP!");
+      break;
+    }
+    ((ToolHeadFDM *)module)->tool_change_unlimited(mq->change_tool.index, mq->change_tool.compensate_z);
+    break;
+
+  case MQ_TYPE_SYNC_PLAN_POSITION:
+    LOG_I("internal sync plan position\n");
+    current_position = mq->target.position;
+    sync_plan_position();
     break;
 
   default:

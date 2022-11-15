@@ -1691,7 +1691,28 @@ err_code_t ToolHeadFDM::extruder_status_check_ctrl(extruder_status_e status) {
   return ret;
 }
 
-err_code_t ToolHeadFDM::tool_change(uint8_t new_tool, bool z_compensation/*=true*/) {
+err_code_t ToolHeadFDM::tool_change(uint8_t new_tool, bool compensate_z/*=true*/) {
+  motion_request *mq;
+  if (xTaskGetCurrentTaskHandle() == thandle_marlin) {
+    return tool_change_unlimited(new_tool, compensate_z);
+  }
+
+  mq = motion_platform_svc.malloc_motion_request(MQ_TYPE_CHANGE_TOOL);
+  if (!mq)
+    return E_NO_RESRC;
+
+  mq->change_tool.index = new_tool;
+  mq->change_tool.compensate_z = compensate_z;
+
+  if (motion_platform_svc.submit_motion_request(mq) != E_SUCCESS)
+    return E_FAILURE;
+
+  motion_platform_svc.wait_for_motion_request(mq);
+
+  return E_SUCCESS;
+}
+
+err_code_t ToolHeadFDM::tool_change_unlimited(uint8_t new_tool, bool compensate_z/*=true*/) {
   if (get_device_id() != MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
     return E_FAILURE;
   }
@@ -1719,7 +1740,7 @@ err_code_t ToolHeadFDM::tool_change(uint8_t new_tool, bool z_compensation/*=true
     goto EXIT;
   }
 
-  if (z_compensation == false) {
+  if (compensate_z == false) {
     LOG_I("toolchange without z compensation\n");
     hotend_offset_tmp[Z_AXIS][1] = 0;
   }

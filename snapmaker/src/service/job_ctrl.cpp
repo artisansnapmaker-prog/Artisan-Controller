@@ -525,11 +525,11 @@ __pos_resume:
   if (rt != RESUME_TYPE_LIVE_Z_OFFSET && TH_TYPE_3DP == _env.type) {
     // pre-extrusion
     dest.e += RESUME_EXTRUSION_E_LENGTH;
-    motion_platform_svc.block_moveto_e(dest.e, EXTRUSION_E_FEEDRATE);
+    motion_platform_svc.moveto_e(dest.e, EXTRUSION_E_FEEDRATE);
 
     // try to cut out filament
     dest.e -= RESUME_RETRACT_E_LENGTH;
-    motion_platform_svc.block_moveto_e(dest.e, RETRACT_E_FEEDRATE);
+    motion_platform_svc.moveto_e(dest.e, RETRACT_E_FEEDRATE);
   }
 
   dest.x = _env.current_pos.x;
@@ -542,7 +542,7 @@ __pos_resume:
   if (rt != RESUME_TYPE_LIVE_Z_OFFSET && TH_TYPE_3DP == _env.type) {
     // extrusion compensation
     dest.e += RESUME_RETRACT_E_LENGTH + 0.2;
-    motion_platform_svc.block_moveto_e(dest.e, EXTRUSION_E_FEEDRATE);
+    motion_platform_svc.moveto_e(dest.e, EXTRUSION_E_FEEDRATE);
   }
 
   motion_platform_svc.set_feedrate(_env.print_feadrate);
@@ -602,7 +602,7 @@ err_code_t JobCtrl::machine_standby(void) {
     motion_platform_svc.update_position_from_platform();
     t_pos =  motion_platform_svc.sm_current_position;
     t_pos.e -= 5;
-    motion_platform_svc.block_moveto_e(t_pos.e , RETRACT_E_FEEDRATE);
+    motion_platform_svc.moveto_e(t_pos.e , RETRACT_E_FEEDRATE);
     break;
 
   case TH_TYPE_CNC:

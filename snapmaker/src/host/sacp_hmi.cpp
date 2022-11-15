@@ -919,7 +919,9 @@ MessageBufferHandle_t HostSACPHMI::get_event_queue_by_cmd(uint8_t *buffer, uint8
   if (handle->cb_attr & SACP_CB_ATTR_BLOCKED_WITH_MOTION) {
     // check sequence
     if (!is_retransmited_request(buffer[SACP_V1_FRAME_INDEX_SENDER_ID], channel, seq, &result)) {
-      if (thread_blocked_with_motion_busy || motion_platform_svc.marlin_is_paused()) {
+      /*if (thread_blocked_with_motion_busy || motion_platform_svc.marlin_is_paused()) {*/
+      // TODO: re-check condition!!!
+      if (thread_blocked_with_motion_busy) {
         LOG_E("Drop cmd[%x:%x]\n", cmd_set, cmd_id);
         msg.peer    = buffer[SACP_V1_FRAME_INDEX_SENDER_ID];
         msg.attr    = buffer[SACP_V1_FRAME_INDEX_ATTR];

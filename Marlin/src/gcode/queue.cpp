@@ -561,13 +561,6 @@ void GCodeQueue::get_snapmaker_commands() {
     ring_buffer.commands[ring_buffer.index_w].mark = mark;
     ring_buffer.advance_pos(ring_buffer.index_w, 1);
   }
-
-  while(!ring_buffer.full() && smprinter.get_gcode_from_run_gcode_buffer((uint8_t *)ring_buffer.commands[ring_buffer.index_w].buffer, MAX_CMD_SIZE, &lines)) {
-    ring_buffer.commands[ring_buffer.index_w].lines = lines;
-    ring_buffer.commands[ring_buffer.index_w].skip_ok = true;
-    ring_buffer.commands[ring_buffer.index_w].mark = 0;
-    ring_buffer.advance_pos(ring_buffer.index_w, 1);
-  }
 }
 #endif
 

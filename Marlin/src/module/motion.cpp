@@ -2088,6 +2088,8 @@ void prepare_line_to_destination() {
           homing_feedrate(axis)
         );
 
+        planner.synchronize();
+
         #if ENABLED(SENSORLESS_HOMING)
           planner.synchronize();
           if (false

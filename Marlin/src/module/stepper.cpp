@@ -1661,6 +1661,7 @@ void Stepper::isr() {
  * is to keep pulse timing as regular as possible.
  */
 void Stepper::pulse_phase_isr() {
+  endstops.poll();
 
   // If we must abort the current block, do so!
   if (abort_current_block) {

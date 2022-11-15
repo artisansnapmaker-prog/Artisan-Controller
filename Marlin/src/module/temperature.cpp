@@ -3745,7 +3745,7 @@ void Temperature::isr() {
   TERN_(HAS_FANCHECK, fan_check.update_tachometers());
 
   // Poll endstops state, if required
-  endstops.poll();
+  // endstops.poll();
 
   // Periodically call the planner timer service routine
   planner.isr();

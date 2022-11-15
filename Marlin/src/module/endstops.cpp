@@ -1020,19 +1020,19 @@ void Endstops::update() {
   //   #endif
   // #endif
 
-  #if MB_SNAPMAKER
-    if (stepper.axis_is_moving(X_AXIS)) {
-      if (x_probe_enabled && smprinter.get_probe_state()) {
-        planner.endstop_triggered(X_AXIS);
-      }
-    }
+  // #if MB_SNAPMAKER
+  //   if (stepper.axis_is_moving(X_AXIS)) {
+  //     if (x_probe_enabled && smprinter.get_probe_state()) {
+  //       planner.endstop_triggered(X_AXIS);
+  //     }
+  //   }
 
-    if (stepper.axis_is_moving(Y_AXIS)) {
-      if (y_probe_enabled && smprinter.get_probe_state()) {
-        planner.endstop_triggered(Y_AXIS);
-      }
-    }
-  #endif
+  //   if (stepper.axis_is_moving(Y_AXIS)) {
+  //     if (y_probe_enabled && smprinter.get_probe_state()) {
+  //       planner.endstop_triggered(Y_AXIS);
+  //     }
+  //   }
+  // #endif
 
 
   if (stepper.axis_is_moving(X_AXIS)) {

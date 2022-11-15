@@ -249,7 +249,7 @@ err_code_t MotionPlatformService::hmi_cb_move_absoluty(void *obj, sacp_hmi_messa
       break;
 
     default:
-      LOG_E("unsupported axis: %d\n", move_cmd[i].axis);
+      // LOG_E("unsupported axis: %d\n", move_cmd[i].axis);
       break;
     }
   }
@@ -288,7 +288,7 @@ err_code_t MotionPlatformService::hmi_cb_move_absoluty(void *obj, sacp_hmi_messa
   msg->length  = 1;
   host_hmi.send_ack(msg);
 
-  LOG_I("move to X%.3f, Y%.3f, Z%.3f, A%.3f, B%.3f, fr: %u\n", dest.x, dest.y, dest.z, dest.i, dest.j, feedrate);
+  // LOG_I("move to X%.3f, Y%.3f, Z%.3f, A%.3f, B%.3f, fr: %u\n", dest.x, dest.y, dest.z, dest.i, dest.j, feedrate);
 
   // parser.parse((char *)"G90 ");
   // gcode.process_parsed_command();
@@ -491,6 +491,8 @@ void MotionPlatformService::init() {
   host_hmi.register_callback(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_HOME,
             (void *)this, hmi_cb_request_home, SACP_CB_ATTR_BLOCKED_WITHOUT_MOTION);
 
+  init_motion_request();
+
   LOG_I("Creating marlin task...");
   thandle_marlin = xTaskCreateStatic((TaskFunction_t)motion_background, "marlin", MOTION_TASK_STACK_SIZE, (void *)this,
         MOTION_TASK_PRIORITY, stack_motion_thread , &taskcb_marlin);
@@ -505,8 +507,6 @@ void MotionPlatformService::init() {
   // disable endstop globally by default,
   // and endstop is valid only in G28
   endstops.enable_globally(false);
-
-  init_motion_request();
 }
 
 void MotionPlatformService::pins_post_init() {
@@ -590,6 +590,7 @@ void MotionPlatformService::req_quickstop(void) {
   // LOG_I("wait for the last request finish\r\n");
   while(req_motion_platform_quickstop) vTaskDelay(pdMS_TO_TICKS(5));
   req_motion_platform_quickstop = true;
+  quick_stop_mq = true;
 
   // quickstop_stepper();
   // planner.quick_stop();
@@ -600,17 +601,20 @@ void MotionPlatformService::req_quickstop(void) {
   // wait for the current request finish
   // LOG_I("wait for the quickstop finish\r\n");
   take_quickstop_sem(0xffffffff);
+  quick_stop_mq = false;
 }
 
 void MotionPlatformService::req_live_Z_offset_quickstop(void) {
 
   while(req_motion_platform_quickstop) vTaskDelay(pdMS_TO_TICKS(5));
   req_motion_platform_quickstop = true;
+  quick_stop_mq = true;
 
   planner_clean_cnt = TEMP_TIMER_FREQUENCY/4;
   smprinter.req_quick_stop();
 
   take_quickstop_sem(0xffffffff);
+  quick_stop_mq = false;
 }
 
 bool MotionPlatformService::planner_busy(void) {
@@ -960,6 +964,7 @@ err_code_t MotionPlatformService::run_gcode(char *gcode_cmd, bool blocked /* = f
   }
 
   strncpy(mq->gcode, gcode_cmd, MOTION_REQ_GCODE_SIZE);
+  mq->blocked = blocked;
 
   ret = submit_motion_request(mq);
   if (ret != E_SUCCESS) {
@@ -1092,6 +1097,7 @@ void MotionPlatformService::sync_plan_position_to_platform() {
     return;
 
   mq->target.position = sm_current_position;
+  mq->blocked = false;
 
   if (submit_motion_request(mq) != E_SUCCESS)
     return;
@@ -1293,7 +1299,6 @@ void MotionPlatformService::run() {
 
 void MotionPlatformService::do_quickstop() {
   // quickstop_stepper();
-  quick_stop_mq = true;
   planner.quick_stop();
   #if MB_SNAPMAKER
   // motion_platform_svc.stepper_quickstop_finish();
@@ -1318,69 +1323,64 @@ bool MotionPlatformService::is_moving() {
 }
 
 void MotionPlatformService::init_motion_request() {
-  list_init(&mq_busy_list);
-  list_init(&mq_free_list);
-
   for (int i = 0; i < MOTION_REQUEST_MAX; i++) {
-    motion_request_cache[i].ack = xSemaphoreCreateBinary();
+    motion_request_cache[i].ack  = xSemaphoreCreateBinary();
     configASSERT(motion_request_cache[i].ack);
-    list_add_tail(&motion_request_cache[i].node, &mq_free_list);
+    motion_request_cache[i].type = MQ_TYPE_INVALID;
   }
+
+  quick_stop_mq = false;
 
   motion_request_lock = xSemaphoreCreateMutex();
   configASSERT(motion_request_lock);
 
+  mq_list = xQueueCreate(MOTION_REQUEST_MAX, sizeof(motion_request_t *));
+  configASSERT(mq_list);
 }
 
 
 motion_request_t *MotionPlatformService::malloc_motion_request(MotionRequestType target_type) {
   motion_request_t *mq = NULL;
 
-  if (target_type >= MQ_INVALID) {
+  if (target_type >= MQ_TYPE_INVALID) {
     LOG_E("invalid target type!\n");
-    return mq;
+    return NULL;
   }
 
-  if (quick_stop_mq)
-    return NULL;
-
-  if (list_empty(&mq_free_list))
-    return NULL;
-
   xSemaphoreTake(motion_request_lock, portMAX_DELAY);
+  for (int i = 0; i < MOTION_REQUEST_MAX; i++) {
+    if (motion_request_cache[i].type == MQ_TYPE_INVALID) {
+      mq       = &motion_request_cache[i];
+      mq->type = target_type;
+      break;
+    }
+  }
+  xSemaphoreGive(motion_request_lock);
 
-  mq = list_first_entry(&mq_free_list, motion_request_t, node);
-  list_del(&mq->node);
+  if (!mq)
+    return NULL;
+
   mq->current_state = MQ_STATE_IDLE;
-  mq->type          = target_type;
   mq->blocked       = true;
   mq->to_be_state   = MQ_STATE_END;
 
-  xSemaphoreGive(motion_request_lock);
+  if (quick_stop_mq) {
+    mq->type = MQ_TYPE_INVALID;
+    return NULL;
+  }
 
   return mq;
 }
 
 
-void MotionPlatformService::free_motion_request(motion_request_t *mq) {
-  if (!mq)
-    return;
-
-  xSemaphoreTake(motion_request_lock, portMAX_DELAY);
-
-  list_del(&mq->node);
-  list_add_tail(&mq->node, &mq_free_list);
-
-  xSemaphoreGive(motion_request_lock);
+void MotionPlatformService::reset_motion_request() {
+  for (int i = 0; i < MOTION_REQUEST_MAX; i++) {
+    motion_request_cache[i].type = MQ_TYPE_INVALID;
+  }
 }
 
 
 err_code_t MotionPlatformService::submit_motion_request(motion_request_t *mq, MotionRequestState sta/* = MQ_STATE_END*/) {
-  err_code_t err = E_FAILURE;
-
-  if (quick_stop_mq)
-    return err;
-
   mq->to_be_state = sta;
 
   // if there is already somebody give message to it, clear Semaphore
@@ -1388,60 +1388,45 @@ err_code_t MotionPlatformService::submit_motion_request(motion_request_t *mq, Mo
     xSemaphoreTake(mq->ack, 0);
   }
 
-  xSemaphoreTake(motion_request_lock, portMAX_DELAY);
+  while (!quick_stop_mq && xQueueSend(mq_list, &mq, pdMS_TO_TICKS(10)) != pdTRUE);
 
-  if (!quick_stop_mq) {
-    err = E_SUCCESS;
-    list_add_tail(&mq->node, &mq_busy_list);
-  }
+  if (quick_stop_mq)
+    return E_FAILURE;
 
-  xSemaphoreGive(motion_request_lock);
-
-  return err;
+  return E_SUCCESS;
 }
 
 
 void MotionPlatformService::wait_for_motion_request(motion_request_t *mq) {
-  if (quick_stop_mq)
-    return;
-
   // wait for the ack from marlin thread
-  xSemaphoreTake(mq->ack, portMAX_DELAY);
+  while (!quick_stop_mq)
+    if (xSemaphoreTake(mq->ack, pdMS_TO_TICKS(10)) == pdTRUE)
+      break;
 }
 
 void MotionPlatformService::dispatch_motion_request() {
-  motion_request_t *mq = NULL, *next = NULL;
+  motion_request_t *mq = NULL;
 
-  if (list_empty(&mq_busy_list))
-    return;
-
-
-  list_for_each_entry_safe(mq, next, &mq_busy_list, node) {
-    if (quick_stop_mq) {
+  while (xQueueReceive(mq_list, &mq, 0) == pdTRUE) {
+    if (quick_stop_mq || !mq)
       break;
-    }
-    if (mq->current_state < mq->to_be_state) {
-      run_motion_request(mq);
-    }
 
-    if (mq->type == MQ_INVALID || mq->current_state >= mq->to_be_state) {
-      xSemaphoreGive(mq->ack);
-      free_motion_request(mq);
-    }
+    run_motion_request(mq);
+    xSemaphoreGive(mq->ack);
+    mq->type = MQ_TYPE_INVALID;
 
-    // TODO: handle quick stop
-
+    mq = NULL;
   }
 
   // TODO: handle quick stop
   if (quick_stop_mq) {
-    list_for_each_entry_safe(mq, next, &mq_busy_list, node) {
-      xSemaphoreGive(mq->ack);
-      free_motion_request(mq);
-    }
-    quick_stop_mq = false;
+    xQueueReset(mq_list);
+    taskENTER_CRITICAL();
+    reset_motion_request();
+    taskEXIT_CRITICAL();
   }
 }
+
 
 void MotionPlatformService::run_motion_request(motion_request_t *mq) {
   ModuleBase *module;
@@ -1492,7 +1477,7 @@ void MotionPlatformService::run_motion_request(motion_request_t *mq) {
 
   case MQ_TYPE_GCODE:
     mq->current_state = MQ_STATE_RECEIVED;
-    LOG_I("run internal gocde: %s\n", mq->gcode);
+    LOG_I("internal gocde: %s\n", mq->gcode);
 
     if (quick_stop_mq)
       break;
@@ -1536,10 +1521,8 @@ void MotionPlatformService::run_motion_request(motion_request_t *mq) {
     break;
 
   default:
-    LOG_E("receive invalid MQ");
+    LOG_E("receive invalid MQ\n");
     break;
   }
-
-  mq->type = MQ_INVALID;
 }
 

@@ -82,7 +82,7 @@ typedef struct __packed MovingCommand {
   extern feedRate_t fast_move_feedrate;
 #endif
 
-#define MOTION_REQUEST_MAX    (5)
+#define MOTION_REQUEST_MAX    (8)
 #define MOTION_REQ_GCODE_SIZE (80)
 enum MotionRequestType {
   MQ_TYPE_DIRECT_ABSOLUTE,
@@ -92,7 +92,7 @@ enum MotionRequestType {
   MQ_TYPE_CHANGE_TOOL,
   MQ_TYPE_SYNC_PLAN_POSITION,
 
-  MQ_INVALID
+  MQ_TYPE_INVALID
 };
 
 enum MotionRequestState {
@@ -312,16 +312,16 @@ class MotionPlatformService {
 
   private:
     void init_motion_request();
-    void free_motion_request(motion_request_t *mq);
+    void reset_motion_request();
 
   private:
     SemaphoreHandle_t quickstop_in_stepper_binary_sem;
     SemaphoreHandle_t quickstop_binary_sem;
 
     motion_request_t motion_request_cache[MOTION_REQUEST_MAX];
-    list_head mq_busy_list, mq_free_list;
     SemaphoreHandle_t motion_request_lock;
-    bool quick_stop_mq = false;
+    QueueHandle_t mq_list;
+    bool quick_stop_mq;
 };
 
 

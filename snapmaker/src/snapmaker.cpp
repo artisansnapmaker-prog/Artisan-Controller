@@ -1798,6 +1798,10 @@ bool SnapmakerPrinter::is_fdm_bed_level_mode(void) {
   return (sys_staus >= SYSTEM_STATUS_AUTO_BEDLEVEL && sys_staus <= SYSTEM_STATUS_PROBE_SENSOR_CALIBRATION);
 }
 
+bool SnapmakerPrinter::is_in_motion_thread() {
+  return xTaskGetCurrentTaskHandle() == thandle_marlin;
+}
+
 void SnapmakerPrinter::resume_relative_position_check(uint32_t cmd_line, uint8_t cmd_mark) {
   // relative mode position recovery
   if (resume_file_line != 0xFFFFFFFF) {

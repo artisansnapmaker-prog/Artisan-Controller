@@ -1281,7 +1281,7 @@ static int c2 = 500000;
 static bool log111 = true;
 
 void Planner::shaped_loop() {
-    if (xTaskGetCurrentTaskHandle() != thandle_marlin)
+    if (!smprinter.is_in_motion_thread())
 
       return;
 
@@ -2067,7 +2067,7 @@ bool Planner::_buffer_steps(const xyze_long_t &target
   }
 
   #if MB_SNAPMAKER
-    if (xTaskGetCurrentTaskHandle() == thandle_marlin) {
+    if (smprinter.is_in_motion_thread()) {
       block->file_position = queue.file_line_number();
       block->mark = queue.file_mark_number();
       block->position_invalid = false;

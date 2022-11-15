@@ -1693,7 +1693,7 @@ err_code_t ToolHeadFDM::extruder_status_check_ctrl(extruder_status_e status) {
 
 err_code_t ToolHeadFDM::tool_change(uint8_t new_tool, bool compensate_z/*=true*/) {
   motion_request *mq;
-  if (xTaskGetCurrentTaskHandle() == thandle_marlin) {
+  if (smprinter.is_in_motion_thread()) {
     return tool_change_unlimited(new_tool, compensate_z);
   }
 

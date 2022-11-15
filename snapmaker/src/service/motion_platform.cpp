@@ -945,7 +945,7 @@ err_code_t MotionPlatformService::run_gcode(char *gcode_cmd, bool blocked /* = f
     return E_PARAM;
   }
 
-  if (xTaskGetCurrentTaskHandle() == thandle_marlin) {
+  if (smprinter.is_in_motion_thread()) {
     parser.parse(gcode_cmd);
     gcode.process_parsed_command();
     if (blocked)
@@ -987,7 +987,7 @@ bool MotionPlatformService::is_original_position_offset() {
 void MotionPlatformService::moveto(xyze_pos_t target, float feedrate, bool blocked) {
   motion_request *mq;
 
-  if (xTaskGetCurrentTaskHandle() == thandle_marlin) {
+  if (smprinter.is_in_motion_thread()) {
     current_position = target;
     apply_motion_limits(current_position);
     line_to_current_position(feedrate);
@@ -1017,7 +1017,7 @@ void MotionPlatformService::moveto(xyze_pos_t target, float feedrate, bool block
 
 void MotionPlatformService::synchronize_planner() {
   while (planner.busy()) {
-    if (xTaskGetCurrentTaskHandle() == thandle_marlin) {
+    if (smprinter.is_in_motion_thread()) {
       idle();
     }
     else
@@ -1081,7 +1081,7 @@ float MotionPlatformService::get_current_position(uint8_t axis) {
 void MotionPlatformService::sync_plan_position_to_platform() {
   motion_request_t *mq;
 
-  if (xTaskGetCurrentTaskHandle() == thandle_marlin) {
+  if (smprinter.is_in_motion_thread()) {
     current_position = sm_current_position;
     sync_plan_position();
     return;

@@ -536,7 +536,7 @@ err_code_t EmergencyHandler::hmi_cb_req_recovery_job(void *obj, sacp_hmi_message
       }
 
       while(!motion_platform_svc.hotends_heatup_to_target()) {
-        if (xTaskGetCurrentTaskHandle() == thandle_marlin) {
+        if (smprinter.is_in_motion_thread()) {
           // when call from marlin thread, need to keep idle() running
           next_ms = millis() + 1000;
           while (PENDING((millis()), next_ms)) {

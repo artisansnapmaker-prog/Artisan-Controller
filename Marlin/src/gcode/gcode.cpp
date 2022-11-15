@@ -194,7 +194,7 @@ void GcodeSuite::get_destination_from_command() {
       else {
       #if MB_SNAPMAKER
         relative_spec_proc = false;
-        if (resume_relative_switch && xTaskGetCurrentTaskHandle() == thandle_marlin) {
+        if (resume_relative_switch && smprinter.is_in_motion_thread()) {
           if (smprinter.on_printing() && queue.file_line_number() == resume_file_line) {
             if (axis_is_relative(AxisEnum(i))) {
               destination[i] = relative_position[i];
@@ -217,7 +217,7 @@ void GcodeSuite::get_destination_from_command() {
       const float v = parser.value_axis_units(E_AXIS);
       #if MB_SNAPMAKER
         relative_spec_proc = false;
-        if (resume_relative_switch && xTaskGetCurrentTaskHandle() == thandle_marlin) {
+        if (resume_relative_switch && smprinter.is_in_motion_thread()) {
             if (smprinter.on_printing() && queue.file_line_number() == resume_file_line) {
               if (axis_is_relative(E_AXIS)) {
                 destination.e = relative_position.e;

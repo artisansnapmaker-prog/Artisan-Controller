@@ -592,7 +592,7 @@ err_code_t HostSACPHMI::send(sacp_hmi_message_t *message) {
   xSemaphoreGive(channel.lock);
 
   // cache result of ACK for events with BLOCKED attribute
-  if (xTaskGetCurrentTaskHandle() == thandle_marlin || xTaskGetCurrentTaskHandle() == thandle_hmi_blocked_event) {
+  if (smprinter.is_in_motion_thread() || xTaskGetCurrentTaskHandle() == thandle_hmi_blocked_event) {
     if (message->attr & SACP_MESSAGE_ATTR_ACK && !(message->attr & SACP_MESSAGE_ATTR_UPDATE_ACK_SEQ))
       cache_result(message->peer, message->ch, message->seq, (message->length)? message->data[0] : E_FAILURE);
   }
@@ -1257,7 +1257,7 @@ err_code_t HostSACPHMI::handle_message(sacp_hmi_message_t &msg, sacp_hmi_handle_
 
 
 MessageBufferHandle_t HostSACPHMI::get_event_queue_by_thread() {
-  if (xTaskGetCurrentTaskHandle() == thandle_marlin) {
+  if (smprinter.is_in_motion_thread()) {
     return events_with_motion;
   }
   else if (xTaskGetCurrentTaskHandle() == thandle_hmi_blocked_event) {
@@ -1278,7 +1278,7 @@ void HostSACPHMI::handle_events() {
   EventHandle *event_handle;
   bool *busy_flag;
 
-  if (xTaskGetCurrentTaskHandle() == thandle_marlin) {
+  if (smprinter.is_in_motion_thread()) {
     event_queue = events_with_motion;
     busy_flag   = &thread_blocked_with_motion_busy;
   }

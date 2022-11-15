@@ -653,6 +653,8 @@ class SnapmakerPrinter
     bool is_interrupt_block_heating(void);
     bool is_fdm_bed_level_mode(void);
 
+    bool is_in_motion_thread();
+
   private:
     enum SystemStatus sys_status;
     SemaphoreHandle_t status_lock;

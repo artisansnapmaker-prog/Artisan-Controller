@@ -374,7 +374,6 @@ class Stepper {
                     step_event_count;       // The total event count for the current block
 
     static AxisStepper axis_stepper;
-    static AxisStepper next_axis_stepper;
     static int block_move_target_steps[NUM_AXIS];
     static bool is_start;
     static time_double_t block_print_time;

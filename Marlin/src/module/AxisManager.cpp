@@ -321,32 +321,31 @@ bool AxisManager::generateAllAxisFuncParams(uint8_t block_index, block_t* block)
     return res;
 }
 
-/*
- Copy next step's information to axis_stepper
- and mark is_consumed = true;
-*/
-bool AxisManager::getCurrentAxisStepper(AxisStepper *axis_stepper) {
-    if (is_consumed) {
-        return false;
-    }
-    axis_stepper->axis = print_axis;
-    axis_stepper->dir = print_dir;
-    axis_stepper->print_time = print_time;
+// /*
+//  Copy next step's information to axis_stepper
+//  and mark is_consumed = true;
+// */
+// bool AxisManager::getCurrentAxisStepper(AxisStepper *axis_stepper) {
+//     if (is_consumed) {
+//         return false;
+//     }
+//     axis_stepper->axis = print_axis;
+//     axis_stepper->dir = print_dir;
+//     axis_stepper->print_time = print_time;
 
-    if (print_axis != T0_T1_AXIS_INDEX)
-      current_steps[print_axis] += print_dir;
+//     if (print_axis != T0_T1_AXIS_INDEX)
+//       current_steps[print_axis] += print_dir;
 
-    is_consumed = true;
-    return true;
-}
+//     is_consumed = true;
+//     return true;
+// }
 
 /*
  Calcuation all axes's next step's time if need
  And then return the closest time axis if we have
 */
-bool AxisManager::getNextAxisStepper() {
-
-    if (!is_consumed) {
+bool AxisManager::calcNextAxisStepper() {
+    if (getAxisStepperFreeSize() == 0) {
         return false;
     }
 
@@ -357,6 +356,7 @@ bool AxisManager::getNextAxisStepper() {
         }
     }
 
+    bool is_consumed = true;
     // Fine the closest time of all the axes
     time_double_t min_print_time = 2000000000;
     for (int i = 0; i < NUM_AXIS; ++i) {
@@ -372,8 +372,20 @@ bool AxisManager::getNextAxisStepper() {
     // is_consumed == false, means that we has a steps need to output
     if (!is_consumed) {
         axis[print_axis].is_consumed = true;
-        print_time = min_print_time;
+
         print_dir = axis[print_axis].dir;
+
+        AxisStepper* axis_stepper = &axis_steppers[axis_steppper_head];
+
+        axis_stepper->axis = print_axis;
+        axis_stepper->dir = print_dir;
+        axis_stepper->delta_time = min_print_time - print_time;
+        axis_stepper->print_time = min_print_time;
+
+        print_time = min_print_time;
+
+        axis_steppper_head = nextAxisStepper(axis_steppper_head);
+
         return true;
     } else {
         return false;

@@ -231,7 +231,6 @@ uint32_t Stepper::advance_divisor = 0,
          Stepper::step_event_count;          // The total event count for the current block
 
 AxisStepper Stepper::axis_stepper;
-AxisStepper Stepper::next_axis_stepper;
 int Stepper::block_move_target_steps[NUM_AXIS];
 bool Stepper::is_start = true;
 time_double_t Stepper::block_print_time;
@@ -1701,31 +1700,6 @@ void Stepper::pulse_phase_isr() {
 
   if (axis_stepper.axis == -1) return;
 
-  if (axis_stepper.dir > 0) {
-    if (axis_stepper.axis == 3)
-    {
-      CBI(current_direction_bits, E_AXIS);
-    } else {
-      CBI(current_direction_bits, axis_stepper.axis);
-    }
-  } else if(axis_stepper.dir < 0) {
-    if (axis_stepper.axis == 3) {
-      SBI(current_direction_bits, E_AXIS);
-    } else {
-      SBI(current_direction_bits, axis_stepper.axis);
-    }
-  }
-
-  if ( ENABLED(HAS_L64XX)       // Always set direction for L64xx (Also enables the chips)
-    || ENABLED(DUAL_X_CARRIAGE) // TODO: Find out why this fixes "jittery" small circles
-    || current_direction_bits != last_direction_bits
-    || TERN(MIXING_EXTRUDER, false, stepper_extruder != last_moved_extruder)
-  ) {
-    E_TERN_(last_moved_extruder = stepper_extruder);
-    TERN_(HAS_L64XX, L64XX_OK_to_power_up = true);
-    set_directions(current_direction_bits);
-  }
-
   #define _APPLY_STEP(AXIS, INV, ALWAYS) AXIS ##_APPLY_STEP(INV, ALWAYS)
   #define _INVERT_STEP_PIN(AXIS) INVERT_## AXIS ##_STEP_PIN
 
@@ -1741,26 +1715,56 @@ void Stepper::pulse_phase_isr() {
       _APPLY_STEP(AXIS, _INVERT_STEP_PIN(AXIS), 0); \
   }while(0)
 
-  if (X_AXIS == axis_stepper.axis) {
-      PULSE_START(X);
-      PULSE_PREP(X);
-      PULSE_STOP(X);
-  }
-  else if(Y_AXIS == axis_stepper.axis) {
-      PULSE_START(Y);
-      PULSE_PREP(Y);
-      PULSE_STOP(Y);
-  }
-  else if(Z_AXIS == axis_stepper.axis) {
-      PULSE_START(Z);
-      PULSE_PREP(Z);
-      PULSE_STOP(Z);
-  }
-  else if(3 == axis_stepper.axis) {
-      PULSE_START(E);
-      PULSE_PREP(E);
-      PULSE_STOP(E);
-  }
+  do {
+    if (axis_stepper.dir > 0) {
+      if (axis_stepper.axis == 3)
+      {
+        CBI(current_direction_bits, E_AXIS);
+      } else {
+        CBI(current_direction_bits, axis_stepper.axis);
+      }
+    } else if(axis_stepper.dir < 0) {
+      if (axis_stepper.axis == 3) {
+        SBI(current_direction_bits, E_AXIS);
+      } else {
+        SBI(current_direction_bits, axis_stepper.axis);
+      }
+    }
+
+    if ( ENABLED(HAS_L64XX)       // Always set direction for L64xx (Also enables the chips)
+      || ENABLED(DUAL_X_CARRIAGE) // TODO: Find out why this fixes "jittery" small circles
+      || current_direction_bits != last_direction_bits
+      || TERN(MIXING_EXTRUDER, false, stepper_extruder != last_moved_extruder)
+    ) {
+      E_TERN_(last_moved_extruder = stepper_extruder);
+      TERN_(HAS_L64XX, L64XX_OK_to_power_up = true);
+      set_directions(current_direction_bits);
+    }
+
+    if (X_AXIS == axis_stepper.axis) {
+        PULSE_START(X);
+        PULSE_PREP(X);
+        PULSE_STOP(X);
+    }
+    else if(Y_AXIS == axis_stepper.axis) {
+        PULSE_START(Y);
+        PULSE_PREP(Y);
+        PULSE_STOP(Y);
+    }
+    else if(Z_AXIS == axis_stepper.axis) {
+        PULSE_START(Z);
+        PULSE_PREP(Z);
+        PULSE_STOP(Z);
+    }
+    else if(3 == axis_stepper.axis) {
+        PULSE_START(E);
+        PULSE_PREP(E);
+        PULSE_STOP(E);
+    } 
+
+    axis_stepper.axis = -1;
+  } while (axisManager.getNextZeroAxisStepper(&axis_stepper));
+  
 
   // #if ISR_MULTI_STEPS
   //     START_HIGH_PULSE();
@@ -1787,9 +1791,6 @@ void Stepper::pulse_phase_isr() {
   //     // PULSE_PREP(E);
   //     PULSE_STOP(E);
   // }
-
-  axis_stepper.axis = -1;
-
   // // Count of pending loops and events for this iteration
   // const uint32_t pending_events = step_event_count - step_events_completed;
   // uint8_t events_to_do = _MIN(pending_events, steps_per_isr);
@@ -2078,7 +2079,7 @@ uint32_t Stepper::block_phase_isr() {
   // If there is a current block
   if (current_block) {
     hal_timer_t st = HAL_timer_get_count(MF_TIMER_STEP);
-    if (axisManager.getNextAxisStepper()) {
+    if (axisManager.getNextAxisStepper(&axis_stepper)) {
       hal_timer_t et = HAL_timer_get_count(MF_TIMER_STEP);
       hal_timer_t dt = et - st;
       axisManager.counts[3]++;
@@ -2086,22 +2087,17 @@ uint32_t Stepper::block_phase_isr() {
       if (axisManager.counts[5] < (int)dt) {
         axisManager.counts[5] = dt;
       }
-      axisManager.getCurrentAxisStepper(&next_axis_stepper);
-
-      float delta_time = next_axis_stepper.print_time - axis_stepper.print_time;
-
-      if (delta_time < 0) {
-          delta_time = 0;
+      
+      if (axis_stepper.delta_time > 0.01) {
+        axisManager.calcNextAxisStepper();
+      } else if (axis_stepper.delta_time > 0.02) {
+        axisManager.calcNextAxisStepper();
+        axisManager.calcNextAxisStepper();
       }
-      axis_stepper.delta_time = delta_time;
-      axis_stepper.axis = next_axis_stepper.axis;
-      axis_stepper.last_axis = next_axis_stepper.axis;
-      axis_stepper.dir = next_axis_stepper.dir;
-      axis_stepper.print_time = next_axis_stepper.print_time;
 
       interval = CEIL(axis_stepper.delta_time * STEPPER_TIMER_TICKS_PER_MS);
 
-      if (next_axis_stepper.print_time >= block_print_time) {
+      if (axis_stepper.print_time >= block_print_time) {
         runout.block_completed(current_block);
         discard_current_block();
       }
@@ -2548,17 +2544,11 @@ uint32_t Stepper::block_phase_isr() {
       #endif
 
       if (is_start) {
-        /* actully we should check the result returned by getNextAxisStepper():
-          if (!axisManager.getNextAxisStepper()) {
-            axis_stepper.axis = -1;
-            axis_stepper.dir = 0;
-            return interval;
-          }
-        */
-        axisManager.getNextAxisStepper();
-        axisManager.getCurrentAxisStepper(&axis_stepper);
+        // actully we should check the result returned by getNextAxisStepper():
         is_start = false;
-        axis_stepper.delta_time = 0;
+        while (axisManager.calcNextAxisStepper()) {
+        }    
+        axisManager.getNextAxisStepper(&axis_stepper);
       }
 
       if (axis_stepper.axis >= 0) {

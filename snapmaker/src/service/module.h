@@ -62,6 +62,7 @@ class ModuleService {
       for (int i = 0; i < MODULE_ACCESSIBLE_MAX; i++) {
         routines[i].obj = NULL;
         routines[i].cb = NULL;
+        modules[i] = NULL;
       }
     }
 

@@ -10,8 +10,8 @@
 #define _BEDLEVEL_ENV_GET_MESH_X(I) (float(bedlevel_svc.env_info.bilinear_start.x + (I) * bedlevel_svc.env_info.bilinear_grid_spacing.x))
 #define _BEDLEVEL_ENV_GET_MESH_Y(J) (float(bedlevel_svc.env_info.bilinear_start.y + (J) * bedlevel_svc.env_info.bilinear_grid_spacing.y))
 
-BedLevelService AT_CCRAM bedlevel_svc;
-static sacp_hmi_message_t AT_CCRAM abort_auto_bedlevel_msg;
+BedLevelService AT_CCMRAM bedlevel_svc;
+static sacp_hmi_message_t AT_CCMRAM abort_auto_bedlevel_msg;
 
 // hmi request callback
 static err_code_t hmi_req_callback_set_level_mode(void *obj, sacp_hmi_message_t *msg);

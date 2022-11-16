@@ -6,12 +6,12 @@
 
 #define BACKGROUND_BROADCAST_DURATION (1000)
 
-ModuleService AT_CCRAM module_svc;
+ModuleService AT_CCMRAM module_svc;
 
-static AT_CCRAM StackType_t stack_can_event_thread[MODULE_EVENT_TASK_STACK_DEPTH];
-static AT_CCRAM StackType_t stack_can_recv_thread[MODULE_RECEIVE_TASK_STACK_DEPTH];
-static AT_CCRAM StaticTask_t tcb_can_event;
-static AT_CCRAM StaticTask_t tcb_can_recv;
+static AT_CCMRAM StackType_t stack_can_event_thread[MODULE_EVENT_TASK_STACK_DEPTH];
+static AT_CCMRAM StackType_t stack_can_recv_thread[MODULE_RECEIVE_TASK_STACK_DEPTH];
+static AT_CCMRAM StaticTask_t tcb_can_event;
+static AT_CCMRAM StaticTask_t tcb_can_recv;
 
 typedef struct {
   uint8_t   key;

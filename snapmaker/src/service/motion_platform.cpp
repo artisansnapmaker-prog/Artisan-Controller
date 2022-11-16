@@ -14,8 +14,8 @@
 
 MotionPlatformService motion_platform_svc;
 
-static AT_CCRAM StackType_t stack_motion_thread[MOTION_TASK_STACK_SIZE];
-static AT_CCRAM StaticTask_t taskcb_marlin;
+static AT_CCMRAM StackType_t stack_motion_thread[MOTION_TASK_STACK_SIZE];
+static AT_CCMRAM StaticTask_t taskcb_marlin;
 
 // subscription callback
 struct __packed CoordinateSystemInformation {

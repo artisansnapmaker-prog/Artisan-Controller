@@ -4,15 +4,15 @@
 
 #include "MapleFreeRTOS1030.h"
 
-#ifndef ENABLE_CCRAM
-  #define ENABLE_CCRAM  (1)
+#ifndef ENABLE_CCMRAM
+  #define ENABLE_CCMRAM  (1)
 #endif
 
-#ifdef ENABLE_CCRAM
-  #define AT_CCRAM    __attribute__((section(".ccmram")))
+#ifdef ENABLE_CCMRAM
+  #define AT_CCMRAM    __attribute__((section(".ccmram")))
   #define CCRAM_SIZE  (64*1024)
 #else
-  #define AT_CCRAM
+  #define AT_CCMRAM
 #endif
 
 #define HIGHEST_TASK_PRIORITY         (5)

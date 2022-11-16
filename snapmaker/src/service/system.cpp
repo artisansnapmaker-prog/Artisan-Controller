@@ -6,9 +6,9 @@
 
 #include "../HAL/interrupt.h"
 
-SystemService AT_CCRAM system_svc;
+SystemService AT_CCMRAM system_svc;
 
-bool AT_CCRAM SystemService::raise_emergency_stop = false;
+bool AT_CCMRAM SystemService::raise_emergency_stop = false;
 
 struct __packed ExceptionInfo {
   uint8_t   level;

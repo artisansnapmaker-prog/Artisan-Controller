@@ -28,14 +28,14 @@
 #include "client_node.h"
 
 
-SemaphoreHandle_t AT_CCRAM ClientNode::_lock;
-ClientNode AT_CCRAM *ClientNode::client_node_tab[MAX_CLIENT_NODE_NUM];
+SemaphoreHandle_t AT_CCMRAM ClientNode::_lock;
+ClientNode AT_CCMRAM *ClientNode::client_node_tab[MAX_CLIENT_NODE_NUM];
 
-client_node_onoffline_handle_t AT_CCRAM ClientNode::client_node_onoffline_cb_tab[CLIENT_NODE_ONFFLINE_NOTIFY_CB_MAX];
+client_node_onoffline_handle_t AT_CCMRAM ClientNode::client_node_onoffline_cb_tab[CLIENT_NODE_ONFFLINE_NOTIFY_CB_MAX];
 
-SemaphoreHandle_t AT_CCRAM ClientNode::sacp_msg_copy_lock;
-sacp_hmi_message_t AT_CCRAM ClientNode::sacp_msg_copy[MAX_SACP_MSG_COPY];
-bool AT_CCRAM ClientNode::sacp_msg_copy_occupy[MAX_SACP_MSG_COPY];
+SemaphoreHandle_t AT_CCMRAM ClientNode::sacp_msg_copy_lock;
+sacp_hmi_message_t AT_CCMRAM ClientNode::sacp_msg_copy[MAX_SACP_MSG_COPY];
+bool AT_CCMRAM ClientNode::sacp_msg_copy_occupy[MAX_SACP_MSG_COPY];
 
 
 void ClientNode::class_init(void) {

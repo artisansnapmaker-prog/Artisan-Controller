@@ -34,13 +34,13 @@ static uint32_t power_loss_det = POWER_LOSS_DETECT;
 
 #define ISR_DEBOUNCE  (55000)
 
-EmergencyHandler AT_CCRAM emergency_hdl;
+EmergencyHandler AT_CCMRAM emergency_hdl;
 
-sacp_hmi_message_t AT_CCRAM EmergencyHandler::msg_notify_stop;
-sacp_hmi_message_t AT_CCRAM EmergencyHandler::msg_notify_recovery;
+sacp_hmi_message_t AT_CCMRAM EmergencyHandler::msg_notify_stop;
+sacp_hmi_message_t AT_CCMRAM EmergencyHandler::msg_notify_recovery;
 
-static uint32_t AT_CCRAM write_flash_checksum = 0;
-uint8_t AT_CCRAM power_loss_signal_trigger = 0;
+static uint32_t AT_CCMRAM write_flash_checksum = 0;
+uint8_t AT_CCMRAM power_loss_signal_trigger = 0;
 
 // EXTI_IRQ_SUBPRIO
 // EXTI_IRQ_PRIO

@@ -30,26 +30,26 @@
 #include "emergency_handler.h"
 
 
-static AT_CCRAM StackType_t stack_jobctrl_thread[JOBCTRL_TASK_STACK_SIZE];
-static AT_CCRAM StaticTask_t tcb_jobctrl;
+static AT_CCMRAM StackType_t stack_jobctrl_thread[JOBCTRL_TASK_STACK_SIZE];
+static AT_CCMRAM StaticTask_t tcb_jobctrl;
 
-static AT_CCRAM StackType_t stack_req_gcode_thread[JOB_REQUEST_GCODE_TASK_STACK_SIZE];
-static AT_CCRAM StaticTask_t tcb_req_gcode;
+static AT_CCMRAM StackType_t stack_req_gcode_thread[JOB_REQUEST_GCODE_TASK_STACK_SIZE];
+static AT_CCMRAM StaticTask_t tcb_req_gcode;
 
-static AT_CCRAM uint8_t gcode_ring_buffer[GCODE_RB_SIZE];
-static AT_CCRAM uint8_t issue_ret_rb[4];
+static AT_CCMRAM uint8_t gcode_ring_buffer[GCODE_RB_SIZE];
+static AT_CCMRAM uint8_t issue_ret_rb[4];
 
-static AT_CCRAM uint8_t queue_buffer_jobctrl[JOB_CTRL_REQ_INFO_BUF];
-static AT_CCRAM StaticMessageBuffer_t queue_strcut_jobctrl;
+static AT_CCMRAM uint8_t queue_buffer_jobctrl[JOB_CTRL_REQ_INFO_BUF];
+static AT_CCMRAM StaticMessageBuffer_t queue_strcut_jobctrl;
 
-JobCtrl AT_CCRAM job_ctrl_svc;
-JobSaveLineStep AT_CCRAM job_save_line_step = JOB_SAVE_LINE_STEP_STOP;
-TimerHandle_t AT_CCRAM JobCtrl::job_print_timer = NULL;
-volatile uint32_t AT_CCRAM job_print_seconds = 0;
-bool AT_CCRAM job_printing_flag = false;
-bool AT_CCRAM resume_relative_switch = false;
-uint32_t AT_CCRAM resume_file_line = 0xFFFFFFFF;
-xyze_pos_t AT_CCRAM relative_position;
+JobCtrl AT_CCMRAM job_ctrl_svc;
+JobSaveLineStep AT_CCMRAM job_save_line_step = JOB_SAVE_LINE_STEP_STOP;
+TimerHandle_t AT_CCMRAM JobCtrl::job_print_timer = NULL;
+volatile uint32_t AT_CCMRAM job_print_seconds = 0;
+bool AT_CCMRAM job_printing_flag = false;
+bool AT_CCMRAM resume_relative_switch = false;
+uint32_t AT_CCMRAM resume_file_line = 0xFFFFFFFF;
+xyze_pos_t AT_CCMRAM relative_position;
 
 void job_ctrl_thread_entry(void *p) {
   for(;;) {

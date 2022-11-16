@@ -3,31 +3,31 @@
 
 #include "../service/motion_platform.h"
 
-static AT_CCRAM uint8_t queue_buffer_to_marlin[SACP_PDU_MAX_SIZE];
-static AT_CCRAM StaticMessageBuffer_t queue_strcut_to_marlin;
+static AT_CCMRAM uint8_t queue_buffer_to_marlin[SACP_PDU_MAX_SIZE];
+static AT_CCMRAM StaticMessageBuffer_t queue_strcut_to_marlin;
 
-static AT_CCRAM uint8_t queue_buffer_to_system[SACP_PDU_MAX_SIZE];
-static AT_CCRAM StaticMessageBuffer_t queue_strcut_to_system;
+static AT_CCMRAM uint8_t queue_buffer_to_system[SACP_PDU_MAX_SIZE];
+static AT_CCMRAM StaticMessageBuffer_t queue_strcut_to_system;
 
-static AT_CCRAM uint8_t queue_buffer_to_event[SACP_PDU_MAX_SIZE];
-static AT_CCRAM StaticMessageBuffer_t queue_strcut_to_event;
+static AT_CCMRAM uint8_t queue_buffer_to_event[SACP_PDU_MAX_SIZE];
+static AT_CCMRAM StaticMessageBuffer_t queue_strcut_to_event;
 
-static AT_CCRAM uint8_t queue_buffer_to_wait_node[SACP_HMI_WAITING_NODE_MAX][SACP_PDU_MAX_SIZE];
-static AT_CCRAM StaticMessageBuffer_t queue_strcut_to_wait_node[SACP_HMI_WAITING_NODE_MAX];
+static AT_CCMRAM uint8_t queue_buffer_to_wait_node[SACP_HMI_WAITING_NODE_MAX][SACP_PDU_MAX_SIZE];
+static AT_CCMRAM StaticMessageBuffer_t queue_strcut_to_wait_node[SACP_HMI_WAITING_NODE_MAX];
 
-static AT_CCRAM uint8_t serial_tx_buffer_pc[SACP_PDU_MAX_SIZE];
-static AT_CCRAM uint8_t serial_rx_buffer_pc[SACP_PDU_MAX_SIZE];
+static AT_CCMRAM uint8_t serial_tx_buffer_pc[SACP_PDU_MAX_SIZE];
+static AT_CCMRAM uint8_t serial_rx_buffer_pc[SACP_PDU_MAX_SIZE];
 
-static AT_CCRAM uint8_t serial_tx_buffer_screen[SACP_PDU_MAX_SIZE];
-static AT_CCRAM uint8_t serial_rx_buffer_screen[SACP_PDU_MAX_SIZE];
+static AT_CCMRAM uint8_t serial_tx_buffer_screen[SACP_PDU_MAX_SIZE];
+static AT_CCMRAM uint8_t serial_rx_buffer_screen[SACP_PDU_MAX_SIZE];
 
-HostSACPHMI AT_CCRAM host_hmi(SACP_VER_1, SACP_HOST_ID_CONTROLLER);
+HostSACPHMI AT_CCMRAM host_hmi(SACP_VER_1, SACP_HOST_ID_CONTROLLER);
 
-static AT_CCRAM StackType_t stack_hmi_event_thread[HMI_EVENT_TASK_STACK_SIZE];
-static AT_CCRAM StackType_t stack_hmi_recv_thread[HMI_RECV_TASK_STACK_SIZE];
+static AT_CCMRAM StackType_t stack_hmi_event_thread[HMI_EVENT_TASK_STACK_SIZE];
+static AT_CCMRAM StackType_t stack_hmi_recv_thread[HMI_RECV_TASK_STACK_SIZE];
 
-static AT_CCRAM StaticTask_t tcb_hmi_event;
-static AT_CCRAM StaticTask_t tcb_hmi_recv;
+static AT_CCMRAM StaticTask_t tcb_hmi_event;
+static AT_CCMRAM StaticTask_t tcb_hmi_recv;
 
 TaskHandle_t thandle_hmi_event = NULL;
 TaskHandle_t thandle_hmi_blocked_event = NULL;

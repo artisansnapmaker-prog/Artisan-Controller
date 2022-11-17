@@ -2102,6 +2102,7 @@ uint32_t Stepper::block_phase_isr() {
       interval = CEIL(axis_stepper.delta_time * STEPPER_TIMER_TICKS_PER_MS);
 
       if (next_axis_stepper.print_time >= block_print_time) {
+        runout.block_completed(current_block);
         discard_current_block();
       }
       done_count = 0;
@@ -2121,12 +2122,11 @@ uint32_t Stepper::block_phase_isr() {
         }
       }
 
-      // if (is_done || done_count > 100) {
-      if (is_done) {
+      if (is_done || done_count > 100) {
+      // if (is_done) {
         if (current_block) {
           runout.block_completed(current_block);
           discard_current_block();
-          // power_loss.cur_line++; // this block motion finish
           axisManager.abort();
           is_start = true;
         }

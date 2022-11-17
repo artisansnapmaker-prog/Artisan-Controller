@@ -1259,9 +1259,9 @@ void ToolHeadFDM::set_hotend_type(uint8_t *data) {
 
 void ToolHeadFDM::report_extruder_info(uint8_t *data) {
   uint8_t extruder_state = data[0];
-  // #ifdef USE_FDM_INTERRUPT_LOG
-    LOG_I("actul active extruder: %d\n", active_extruder);
-  // #endif
+
+  LOG_I("module extr: %d\n", data[1]);
+
   if (extruder_state) {
     if (((fdm_state >> FDM_FAULT_EXTRUDER_STATE) & 0x01) == 0) {
       fdm_exception_trigger(FDM_FAULT_EXTRUDER_STATE);

@@ -1511,6 +1511,7 @@ void MotionPlatformService::run_motion_request(motion_request_t *mq) {
       LOG_E("cannot switch extr with non-3DP!");
       break;
     }
+    LOG_I("internal change tool: %u\n", mq->change_tool.index);
     ((ToolHeadFDM *)module)->tool_change_unlimited(mq->change_tool.index, mq->change_tool.compensate_z);
     break;
 

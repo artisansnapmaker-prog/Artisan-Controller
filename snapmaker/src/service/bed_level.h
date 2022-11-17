@@ -105,6 +105,12 @@ class BedLevelService {
       auto_bedlevel_enable = false;
       z_drop_limit_check = false;
       env_info.valid = false;
+      for (int i = 0; i < GRID_MAX_NUM; i++) {
+        for (int j = 0; j < GRID_MAX_NUM; j++) {
+          z_values_[i][j] = 0.0f;
+          manual_leveling_z_values_[i*GRID_MAX_NUM + j] = 0.0f;
+        }
+      }
     }
 
     void init();

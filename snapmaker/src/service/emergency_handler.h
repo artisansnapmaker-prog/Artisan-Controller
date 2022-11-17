@@ -18,6 +18,12 @@ enum EmergencyStopSource {
 
 class EmergencyHandler {
   public:
+    EmergencyHandler() {
+      memset(env, 0x00, EMERGENCY_ENV_SIZE);
+      memset(&msg_notify_stop, 0x00, sizeof(sacp_hmi_message_t));
+      memset(&msg_notify_recovery, 0x00, sizeof(sacp_hmi_message_t));
+    }
+
     void init();
 
     void prepare_flash(bool is_forced=false);
@@ -50,5 +56,4 @@ class EmergencyHandler {
 };
 
 extern EmergencyHandler emergency_hdl;
-extern uint8_t power_loss_signal_trigger;
 #endif

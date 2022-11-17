@@ -39,8 +39,8 @@ EmergencyHandler AT_CCMRAM emergency_hdl;
 sacp_hmi_message_t AT_CCMRAM EmergencyHandler::msg_notify_stop;
 sacp_hmi_message_t AT_CCMRAM EmergencyHandler::msg_notify_recovery;
 
-static uint32_t AT_CCMRAM write_flash_checksum = 0;
-uint8_t AT_CCMRAM power_loss_signal_trigger = 0;
+static uint32_t AT_CCMRAM write_flash_checksum;
+static uint8_t AT_CCMRAM power_loss_signal_trigger;
 
 // EXTI_IRQ_SUBPRIO
 // EXTI_IRQ_PRIO
@@ -80,6 +80,9 @@ static void interrupt_cb_power_loss() {
 }
 
 void EmergencyHandler::init() {
+  write_flash_checksum = 0;
+  power_loss_signal_trigger = 0;
+
   pinMode(stop_button, INPUT);
   pinMode(power_loss_det, INPUT);
 

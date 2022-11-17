@@ -182,7 +182,7 @@ class ToolHeadFDM: public ModuleBase {
       probe_state    = 0;
       probe_sensor   = PROBE_SENSOR_PROXIMITY_SWITCH;
       extruder_info  = 0;
-      active_extruder = 0;
+      current_extruder = 0;
       target_extruder = 0;
       active_extruder_bak = HOTEND_INVALID_INDEX;
       hotend_type_initialized = false;
@@ -295,8 +295,8 @@ class ToolHeadFDM: public ModuleBase {
     uint8_t hotend_type[EXTRUDERS];
     hotend_temp_t hotend_temp[EXTRUDERS];
     uint8_t filament_state;
-    uint8_t active_extruder;
     uint8_t active_extruder_bak;
+    uint8_t current_extruder;
     uint8_t target_extruder;
     probe_sensor_t active_probe_sensor;
     uint8_t filament_detect_mask;

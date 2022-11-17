@@ -36,8 +36,8 @@ static AT_CCMRAM StaticTask_t tcb_system;
 static AT_CCMRAM StackType_t stack_timer[configTIMER_TASK_STACK_DEPTH];
 static AT_CCMRAM StaticTask_t tcb_timer;
 
-static StackType_t stack_idle[configMINIMAL_STACK_SIZE];
-static StaticTask_t tcb_idle;
+static AT_CCMRAM StackType_t stack_idle[configMINIMAL_STACK_SIZE];
+static AT_CCMRAM StaticTask_t tcb_idle;
 
 extern "C" {
   void vApplicationGetIdleTaskMemory(StaticTask_t **ppxIdleTaskTCBBuffer,

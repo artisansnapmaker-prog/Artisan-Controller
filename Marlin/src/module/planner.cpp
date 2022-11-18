@@ -1212,13 +1212,13 @@ void Planner::recalculate_trapezoids() {
             // block->final_speed = next_entry_speed;
             // block->cruise_speed = current_nominal_speed;
             calculate_trapezoid_for_block(block, current_entry_speed, next_entry_speed);
-            #if ENABLED(LIN_ADVANCE)
-              if (block->use_advance_lead) {
-                const float comp = block->e_D_ratio * extruder_advance_K[active_extruder] * settings.axis_steps_per_mm[E_AXIS];
-                block->max_adv_steps = current_nominal_speed * comp;
-                block->final_adv_steps = next_entry_speed * comp;
-              }
-            #endif
+            // #if ENABLED(LIN_ADVANCE)
+            //   if (block->use_advance_lead) {
+            //     const float comp = block->e_D_ratio * extruder_advance_K[active_extruder] * settings.axis_steps_per_mm[E_AXIS];
+            //     block->max_adv_steps = current_nominal_speed * comp;
+            //     block->final_adv_steps = next_entry_speed * comp;
+            //   }
+            // #endif
           }
 
           // Reset current only to ensure next trapezoid is computed - The
@@ -1254,13 +1254,13 @@ void Planner::recalculate_trapezoids() {
       // next->final_speed = 0.0;
       // next->cruise_speed = next_nominal_speed;
       calculate_trapezoid_for_block(next, next_entry_speed, float(MINIMUM_PLANNER_SPEED));
-      #if ENABLED(LIN_ADVANCE)
-        if (next->use_advance_lead) {
-          const float comp = next->e_D_ratio * extruder_advance_K[active_extruder] * settings.axis_steps_per_mm[E_AXIS];
-          next->max_adv_steps = next_nominal_speed * comp;
-          next->final_adv_steps = (MINIMUM_PLANNER_SPEED) * comp;
-        }
-      #endif
+      // #if ENABLED(LIN_ADVANCE)
+      //   if (next->use_advance_lead) {
+      //     const float comp = next->e_D_ratio * extruder_advance_K[active_extruder] * settings.axis_steps_per_mm[E_AXIS];
+      //     next->max_adv_steps = next_nominal_speed * comp;
+      //     next->final_adv_steps = (MINIMUM_PLANNER_SPEED) * comp;
+      //   }
+      // #endif
     }
 
     // Reset next only to ensure its trapezoid is computed - The stepper is free to use
@@ -2765,14 +2765,14 @@ bool Planner::_populate_block(block_t * const block, bool split_move,
 
         // Check for unusual high e_D ratio to detect if a retract move was combined with the last print move due to min. steps per segment. Never execute this with advance!
         // This assumes no one will use a retract length of 0mm < retr_length < ~0.2mm and no one will print 100mm wide lines using 3mm filament or 35mm wide lines using 1.75mm filament.
-        if (block->e_D_ratio > 3.0f)
-          block->use_advance_lead = false;
-        else {
-          const uint32_t max_accel_steps_per_s2 = MAX_E_JERK(extruder) / (extruder_advance_K[active_extruder] * block->e_D_ratio) * steps_per_mm;
-          if (TERN0(LA_DEBUG, accel > max_accel_steps_per_s2))
-            SERIAL_ECHOLNPGM("Acceleration limited.");
-          NOMORE(accel, max_accel_steps_per_s2);
-        }
+        // if (block->e_D_ratio > 3.0f)
+        //   block->use_advance_lead = false;
+        // else {
+        //   const uint32_t max_accel_steps_per_s2 = MAX_E_JERK(extruder) / (extruder_advance_K[active_extruder] * block->e_D_ratio) * steps_per_mm;
+        //   if (TERN0(LA_DEBUG, accel > max_accel_steps_per_s2))
+        //     SERIAL_ECHOLNPGM("Acceleration limited.");
+        //   NOMORE(accel, max_accel_steps_per_s2);
+        // }
       }
     #endif
 
@@ -2802,7 +2802,7 @@ bool Planner::_populate_block(block_t * const block, bool split_move,
   }
   block->acceleration_steps_per_s2 = accel;
   block->acceleration = accel / steps_per_mm;
-  
+
   if (settings.acceleration_to_deceleration_ratio > 20) {
     block->acceleration_to_deceleration = block->acceleration * settings.acceleration_to_deceleration_ratio * 0.01;
   } else {

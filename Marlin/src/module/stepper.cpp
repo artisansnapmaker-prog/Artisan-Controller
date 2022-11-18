@@ -1527,9 +1527,9 @@ void Stepper::isr() {
 
     if (!nextMainISR) pulse_phase_isr();                            // 0 = Do coordinated axes Stepper pulses
 
-    #if ENABLED(LIN_ADVANCE)
-      if (!nextAdvanceISR) nextAdvanceISR = advance_isr();          // 0 = Do Linear Advance E Stepper pulses
-    #endif
+    // #if ENABLED(LIN_ADVANCE)
+    //   if (!nextAdvanceISR) nextAdvanceISR = advance_isr();          // 0 = Do Linear Advance E Stepper pulses
+    // #endif
 
     #if ENABLED(INTEGRATED_BABYSTEPPING)
       const bool is_babystep = (nextBabystepISR == 0);              // 0 = Do Babystepping (XY)Z pulses
@@ -1552,7 +1552,7 @@ void Stepper::isr() {
     const uint32_t interval = _MIN(
       uint32_t(HAL_TIMER_TYPE_MAX),                     // Come back in a very long time
       nextMainISR                                       // Time until the next Pulse / Block phase
-      OPTARG(LIN_ADVANCE, nextAdvanceISR)               // Come back early for Linear Advance?
+      /*OPTARG(LIN_ADVANCE, nextAdvanceISR)               // Come back early for Linear Advance?*/
       OPTARG(INTEGRATED_BABYSTEPPING, nextBabystepISR)  // Come back early for Babystepping?
     );
 
@@ -1762,11 +1762,11 @@ void Stepper::pulse_phase_isr() {
         PULSE_START(E);
         PULSE_PREP(E);
         PULSE_STOP(E);
-    } 
+    }
 
     axis_stepper.axis = -1;
   } while (i-- > 0 && axisManager.getNextZeroAxisStepper(&axis_stepper));
-  
+
 
   // #if ISR_MULTI_STEPS
   //     START_HIGH_PULSE();
@@ -2089,7 +2089,7 @@ uint32_t Stepper::block_phase_isr() {
       if (axisManager.counts[5] < (int)dt) {
         axisManager.counts[5] = dt;
       }
-      
+
       if (axis_stepper.delta_time > 0.01) {
         axisManager.calcNextAxisStepper();
       } else if (axis_stepper.delta_time > 0.02) {
@@ -2530,26 +2530,26 @@ uint32_t Stepper::block_phase_isr() {
       E_TERN_(stepper_extruder = current_block->extruder);
 
       // Initialize the trapezoid generator from the current block.
-      #if ENABLED(LIN_ADVANCE)
-        #if DISABLED(MIXING_EXTRUDER) && E_STEPPERS > 1
-          // If the now active extruder wasn't in use during the last move, its pressure is most likely gone.
-          if (stepper_extruder != last_moved_extruder) LA_current_adv_steps = 0;
-        #endif
+      // #if ENABLED(LIN_ADVANCE)
+      //   #if DISABLED(MIXING_EXTRUDER) && E_STEPPERS > 1
+      //     // If the now active extruder wasn't in use during the last move, its pressure is most likely gone.
+      //     if (stepper_extruder != last_moved_extruder) LA_current_adv_steps = 0;
+      //   #endif
 
-        if ((LA_use_advance_lead = current_block->use_advance_lead)) {
-          LA_final_adv_steps = current_block->final_adv_steps;
-          LA_max_adv_steps = current_block->max_adv_steps;
-          initiateLA(); // Start the ISR
-          LA_isr_rate = current_block->advance_speed;
-        }
-        else LA_isr_rate = LA_ADV_NEVER;
-      #endif
+      //   if ((LA_use_advance_lead = current_block->use_advance_lead)) {
+      //     LA_final_adv_steps = current_block->final_adv_steps;
+      //     LA_max_adv_steps = current_block->max_adv_steps;
+      //     initiateLA(); // Start the ISR
+      //     LA_isr_rate = current_block->advance_speed;
+      //   }
+      //   else LA_isr_rate = LA_ADV_NEVER;
+      // #endif
 
       if (is_start) {
         // actully we should check the result returned by getNextAxisStepper():
         is_start = false;
         while (axisManager.calcNextAxisStepper()) {
-        }    
+        }
         axisManager.getNextAxisStepper(&axis_stepper);
       }
 

@@ -211,7 +211,7 @@ void GcodeSuite::M203_report(const bool forReplay/*=true*/) {
  *    T = Travel (non printing) moves
  */
 void GcodeSuite::M204() {
-  if (!parser.seen("PRST"))
+  if (!parser.seen("PRSTD"))
     return M204_report();
   else {
     //planner.synchronize();
@@ -266,6 +266,9 @@ void GcodeSuite::M204() {
       if (parser.seenval('R')) planner.settings.retract_acceleration = parser.value_linear_units();
       if (parser.seenval('T')) planner.settings.travel_acceleration = parser.value_linear_units();
     #endif
+
+    if (parser.seenval('D')) planner.settings.acceleration_to_deceleration_ratio = parser.value_linear_units();
+
     planner.junction_deviation_mm = planner.corner_velocity_sqr * (SQRT(2.) - 1.) / _MAX(planner.settings.acceleration, planner.settings.travel_acceleration);
   }
 }
@@ -276,6 +279,7 @@ void GcodeSuite::M204_report(const bool forReplay/*=true*/) {
       PSTR("  M204 P"), LINEAR_UNIT(planner.settings.acceleration)
     , PSTR(" R"), LINEAR_UNIT(planner.settings.retract_acceleration)
     , SP_T_STR, LINEAR_UNIT(planner.settings.travel_acceleration)
+    , PSTR(" D"), LINEAR_UNIT(planner.settings.acceleration_to_deceleration_ratio)
     #if MB_SNAPMAKER
       #if ENABLED(SNAPMAKER_CNC_ACCELERATION_LIMIT)
         , PSTR("\n  Note: Maximum acceleration in cnc mode is limited to ")

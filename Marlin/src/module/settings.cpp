@@ -1656,6 +1656,7 @@ void MarlinSettings::postprocess() {
         EEPROM_READ(planner.settings.acceleration);
         EEPROM_READ(planner.settings.retract_acceleration);
         EEPROM_READ(planner.settings.travel_acceleration);
+        EEPROM_READ(planner.settings.acceleration_to_deceleration_ratio);
         EEPROM_READ(planner.settings.min_feedrate_mm_s);
         EEPROM_READ(planner.settings.min_travel_feedrate_mm_s);
 
@@ -2750,6 +2751,7 @@ void MarlinSettings::reset() {
   planner.settings.acceleration = DEFAULT_ACCELERATION;
   planner.settings.retract_acceleration = DEFAULT_RETRACT_ACCELERATION;
   planner.settings.travel_acceleration = DEFAULT_TRAVEL_ACCELERATION;
+  planner.settings.acceleration_to_deceleration_ratio = DEFAULT_ACCELERATION_TO_DECELERATION_RATIO;
   planner.settings.min_feedrate_mm_s = feedRate_t(DEFAULT_MINIMUMFEEDRATE);
   planner.settings.min_travel_feedrate_mm_s = feedRate_t(DEFAULT_MINTRAVELFEEDRATE);
 

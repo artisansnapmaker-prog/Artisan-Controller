@@ -977,6 +977,7 @@
 #define DEFAULT_ACCELERATION          5000    // X, Y, Z and E acceleration for printing moves
 #define DEFAULT_RETRACT_ACCELERATION  2000    // E acceleration for retracts
 #define DEFAULT_TRAVEL_ACCELERATION   5000    // X, Y, Z acceleration for travel (non printing) moves
+#define DEFAULT_ACCELERATION_TO_DECELERATION_RATIO 50
 
 #define LIMITED_MAX_STARTING_ACCEL_EDITING
 #if ENABLED(LIMITED_MAX_STARTING_ACCEL_EDITING)

@@ -201,7 +201,8 @@ typedef struct block_t {
         entry_speed_sqr,                    // Entry speed at previous-current junction in (mm/sec)^2
         max_entry_speed_sqr,                // Maximum allowable junction entry speed in (mm/sec)^2
         millimeters,                        // The total travel of this block in mm
-        acceleration;                       // acceleration mm/sec^2
+        acceleration,                       // acceleration mm/sec^2
+        acceleration_to_deceleration;
 
   xyze_float_t axis_r;
   shaper_data_t shaper_data;
@@ -324,7 +325,8 @@ typedef struct {
  feedRate_t max_feedrate_mm_s[DISTINCT_AXES];   // (mm/s) M203 XYZE - Max speeds
       float acceleration,                       // (mm/s^2) M204 S - Normal acceleration. DEFAULT ACCELERATION for all printing moves.
             retract_acceleration,               // (mm/s^2) M204 R - Retract acceleration. Filament pull-back and push-forward while standing still in the other axes
-            travel_acceleration;                // (mm/s^2) M204 T - Travel acceleration. DEFAULT ACCELERATION for all NON printing moves.
+            travel_acceleration,                // (mm/s^2) M204 T - Travel acceleration. DEFAULT ACCELERATION for all NON printing moves.
+            acceleration_to_deceleration_ratio;
  feedRate_t min_feedrate_mm_s,                  // (mm/s) M205 S - Minimum linear feedrate
             min_travel_feedrate_mm_s;           // (mm/s) M205 T - Minimum travel feedrate
 } planner_settings_t;

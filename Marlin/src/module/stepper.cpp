@@ -1715,6 +1715,8 @@ void Stepper::pulse_phase_isr() {
       _APPLY_STEP(AXIS, _INVERT_STEP_PIN(AXIS), 0); \
   }while(0)
 
+  int i = 2;
+
   do {
     if (axis_stepper.dir > 0) {
       if (axis_stepper.axis == 3)
@@ -1763,7 +1765,7 @@ void Stepper::pulse_phase_isr() {
     } 
 
     axis_stepper.axis = -1;
-  } while (axisManager.getNextZeroAxisStepper(&axis_stepper));
+  } while (i-- > 0 && axisManager.getNextZeroAxisStepper(&axis_stepper));
   
 
   // #if ISR_MULTI_STEPS

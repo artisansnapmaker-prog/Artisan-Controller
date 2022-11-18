@@ -266,6 +266,7 @@ void GcodeSuite::M204() {
       if (parser.seenval('R')) planner.settings.retract_acceleration = parser.value_linear_units();
       if (parser.seenval('T')) planner.settings.travel_acceleration = parser.value_linear_units();
     #endif
+    planner.junction_deviation_mm = planner.corner_velocity_sqr * (SQRT(2.) - 1.) / _MAX(planner.settings.acceleration, planner.settings.travel_acceleration);
   }
 }
 
@@ -312,14 +313,22 @@ void GcodeSuite::M205() {
     #if HAS_CLASSIC_JERK && (AXIS4_NAME == 'J' || AXIS5_NAME == 'J' || AXIS6_NAME == 'J')
       #error "Can't set_max_jerk for 'J' axis because 'J' is used for Junction Deviation."
     #endif
-    if (parser.seenval('J')) {
-      const float junc_dev = parser.value_linear_units();
-      if (WITHIN(junc_dev, 0.01f, 0.1f)) {
-        planner.junction_deviation_mm = junc_dev;
+    if (parser.seenval('V')) {
+      const float corner_velocity = parser.value_linear_units();
+      if (WITHIN(corner_velocity, 0.0f, 50.0f)) {
+        planner.corner_velocity_sqr = corner_velocity * corner_velocity;
+        planner.junction_deviation_mm = planner.corner_velocity_sqr * (SQRT(2.) - 1.) / _MAX(planner.settings.acceleration, planner.settings.travel_acceleration);
         TERN_(LIN_ADVANCE, planner.recalculate_max_e_jerk());
       }
       else
-        SERIAL_ERROR_MSG("?J out of range (0.01 to 0.1)");
+        SERIAL_ERROR_MSG("?V out of range (0.0 to 50)");
+
+      // if (WITHIN(junc_dev, 0.01f, 0.3f)) {
+      //   planner.junction_deviation_mm = junc_dev;
+      //   TERN_(LIN_ADVANCE, planner.recalculate_max_e_jerk());
+      // }
+      // else
+      //   SERIAL_ERROR_MSG("?J out of range (0.01 to 0.3)");
     }
   #endif
   #if HAS_CLASSIC_JERK
@@ -354,6 +363,7 @@ void GcodeSuite::M205_report(const bool forReplay/*=true*/) {
     , SP_T_STR, LINEAR_UNIT(planner.settings.min_travel_feedrate_mm_s)
     #if HAS_JUNCTION_DEVIATION
       , PSTR(" J"), LINEAR_UNIT(planner.junction_deviation_mm)
+      , PSTR(" V"), LINEAR_UNIT(SQRT(planner.corner_velocity_sqr))
     #endif
     #if HAS_CLASSIC_JERK
       , LIST_N(DOUBLE(LINEAR_AXES),

@@ -219,6 +219,7 @@ typedef struct SettingsDataStruct {
 
   xyze_float_t planner_max_jerk;                        // M205 XYZE  planner.max_jerk
   float planner_junction_deviation_mm;                  // M205 J     planner.junction_deviation_mm
+  float planner_corner_velocity_sqr;                    // M205 V     planner.corner_velocity_sqr
 
   //
   // Home Offset
@@ -747,6 +748,7 @@ void MarlinSettings::postprocess() {
 
       TERN_(CLASSIC_JERK, dummyf = 0.02f);
       EEPROM_WRITE(TERN(CLASSIC_JERK, dummyf, planner.junction_deviation_mm));
+      EEPROM_WRITE(planner.corner_velocity_sqr);
     }
 
     //
@@ -1667,6 +1669,7 @@ void MarlinSettings::postprocess() {
         #endif
 
         EEPROM_READ(TERN(CLASSIC_JERK, dummyf, planner.junction_deviation_mm));
+        EEPROM_READ(planner.corner_velocity_sqr);
       }
 
       //
@@ -2775,7 +2778,11 @@ void MarlinSettings::reset() {
     TERN_(HAS_CLASSIC_E_JERK, planner.max_jerk.e = DEFAULT_EJERK);
   #endif
 
-  TERN_(HAS_JUNCTION_DEVIATION, planner.junction_deviation_mm = float(JUNCTION_DEVIATION_MM));
+  // TERN_(HAS_JUNCTION_DEVIATION, planner.junction_deviation_mm = float(JUNCTION_DEVIATION_MM));
+  #if HAS_JUNCTION_DEVIATION
+    planner.corner_velocity_sqr = float(CORNER_VELOCITY);
+    planner.junction_deviation_mm = planner.corner_velocity_sqr * (SQRT(2.) - 1.) / _MAX(planner.settings.acceleration, planner.settings.travel_acceleration);
+  #endif
 
   #if HAS_SCARA_OFFSET
     scara_home_offset.reset();

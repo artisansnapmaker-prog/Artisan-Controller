@@ -1,5 +1,6 @@
 #include "../../../Marlin/src/module/motion.h"
 #include "../../../Marlin/src/module/temperature.h"
+#include "../../../Marlin/src/module/AxisManager.h"
 
 #include "snapmaker.h"
 // #include "src/HAL/HAL.h"
@@ -603,6 +604,12 @@ void SnapmakerPrinter::post_init() {
         next_ms = millis() + 500;
       }
     }
+  }
+
+  // restore settings for input shaper
+  for (int i = 0; i < SHAPER_AXIS_COUNT; i++) {
+    axisManager.input_shaper_set(i, (int)settings.shaper_settings[i].type,
+      settings.shaper_settings[i].freq, settings.shaper_settings[i].zeta);
   }
 
   // enable power
@@ -1489,6 +1496,15 @@ void SnapmakerPrinter::reset_settings() {
 
   // reset enclosure settings
   settings.enclosure_settings.enclosure_check_enable_mask = ENCLOSURE_CHECK_ENABLE_DEFAULT_MASK;
+
+  // reset input shaper settings
+  for (int i = 0; i < SHAPER_AXIS_COUNT; i++) {
+    settings.shaper_settings[i].freq = SHAPER_FREQ_DEFAULT;
+    settings.shaper_settings[i].type = SHAPER_TYPE_DEFAULT;
+    settings.shaper_settings[i].zeta = SHAPER_ZETA_DEFAULT;
+    axisManager.input_shaper_set(i, (int)settings.shaper_settings[i].type,
+      settings.shaper_settings[i].freq, settings.shaper_settings[i].zeta);
+  }
 }
 
 void SnapmakerPrinter::report_probe_sensor_compensation() {

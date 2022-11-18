@@ -28,6 +28,15 @@
 #define POWER_DOMAIN_4P_ADDON     (0x1<<3)
 #define POWER_DOMAIN_BED          (0x1<<4)
 #define POWER_DOMAIN_HMI          (0x1<<5)
+
+
+#define SHAPER_AXIS_COUNT (2) // X & Y
+struct ShaperSettings {
+  int   type;
+  float freq;
+  float zeta;
+};
+
 struct SnapmakerSettings {
   int32_t laser_platform_hight;
   int32_t laser_4axis_center_hight;
@@ -35,6 +44,7 @@ struct SnapmakerSettings {
   fdm_settings_t fdm_settings;
   PurifierWorkSettings purifier_settings;
   EnclosureSettings enclosure_settings;
+  ShaperSettings shaper_settings[SHAPER_AXIS_COUNT];
 };
 
 // settings defination

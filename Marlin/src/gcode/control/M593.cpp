@@ -1,10 +1,12 @@
 #include "../gcode.h"
 #include "../../module/AxisManager.h"
+#include "../../module/settings.h"
+#include "../../../snapmaker/src/snapmaker.h"
 
-const char* input_shaper_type_name[] = {"none", "ei", "ei2", "ei3", "mzv", "zv", "zvd", "zvdd", "zvddd"};
 
 void GcodeSuite::M593() {
     LOG_I("M593\n");
+    SnapmakerSettings *ssettings = smprinter.get_settings();
 
     // if (axisManager.req_update_shaped) {
     //     LOG_I("Send too many\n");
@@ -34,6 +36,9 @@ void GcodeSuite::M593() {
             axis_input_shaper->logParams();
         } else {
             axis_input_shaper->setConfig(type, frequency, zeta);
+            ssettings->shaper_settings[0].type = type;
+            ssettings->shaper_settings[0].freq = frequency;
+            ssettings->shaper_settings[0].zeta = zeta;
         }
     }
     if (y) {
@@ -49,6 +54,9 @@ void GcodeSuite::M593() {
             axis_input_shaper->logParams();
         } else {
             axis_input_shaper->setConfig(type, frequency, zeta);
+            ssettings->shaper_settings[1].type = type;
+            ssettings->shaper_settings[1].freq = frequency;
+            ssettings->shaper_settings[1].zeta = zeta;
         }
     }
     LOG_I("update: %d\n", update);

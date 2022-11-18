@@ -19,34 +19,34 @@ void AxisManager::input_shaper_reset() {
 
 }
 
-// ErrCode AxisManager::input_shaper_set(int axis, int type, float freq, float dampe)  {
+err_code_t AxisManager::input_shaper_set(int axis, int type, float freq, float dampe)  {
 
-//   if (axis != X_AXIS && axis != Y_AXIS) return E_PARAM;
+  if (axis != X_AXIS && axis != Y_AXIS) return E_PARAM;
 
-//   AxisInputShaper* axis_input_shaper = axisManager.axis[axis].axis_input_shaper;
-//   if (freq != axis_input_shaper->frequency || dampe != axis_input_shaper->zeta || type != (int)axis_input_shaper->type) {
-//     axis_input_shaper->setConfig(type, freq, dampe);
-//     planner.synchronize();
-//     axisManager.initAxisShaper();
-//     axisManager.abort();
-//   }
-//   LOG_I("setting: axis: %d type: %s, frequency: %lf, zeta: %lf\n", axis, input_shaper_type_name[type], freq, dampe);
+  AxisInputShaper* axis_input_shaper = axisManager.axis[axis].axis_input_shaper;
+  if (freq != axis_input_shaper->frequency || dampe != axis_input_shaper->zeta || type != (int)axis_input_shaper->type) {
+    axis_input_shaper->setConfig(type, freq, dampe);
+    planner.synchronize();
+    axisManager.initAxisShaper();
+    axisManager.abort();
+  }
+  LOG_I("setting: axis: %d type: %s, frequency: %lf, zeta: %lf\n", axis, input_shaper_type_name[type], freq, dampe);
 
-//   return E_SUCCESS;
-// }
+  return E_SUCCESS;
+}
 
-// ErrCode AxisManager::input_shaper_get(int axis, int &type, float &freq, float &dampe) {
+err_code_t AxisManager::input_shaper_get(int axis, int &type, float &freq, float &dampe) {
 
-//   if (axis != X_AXIS && axis != Y_AXIS) return E_PARAM;
+  if (axis != X_AXIS && axis != Y_AXIS) return E_PARAM;
 
-//   AxisInputShaper* axis_input_shaper = axisManager.axis[axis].axis_input_shaper;
-//   type = (int)axis_input_shaper->type;
-//   freq = axis_input_shaper->frequency;
-//   dampe = axis_input_shaper->zeta;
-//   // LOG_I("getting: axis: %d type: %s, frequency: %lf, zeta: %lf\n", axis, input_shaper_type_name[type], freq, dampe);
+  AxisInputShaper* axis_input_shaper = axisManager.axis[axis].axis_input_shaper;
+  type = (int)axis_input_shaper->type;
+  freq = axis_input_shaper->frequency;
+  dampe = axis_input_shaper->zeta;
+  LOG_I("getting: axis: %d type: %s, frequency: %lf, zeta: %lf\n", axis, input_shaper_type_name[type], freq, dampe);
 
-//   return E_SUCCESS;
-// }
+  return E_SUCCESS;
+}
 
 
 FORCE_INLINE bool Axis::generateFuncParams(uint8_t block_index, uint8_t move_start, uint8_t move_end) {

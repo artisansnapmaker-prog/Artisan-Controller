@@ -180,8 +180,8 @@ class AxisManager {
 
   public:
     void input_shaper_reset();
-    // ErrCode input_shaper_set(int axis, int type, float freq, float dampe);
-    // ErrCode input_shaper_get(int axis, int &type, float &freq, float &dampe);
+    err_code_t input_shaper_set(int axis, int type, float freq, float dampe);
+    err_code_t input_shaper_get(int axis, int &type, float &freq, float &dampe);
 
     AxisManager() {};
 
@@ -303,7 +303,7 @@ class AxisManager {
     bool getCurrentAxisStepper(AxisStepper* axis_stepper);
 
     FORCE_INLINE bool getNextZeroAxisStepper(AxisStepper* axis_stepper) {
-        if (getAxisStepperSize() == 0) { 
+        if (getAxisStepperSize() == 0) {
             return false;
         }
 
@@ -327,7 +327,7 @@ class AxisManager {
     };
 
     FORCE_INLINE bool getNextAxisStepper(AxisStepper* axis_stepper) {
-        if (getAxisStepperSize() == 0 && !calcNextAxisStepper()) { 
+        if (getAxisStepperSize() == 0 && !calcNextAxisStepper()) {
             return false;
         }
 

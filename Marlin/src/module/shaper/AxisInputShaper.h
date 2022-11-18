@@ -3,8 +3,12 @@
 #include "FuncManager.h"
 
 #define SHAPER_VIBRATION_REDUCTION 20
+#define SHAPER_TYPE_DEFAULT (6) // zvd
+#define SHAPER_FREQ_DEFAULT (50)
+#define SHAPER_ZETA_DEFAULT (0.1f)
+#define SHAPER_AXIS_COUNT   (2) // X & Y
 
-enum class InputShaperType : int
+enum InputShaperType : int
 {
   none = 0,
   ei = 1,
@@ -14,7 +18,9 @@ enum class InputShaperType : int
   zv = 5,
   zvd = 6,
   zvdd = 7,
-  zvddd = 8
+  zvddd = 8,
+
+  SHAPER_TYPE_MAX
 };
 
 class ShaperParams
@@ -80,9 +86,9 @@ public:
 
   bool is_shaper_window_init = false;
 
-  float frequency = 50;
-  float zeta = 0.1;
-  InputShaperType type = InputShaperType::zvd;
+  float frequency = SHAPER_FREQ_DEFAULT;
+  float zeta = SHAPER_ZETA_DEFAULT;
+  InputShaperType type = (InputShaperType)SHAPER_TYPE_DEFAULT;
 
   float right_delta;
   float left_delta;
@@ -125,3 +131,5 @@ public:
 
   FORCE_INLINE void addFuncParamsToManager(FuncManager *func_manager, float a, time_double_t right_time, float right_pos, float x2, float y1, float y2);
 };
+
+extern const char* input_shaper_type_name[SHAPER_TYPE_MAX];

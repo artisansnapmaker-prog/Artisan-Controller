@@ -5,6 +5,8 @@
 AxisInputShaper AxisInputShaper::axis_input_shaper_x;
 AxisInputShaper AxisInputShaper::axis_input_shaper_y;
 
+const char* input_shaper_type_name[SHAPER_TYPE_MAX] = {"none", "ei", "ei2", "ei3", "mzv", "zv", "zvd", "zvdd", "zvddd"};
+
 void AxisInputShaper::init()
 {
     params.n = 0;
@@ -251,7 +253,7 @@ FORCE_INLINE void AxisInputShaper::addFuncParamsToManager(FuncManager *func_mana
             int type = a > 0 ? -1 : 1;
             time_double_t middle_time = func_manager->last_time + middle;
             func_manager->addFuncParams(a, b, c, type, middle_time, middle_pos);
-            
+
             type = -type;
             b = 0.0f;
             c = middle_pos;
@@ -341,7 +343,7 @@ bool AxisInputShaper::moveShaperWindowToNext(FuncManager *func_manager, uint8_t 
     {
         return false;
     }
-    
+
 
     zero_p->move_index = moveQueue.nextMoveIndex(zero_p->move_index);
 
@@ -396,7 +398,7 @@ bool AxisInputShaper::moveShaperWindowToNext(FuncManager *func_manager, uint8_t 
     addFuncParamsToManager(func_manager, shaper_window.func_params.a, new_time, y2, x2, y1, y2);
     // shaper_window.updateABC();
     // shaper_window.updateABC(x1, y1, x2, y2);
-    
+
 
     // LOG_I("a:%lf %lf, b: %lf %lf, c: %lf %lf\n",
         // shaper_window.func_params.a, shaper_window.new_func_params.a,
@@ -424,7 +426,7 @@ bool AxisInputShaper::generateShapedFuncParams(FuncManager* func_manager, uint8_
     // {
         // func_manager.max_size = func_manager.getSize();
     // }
-    
+
 
     return true;
 }

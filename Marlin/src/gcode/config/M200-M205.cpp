@@ -269,7 +269,8 @@ void GcodeSuite::M204() {
 
     if (parser.seenval('D')) planner.settings.acceleration_to_deceleration_ratio = parser.value_linear_units();
 
-    planner.junction_deviation_mm = planner.corner_velocity_sqr * (SQRT(2.) - 1.) / _MAX(planner.settings.acceleration, planner.settings.travel_acceleration);
+    planner.junction_deviation_mm = planner.corner_velocity_sqr * (SQRT(2.) - 1.) /
+                                    _MAX(planner.settings.acceleration, planner.settings.travel_acceleration);
   }
 }
 
@@ -319,9 +320,10 @@ void GcodeSuite::M205() {
     #endif
     if (parser.seenval('V')) {
       const float corner_velocity = parser.value_linear_units();
-      if (WITHIN(corner_velocity, 0.0f, 50.0f)) {
+      if (WITHIN(corner_velocity, 0.0f, DEFAULT_CORNER_VELOCITY_MAX)) {
         planner.corner_velocity_sqr = corner_velocity * corner_velocity;
-        planner.junction_deviation_mm = planner.corner_velocity_sqr * (SQRT(2.) - 1.) / _MAX(planner.settings.acceleration, planner.settings.travel_acceleration);
+        planner.junction_deviation_mm = planner.corner_velocity_sqr * (SQRT(2.) - 1.) /
+                                        _MAX(planner.settings.acceleration, planner.settings.travel_acceleration);
         TERN_(LIN_ADVANCE, planner.recalculate_max_e_jerk());
       }
       else

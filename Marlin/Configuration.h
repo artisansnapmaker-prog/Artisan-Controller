@@ -1033,10 +1033,11 @@
  *   https://blog.kyneticcnc.com/2018/10/computing-junction-deviation-for-marlin.html
  */
 #if DISABLED(CLASSIC_JERK)
-  #define JUNCTION_DEVIATION_MM 0.01 // (mm) Distance from real junction edge
-  #define CORNER_VELOCITY 25
-  #define JD_HANDLE_SMALL_SEGMENTS    // Use curvature estimation instead of just the junction angle
-                                      // for small segments (< 1mm) with large junction angles (> 135°).
+  #define JUNCTION_DEVIATION_MM 0.01        // (mm) Distance from real junction edge
+  #define DEFAULT_CORNER_VELOCITY     5.0   // mm/s
+  #define DEFAULT_CORNER_VELOCITY_MAX 10.0  // mm/s
+  #define JD_HANDLE_SMALL_SEGMENTS          // Use curvature estimation instead of just the junction angle
+                                            // for small segments (< 1mm) with large junction angles (> 135°).
 #endif
 
 /**

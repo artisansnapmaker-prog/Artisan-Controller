@@ -218,7 +218,6 @@ typedef struct SettingsDataStruct {
   planner_settings_t planner_settings;
 
   xyze_float_t planner_max_jerk;                        // M205 XYZE  planner.max_jerk
-  float planner_junction_deviation_mm;                  // M205 J     planner.junction_deviation_mm
   float planner_corner_velocity_sqr;                    // M205 V     planner.corner_velocity_sqr
 
   //
@@ -575,6 +574,10 @@ void MarlinSettings::postprocess() {
   // steps per s2 needs to be updated to agree with units per s2
   planner.reset_acceleration_rates();
 
+  // calculate junction_deviation per corner_velocity_sqr
+  planner.junction_deviation_mm = planner.corner_velocity_sqr * (SQRT(2.) - 1.) /
+                                  _MAX(planner.settings.acceleration, planner.settings.travel_acceleration);
+
   // Make sure delta kinematics are updated before refreshing the
   // planner position so the stepper counts will be set correctly.
   TERN_(DELTA, recalc_delta_settings());
@@ -747,7 +750,6 @@ void MarlinSettings::postprocess() {
       #endif
 
       TERN_(CLASSIC_JERK, dummyf = 0.02f);
-      EEPROM_WRITE(TERN(CLASSIC_JERK, dummyf, planner.junction_deviation_mm));
       EEPROM_WRITE(planner.corner_velocity_sqr);
     }
 
@@ -1669,7 +1671,6 @@ void MarlinSettings::postprocess() {
           for (uint8_t q = LOGICAL_AXES; q--;) EEPROM_READ(dummyf);
         #endif
 
-        EEPROM_READ(TERN(CLASSIC_JERK, dummyf, planner.junction_deviation_mm));
         EEPROM_READ(planner.corner_velocity_sqr);
       }
 
@@ -2782,7 +2783,7 @@ void MarlinSettings::reset() {
 
   // TERN_(HAS_JUNCTION_DEVIATION, planner.junction_deviation_mm = float(JUNCTION_DEVIATION_MM));
   #if HAS_JUNCTION_DEVIATION
-    planner.corner_velocity_sqr = float(CORNER_VELOCITY);
+    planner.corner_velocity_sqr = sq(DEFAULT_CORNER_VELOCITY);
     planner.junction_deviation_mm = planner.corner_velocity_sqr * (SQRT(2.) - 1.) / _MAX(planner.settings.acceleration, planner.settings.travel_acceleration);
   #endif
 

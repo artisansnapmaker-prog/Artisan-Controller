@@ -613,7 +613,8 @@ err_code_t JobCtrl::machine_standby(void) {
     break;
   }
 
-  if (TH_TYPE_3DP == _env.type || TH_TYPE_CNC == _env.type) {
+  if (TH_TYPE_3DP == _env.type || TH_TYPE_CNC == _env.type || \
+      (TH_TYPE_LASER == _env.type && smprinter.get_sys_status() == SYSTEM_STATUS_STOPING)) {
     LOG_I("job_ctrl: Z raise to highest\r\n");
     bool leveling_active = planner.leveling_active;
     constexpr xyz_float_t endstop_backoff = HOMING_BACKOFF_POST_MM;
@@ -635,7 +636,7 @@ err_code_t JobCtrl::machine_standby(void) {
     if (leveling_active)
       set_bed_leveling_enabled(true);
 
-    if (TH_TYPE_3DP == _env.type) {
+    if (TH_TYPE_3DP == _env.type || TH_TYPE_LASER == _env.type) {
       LOG_I("job_ctrl: y move to fronthead\r\n");
       motion_platform_svc.update_position_from_platform();
       t_pos = motion_platform_svc.sm_current_position;

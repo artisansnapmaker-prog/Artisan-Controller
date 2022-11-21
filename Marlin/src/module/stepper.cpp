@@ -2348,7 +2348,13 @@ uint32_t Stepper::block_phase_isr() {
           constexpr bool is_sync_fans = false;
         #endif
 
-        if (!is_sync_fans) _set_position(current_block->position);
+        if (!is_sync_fans) {
+          if (current_block->is_sync_e) {
+            _set_e_position(current_block->position.e);
+          } else {
+            _set_position(current_block->position);
+          }
+        }
 
         discard_current_block();
 
@@ -3199,6 +3205,10 @@ void Stepper::_set_position(const abce_long_t &spos) {
     // default non-h-bot planning
     count_position = spos;
   #endif
+}
+
+void Stepper::_set_e_position(const_float_t spos_e) {
+  count_position.e = spos_e;
 }
 
 /**

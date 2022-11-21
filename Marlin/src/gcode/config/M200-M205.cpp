@@ -216,10 +216,51 @@ void GcodeSuite::M204() {
   else {
     //planner.synchronize();
     // 'S' for legacy compatibility. Should NOT BE USED for new development
-    if (parser.seenval('S')) planner.settings.travel_acceleration = planner.settings.acceleration = parser.value_linear_units();
-    if (parser.seenval('P')) planner.settings.acceleration = parser.value_linear_units();
-    if (parser.seenval('R')) planner.settings.retract_acceleration = parser.value_linear_units();
-    if (parser.seenval('T')) planner.settings.travel_acceleration = parser.value_linear_units();
+    #if ENABLED(LIMITED_MAX_STARTING_ACCEL_EDITING)
+      float accel = 0;
+      if (parser.seenval('S')) {
+        float limit_acceleration = ((DEFAULT_MAX_STARTING_ACCELERATION) < (DEFAULT_MAX_STARTING_TRAVEL_ACCELERATION) ? \
+                                  (DEFAULT_MAX_STARTING_ACCELERATION) : (DEFAULT_MAX_STARTING_TRAVEL_ACCELERATION));
+        accel = parser.value_linear_units();
+        if (limit_acceleration < accel) {
+          accel = limit_acceleration;
+          SERIAL_ECHOLNPGM_P("M204 param limit, setting S", LINEAR_UNIT(accel));
+        }
+        planner.settings.travel_acceleration = planner.settings.acceleration = accel;
+      }
+
+      if (parser.seenval('P')) {
+        accel = parser.value_linear_units();
+        if (DEFAULT_MAX_STARTING_ACCELERATION < accel) {
+          accel = DEFAULT_MAX_STARTING_ACCELERATION;
+          SERIAL_ECHOLNPGM_P("M204 param limit, setting P", LINEAR_UNIT(accel));
+        }
+        planner.settings.acceleration = accel;
+      }
+
+      if (parser.seenval('R')) {
+        accel = parser.value_linear_units();
+        if (DEFAULT_MAX_STARTING_RETRACT_ACCELERATION < accel) {
+          accel = DEFAULT_MAX_STARTING_RETRACT_ACCELERATION;
+          SERIAL_ECHOLNPGM_P("M204 param limit, setting R", LINEAR_UNIT(accel));
+        }
+        planner.settings.retract_acceleration = accel;
+      }
+
+      if (parser.seenval('T')) {
+        accel = parser.value_linear_units();
+        if (DEFAULT_MAX_STARTING_TRAVEL_ACCELERATION < accel) {
+          accel = DEFAULT_MAX_STARTING_TRAVEL_ACCELERATION;
+          SERIAL_ECHOLNPGM_P("M204 param limit, setting T", LINEAR_UNIT(accel));
+        }
+        planner.settings.travel_acceleration = accel;
+      }
+    #else
+      if (parser.seenval('S')) planner.settings.travel_acceleration = planner.settings.acceleration = parser.value_linear_units();
+      if (parser.seenval('P')) planner.settings.acceleration = parser.value_linear_units();
+      if (parser.seenval('R')) planner.settings.retract_acceleration = parser.value_linear_units();
+      if (parser.seenval('T')) planner.settings.travel_acceleration = parser.value_linear_units();
+    #endif
   }
 }
 
@@ -268,12 +309,12 @@ void GcodeSuite::M205() {
     #endif
     if (parser.seenval('J')) {
       const float junc_dev = parser.value_linear_units();
-      if (WITHIN(junc_dev, 0.01f, 0.3f)) {
+      if (WITHIN(junc_dev, 0.01f, 0.1f)) {
         planner.junction_deviation_mm = junc_dev;
         TERN_(LIN_ADVANCE, planner.recalculate_max_e_jerk());
       }
       else
-        SERIAL_ERROR_MSG("?J out of range (0.01 to 0.3)");
+        SERIAL_ERROR_MSG("?J out of range (0.01 to 0.1)");
     }
   #endif
   #if HAS_CLASSIC_JERK

@@ -510,8 +510,8 @@ err_code_t EmergencyHandler::hmi_cb_req_recovery_job(void *obj, sacp_hmi_message
   msg->cmd_id = CMD_ID_JOB_CTRL_NOTIFY_POWERLOSS_RECOVERY;
   msg->attr   = 0;
 
-  LOG_I("EmergencyHandler: recover pos: X%.3f, Y%.3f, Z%.3f, I%.3f, J%3.f\n", job_env->current_pos.x,
-          job_env->current_pos.y, job_env->current_pos.z, job_env->current_pos.i, job_env->current_pos.j);
+  LOG_I("EmergencyHandler: recover pos: X%.3f, Y%.3f, Z%.3f, I%.3f, J%3.f, E%3.f\n", job_env->current_pos.x,
+          job_env->current_pos.y, job_env->current_pos.z, job_env->current_pos.i, job_env->current_pos.j, job_env->current_pos.e);
 
   uint32_t next_ms;
   switch (smprinter.get_toolhead_type()) {
@@ -530,13 +530,15 @@ err_code_t EmergencyHandler::hmi_cb_req_recovery_job(void *obj, sacp_hmi_message
       }
 
       uint8_t active_extruder = ((fdm_recovery_data_t *)(job_env->toolhead_env_buf))->active_extruder;
-      if (active_extruder == 0)
-        motion_platform_svc.run_gcode((char *)"M104 T0 S120");
-
-      if (fdm->get_device_id() == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
-        if (active_extruder == 1)
-          motion_platform_svc.run_gcode((char *)"M104 T1 S120");
+      if ((active_extruder > 0 && fdm->get_device_id() != MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) ||
+          (active_extruder > 1)) {
+        msg->data[0] = E_FAILURE;
+        LOG_E("EmergencyHandler: invalid extruder: %u\n", active_extruder);
+        return host_hmi.send_sync(msg, recv_buff, &recv_length);
       }
+
+      if (motion_platform_svc.get_hotend_temp(active_extruder) < 120)
+        motion_platform_svc.set_hotend_temp(120, active_extruder);
 
       while(!motion_platform_svc.hotends_heatup_to_target()) {
         if (smprinter.is_in_motion_thread()) {
@@ -614,8 +616,8 @@ void EmergencyHandler::background() {
   JobEnv *jenv = (JobEnv *)env;
   if (powerloss_state == PIN_STATE_TRIGGERED) {
     powerloss_state = PIN_STATE_NORMAL;
-    LOG_I("powerloss pos: X%.3f, Y%.3f, Z%.3f, I%.3f, J%3.f, save checksum: 0x%x, read checksum: 0x%x cal checksum: 0x%x\n", jenv->current_pos.x,
-            jenv->current_pos.y, jenv->current_pos.z, jenv->current_pos.i, jenv->current_pos.j, write_flash_checksum, \
+    LOG_I("powerloss pos [X%.3f, Y%.3f, Z%.3f, I%.3f, J%3.f, E%3.f] checksum [save: 0x%x, read: 0x%x cal: 0x%x]\n", jenv->current_pos.x,
+            jenv->current_pos.y, jenv->current_pos.z, jenv->current_pos.i, jenv->current_pos.j, jenv->current_pos.e, write_flash_checksum, \
             *((uint32_t*)(ENV_START_IN_FLASH + ENV_CHECKSUM_ADDR)), host_hmi.calculate_checksum(env, JOB_ENV_MAX_SIZE - 4));
     system_svc.raise_exception(MODULE_DEVICE_ID_A400_EMERGENCY_STOP, EMERGENCY_STOP_EXCEP_STA_TRIGGERRED,
       EXCEP_ACT_ALL&(~EXCEP_ACT_DISABLE_POWER_HMI), EXCEP_BAN_ALL);
@@ -629,8 +631,8 @@ void EmergencyHandler::background() {
     job_cb_notify_emergency_stop(&msg_notify_stop, E_SUCCESS);
 
     if (button_state == PIN_STATE_TRIGGERED) {
-      LOG_I("emergency stop pos: X%.3f, Y%.3f, Z%.3f, I%.3f, J%3.f, save checksum: 0x%x, read checksum: 0x%x cal checksum: 0x%x\n", jenv->current_pos.x,
-              jenv->current_pos.y, jenv->current_pos.z, jenv->current_pos.i, jenv->current_pos.j, write_flash_checksum, \
+      LOG_I("emergency stop pos [X%.3f, Y%.3f, Z%.3f, I%.3f, J%3.f, E%3.f] checksum [save: 0x%x, read: 0x%x cal: 0x%x]\n", jenv->current_pos.x,
+              jenv->current_pos.y, jenv->current_pos.z, jenv->current_pos.i, jenv->current_pos.j, jenv->current_pos.e, write_flash_checksum, \
             *((uint32_t*)(ENV_START_IN_FLASH + ENV_CHECKSUM_ADDR)), host_hmi.calculate_checksum(env, JOB_ENV_MAX_SIZE - 4));
     }
   }

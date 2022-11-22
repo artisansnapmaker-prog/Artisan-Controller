@@ -696,6 +696,10 @@ void MotionPlatformService::set_hotend_temp(int16_t temp, int e) {
   thermalManager.setTargetHotend(temp, HID_E0 + e);
 }
 
+float MotionPlatformService::get_hotend_temp(int e) {
+  return thermalManager.degHotend(e);
+}
+
 int16_t MotionPlatformService::get_bed_temp(int zone_index) {
   switch (zone_index) {
   case 0:

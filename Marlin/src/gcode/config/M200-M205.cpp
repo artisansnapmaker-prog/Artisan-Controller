@@ -219,14 +219,19 @@ void GcodeSuite::M204() {
     #if ENABLED(LIMITED_MAX_STARTING_ACCEL_EDITING)
       float accel = 0;
       if (parser.seenval('S')) {
-        float limit_acceleration = ((DEFAULT_MAX_STARTING_ACCELERATION) < (DEFAULT_MAX_STARTING_TRAVEL_ACCELERATION) ? \
-                                  (DEFAULT_MAX_STARTING_ACCELERATION) : (DEFAULT_MAX_STARTING_TRAVEL_ACCELERATION));
-        accel = parser.value_linear_units();
-        if (limit_acceleration < accel) {
-          accel = limit_acceleration;
-          SERIAL_ECHOLNPGM_P("M204 param limit, setting S", LINEAR_UNIT(accel));
+        float accel_bak = 0;
+        accel = accel_bak = parser.value_linear_units();
+        if (DEFAULT_MAX_STARTING_ACCELERATION < accel_bak) {
+          accel_bak = DEFAULT_MAX_STARTING_ACCELERATION;
+          SERIAL_ECHOLNPGM_P("M204 param limit, setting P", LINEAR_UNIT(accel_bak));
         }
-        planner.settings.travel_acceleration = planner.settings.acceleration = accel;
+        planner.settings.acceleration = accel_bak;
+
+        if (DEFAULT_MAX_STARTING_TRAVEL_ACCELERATION < accel) {
+          accel = DEFAULT_MAX_STARTING_TRAVEL_ACCELERATION;
+          SERIAL_ECHOLNPGM_P("M204 param limit, setting T", LINEAR_UNIT(accel));
+        }
+        planner.settings.travel_acceleration = accel;
       }
 
       if (parser.seenval('P')) {

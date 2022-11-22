@@ -60,14 +60,16 @@ class Axis {
     }
 
     void initShaper() {
-        if (axis > 1) {
+        if (axis != X_AXIS && axis != Y_AXIS) {
+            is_shaped = false;
+            axis_input_shaper = nullptr;
             return;
         }
-        if (axis_input_shaper == nullptr && axis == 0) {
+        if (axis_input_shaper == nullptr && axis == X_AXIS) {
             axis_input_shaper = &AxisInputShaper::axis_input_shaper_x;
             axis_input_shaper->setAxis(axis);
         }
-        if (axis_input_shaper == nullptr && axis == 1) {
+        if (axis_input_shaper == nullptr && axis == Y_AXIS) {
             axis_input_shaper = &AxisInputShaper::axis_input_shaper_y;
             axis_input_shaper->setAxis(axis);
         }

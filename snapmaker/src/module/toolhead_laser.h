@@ -189,6 +189,7 @@ class ToolHeadLaser: public ModuleBase {
     err_code_t set_master_switch(bool state);
     void check_master_switch(uint16_t new_power_pwm);
     void if_disable_switch();
+    void check_insert_enclosure(void);
 
     static void can_cb_handle_security_status(void *obj, uint8_t *data, uint8_t length);
     // callback for module event and routine

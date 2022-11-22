@@ -495,6 +495,7 @@ static void system_thread(void *p) {
 
   LinearVirtual::check_initialization();
 
+  smprinter.laser_enable_env_check();
   if (smprinter.get_toolhead_type() == TH_TYPE_UNKNOW) {
     LOG_E("No toolhead plugged!\n");
     system_svc.raise_exception(MODULE_DEVICE_ID_A400_CONTROLLER, CONTROLLER_EXCEP_STA_NO_TOOLHEAD,
@@ -843,6 +844,7 @@ uint8_t SnapmakerPrinter::get_enclosure_door_status(void) {
     door_sta = enclosure->get_door_check();
   return door_sta;
 }
+
 void SnapmakerPrinter::security_check() {
   uint8_t door_sta = 0;
 
@@ -856,7 +858,7 @@ void SnapmakerPrinter::security_check() {
     if (door_sta)
       limit_power = LASER_POWER_SAFE_LIMIT;
 
-    if (laser->get_safety_lock())
+    if (laser->get_safety_lock() || !smprinter.enclosure_is_insert())
       limit_power = LASER_POWER_SAFE_LOCK_LIMIT;
 
     if (laser->get_power_limit() !=  limit_power)

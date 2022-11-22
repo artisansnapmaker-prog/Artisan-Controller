@@ -30,6 +30,7 @@
 
 #define MODULE_EXCEP_BIT_TUBE_TEMP_TOO_LOW    (1<<0)
 #define MODULE_EXCEP_BIT_IMU_OVERTEMP         (1<<1)
+#define MODULE_EXCEP_BIT_NO_INSERT_ENCLOSURE  (1<<2)
 
 // P1/2/3 step timer channel in GD32F407
 // P1 step, PE14: T0 CH3
@@ -1662,6 +1663,8 @@ void ToolHeadLaser::show_status() {
   LOG_I("platform hight: %d\n", smsettings->laser_platform_hight);
   LOG_I("4axis center hight: %d\n", smsettings->laser_4axis_center_hight);
   LOG_I("safety_lock: %s\n", safety_lock ? "LOCK" : "UNLOCK");
+  LOG_I("power_limit: %f\n", power_limit);
+  LOG_I("exception_state: 0x%x\n", exception_state);
 }
 
 typedef struct __packed LaserEnv {
@@ -1775,6 +1778,9 @@ err_code_t ToolHeadLaser::prepare_start(void) {
     else if (exception_state & MODULE_EXCEP_BIT_IMU_OVERTEMP) {
       ret = E_JOB_LASER_IMU_OVERTEMP;
     }
+    else if (exception_state & MODULE_EXCEP_BIT_NO_INSERT_ENCLOSURE) {
+      ret = E_JOB_LASER_NO_INSERT_ENCLOSURE;
+    }
   }
 
   if (ret != E_SUCCESS)
@@ -1861,4 +1867,21 @@ void ToolHeadLaser::start_work_reset_feedrate() {
 void ToolHeadLaser::stop_work_reset_feedrate() {
   feedrate_percentage = 100;
   motion_platform_svc.sync_feedrate_percentage_to_platform(feedrate_percentage);
+}
+
+void ToolHeadLaser::check_insert_enclosure() {
+  bool insert_enclosure = smprinter.enclosure_is_insert();
+  if (insert_enclosure) {
+    if (exception_state & MODULE_EXCEP_BIT_NO_INSERT_ENCLOSURE) {
+      exception_state &= (~MODULE_EXCEP_BIT_NO_INSERT_ENCLOSURE);
+      system_svc.clear_exception(get_device_id(), LASER_EXCEP_STA_NO_INSERT_ENCLOSURE);
+    }
+  }
+  else {
+    if (!(exception_state & MODULE_EXCEP_BIT_NO_INSERT_ENCLOSURE)) {
+      exception_state |= (MODULE_EXCEP_BIT_NO_INSERT_ENCLOSURE);
+      system_svc.raise_exception(get_device_id(), LASER_EXCEP_STA_NO_INSERT_ENCLOSURE,  EXCEP_ACT_STOP_WORKING, \
+              EXCEP_BAN_TURN_ON_LASER | EXCEP_BAN_WORKING);
+    }
+  }
 }

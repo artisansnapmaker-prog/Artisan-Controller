@@ -274,6 +274,7 @@ enum LaserExceptionState {
   LASER_EXCEP_STA_IMU_TEMP_TOO_HIGH,
   LASER_EXCEP_STA_PLUGGED_ERROR_PORT,
   LASER_EXCEP_STA_OFFLINE,
+  LASER_EXCEP_STA_NO_INSERT_ENCLOSURE,
 };
 
 
@@ -564,6 +565,7 @@ class SnapmakerPrinter
 
     // LASER
     void set_laser_fan_speed(uint16_t speed) {}
+    void laser_enable_env_check(void) { if (laser) laser->check_insert_enclosure(); }
 
     // DryBox
     void set_drybox_temp(int16_t heater_temp, int16_t chamber_temp) {
@@ -583,6 +585,8 @@ class SnapmakerPrinter
 
     // ENCLOSURE
     bool enclosure_online_check(void) { return (enclosure && enclosure->check_online()); }
+    // the enclosure is considered to be inserted if enclosure pointer is not NULL
+    bool enclosure_is_insert(void) { return !!enclosure; }
     void set_enclosure_light_bar(uint8_t new_level);
     void set_enclosure_fan_speed(uint8_t new_speed);
     void report_enclosure_status(void);

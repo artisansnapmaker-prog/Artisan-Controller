@@ -141,7 +141,9 @@ class AxisManager {
     Axis axis[NUM_AXIS];
     Axis axis_t0_t1;
 
-    volatile bool req_abort;
+    // make req_abort be true by default, it will be set to false after initializing.
+    // then cannot moving or setup input shaper before initializing axis manager
+    volatile bool req_abort = true;
 
     // MoveQueue
     bool need_add_move_start = true;

@@ -20,6 +20,10 @@ void AxisManager::input_shaper_reset() {
 }
 
 err_code_t AxisManager::input_shaper_set(int axis, int type, float freq, float dampe)  {
+  if (req_abort) {
+    SERIAL_ECHO_MSG("cannot set input shaper during aborting moving!\n");
+    return E_FAILURE;
+  }
 
   if (axis != X_AXIS && axis != Y_AXIS) return E_PARAM;
 

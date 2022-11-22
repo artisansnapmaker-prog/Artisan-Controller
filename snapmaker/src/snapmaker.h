@@ -390,6 +390,8 @@ class SnapmakerPrinter
     }
 
     // FDM
+    uint8_t homing_active_extruder_record(void);
+    void homing_active_extruder_clean();
     void set_probe_sensor(probe_sensor_t sensor) {
       if (fdm) {
         fdm->set_probe_sensor(sensor);

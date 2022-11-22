@@ -1818,6 +1818,18 @@ void SnapmakerPrinter::resume_relative_position_clear(uint8_t cmd_mark) {
   }
 }
 
+uint8_t SnapmakerPrinter::homing_active_extruder_record(void) {
+  if (fdm)
+    return fdm->homing_active_extruder_record();
+  else
+    return HOTEND_INVALID_INDEX;
+}
+
+void SnapmakerPrinter::homing_active_extruder_clean(void) {
+  if (fdm)
+    fdm->homing_active_extruder_clean();
+}
+
 extern "C" {
   // hook for failing to apply memory in freeRTOS
   void vApplicationMallocFailedHook( void ) {

@@ -2025,7 +2025,10 @@ void fdm_callback_start_print(void *obj, uint8_t status_before_start) {
 err_code_t ToolHeadFDM::save_env(uint8_t *env_buf, uint32_t &len) {
   fdm_recovery_data_t recovery_data;
 
-  recovery_data.active_extruder = active_extruder;
+  if (active_extruder_bak >= EXTRUDERS)
+    recovery_data.active_extruder = active_extruder;
+  else
+    recovery_data.active_extruder = active_extruder_bak;
   recovery_data.flowrate_percentage[0] = extruders_flowrate_percentage[0];
   recovery_data.flowrate_percentage[1] = extruders_flowrate_percentage[1];
   // LOG_I("save env, active_extruder: %d\n", active_extruder);
@@ -2502,4 +2505,19 @@ void ToolHeadFDM::start_work_reset_feedrate() {
 
 void ToolHeadFDM::stop_work_reset_feedrate() {
   prepare_to_start_a_new_print_job();
+}
+
+uint8_t ToolHeadFDM::homing_active_extruder_record(void) {
+  if (motion_platform_svc.homing_now)
+    active_extruder_bak = active_extruder;
+  else
+    LOG_I("[%s] the current state does not allow logging\n", __FUNCTION__);
+  return active_extruder_bak;
+}
+
+void ToolHeadFDM::homing_active_extruder_clean(void) {
+  if (motion_platform_svc.homing_now)
+    active_extruder_bak = HOTEND_INVALID_INDEX;
+  else
+    LOG_I("[%s] the current state does not allow clear\n", __FUNCTION__);
 }

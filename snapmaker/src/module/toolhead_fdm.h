@@ -57,6 +57,7 @@
 #define SINGLE_EXTRUDER_STEPS_PER_UNIT_DEFAULT  212.21
 #define DUAL_EXTRUDER_STEPS_PER_UNIT_DEFAULT    667.222
 
+#define HOTEND_INVALID_INDEX  0xFF
 
 /****************************************************************************************
 reference links: https://snapmaker2.atlassian.net/wiki/spaces/SNAP/pages/1984987369/FDM
@@ -183,6 +184,7 @@ class ToolHeadFDM: public ModuleBase {
       extruder_info  = 0;
       active_extruder = 0;
       target_extruder = 0;
+      active_extruder_bak = HOTEND_INVALID_INDEX;
       hotend_type_initialized = false;
       memset(hotend_offset, 0, sizeof(hotend_offset));
       last_recv_time = 0;
@@ -271,6 +273,8 @@ class ToolHeadFDM: public ModuleBase {
     void reset_e_steps_per_unit();
     void reset_home_offset();
     err_code_t set_right_extruder_pos(float raise_for_home_pos, float z_max_pos);
+    uint8_t homing_active_extruder_record(void);
+    void homing_active_extruder_clean(void);
 
   // private methods
   private:
@@ -291,6 +295,7 @@ class ToolHeadFDM: public ModuleBase {
     hotend_temp_t hotend_temp[EXTRUDERS];
     uint8_t filament_state;
     uint8_t active_extruder;
+    uint8_t active_extruder_bak;
     uint8_t target_extruder;
     probe_sensor_t active_probe_sensor;
     uint8_t filament_detect_mask;

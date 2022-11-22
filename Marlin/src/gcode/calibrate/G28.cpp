@@ -216,6 +216,7 @@ void GcodeSuite::G28() {
   if (DEBUGGING(LEVELING)) log_machine_info();
 
   #if MB_SNAPMAKER
+    uint8_t old_active_extruder = HOTEND_INVALID_INDEX;
     if (!smprinter.allow_homing()) {
       LOG_E("system exception! cannot home!\n");
       return;
@@ -397,6 +398,7 @@ void GcodeSuite::G28() {
       if (smprinter.get_toolhead_type() == TH_TYPE_3DP) {
         if (smprinter.fdm->get_device_id() == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
           doX = doY = doZ = true;
+          old_active_extruder = smprinter.homing_active_extruder_record();
           smprinter.tool_change(0);
         }
       }
@@ -416,6 +418,7 @@ void GcodeSuite::G28() {
           if (smprinter.right_extruder_move_to_destination(GO_HOME) != E_SUCCESS) {
             LOG_I("right extruder go home failed\n");
             smprinter.raise_exception(SM_EXCEP_OWNER_TOOLHEAD, FDM_EXCEP_STA_EXTRUDER_HOME_FAILED, EXCEP_ACT_PAUSE_WORKING, EXCEP_BAN_WORKING);
+            smprinter.homing_active_extruder_clean();
             return;
           }
           else {
@@ -571,6 +574,11 @@ void GcodeSuite::G28() {
       if (!ENABLED(ENDSTOPS_ALWAYS_ON_DEFAULT) && (!(smprinter.get_sys_status() >= SYSTEM_STATUS_AUTO_BEDLEVEL && \
         smprinter.get_sys_status() <= SYSTEM_STATUS_PROBE_SENSOR_CALIBRATION))) {
         endstops.enable_z_probe(false);
+      }
+
+      if (smprinter.fdm->get_device_id() == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
+        smprinter.tool_change(old_active_extruder);
+        smprinter.homing_active_extruder_clean();
       }
     }
   #endif

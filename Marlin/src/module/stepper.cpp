@@ -625,29 +625,40 @@ void Stepper::set_directions() {
   TERN_(HAS_J_DIR, SET_STEP_DIR(J));
   TERN_(HAS_K_DIR, SET_STEP_DIR(K));
 
-  #if DISABLED(LIN_ADVANCE)
-    #if ENABLED(MIXING_EXTRUDER)
-       // Because this is valid for the whole block we don't know
-       // what e-steppers will step. Likely all. Set all.
-      if (motor_direction(E_AXIS)) {
-        MIXER_STEPPER_LOOP(j) REV_E_DIR(j);
-        count_direction.e = -1;
-      }
-      else {
-        MIXER_STEPPER_LOOP(j) NORM_E_DIR(j);
-        count_direction.e = 1;
-      }
-    #elif HAS_EXTRUDERS
-      if (motor_direction(E_AXIS)) {
-        REV_E_DIR(stepper_extruder);
-        count_direction.e = -1;
-      }
-      else {
-        NORM_E_DIR(stepper_extruder);
-        count_direction.e = 1;
-      }
-    #endif
-  #endif // !LIN_ADVANCE
+  #if MB_SNAPMAKER
+    if (motor_direction(E_AXIS)) {
+      REV_E_DIR(stepper_extruder);
+      count_direction.e = -1;
+    }
+    else {
+      NORM_E_DIR(stepper_extruder);
+      count_direction.e = 1;
+    }
+  #else
+    #if DISABLED(LIN_ADVANCE)
+      #if ENABLED(MIXING_EXTRUDER)
+        // Because this is valid for the whole block we don't know
+        // what e-steppers will step. Likely all. Set all.
+        if (motor_direction(E_AXIS)) {
+          MIXER_STEPPER_LOOP(j) REV_E_DIR(j);
+          count_direction.e = -1;
+        }
+        else {
+          MIXER_STEPPER_LOOP(j) NORM_E_DIR(j);
+          count_direction.e = 1;
+        }
+      #elif HAS_EXTRUDERS
+        if (motor_direction(E_AXIS)) {
+          REV_E_DIR(stepper_extruder);
+          count_direction.e = -1;
+        }
+        else {
+          NORM_E_DIR(stepper_extruder);
+          count_direction.e = 1;
+        }
+      #endif
+    #endif // !LIN_ADVANCE
+  #endif
 
   #if HAS_L64XX
     if (L64XX_OK_to_power_up) { // OK to send the direction commands (which powers up the L64XX steppers)

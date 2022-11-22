@@ -116,7 +116,7 @@ FORCE_INLINE bool Axis::generateEAxisFuncParams(uint8_t block_index, uint8_t mov
         float a = 0.5f * move->accelerate * move->axis_r[axis];
         float b, c;
 
-        if (delta_v < 0 && move->start_v + delta_v > 0 && move->end_v + delta_v < 0) {
+        if (eda < 0 && move->start_v + delta_v > 0 && move->end_v + delta_v < 0) {
             float zero_t = ABS((move->start_v + delta_v) / move->accelerate);
             float zero_pos = ((move->start_v + delta_v) * zero_t + 0.5f * move->accelerate * sq(zero_t)) * move->axis_r[axis];
 

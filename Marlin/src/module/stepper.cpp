@@ -1773,6 +1773,7 @@ void Stepper::pulse_phase_isr() {
         PULSE_START(E);
         PULSE_PREP(E);
         PULSE_STOP(E);
+        step_events_completed++;
     }
 
     axis_stepper.axis = -1;
@@ -2112,6 +2113,10 @@ uint32_t Stepper::block_phase_isr() {
 
       if (axis_stepper.print_time >= block_print_time) {
         runout.block_completed(current_block);
+        #if MB_SNAPMAKER
+          motion_platform_svc.add_stepper_offset(current_block->e_stepper_offset);
+          motion_platform_svc.update_stepper_actual_pos(current_block->e_actual_stepps_counter);
+        #endif
         discard_current_block();
       }
       done_count = 0;
@@ -2135,6 +2140,10 @@ uint32_t Stepper::block_phase_isr() {
       // if (is_done) {
         if (current_block) {
           runout.block_completed(current_block);
+          #if MB_SNAPMAKER
+            motion_platform_svc.add_stepper_offset(current_block->e_stepper_offset);
+            motion_platform_svc.update_stepper_actual_pos(current_block->e_actual_stepps_counter);
+          #endif
           discard_current_block();
           axisManager.abort();
           is_start = true;
@@ -2512,7 +2521,7 @@ uint32_t Stepper::block_phase_isr() {
       }
 
       // // Based on the oversampling factor, do the calculations
-      // step_event_count = current_block->step_event_count << oversampling;
+      step_event_count = current_block->steps.e;
 
       // // Initialize Bresenham delta errors to 1/2
       // delta_error = -int32_t(step_event_count);
@@ -2522,7 +2531,7 @@ uint32_t Stepper::block_phase_isr() {
       // advance_divisor = step_event_count << 1;
 
       // // No step events completed so far
-      // step_events_completed = 0;
+      step_events_completed = 0;
 
       // // Compute the acceleration and deceleration points
       // accelerate_until = current_block->accelerate_until << oversampling;

@@ -2256,10 +2256,16 @@ bool Planner::_populate_block(block_t * const block, bool split_move,
     const float esteps_float = de * e_factor[extruder];
     const uint32_t esteps = ABS(esteps_float) + 0.5f;
     #if MB_SNAPMAKER
-    const uint32_t actual_esteps = ABS(de) + 0.5f;
-    block->e_stepper_offset = (esteps - actual_esteps) * ((de < 0)?-1:1);
-    block->e_actual_stepps_counter = actual_esteps * ((de < 0)?-1:1);
-    // LOG_I("block->e_stepper_offset: %d, total: %d\r\n", block->e_stepper_offset, motion_platform_svc.stepper_total_offset);
+    if (de) {
+      const uint32_t actual_esteps = ABS(de) + 0.5f;
+      block->e_stepper_offset = (esteps - actual_esteps) * ((de < 0)?-1:1);
+      block->e_actual_stepps_counter = actual_esteps * ((de < 0)?-1:1);
+      // LOG_I("block->e_stepper_offset: %d, total: %d\r\n", block->e_stepper_offset, motion_platform_svc.stepper_total_offset);
+    }
+    else {
+      block->e_stepper_offset = 0;
+      block->e_actual_stepps_counter = 0;
+    }
     #endif
   #else
     constexpr uint32_t esteps = 0;
@@ -2427,7 +2433,11 @@ bool Planner::_populate_block(block_t * const block, bool split_move,
       block->axis_r.x = da / block->millimeters;
       block->axis_r.y = db / block->millimeters;
       block->axis_r.z = dc / block->millimeters;
-      block->axis_r.e = de / block->millimeters;
+      #if MB_SNAPMAKER
+        block->axis_r.e = (int32_t)(esteps_float + 0.5) / block->millimeters;
+      #else
+        block->axis_r.e = de / block->millimeters;
+      #endif
   } else {
       block->axis_r.x = 0;
       block->axis_r.y = 0;

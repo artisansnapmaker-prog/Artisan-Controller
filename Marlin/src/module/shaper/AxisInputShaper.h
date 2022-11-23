@@ -88,7 +88,7 @@ public:
 
   float frequency = SHAPER_FREQ_DEFAULT;
   float zeta = SHAPER_ZETA_DEFAULT;
-  InputShaperType type = (InputShaperType)SHAPER_TYPE_DEFAULT;
+  InputShaperType type = none;
 
   float right_delta;
   float left_delta;

@@ -44,7 +44,8 @@ struct SnapmakerSettings {
   fdm_settings_t fdm_settings;
   PurifierWorkSettings purifier_settings;
   EnclosureSettings enclosure_settings;
-  ShaperSettings shaper_settings[SHAPER_AXIS_COUNT];
+  ShaperSettings fdm1_shaper_settings[SHAPER_AXIS_COUNT];
+  ShaperSettings fdm2_shaper_settings[SHAPER_AXIS_COUNT];
 };
 
 // settings defination

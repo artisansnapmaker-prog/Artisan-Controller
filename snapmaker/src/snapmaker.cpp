@@ -606,12 +606,6 @@ void SnapmakerPrinter::post_init() {
     }
   }
 
-  // restore settings for input shaper
-  for (int i = 0; i < SHAPER_AXIS_COUNT; i++) {
-    axisManager.input_shaper_set(i, (int)settings.shaper_settings[i].type,
-      settings.shaper_settings[i].freq, settings.shaper_settings[i].zeta);
-  }
-
   // enable power
   pinMode(POWER_CTRL_8P_TOOLHEAD, OUTPUT);
   // digitalWrite(POWER_CTRL_8P_TOOLHEAD, POWER_CTRL_ON);
@@ -658,6 +652,11 @@ void SnapmakerPrinter::register_module(uint16_t type, ModuleBase *module) {
   switch (type) {
   case MODULE_DEVICE_ID_FDM_1EXTRUDER_2019:
     fdm = (ToolHeadFDM *)module;
+    // restore settings for input shaper
+    for (int i = 0; i < SHAPER_AXIS_COUNT; i++) {
+      axisManager.input_shaper_set(i, (int)settings.fdm1_shaper_settings[i].type,
+        settings.fdm1_shaper_settings[i].freq, settings.fdm1_shaper_settings[i].zeta);
+    }
     break;
 
   case MODULE_DEVICE_ID_CNC_50W_2019:
@@ -703,6 +702,11 @@ void SnapmakerPrinter::register_module(uint16_t type, ModuleBase *module) {
 
   case MODULE_DEVICE_ID_FDM_2EXTRUDER_2021:
     fdm = (ToolHeadFDM *)module;
+    // restore settings for input shaper
+    for (int i = 0; i < SHAPER_AXIS_COUNT; i++) {
+      axisManager.input_shaper_set(i, (int)settings.fdm2_shaper_settings[i].type,
+        settings.fdm2_shaper_settings[i].freq, settings.fdm2_shaper_settings[i].zeta);
+    }
     break;
 
   case MODULE_DEVICE_ID_LASER_10W_2021:
@@ -1499,11 +1503,22 @@ void SnapmakerPrinter::reset_settings() {
 
   // reset input shaper settings
   for (int i = 0; i < SHAPER_AXIS_COUNT; i++) {
-    settings.shaper_settings[i].freq = SHAPER_FREQ_DEFAULT;
-    settings.shaper_settings[i].type = SHAPER_TYPE_DEFAULT;
-    settings.shaper_settings[i].zeta = SHAPER_ZETA_DEFAULT;
-    axisManager.input_shaper_set(i, (int)settings.shaper_settings[i].type,
-      settings.shaper_settings[i].freq, settings.shaper_settings[i].zeta);
+    settings.fdm1_shaper_settings[i].freq = SHAPER_FREQ_DEFAULT;
+    settings.fdm1_shaper_settings[i].type = SHAPER_TYPE_DEFAULT;
+    settings.fdm1_shaper_settings[i].zeta = SHAPER_ZETA_DEFAULT;
+    settings.fdm2_shaper_settings[i].freq = SHAPER_FREQ_DEFAULT;
+    settings.fdm2_shaper_settings[i].type = SHAPER_TYPE_DEFAULT;
+    settings.fdm2_shaper_settings[i].zeta = SHAPER_ZETA_DEFAULT;
+    if (fdm) {
+      if (fdm->get_device_id() == MODULE_DEVICE_ID_FDM_1EXTRUDER_2019) {
+        axisManager.input_shaper_set(i, (int)settings.fdm1_shaper_settings[i].type,
+          settings.fdm1_shaper_settings[i].freq, settings.fdm1_shaper_settings[i].zeta);
+      }
+      else if (fdm->get_device_id() == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
+        axisManager.input_shaper_set(i, (int)settings.fdm2_shaper_settings[i].type,
+          settings.fdm2_shaper_settings[i].freq, settings.fdm2_shaper_settings[i].zeta);
+      }
+    }
   }
 }
 

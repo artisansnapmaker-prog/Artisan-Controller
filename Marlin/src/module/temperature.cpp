@@ -447,6 +447,7 @@ PGMSTR(str_t_heating_failed, STR_T_HEATING_FAILED);
   TERN_(WATCH_BED, bed_watch_t Temperature::watch_bed); // = { 0 }
   IF_DISABLED(PIDTEMPBED, millis_t Temperature::next_bed_check_ms);
   #if ENABLED(SNAPMAKER_DOUBLE_ZONE_BED)
+    bool Temperature::global_mode = BED_GLOBAL_HEAT_MODE;
     uint8_t Temperature::active_bed_state = 0,
             Temperature::active_bed_index = 0;
   #endif
@@ -2091,6 +2092,23 @@ void Temperature::manage_heater() {
     #endif
   }
 #endif // HAS_TEMP_CHAMBER
+
+#if ENABLED(SNAPMAKER_DOUBLE_ZONE_BED)
+  void Temperature::set_bed_heat_mode(bool mode) {
+    // modification of the mode will correspond to modification of the target temperature of the partition
+    if (mode == BED_GLOBAL_HEAT_MODE) {
+      // global mode, all use central zone target temperature
+      int16_t temp = thermalManager.degTargetBed();
+      thermalManager.setTargetChamber(temp);
+    }
+    else {
+      // make sure only the central zone is heating
+      if (thermalManager.degTargetChamber() != 0)
+        thermalManager.setTargetChamber(0);
+    }
+    global_mode = !!mode;
+  }
+#endif
 
 #if HAS_TEMP_COOLER
   // For cooler temperature measurement.
@@ -3853,6 +3871,14 @@ void Temperature::isr() {
         SERIAL_CHAR(':');
         SERIAL_ECHO(getHeaterPower((heater_id_t)e));
       }
+    #endif
+
+    #if ENABLED(SNAPMAKER_DOUBLE_ZONE_BED)
+      SERIAL_ECHOPGM(" @B_ZONE: ");
+      if (thermalManager.get_bed_heat_mode() == BED_GLOBAL_HEAT_MODE)
+        SERIAL_ECHOPGM("GLOBAL");
+      else
+        SERIAL_ECHOPGM("CENTER");
     #endif
   }
 

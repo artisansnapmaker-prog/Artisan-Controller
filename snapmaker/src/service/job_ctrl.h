@@ -156,6 +156,7 @@ struct JobEnv {
   float travel_feadrate;
   uint16_t g0g1_relative_mode;
   int16_t bed_temp[BED_ZONE_MAX];
+  uint8_t bed_heat_mode;
   int8_t active_coordinate;
   uint32_t toolhead_env_buf_size;
   uint8_t toolhead_env_buf[MODULE_ENV_MAX_SIZE];

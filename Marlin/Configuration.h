@@ -202,6 +202,7 @@
 // Enable SNAPMAKER_DOUBLE_ZONE_BED will treat the chamber as a second hotbed
 #define SNAPMAKER_DOUBLE_ZONE_BED
 #if ENABLED(SNAPMAKER_DOUBLE_ZONE_BED)
+  #define DOUBLE_ZONE_BED_MAX_TEMP_LIMIT                          110
   #define DOUBLE_ZONE_BED_TOGETHER_ALLOW_MAX_TEMP                  80
 #endif
 

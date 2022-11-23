@@ -393,8 +393,11 @@ class Temperature {
     #if ENABLED(SNAPMAKER_DOUBLE_ZONE_BED)
       static uint8_t active_bed_state;
       static uint8_t active_bed_index;
+      static bool global_mode;
       static inline uint8_t get_double_heated_bed_info(void) {return active_bed_state;}
       static inline uint8_t get_double_heated_bed_index(void) {return active_bed_index;}
+      bool get_bed_heat_mode(void) { return !!global_mode; }
+      void set_bed_heat_mode(bool mode);
 	  #endif
     #if EITHER(AUTO_POWER_E_FANS, HAS_FANCHECK)
       static uint8_t autofan_speed[HOTENDS];
@@ -493,7 +496,7 @@ class Temperature {
       #endif
     #endif
 
-    #if MB_SNAPMAKER  
+    #if MB_SNAPMAKER
       static bool bed_inserted;
       static uint8_t bed_error_sta;
       bool get_bed_inserted(void) { return bed_inserted; }
@@ -819,6 +822,8 @@ class Temperature {
       static void setTargetBed(celsius_t celsius) {
         TERN_(AUTO_POWER_CONTROL, if (celsius) powerManager.power_on());
         #if ENABLED(SNAPMAKER_DOUBLE_ZONE_BED)
+          if (celsius > DOUBLE_ZONE_BED_MAX_TEMP_LIMIT)
+            celsius = DOUBLE_ZONE_BED_MAX_TEMP_LIMIT;
           // add maximum temperature limit for simultaneous heating of dual zone bed
           if (celsius > 0 && temp_chamber.target > 0) {
             celsius = _MIN(celsius, DOUBLE_ZONE_BED_TOGETHER_ALLOW_MAX_TEMP);
@@ -874,6 +879,8 @@ class Temperature {
       static void setTargetChamber(celsius_t celsius) {
         TERN_(AUTO_POWER_CONTROL, if (celsius) powerManager.power_on());
         #if ENABLED(SNAPMAKER_DOUBLE_ZONE_BED)
+          if (celsius > DOUBLE_ZONE_BED_MAX_TEMP_LIMIT)
+            celsius = DOUBLE_ZONE_BED_MAX_TEMP_LIMIT;
           // add maximum temperature limit for simultaneous heating of dual zone bed
           if (celsius > 0 && temp_bed.target > 0) {
             celsius = _MIN(celsius, DOUBLE_ZONE_BED_TOGETHER_ALLOW_MAX_TEMP);

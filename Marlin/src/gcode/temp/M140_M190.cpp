@@ -71,6 +71,16 @@ void GcodeSuite::M140_M190(const bool isM190) {
     }
   #endif
 
+  #if ENABLED(SNAPMAKER_DOUBLE_ZONE_BED)
+    bool heat_mode = BED_GLOBAL_HEAT_MODE;
+    if (parser.seen('M')) {
+      if (parser.has_value()) {
+        heat_mode = (bool)parser.value_bool();
+        thermalManager.set_bed_heat_mode(!!heat_mode);
+      }
+    }
+  #endif
+
   // Get the temperature from 'S' or 'R'
   bool no_wait_for_cooling = false;
   if (!got_temp) {
@@ -82,24 +92,21 @@ void GcodeSuite::M140_M190(const bool isM190) {
   if (!got_temp) return;
 
   #if ENABLED(SNAPMAKER_DOUBLE_ZONE_BED)
-    int16_t target_bed = -1;
-    if (parser.seen('T')) {
-        target_bed = parser.has_value() ? (int16_t)parser.value_int() : -1;
-        if (!WITHIN(target_bed, 0, 1) && target_bed != -1) {
-          LOG_E("Invalid Bed Indev.");
-          return;
-        }
-    }
+    heat_mode = thermalManager.get_bed_heat_mode();
+
+    // make sure only the central zone is heating
+    if (!heat_mode && thermalManager.degTargetChamber() != 0)
+      thermalManager.setTargetChamber(0);
+
     if (temp > 0 && !smprinter.allow_heating_bed()) {
       LOG_E("The bed is not allowed to be heated\n");
       return;
     }
-    if (target_bed == 0 || target_bed == -1) {
-      thermalManager.setTargetBed(temp);
-    }
-    if (target_bed == 1 || target_bed == -1) {
+
+    if (heat_mode == BED_GLOBAL_HEAT_MODE)
       thermalManager.setTargetChamber(temp);
-    }
+
+    thermalManager.setTargetBed(temp);
   #else
     thermalManager.setTargetBed(temp);
   #endif
@@ -110,10 +117,9 @@ void GcodeSuite::M140_M190(const bool isM190) {
 
   #if ENABLED(SNAPMAKER_DOUBLE_ZONE_BED)
     if (isM190) {
-      if (target_bed == 0 || target_bed == -1)
-        thermalManager.wait_for_bed(no_wait_for_cooling);
-      if (target_bed == 1 || target_bed == -1)
+      if (heat_mode == BED_GLOBAL_HEAT_MODE)
         thermalManager.wait_for_chamber(no_wait_for_cooling);
+      thermalManager.wait_for_bed(no_wait_for_cooling);
     }
   #else
     if (isM190)

@@ -26,6 +26,8 @@
 enum BedSacpRequestCommandId {
   SACP_CMD_ID_BED_GET_HEAD_INFO = 1,
   SACP_CMD_ID_BED_SET_TARGET_TEMP,
+  SACP_CMD_ID_BED_SET_HEAT_MODE,
+  SACP_CMD_ID_BED_SET_TARGET_TEMP_WITH_HEAT_MODE,
 
   // Fixed parameters, not modifiable
   SACP_CMD_ID_BED_END_INDEX,
@@ -33,6 +35,9 @@ enum BedSacpRequestCommandId {
 };
 
 #define SACP_BED_SUBSCRIBE_COMMANDID              0xa0
+
+#define BED_CENTER_HEAT_MODE               0
+#define BED_GLOBAL_HEAT_MODE               1
 
 #pragma pack(1)
 typedef struct {
@@ -60,6 +65,8 @@ class BedVirtual: public ModuleBase {
 
     friend err_code_t send_bed_info_to_hmi(void *obj, sacp_hmi_message_t *msg);
     friend err_code_t hmi_set_bed_target_temp(void *obj, sacp_hmi_message_t *msg);
+    friend err_code_t hmi_set_bed_heat_mode(void *obj, sacp_hmi_message_t *msg);
+    friend err_code_t hmi_set_bed_target_temp_with_heat_mode(void *obj, sacp_hmi_message_t *msg);
     friend uint16_t hmi_subscribe_bed_func(void *obj, uint8_t *buff);
 
     void bed_hmi_self_test_interface(uint8_t test_type, uint32_t param);

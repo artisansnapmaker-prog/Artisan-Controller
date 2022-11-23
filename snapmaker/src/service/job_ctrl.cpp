@@ -80,6 +80,7 @@ void JobCtrl::init(void) {
   _statistics_log_last_tick_ms = 0;
   _env.gfi_valid = false;
   _env.position_invalid = true;
+  _env.bed_heat_mode = BED_GLOBAL_HEAT_MODE;
   // abort_resume = false;
   req_stop_trigger = false;
   status_before_start = SYSTEM_STATUS_IDLE;
@@ -402,6 +403,7 @@ err_code_t JobCtrl::save_env(bool from_isr/*=false*/, bool save_all_info/*=true*
     for (int i = 0; i < BED_ZONE_MAX; i++) {
       _env.bed_temp[i] = motion_platform_svc.get_bed_temp(i);
     }
+    _env.bed_heat_mode = thermalManager.get_bed_heat_mode();
   }
 
   _env.device_id = cur_toolhead->get_device_id();
@@ -431,6 +433,7 @@ err_code_t JobCtrl::recover_env(void) {
       LOG_I("job_ctrl: recover zone[%d] temp to %d\r\n", i, _env.bed_temp[i]);
       motion_platform_svc.set_bed_temp(_env.bed_temp[i], i);
     }
+    thermalManager.set_bed_heat_mode(!!_env.bed_heat_mode);
   }
 
   if (E_SUCCESS != cur_toolhead->recover_env(_env.toolhead_env_buf, _env.toolhead_env_buf_size)) {
@@ -472,6 +475,7 @@ err_code_t JobCtrl::resume_env(JobResumeType rt) {
       LOG_I("job_ctrl: recover zone[%d] temp to %d\r\n", i, _env.bed_temp[i]);
       motion_platform_svc.set_bed_temp(_env.bed_temp[i], i);
     }
+    thermalManager.set_bed_heat_mode(!!_env.bed_heat_mode);
   }
 
   if (rt != RESUME_TYPE_LIVE_Z_OFFSET && TH_TYPE_3DP == _env.type) {

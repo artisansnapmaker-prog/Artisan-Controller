@@ -11,6 +11,7 @@ err_code_t send_bed_info_to_hmi(void *obj, sacp_hmi_message_t *msg) {
   BedVirtual &bed = *(BedVirtual *)obj;
   ZoneInfo *tmp_info = NULL;
   err_code_t result = E_FAILURE;
+  uint8_t mode_info_len = 0;
 
   if (!msg || !obj || msg->length != 1) {
     LOG_E("[%s] got a invalid parameter\n",__FUNCTION__);
@@ -38,12 +39,41 @@ err_code_t send_bed_info_to_hmi(void *obj, sacp_hmi_message_t *msg) {
     tmp_info->bed_index = 1;
     tmp_info->cur_temp = (int32_t)(thermalManager.degChamber() * 1000);
     tmp_info->target_temp = thermalManager.degTargetChamber();
+    *((uint8_t *)(msg->data + msg->data[2] * sizeof(ZoneInfo) + 3)) = thermalManager.get_bed_heat_mode();
+    mode_info_len = 1;
   #endif
-  result = host_hmi.send_ack(msg, msg->data, msg->data[2] * sizeof(ZoneInfo) + 3);
+  result = host_hmi.send_ack(msg, msg->data, msg->data[2] * sizeof(ZoneInfo) + 3 + mode_info_len);
   if (result != E_SUCCESS) {
     LOG_E("[%s] send msg fail\n",__FUNCTION__);
   }
   return result;
+}
+
+err_code_t hmi_set_bed_heat_mode(void *obj, sacp_hmi_message_t *msg) {
+  BedVirtual &bed = *(BedVirtual *)obj;
+
+  if (!msg || !obj || msg->length != 2) {
+    LOG_E("[%s] got a invalid parameter\n",__FUNCTION__);
+    return host_hmi.send_ack(msg, E_PARAM);
+  }
+
+  if (msg->data[0] != bed.get_key()) {
+    LOG_E("[%s] msg key is %d, obj key is %d, No processing\n",\
+      __FUNCTION__, msg->data[0], bed.get_key());
+    return host_hmi.send_ack(msg, E_INVALID_MODULE_KEY);
+  }
+
+  LOG_I("set: heat mode %d\n", msg->data[1]);
+  #if ENABLED(SNAPMAKER_DOUBLE_ZONE_BED)
+    if (msg->data[1] > BED_GLOBAL_HEAT_MODE) {
+      LOG_E("[%s] got a invalid heat mode\n",__FUNCTION__);
+      return host_hmi.send_ack(msg, E_PARAM);
+    }
+    taskENTER_CRITICAL();
+    thermalManager.set_bed_heat_mode(!!msg->data[1]);
+    taskEXIT_CRITICAL();
+  #endif
+  return host_hmi.send_ack(msg, E_SUCCESS);
 }
 
 err_code_t hmi_set_bed_target_temp(void *obj, sacp_hmi_message_t *msg) {
@@ -99,9 +129,64 @@ err_code_t hmi_set_bed_target_temp(void *obj, sacp_hmi_message_t *msg) {
   return host_hmi.send_ack(msg, result);
 }
 
+err_code_t hmi_set_bed_target_temp_with_heat_mode(void *obj, sacp_hmi_message_t *msg) {
+  BedVirtual &bed = *(BedVirtual *)obj;
+  uint8_t heat_mode = BED_GLOBAL_HEAT_MODE;
+  int16_t target_temp = 0;
+
+  if (!msg || !obj || msg->length < 4) {
+    LOG_E("[%s] got a invalid parameter\n",__FUNCTION__);
+    return host_hmi.send_ack(msg, E_PARAM);
+  }
+
+  if (msg->data[0] != bed.get_key()) {
+    LOG_E("[%s] msg key is %d, obj key is %d, No processing\n",\
+      __FUNCTION__, msg->data[0], bed.get_key());
+    return host_hmi.send_ack(msg, E_INVALID_MODULE_KEY);
+  }
+
+  heat_mode = msg->data[1];
+  target_temp = *(int16_t *)(msg->data + 2);
+
+  LOG_I("heat_mode: %d, target_temp: %d\n", heat_mode, target_temp);
+
+  if (target_temp < 0) {
+    LOG_E("[%s] invalid temp parameter\n", __FUNCTION__);
+    return host_hmi.send_ack(msg, E_PARAM);
+  }
+
+  if (heat_mode != BED_GLOBAL_HEAT_MODE && heat_mode != BED_CENTER_HEAT_MODE && \
+      heat_mode != 0xFF) {
+    LOG_E("[%s] got a invalid heat mode\n",__FUNCTION__);
+    return host_hmi.send_ack(msg, E_PARAM);
+  }
+
+  if (target_temp > 0 && !smprinter.allow_heating_bed()) {
+    LOG_E("[%s] The bed is not allowed to be heated\n", __FUNCTION__);
+    return host_hmi.send_ack(msg, E_HARDWARE);
+  }
+
+  taskENTER_CRITICAL();
+  if (heat_mode == BED_GLOBAL_HEAT_MODE || heat_mode == BED_CENTER_HEAT_MODE)
+    thermalManager.set_bed_heat_mode(!!heat_mode);
+
+  heat_mode = thermalManager.get_bed_heat_mode();
+  if (heat_mode == BED_GLOBAL_HEAT_MODE) {
+    thermalManager.setTargetChamber(target_temp);
+  }
+  else {
+    if (thermalManager.degTargetChamber() != 0)
+      thermalManager.setTargetChamber(0);
+  }
+  thermalManager.setTargetBed(target_temp);
+  taskEXIT_CRITICAL();
+  return host_hmi.send_ack(msg, E_SUCCESS);
+}
+
 uint16_t hmi_subscribe_bed_func(void *obj, uint8_t *buff) {
   ZoneInfo *tmp_info = NULL;
   BedVirtual &bed = *(BedVirtual *)obj;
+  uint8_t mode_info_len = 0;
   if (!obj || !buff) {
     LOG_E("[%s] obj or buffer pointer is null\n",__FUNCTION__);
     return 0;
@@ -121,9 +206,11 @@ uint16_t hmi_subscribe_bed_func(void *obj, uint8_t *buff) {
     tmp_info->bed_index = 1;
     tmp_info->cur_temp = (int32_t)(thermalManager.degChamber() * 1000);
     tmp_info->target_temp = thermalManager.degTargetChamber();
+    *((uint8_t *)(buff + buff[2] * sizeof(ZoneInfo) + 3)) = thermalManager.get_bed_heat_mode();
+    mode_info_len = 1;
   #endif
 
-  return sizeof(ZoneInfo) * buff[2] + 3;
+  return sizeof(ZoneInfo) * buff[2] + 3 + mode_info_len;
 }
 
 err_code_t BedVirtual::pre_init() {
@@ -177,6 +264,14 @@ err_code_t BedVirtual::post_init() {
 
   if (host_hmi.register_callback(SACP_CMD_SET_HEATED_BED, \
       SACP_CMD_ID_BED_SET_TARGET_TEMP, this, hmi_set_bed_target_temp))
+    return E_FAILURE;
+
+  if (host_hmi.register_callback(SACP_CMD_SET_HEATED_BED, \
+      SACP_CMD_ID_BED_SET_HEAT_MODE, this, hmi_set_bed_heat_mode))
+    return E_FAILURE;
+
+  if (host_hmi.register_callback(SACP_CMD_SET_HEATED_BED, \
+      SACP_CMD_ID_BED_SET_TARGET_TEMP_WITH_HEAT_MODE, this, hmi_set_bed_target_temp_with_heat_mode))
     return E_FAILURE;
 
   if (host_hmi.register_subscription(SACP_CMD_SET_HEATED_BED, SACP_BED_SUBSCRIBE_COMMANDID,\

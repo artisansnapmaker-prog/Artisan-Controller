@@ -63,7 +63,7 @@ FORCE_INLINE bool Axis::generateFuncParams(uint8_t block_index, uint8_t move_sta
     if (is_shaped) {
         res = axis_input_shaper->generateShapedFuncParams(&func_manager, move_start, move_end);
     #if ENABLED(LIN_ADVANCE)
-    } else if (axis == 3) {
+    } else if (axis == 5) {
         res = generateEAxisFuncParams(block_index, move_start, move_end);
     #endif
     } else {

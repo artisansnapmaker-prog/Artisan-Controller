@@ -73,29 +73,23 @@ void MoveQueue::calculateMoves(block_t* block) {
 
     float plateauClocks = plateau * i_cruise_speed;
 
-    xyze_float_t axis_r;
-    axis_r.x = block->axis_r.x;
-    axis_r.y = block->axis_r.y;
-    axis_r.z = block->axis_r.z;
-    axis_r.e = block->axis_r.e;
-
     if (plateau == 0) {
         if (accelDistance > 0) {
-            addMove(entry_speed, cruise_speed, acceleration, accelDistance, axis_r, accelClocks);
+            addMove(entry_speed, cruise_speed, acceleration, accelDistance, block->axis_r, accelClocks);
         }
         if (decelDistance > 0) {
-            addMove(cruise_speed, leave_speed, -deceleration, decelDistance, axis_r, decelClocks);
+            addMove(cruise_speed, leave_speed, -deceleration, decelDistance, block->axis_r, decelClocks);
         }
     } else {
         if (accelDistance > 0) {
-            addMove(entry_speed, cruise_speed, acceleration, accelDistance, axis_r, accelClocks);
+            addMove(entry_speed, cruise_speed, acceleration, accelDistance, block->axis_r, accelClocks);
         }
 
         // LOG_I("p: %lf, s: %lf, t: %lf\n", plateau, cruise_speed, plateau / cruise_speed);
-        addMove(cruise_speed, cruise_speed, 0, plateau, axis_r, plateauClocks);
+        addMove(cruise_speed, cruise_speed, 0, plateau, block->axis_r, plateauClocks);
 
         if (decelDistance > 0) {
-            addMove(cruise_speed, leave_speed, -deceleration, decelDistance, axis_r, decelClocks);
+            addMove(cruise_speed, leave_speed, -deceleration, decelDistance, block->axis_r, decelClocks);
         }
     }
 
@@ -133,7 +127,9 @@ void MoveQueue::setMove(uint8_t move_index, float start_v, float end_v, float ac
     move.axis_r[0] = axis_r.x;
     move.axis_r[1] = axis_r.y;
     move.axis_r[2] = axis_r.z;
-    move.axis_r[3] = axis_r.e;
+    move.axis_r[3] = axis_r.i;
+    move.axis_r[4] = axis_r.j;
+    move.axis_r[5] = axis_r.e;
 
     Move& last_move = moves[prevMoveIndex(move_index)];
     move.start_t = is_first ? 0 : last_move.end_t;

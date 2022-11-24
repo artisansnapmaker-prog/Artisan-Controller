@@ -1730,14 +1730,14 @@ void Stepper::pulse_phase_isr() {
 
   do {
     if (axis_stepper.dir > 0) {
-      if (axis_stepper.axis == 3)
+      if (axis_stepper.axis == 5)
       {
         CBI(current_direction_bits, E_AXIS);
       } else {
         CBI(current_direction_bits, axis_stepper.axis);
       }
     } else if(axis_stepper.dir < 0) {
-      if (axis_stepper.axis == 3) {
+      if (axis_stepper.axis == 5) {
         SBI(current_direction_bits, E_AXIS);
       } else {
         SBI(current_direction_bits, axis_stepper.axis);
@@ -1754,26 +1754,41 @@ void Stepper::pulse_phase_isr() {
       set_directions(current_direction_bits);
     }
 
-    if (X_AXIS == axis_stepper.axis) {
+    switch (axis_stepper.axis)
+    {
+      case X_AXIS:
         PULSE_START(X);
         PULSE_PREP(X);
         PULSE_STOP(X);
-    }
-    else if(Y_AXIS == axis_stepper.axis) {
+        break;
+      case Y_AXIS:
         PULSE_START(Y);
         PULSE_PREP(Y);
         PULSE_STOP(Y);
-    }
-    else if(Z_AXIS == axis_stepper.axis) {
+        break;
+      case Z_AXIS:
         PULSE_START(Z);
         PULSE_PREP(Z);
         PULSE_STOP(Z);
-    }
-    else if(3 == axis_stepper.axis) {
+        break;
+      case I_AXIS:
+        PULSE_START(I);
+        PULSE_PREP(I);
+        PULSE_STOP(I);
+        break;
+      case J_AXIS:
+        PULSE_START(J);
+        PULSE_PREP(J);
+        PULSE_STOP(J);
+        break;
+      case 5:
         PULSE_START(E);
         PULSE_PREP(E);
         PULSE_STOP(E);
         step_events_completed++;
+        break;  
+      default:
+        break;
     }
 
     axis_stepper.axis = -1;
@@ -2125,7 +2140,7 @@ uint32_t Stepper::block_phase_isr() {
       done_count++;
       bool is_done = true;
       for (size_t i = 0; i < NUM_AXIS; i++) {
-        if (i == 3) {
+        if (i == 5) {
           if (fabs(axisManager.current_steps[i] - block_move_target_steps[i] - LROUND(axisManager.axis[i].delta_e)) > 2.0) {
               is_done = false;
           }
@@ -2581,14 +2596,14 @@ uint32_t Stepper::block_phase_isr() {
 
       if (axis_stepper.axis >= 0) {
         if (axis_stepper.dir > 0) {
-          if (axis_stepper.axis == 3)
+          if (axis_stepper.axis == 5)
           {
             CBI(current_direction_bits, E_AXIS);
           } else {
             CBI(current_direction_bits, axis_stepper.axis);
           }
         } else if(axis_stepper.dir < 0) {
-          if (axis_stepper.axis == 3) {
+          if (axis_stepper.axis == 5) {
             SBI(current_direction_bits, E_AXIS);
           } else {
             SBI(current_direction_bits, axis_stepper.axis);

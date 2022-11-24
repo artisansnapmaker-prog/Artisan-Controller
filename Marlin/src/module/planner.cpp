@@ -2433,6 +2433,8 @@ bool Planner::_populate_block(block_t * const block, bool split_move,
       block->axis_r.x = da / block->millimeters;
       block->axis_r.y = db / block->millimeters;
       block->axis_r.z = dc / block->millimeters;
+      block->axis_r.i = di / block->millimeters;
+      block->axis_r.j = dj / block->millimeters;
       #if MB_SNAPMAKER
         block->axis_r.e = (int32_t)(esteps_float + 0.5) / block->millimeters;
       #else
@@ -2442,6 +2444,8 @@ bool Planner::_populate_block(block_t * const block, bool split_move,
       block->axis_r.x = 0;
       block->axis_r.y = 0;
       block->axis_r.z = 0;
+      block->axis_r.i = 0;
+      block->axis_r.j = 0;
       block->axis_r.e = 0;
   }
 

@@ -38,8 +38,9 @@ class FuncParams {
 #define FUNC_PARAMS_X_SIZE 200
 #define FUNC_PARAMS_Y_SIZE 200
 #define FUNC_PARAMS_Z_SIZE 64
+#define FUNC_PARAMS_I_SIZE 64
+#define FUNC_PARAMS_J_SIZE 64
 #define FUNC_PARAMS_E_SIZE 64
-#define FUNC_PARAMS_T_SIZE 8
 
 // static FuncParams FUNC_PARAMS_X[FUNC_PARAMS_X_SIZE];
 // static FuncParams FUNC_PARAMS_Y[FUNC_PARAMS_Y_SIZE];
@@ -59,14 +60,16 @@ class FuncManager {
     static FuncParams FUNC_PARAMS_X[FUNC_PARAMS_X_SIZE];
     static FuncParams FUNC_PARAMS_Y[FUNC_PARAMS_Y_SIZE];
     static FuncParams FUNC_PARAMS_Z[FUNC_PARAMS_Z_SIZE];
+    static FuncParams FUNC_PARAMS_I[FUNC_PARAMS_I_SIZE];
+    static FuncParams FUNC_PARAMS_J[FUNC_PARAMS_J_SIZE];
     static FuncParams FUNC_PARAMS_E[FUNC_PARAMS_E_SIZE];
-    static FuncParams FUNC_PARAMS_T[FUNC_PARAMS_T_SIZE];
 
     static int8_t FUNC_PARAMS_TYPE_X[FUNC_PARAMS_X_SIZE];
     static int8_t FUNC_PARAMS_TYPE_Y[FUNC_PARAMS_Y_SIZE];
     static int8_t FUNC_PARAMS_TYPE_Z[FUNC_PARAMS_Z_SIZE];
+    static int8_t FUNC_PARAMS_TYPE_I[FUNC_PARAMS_I_SIZE];
+    static int8_t FUNC_PARAMS_TYPE_J[FUNC_PARAMS_J_SIZE];
     static int8_t FUNC_PARAMS_TYPE_E[FUNC_PARAMS_E_SIZE];
-    static int8_t FUNC_PARAMS_TYPE_T[FUNC_PARAMS_T_SIZE];
 
     FuncParams* funcParams;
     int8_t* funcParamsTypes;
@@ -113,14 +116,19 @@ class FuncManager {
                 funcParamsTypes = FUNC_PARAMS_TYPE_Z;
                 break;
             case 3:
+                size = FUNC_PARAMS_I_SIZE;
+                funcParams = FUNC_PARAMS_I;
+                funcParamsTypes = FUNC_PARAMS_TYPE_I;
+                break;
+            case 4:
+                size = FUNC_PARAMS_J_SIZE;
+                funcParams = FUNC_PARAMS_J;
+                funcParamsTypes = FUNC_PARAMS_TYPE_J;
+                break;
+             case 5:
                 size = FUNC_PARAMS_E_SIZE;
                 funcParams = FUNC_PARAMS_E;
                 funcParamsTypes = FUNC_PARAMS_TYPE_E;
-                break;
-            case 4:
-                size = FUNC_PARAMS_T_SIZE;
-                funcParams = FUNC_PARAMS_T;
-                funcParamsTypes = FUNC_PARAMS_TYPE_T;
                 break;
         }
     }

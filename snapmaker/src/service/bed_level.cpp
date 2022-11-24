@@ -736,6 +736,11 @@ static err_code_t hmi_req_callback_probe_sensor_calibration(void *obj, sacp_hmi_
       smprinter.fdm->set_probe_sensor(PROBE_SENSOR_RIGHT_OPTOCOUPLER);
       smprinter.set_extruder_check_state(EXTRUDER_STATUS_IDLE);
       bedlevel.hotend_triggered_z_[1] = motion_platform_svc.probe_at_point(x, y, PROBE_PT_RAISE);
+      // if the z is too low lift the z
+      set_current_from_steppers_for_axis(Z_AXIS);
+      sync_plan_position();
+      if (motion_platform_svc.get_current_position(Z_AXIS) < 20)
+        motion_platform_svc.moveto_z(20, 30);
       smprinter.set_extruder_check_state(EXTRUDER_STATUS_CHECK);
       LOG_I("hotend_triggered_z%d: %f\n", 1, bedlevel.hotend_triggered_z_[1]);
       break;

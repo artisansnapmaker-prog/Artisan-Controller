@@ -89,7 +89,7 @@
 #define RESUME_XY_FEEDRATE                 60
 #define RESUME_Z_FEEDRATE                  30
 #define EXTRUSION_E_FEEDRATE               5
-#define RETRACT_E_FEEDRATE                 50
+#define RETRACT_E_FEEDRATE                 30
 #define RESUME_EXTRUSION_E_LENGTH          20
 #define RESUME_RETRACT_E_LENGTH            6
 

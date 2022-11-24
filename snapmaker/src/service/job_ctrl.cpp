@@ -602,7 +602,7 @@ err_code_t JobCtrl::machine_standby(void) {
     motion_platform_svc.update_position_from_platform();
     t_pos =  motion_platform_svc.sm_current_position;
     t_pos.e -= 5;
-    motion_platform_svc.block_moveto_e(t_pos.e , 60);
+    motion_platform_svc.block_moveto_e(t_pos.e , RETRACT_E_FEEDRATE);
     break;
 
   case TH_TYPE_CNC:

@@ -599,6 +599,10 @@ err_code_t JobCtrl::machine_standby(void) {
     return E_JOB_RESUME_ENV_FAILURE;
   }
 
+  // recover parameters of motion platform
+  motion_platform_svc.sync_feedrate_percentage_to_platform(100);
+  motion_platform_svc.sync_flowrate_percentage_to_platform(100, active_extruder);
+
   switch (_env.type)
   {
   case TH_TYPE_3DP:

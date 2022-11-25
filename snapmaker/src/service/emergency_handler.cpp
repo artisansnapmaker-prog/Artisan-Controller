@@ -510,8 +510,8 @@ err_code_t EmergencyHandler::hmi_cb_req_recovery_job(void *obj, sacp_hmi_message
   msg->cmd_id = CMD_ID_JOB_CTRL_NOTIFY_POWERLOSS_RECOVERY;
   msg->attr   = 0;
 
-  LOG_I("EmergencyHandler: recover pos: X%.3f, Y%.3f, Z%.3f, I%.3f, J%3.f, E%3.f\n", job_env->current_pos.x,
-          job_env->current_pos.y, job_env->current_pos.z, job_env->current_pos.i, job_env->current_pos.j, job_env->current_pos.e);
+  LOG_I("recover pos: X: %.3f, Y: %.3f, Z: %.3f, E: %.3f, A: %.3f, B: %.3f\n", job_env->current_pos.x,
+    job_env->current_pos.y, job_env->current_pos.z, job_env->current_pos.e, job_env->current_pos.i, job_env->current_pos.j);
 
   uint32_t next_ms;
   switch (smprinter.get_toolhead_type()) {
@@ -616,9 +616,12 @@ void EmergencyHandler::background() {
   JobEnv *jenv = (JobEnv *)env;
   if (powerloss_state == PIN_STATE_TRIGGERED) {
     powerloss_state = PIN_STATE_NORMAL;
-    LOG_I("powerloss pos [X%.3f, Y%.3f, Z%.3f, I%.3f, J%3.f, E%3.f] checksum [save: 0x%x, read: 0x%x cal: 0x%x]\n", jenv->current_pos.x,
-            jenv->current_pos.y, jenv->current_pos.z, jenv->current_pos.i, jenv->current_pos.j, jenv->current_pos.e, write_flash_checksum, \
-            *((uint32_t*)(ENV_START_IN_FLASH + ENV_CHECKSUM_ADDR)), host_hmi.calculate_checksum(env, JOB_ENV_MAX_SIZE - 4));
+
+    LOG_I("powerloss pos: X: %.3f, Y: %.3f, Z: %.3f, E: %.3f, ", jenv->current_pos.x,
+            jenv->current_pos.y, jenv->current_pos.z, jenv->current_pos.e);
+    LOG_I("A: %.3f, B: %.3f\n checksum [save: 0x%x, read: 0x%x cal: 0x%x]\n", jenv->current_pos.i, jenv->current_pos.j, write_flash_checksum,
+    *((uint32_t*)(ENV_START_IN_FLASH + ENV_CHECKSUM_ADDR)), host_hmi.calculate_checksum(env, JOB_ENV_MAX_SIZE - 4));
+
     system_svc.raise_exception(MODULE_DEVICE_ID_A400_EMERGENCY_STOP, EMERGENCY_STOP_EXCEP_STA_TRIGGERRED,
       EXCEP_ACT_ALL&(~EXCEP_ACT_DISABLE_POWER_HMI), EXCEP_BAN_ALL);
     // smprinter.set_sys_status(SYSTEM_STATUS_POWER_LOSS, NULL);
@@ -631,9 +634,10 @@ void EmergencyHandler::background() {
     job_cb_notify_emergency_stop(&msg_notify_stop, E_SUCCESS);
 
     if (button_state == PIN_STATE_TRIGGERED) {
-      LOG_I("emergency stop pos [X%.3f, Y%.3f, Z%.3f, I%.3f, J%3.f, E%3.f] checksum [save: 0x%x, read: 0x%x cal: 0x%x]\n", jenv->current_pos.x,
-              jenv->current_pos.y, jenv->current_pos.z, jenv->current_pos.i, jenv->current_pos.j, jenv->current_pos.e, write_flash_checksum, \
-            *((uint32_t*)(ENV_START_IN_FLASH + ENV_CHECKSUM_ADDR)), host_hmi.calculate_checksum(env, JOB_ENV_MAX_SIZE - 4));
+      LOG_I("emergency stop pos: X: %.3f, Y: %.3f, Z: %.3f, E: %.3f, ", jenv->current_pos.x,
+              jenv->current_pos.y, jenv->current_pos.z, jenv->current_pos.e);
+      LOG_I("A: %.3f, B: %.3f\n checksum [save: 0x%x, read: 0x%x cal: 0x%x]\n", jenv->current_pos.i, jenv->current_pos.j, write_flash_checksum,
+      *((uint32_t*)(ENV_START_IN_FLASH + ENV_CHECKSUM_ADDR)), host_hmi.calculate_checksum(env, JOB_ENV_MAX_SIZE - 4));
     }
   }
 

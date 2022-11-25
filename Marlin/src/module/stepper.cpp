@@ -233,6 +233,7 @@ uint32_t Stepper::advance_divisor = 0,
 AxisStepper Stepper::axis_stepper;
 int Stepper::block_move_target_steps[NUM_AXIS];
 bool Stepper::is_start = true;
+int Stepper::e_actual_output = 0;
 time_double_t Stepper::block_print_time;
 
 #if EITHER(HAS_MULTI_EXTRUDER, MIXING_EXTRUDER)
@@ -1681,7 +1682,7 @@ void Stepper::pulse_phase_isr() {
 
     if (current_block){
       #if MB_SNAPMAKER
-      motion_platform_svc.add_stepper_offset(current_block->e_stepper_offset * step_events_completed / step_event_count);
+      motion_platform_svc.add_stepper_offset(current_block->e_stepper_offset * e_actual_output / block_move_target_steps[E_AXIS]);
       #endif
       discard_current_block();
     }
@@ -1785,8 +1786,8 @@ void Stepper::pulse_phase_isr() {
         PULSE_START(E);
         PULSE_PREP(E);
         PULSE_STOP(E);
-        step_events_completed++;
-        break;  
+        e_actual_output += count_direction[E_AXIS];
+        break;
       default:
         break;
     }
@@ -2130,7 +2131,6 @@ uint32_t Stepper::block_phase_isr() {
         runout.block_completed(current_block);
         #if MB_SNAPMAKER
           motion_platform_svc.add_stepper_offset(current_block->e_stepper_offset);
-          motion_platform_svc.update_stepper_actual_pos(current_block->e_actual_stepps_counter);
         #endif
         discard_current_block();
       }
@@ -2157,7 +2157,6 @@ uint32_t Stepper::block_phase_isr() {
           runout.block_completed(current_block);
           #if MB_SNAPMAKER
             motion_platform_svc.add_stepper_offset(current_block->e_stepper_offset);
-            motion_platform_svc.update_stepper_actual_pos(current_block->e_actual_stepps_counter);
           #endif
           discard_current_block();
           axisManager.abort();
@@ -2189,7 +2188,6 @@ uint32_t Stepper::block_phase_isr() {
 
   //     #if MB_SNAPMAKER
   //     motion_platform_svc.add_stepper_offset(current_block->e_stepper_offset);
-  //     motion_platform_svc.update_stepper_actual_pos(current_block->e_actual_stepps_counter);
   //     #endif
 
   //     discard_current_block();
@@ -2535,8 +2533,10 @@ uint32_t Stepper::block_phase_isr() {
           block_move_target_steps[i] = LROUND(end_move.end_pos[i]);
       }
 
+      e_actual_output = 0;
+
       // // Based on the oversampling factor, do the calculations
-      step_event_count = current_block->steps.e;
+      // step_event_count = current_block->steps.e;
 
       // // Initialize Bresenham delta errors to 1/2
       // delta_error = -int32_t(step_event_count);
@@ -2546,7 +2546,7 @@ uint32_t Stepper::block_phase_isr() {
       // advance_divisor = step_event_count << 1;
 
       // // No step events completed so far
-      step_events_completed = 0;
+      // step_events_completed = 0;
 
       // // Compute the acceleration and deceleration points
       // accelerate_until = current_block->accelerate_until << oversampling;
@@ -3239,11 +3239,17 @@ void Stepper::_set_position(const abce_long_t &spos) {
   #else
     // default non-h-bot planning
     count_position = spos;
+    #if MB_SNAPMAKER
+    motion_platform_svc.stepper_total_offset = 0;
+    #endif
   #endif
 }
 
 void Stepper::_set_e_position(const_float_t spos_e) {
   count_position.e = spos_e;
+  #if MB_SNAPMAKER
+  motion_platform_svc.stepper_total_offset = 0;
+  #endif
 }
 
 /**

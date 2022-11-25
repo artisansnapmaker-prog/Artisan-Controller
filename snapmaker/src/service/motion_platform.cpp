@@ -429,7 +429,6 @@ void MotionPlatformService::init() {
   load_settings();
 
   stepper_total_offset = 0;
-  stepper_actual_pos = 0;
 
   set_axis_to_homed(I_AXIS);
   set_axis_to_homed(J_AXIS);
@@ -1114,7 +1113,7 @@ float MotionPlatformService::get_max_position(uint8_t axis) {
   }
 }
 
-float MotionPlatformService::get_feedrate_percentage() {
+int16_t MotionPlatformService::get_feedrate_percentage() {
   return feedrate_percentage;
 }
 

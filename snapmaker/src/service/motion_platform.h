@@ -181,9 +181,7 @@ class MotionPlatformService {
     void stepper_quickstop_wait(void);
     void stepper_quickstop_cb(void);
     long stepper_total_offset;
-    long stepper_actual_pos;
     void add_stepper_offset(int stepper_offset_counter);
-    void update_stepper_actual_pos(long block_run_counter ) { stepper_actual_pos += block_run_counter; };
 
     // home API
     bool is_all_axes_homed() {return all_axes_homed();}
@@ -214,7 +212,7 @@ class MotionPlatformService {
     float get_current_position(uint8_t axis);
     void sync_plan_position_to_platform();
     float get_max_position(uint8_t axis);
-    float get_feedrate_percentage();
+    int16_t get_feedrate_percentage();
     xyz_pos_t get_position_shift();
     xyz_pos_t get_active_coordinate_system(int8_t active_id);
     void update_soft_endstops(uint8_t axis, uint8_t old_tool_index, uint8_t new_tool_index);

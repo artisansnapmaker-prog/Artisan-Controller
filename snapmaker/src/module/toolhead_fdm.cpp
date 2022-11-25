@@ -2091,9 +2091,7 @@ err_code_t ToolHeadFDM::recover_env(uint8_t *env_buf, uint32_t &len) {
     set_fan_speed(1, recovery_data.fan_speed[1]);
 
     // hotend temp
-    char buf[32];
-    snprintf(buf, 32, "M104 S%d", recovery_data.target_temp[0]);
-    motion_platform_svc.run_gcode(buf);
+    motion_platform_svc.set_hotend_temp(recovery_data.target_temp[0], 0);
   } else if (get_device_id() == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
     // fan
     set_fan_speed(0, recovery_data.fan_speed[0]);
@@ -2102,11 +2100,8 @@ err_code_t ToolHeadFDM::recover_env(uint8_t *env_buf, uint32_t &len) {
     LOG_I("resume env, fan speed: %u, %u, %u\n", recovery_data.fan_speed[0], recovery_data.fan_speed[1], recovery_data.fan_speed[2]);
     // hotend temp
     LOG_I("resume env, target_temp: %u, %u", recovery_data.target_temp[0], recovery_data.target_temp[1]);
-    char buf[32];
-    snprintf(buf, 32, "M104 T0 S%d", recovery_data.target_temp[0]);
-    motion_platform_svc.run_gcode(buf);
-    snprintf(buf, 32, "M104 T1 S%d", recovery_data.target_temp[1]);
-    motion_platform_svc.run_gcode(buf);
+    motion_platform_svc.set_hotend_temp(recovery_data.target_temp[0], 0);
+    motion_platform_svc.set_hotend_temp(recovery_data.target_temp[1], 1);
   }
 
   bedlevel_svc.live_z_offset[0] = recovery_data.live_z_offset[0];
@@ -2124,13 +2119,13 @@ err_code_t ToolHeadFDM::recover_env(uint8_t *env_buf, uint32_t &len) {
   extruders_feedrate_percentage[0] = recovery_data.feedrate_percentage[0];
   extruders_feedrate_percentage[1] = recovery_data.feedrate_percentage[1];
   // LOG_I("resume env, feedrate_percentage: %d, %d\n", recovery_data.feedrate_percentage[0], recovery_data.feedrate_percentage[1]);
-  motion_platform_svc.sync_feedrate_percentage_to_platform(extruders_feedrate_percentage[current_extruder]);
+  // motion_platform_svc.sync_feedrate_percentage_to_platform(extruders_feedrate_percentage[current_extruder]);
 
   // flowrate percentage
   extruders_flowrate_percentage[0] = recovery_data.flowrate_percentage[0];
   extruders_flowrate_percentage[1] = recovery_data.flowrate_percentage[1];
   // LOG_I("resume env, flowrate_perventage: %d, %d\n", extruders_flowrate_percentage[0], extruders_flowrate_percentage[1]);
-  motion_platform_svc.sync_flowrate_percentage_to_platform(extruders_flowrate_percentage[current_extruder], current_extruder);
+  // motion_platform_svc.sync_flowrate_percentage_to_platform(extruders_flowrate_percentage[current_extruder], current_extruder);
 
   return E_SUCCESS;
 }
@@ -2150,9 +2145,7 @@ err_code_t ToolHeadFDM::resume_env(uint8_t *env_buf, uint32_t &len) {
     set_fan_speed(1, recovery_data.fan_speed[1]);
 
     // hotend temp
-    char buf[32];
-    snprintf(buf, 32, "M104 S%d", recovery_data.target_temp[0]);
-    motion_platform_svc.run_gcode(buf);
+    motion_platform_svc.set_hotend_temp(recovery_data.target_temp[0]);
   } else if (get_device_id() == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
     // fan
     set_fan_speed(0, recovery_data.fan_speed[0]);
@@ -2161,14 +2154,19 @@ err_code_t ToolHeadFDM::resume_env(uint8_t *env_buf, uint32_t &len) {
     // LOG_I("resume env, fan speed: %u, %u, %u\n", recovery_data.fan_speed[0], recovery_data.fan_speed[1], recovery_data.fan_speed[2]);
     // hotend temp
     // LOG_I("resume env, target_temp: %u, %u", recovery_data.target_temp[0], recovery_data.target_temp[1]);
-    char buf[32];
-    snprintf(buf, 32, "M104 T0 S%d", recovery_data.target_temp[0]);
-    motion_platform_svc.run_gcode(buf);
-    snprintf(buf, 32, "M104 T1 S%d", recovery_data.target_temp[1]);
-    motion_platform_svc.run_gcode(buf);
+    motion_platform_svc.set_hotend_temp(recovery_data.target_temp[0], 0);
+    motion_platform_svc.set_hotend_temp(recovery_data.target_temp[1], 1);
   }
 
   return E_SUCCESS;
+}
+
+err_code_t ToolHeadFDM::resume_finish() {
+  // setup percentage of extrusion and feedrate to platform
+  motion_platform_svc.sync_feedrate_percentage_to_platform(extruders_feedrate_percentage[current_extruder]);
+
+  motion_platform_svc.sync_flowrate_percentage_to_platform(extruders_flowrate_percentage[0], 0);
+  motion_platform_svc.sync_flowrate_percentage_to_platform(extruders_flowrate_percentage[1], 1);
 }
 
 err_code_t ToolHeadFDM::standby(void) {

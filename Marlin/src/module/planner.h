@@ -289,7 +289,6 @@ typedef struct block_t {
   // position of gcode of this block in the file
   uint32_t file_position;
   int e_stepper_offset;
-  long e_actual_stepps_counter;
   uint8_t mark;
   bool position_invalid;
   xyze_pos_t destination;

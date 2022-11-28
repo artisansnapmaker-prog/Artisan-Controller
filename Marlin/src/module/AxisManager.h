@@ -130,6 +130,15 @@ class Axis {
 
 };
 
+enum InputShaperDebugInfoType {
+  SHAPER_DBG_EMPTY_MOVES_COUNT = 0,
+  SHAPER_DBG_NO_STEPS,
+  SHAPER_DBG_NOT_ENOUGH_MOVES_RESC,
+  SHAPER_DBG_NOT_ENOUGH_FUNC_LIST_RESC,
+  SHAPER_DBG_CALC_STEP_TIMEOUT_COUNT,
+  SHAPER_DBG_CALC_STEP_TIME
+};
+
 class AxisManager {
   public:
     int counts[20] = {0};

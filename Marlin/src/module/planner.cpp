@@ -2012,16 +2012,7 @@ float Planner::get_axis_position_mm(const AxisEnum axis) {
       axis_steps = stepper.position(axis);
 
   #else
-    #if MB_SNAPMAKER
-      if (axis == E_AXIS) {
-        axis_steps = stepper.position(axis) - motion_platform_svc.stepper_total_offset;
-        // LOG_I("motion_platform_svc.stepper_total_offset: %d\r\n", motion_platform_svc.stepper_total_offset);
-      } else {
-        axis_steps = stepper.position(axis);
-      }
-    #else
-      axis_steps = stepper.position(axis);
-    #endif
+    axis_steps = stepper.position(axis);
   #endif
 
   return axis_steps * mm_per_step[axis];
@@ -2255,7 +2246,7 @@ bool Planner::_populate_block(block_t * const block, bool split_move,
     const uint32_t esteps = ABS(esteps_float) + 0.5f;
     #if MB_SNAPMAKER
     if (de) {
-      block->e_stepper_offset = esteps - de;
+      block->e_stepper_offset = (int32_t)(esteps_float + 0.5f - de);
       // LOG_I("block->e_stepper_offset: %d, total: %d\r\n", block->e_stepper_offset, motion_platform_svc.stepper_total_offset);
     }
     else {
@@ -3502,9 +3493,6 @@ void Planner::set_position_mm(const xyze_pos_t &xyze) {
       buffer_sync_block(true);
     else {
       stepper.set_axis_position(E_AXIS, position.e);
-      #if MB_SNAPMAKER
-      motion_platform_svc.stepper_total_offset = 0;
-      #endif
     }
   }
 

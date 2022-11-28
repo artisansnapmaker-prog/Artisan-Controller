@@ -99,7 +99,6 @@ uint8_t E_ENABLE_ON = 1;
 #include "../HAL/shared/Delay.h"
 #if MB_SNAPMAKER
 #include "../../snapmaker/src/snapmaker.h"
-#include "../../snapmaker/src/service/motion_platform.h"
 #include "../../snapmaker/src/service/job_ctrl.h"
 #endif
 
@@ -233,7 +232,6 @@ uint32_t Stepper::advance_divisor = 0,
 AxisStepper Stepper::axis_stepper;
 int Stepper::block_move_target_steps[NUM_AXIS];
 bool Stepper::is_start = true;
-int Stepper::e_actual_output = 0;
 time_double_t Stepper::block_print_time;
 
 #if EITHER(HAS_MULTI_EXTRUDER, MIXING_EXTRUDER)
@@ -1681,9 +1679,6 @@ void Stepper::pulse_phase_isr() {
     axisManager.req_abort = true;
 
     if (current_block){
-      #if MB_SNAPMAKER
-      motion_platform_svc.add_stepper_offset(current_block->e_stepper_offset * e_actual_output / block_move_target_steps[E_AXIS]);
-      #endif
       discard_current_block();
     }
     #if MB_SNAPMAKER
@@ -1786,7 +1781,6 @@ void Stepper::pulse_phase_isr() {
         PULSE_START(E);
         PULSE_PREP(E);
         PULSE_STOP(E);
-        e_actual_output += count_direction[E_AXIS];
         break;
       default:
         break;
@@ -2129,9 +2123,8 @@ uint32_t Stepper::block_phase_isr() {
 
       if (axis_stepper.print_time >= block_print_time) {
         runout.block_completed(current_block);
-        #if MB_SNAPMAKER
-          motion_platform_svc.add_stepper_offset(current_block->e_stepper_offset);
-        #endif
+        // remove
+        count_position.e -= current_block->e_stepper_offset;
         discard_current_block();
       }
       done_count = 0;
@@ -2155,9 +2148,8 @@ uint32_t Stepper::block_phase_isr() {
       // if (is_done) {
         if (current_block) {
           runout.block_completed(current_block);
-          #if MB_SNAPMAKER
-            motion_platform_svc.add_stepper_offset(current_block->e_stepper_offset);
-          #endif
+          // accumulate the E steps when complete a block
+          count_position.e -= current_block->e_stepper_offset;
           discard_current_block();
           axisManager.abort();
           is_start = true;
@@ -2532,8 +2524,6 @@ uint32_t Stepper::block_phase_isr() {
       for (int i = 0; i < NUM_AXIS; ++i) {
           block_move_target_steps[i] = LROUND(end_move.end_pos[i]);
       }
-
-      e_actual_output = 0;
 
       // // Based on the oversampling factor, do the calculations
       // step_event_count = current_block->steps.e;
@@ -3239,17 +3229,11 @@ void Stepper::_set_position(const abce_long_t &spos) {
   #else
     // default non-h-bot planning
     count_position = spos;
-    #if MB_SNAPMAKER
-    motion_platform_svc.stepper_total_offset = 0;
-    #endif
   #endif
 }
 
 void Stepper::_set_e_position(const_float_t spos_e) {
   count_position.e = spos_e;
-  #if MB_SNAPMAKER
-  motion_platform_svc.stepper_total_offset = 0;
-  #endif
 }
 
 /**

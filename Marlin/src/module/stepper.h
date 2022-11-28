@@ -377,7 +377,6 @@ class Stepper {
     static int block_move_target_steps[NUM_AXIS];
     static bool is_start;
     static time_double_t block_print_time;
-    static int e_actual_output;
 
     #if EITHER(HAS_MULTI_EXTRUDER, MIXING_EXTRUDER)
       static uint8_t stepper_extruder;

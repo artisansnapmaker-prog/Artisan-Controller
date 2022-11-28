@@ -2167,6 +2167,8 @@ err_code_t ToolHeadFDM::resume_finish() {
 
   motion_platform_svc.sync_flowrate_percentage_to_platform(extruders_flowrate_percentage[0], 0);
   motion_platform_svc.sync_flowrate_percentage_to_platform(extruders_flowrate_percentage[1], 1);
+
+  return E_SUCCESS;
 }
 
 err_code_t ToolHeadFDM::standby(void) {

@@ -877,7 +877,6 @@ void JobCtrl::do_start(struct JobCtrlReqInfo &jri) {
   _env.gfi_valid = true;
   // _get_gcode_buffer_req_min = 0;
   _paused = false;
-  motion_platform_svc.stepper_total_offset = 0;
 
   // get next status we should enter
   switch (status_before_start) {
@@ -1089,8 +1088,6 @@ void JobCtrl::do_resume(struct JobCtrlReqInfo &jri) {
     _client_id = jri.req_data.req_resume_data.client_id;
     emergency_hdl.prepare_flash();
   }
-
-  motion_platform_svc.stepper_total_offset = 0;
 
   if (status_before_start == SYSTEM_STATUS_XY_CALIBRATING)
     resume_sys_status = SYSTEM_STATUS_XY_CALIBRATING_PRINTING;
@@ -1337,6 +1334,7 @@ bool JobCtrl::consume_a_gcode(uint8_t *cmd, uint16_t max_len, uint32_t *line, ui
           ret = false;
           break;
         }
+        LOG_I("job_ctrl first cmd: %s\n", cmd);
         _paused = false;
       }
       break;

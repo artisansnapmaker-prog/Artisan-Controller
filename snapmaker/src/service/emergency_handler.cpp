@@ -510,8 +510,9 @@ err_code_t EmergencyHandler::hmi_cb_req_recovery_job(void *obj, sacp_hmi_message
   msg->cmd_id = CMD_ID_JOB_CTRL_NOTIFY_POWERLOSS_RECOVERY;
   msg->attr   = 0;
 
-  LOG_I("recover pos: X: %.3f, Y: %.3f, Z: %.3f, E: %.3f, A: %.3f, B: %.3f\n", job_env->current_pos.x,
-    job_env->current_pos.y, job_env->current_pos.z, job_env->current_pos.e, job_env->current_pos.i, job_env->current_pos.j);
+  LOG_I("recover pos: X: %.3f, Y: %.3f, Z: %.3f, E: %.3f, ", job_env->current_pos.x,
+    job_env->current_pos.y, job_env->current_pos.z, job_env->current_pos.e);
+  LOG_I("A: %.3f, B: %.3f, line: %u\n", job_env->current_pos.i, job_env->current_pos.j, job_env->cur_line_num);
 
   uint32_t next_ms;
   switch (smprinter.get_toolhead_type()) {

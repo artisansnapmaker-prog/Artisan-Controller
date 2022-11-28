@@ -92,6 +92,9 @@ bool Axis::getNextStep() {
 #if ENABLED(LIN_ADVANCE)
 FORCE_INLINE bool Axis::generateEAxisFuncParams(uint8_t block_index, uint8_t move_start, uint8_t move_end) {
     uint8_t move_index;
+    block_t *block = &planner.block_buffer[block_index];
+    float e_la = 0;
+
     if (generated_move_index == -1) {
         move_index = move_start;
     } else {
@@ -107,7 +110,7 @@ FORCE_INLINE bool Axis::generateEAxisFuncParams(uint8_t block_index, uint8_t mov
         }
 
         // #define K (0.04)
-        float K = planner.block_buffer[block_index].use_advance_lead ? planner.extruder_advance_K[active_extruder] * 1000 : 0;
+        float K = block->use_advance_lead ? planner.extruder_advance_K[active_extruder] * 1000 : 0;
         float delta_v = IS_ZERO(move->accelerate) ? 0 : K * move->accelerate;
         float eda = delta_v * move->t * move->axis_r[axis];
 
@@ -174,8 +177,11 @@ FORCE_INLINE bool Axis::generateEAxisFuncParams(uint8_t block_index, uint8_t mov
         }
 
         delta_e += eda;
+        e_la += eda;
         move_index = moveQueue.nextMoveIndex(move_index);
     }
+
+    block->e_stepper_offset += e_la;
 
     generated_move_index = move_end;
     return true;

@@ -11,6 +11,7 @@
 #include "job_ctrl.h"
 #include "../../Marlin/src/feature/runout.h"
 #include "system.h"
+#include "../Marlin/src/module/AxisManager.h"
 
 MotionPlatformService motion_platform_svc;
 
@@ -1259,6 +1260,17 @@ void MotionPlatformService::show_coordiantes() {
       NATIVE_TO_LOGICAL(current_position[Y_AXIS], Y_AXIS), NATIVE_TO_LOGICAL(current_position[Z_AXIS], Z_AXIS),
       NATIVE_TO_LOGICAL(current_position[I_AXIS], I_AXIS), NATIVE_TO_LOGICAL(current_position[J_AXIS], J_AXIS));
 }
+
+
+void MotionPlatformService::show_inputshaper_debug_info() {
+  axisManager.show_debug_info();
+}
+
+
+void MotionPlatformService::reset_inputshaper_debug_info() {
+  axisManager.reset_debug_info();
+}
+
 
 void MotionPlatformService::reset_linear_drivers() {
   reset_stepper_drivers();

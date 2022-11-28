@@ -136,7 +136,9 @@ enum InputShaperDebugInfoType {
   SHAPER_DBG_NOT_ENOUGH_MOVES_RESC,
   SHAPER_DBG_NOT_ENOUGH_FUNC_LIST_RESC,
   SHAPER_DBG_CALC_STEP_TIMEOUT_COUNT,
-  SHAPER_DBG_CALC_STEP_TIME
+  SHAPER_DBG_CALC_STEP_TIME,
+
+  SHAPER_DBG_MAX
 };
 
 class AxisManager {
@@ -195,6 +197,8 @@ class AxisManager {
     void input_shaper_reset();
     err_code_t input_shaper_set(int axis, int type, float freq, float dampe);
     err_code_t input_shaper_get(int axis, int &type, float &freq, float &dampe);
+    void show_debug_info();
+    void reset_debug_info();
 
     AxisManager() {};
 

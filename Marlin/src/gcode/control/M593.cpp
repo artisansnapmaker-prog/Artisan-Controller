@@ -27,6 +27,15 @@ void GcodeSuite::M593() {
       return;
     }
 
+    if (parser.seen('I')) {
+        axisManager.show_debug_info();
+        return;
+    }
+
+    if (parser.seen('R')) {
+        axisManager.reset_debug_info();
+        return;
+    }
     // if (axisManager.req_update_shaped) {
     //     LOG_I("Send too many\n");
     //     return;

@@ -289,6 +289,8 @@ class MotionPlatformService {
     static err_code_t hmi_cb_request_home(void *obj, sacp_hmi_message_t *msg);
 
     void show_coordiantes();
+    void show_inputshaper_debug_info();
+    void reset_inputshaper_debug_info();
 
     void reset_linear_drivers();
 

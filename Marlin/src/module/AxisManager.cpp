@@ -7,6 +7,15 @@
 
 AxisManager axisManager;
 
+static const char *dbg_name[SHAPER_DBG_MAX] = {
+  "EMPTY_MOVES_COUNT",
+  "NO_STEPS",
+  "NOT_ENOUGH_MOVES_RESC",
+  "NOT_ENOUGH_FUNC_LIST_RESC",
+  "CALC_STEP_TIMEOUT_COUNT",
+  "CALC_STEP_TIME"
+};
+
 void AxisManager::input_shaper_reset() {
 
   axisManager.axis[X_AXIS].axis_input_shaper->type = (InputShaperType)DEFAULT_IS_TYPE;
@@ -50,6 +59,21 @@ err_code_t AxisManager::input_shaper_get(int axis, int &type, float &freq, float
   LOG_I("getting: axis: %d type: %s, frequency: %lf, zeta: %lf\n", axis, input_shaper_type_name[type], freq, dampe);
 
   return E_SUCCESS;
+}
+
+
+void AxisManager::show_debug_info() {
+  LOG_I("debug info for input shaper:\n");
+  for (int i = 0; i < SHAPER_DBG_MAX; i++) {
+    LOG_I("[%s] = %d\n", dbg_name[i], counts[i]);
+  }
+}
+
+
+void AxisManager::reset_debug_info() {
+  for (int i = 0; i < SHAPER_DBG_MAX; i++) {
+    counts[i] = 0;
+  }
 }
 
 

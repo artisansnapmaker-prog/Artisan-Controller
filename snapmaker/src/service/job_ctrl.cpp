@@ -913,6 +913,8 @@ void JobCtrl::do_start(struct JobCtrlReqInfo &jri) {
       }
     }
   }
+
+  motion_platform_svc.reset_inputshaper_debug_info();
 }
 
 void JobCtrl::do_pause(struct JobCtrlReqInfo &jri) {
@@ -1045,6 +1047,8 @@ abort_pasue:
       notify_handle_paused[i].cb(notify_handle_paused[i].obj, jri.req_data.req_pause_data.type);
     }
   }
+
+  motion_platform_svc.show_inputshaper_debug_info();
 }
 
 void JobCtrl::do_resume(struct JobCtrlReqInfo &jri) {
@@ -1272,6 +1276,8 @@ void JobCtrl::do_stop(struct JobCtrlReqInfo &jri) {
 exit_do_stop:
   req_stop_trigger = false;
   LOG_I("job_ctrl line: %d req_stop_trigger set: %d\n", __LINE__, req_stop_trigger);
+  motion_platform_svc.show_inputshaper_debug_info();
+  motion_platform_svc.reset_inputshaper_debug_info();
 }
 
 err_code_t JobCtrl::set_env(struct JobEnv &env) {

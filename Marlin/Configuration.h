@@ -948,9 +948,9 @@
  */
 #define DEFAULT_MAX_FEEDRATE          { 250, 250, 40, 250, 45, 25 }
 
-#define LIMITED_MAX_FR_EDITING        // Limit edit via M203 or LCD to DEFAULT_MAX_FEEDRATE * 2
+// #define LIMITED_MAX_FR_EDITING        // Limit edit via M203 or LCD to DEFAULT_MAX_FEEDRATE * 2
 #if ENABLED(LIMITED_MAX_FR_EDITING)
-  #define MAX_FEEDRATE_EDIT_VALUES    { 250, 250, 40, 250, 45, 30 } // ...or, set your own edit limits
+  #define MAX_FEEDRATE_EDIT_VALUES    { 250, 250, 40, 250, 45, 40 } // ...or, set your own edit limits
 #endif
 
 /**
@@ -961,9 +961,9 @@
  */
 #define DEFAULT_MAX_ACCELERATION      { 8000, 8000, 100, 500, 500, 10000 }
 
-#define LIMITED_MAX_ACCEL_EDITING     // Limit edit via M201 or LCD to DEFAULT_MAX_ACCELERATION * 2
+// #define LIMITED_MAX_ACCEL_EDITING     // Limit edit via M201 or LCD to DEFAULT_MAX_ACCELERATION * 2
 #if ENABLED(LIMITED_MAX_ACCEL_EDITING)
-  #define MAX_ACCEL_EDIT_VALUES       { 3000, 3000, 500, 500, 500, 6000 } // ...or, set your own edit limits
+  #define MAX_ACCEL_EDIT_VALUES       { 8000, 8000, 500, 500, 500, 10000 } // ...or, set your own edit limits
 #endif
 
 /**
@@ -979,7 +979,7 @@
 #define DEFAULT_TRAVEL_ACCELERATION   5000    // X, Y, Z acceleration for travel (non printing) moves
 #define DEFAULT_ACCELERATION_TO_DECELERATION_RATIO 50
 
-#define LIMITED_MAX_STARTING_ACCEL_EDITING
+// #define LIMITED_MAX_STARTING_ACCEL_EDITING
 #if ENABLED(LIMITED_MAX_STARTING_ACCEL_EDITING)
   #define DEFAULT_MAX_STARTING_ACCELERATION          8000
   #define DEFAULT_MAX_STARTING_RETRACT_ACCELERATION  5000

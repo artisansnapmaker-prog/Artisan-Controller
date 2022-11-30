@@ -285,9 +285,9 @@ bool AxisManager::generateAllAxisFuncParams(uint8_t block_index, block_t* block)
 
     for (int i = 0; i < NUM_AXIS; ++i) {
         if (i < 2 && axis[i].func_manager.getFreeSize() < 15) {
-            counts[3]++;
+            axisManager.counts[SHAPER_DBG_NOT_ENOUGH_FUNC_LIST_RESC]++;
         } else if (i >= 2 && axis[i].func_manager.getFreeSize() < 4) {
-            counts[3]++;
+            axisManager.counts[SHAPER_DBG_NOT_ENOUGH_FUNC_LIST_RESC]++;
         }
         if (!axis[i].generateFuncParams(block_index, move_start, move_end)) {
             res = false;

@@ -1349,7 +1349,7 @@ void Planner::shaped_loop() {
             }
 
             if (moveQueue.getFreeMoveSize() < 3) {
-              axisManager.counts[2]++;
+              axisManager.counts[SHAPER_DBG_NOT_ENOUGH_MOVES_RESC]++;
               break;
             }
 
@@ -1376,7 +1376,7 @@ void Planner::shaped_loop() {
                 }
 
                 if (moveQueue.getFreeMoveSize() < 3) {
-                  axisManager.counts[2]++;
+                  axisManager.counts[SHAPER_DBG_NOT_ENOUGH_MOVES_RESC]++;
                   break;
                 }
 
@@ -1398,7 +1398,7 @@ void Planner::shaped_loop() {
 
         if (index == head_index || planed_time + remaining_consume_time < need_shaped_time) {
           if (index != head_index) {
-            axisManager.counts[0]++;
+            axisManager.counts[SHAPER_DBG_EMPTY_MOVES_COUNT]++;
           }
           axisManager.addEmptyMove();
           block = &block_buffer[prev_block_index(index)];

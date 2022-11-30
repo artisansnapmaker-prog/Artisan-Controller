@@ -2105,10 +2105,10 @@ uint32_t Stepper::block_phase_isr() {
     if (axisManager.getNextAxisStepper(&axis_stepper)) {
 
       hal_timer_t st = HAL_timer_get_count(MF_TIMER_STEP);
-      if (axis_stepper.delta_time > 0.02) {
+      if (axis_stepper.delta_time > 0.03) {
         axisManager.calcNextAxisStepper();
         axisManager.calcNextAxisStepper();
-      } else if (axis_stepper.delta_time > 0.01) {
+      } else if (axis_stepper.delta_time > 0.015) {
         axisManager.calcNextAxisStepper();
       }
       hal_timer_t et = HAL_timer_get_count(MF_TIMER_STEP);
@@ -2116,8 +2116,8 @@ uint32_t Stepper::block_phase_isr() {
       interval = CEIL(axis_stepper.delta_time * STEPPER_TIMER_TICKS_PER_MS);
 
       if (interval < (et - st)) {
-        axisManager.counts[4]++;
-        axisManager.counts[5] = et - st;
+        axisManager.counts[SHAPER_DBG_CALC_STEP_TIMEOUT_COUNT]++;
+        axisManager.counts[SHAPER_DBG_CALC_STEP_TIME] = et - st;
       }
 
       if (axis_stepper.print_time >= block_print_time) {
@@ -2155,7 +2155,7 @@ uint32_t Stepper::block_phase_isr() {
         }
       } else {
         if (done_count <= 1) {
-          axisManager.counts[1]++;
+          axisManager.counts[SHAPER_DBG_NO_STEPS]++;
         }
       }
     }

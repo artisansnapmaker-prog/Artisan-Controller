@@ -1889,6 +1889,12 @@ ShaperSettings *SnapmakerPrinter::get_shaper_settings() {
   return ssettings;
 }
 
+uint8_t SnapmakerPrinter::get_extruders_count(void) {
+  if (fdm)
+    return fdm->get_extruders_count();
+  else
+    return 0;
+}
 
 extern "C" {
   // hook for failing to apply memory in freeRTOS

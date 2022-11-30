@@ -29,6 +29,7 @@
 #define EXTRUDER0_SWITCH_POSITION 0
 #define EXTRUDER1_SWITCH_POSITION 410
 #define GRID_MAX_NUM 11
+#define FDM_MAX_FAN_NUM 3
 
 #define SINGLE_EXTRUDER_SOFT_ENDSTOP_MIN_X      0
 #define SINGLE_EXTRUDER_SOFT_ENDSTOP_MAX_X      400
@@ -179,6 +180,9 @@ class ToolHeadFDM: public ModuleBase {
         hotend_temp[i].current = 0;
         hotend_temp[i].target  = 0;
       }
+      for (int i = 0; i < FDM_MAX_FAN_NUM; i++) {
+        fan_speed[i] = 0;
+      }
       probe_state    = 0;
       probe_sensor   = PROBE_SENSOR_PROXIMITY_SWITCH;
       extruder_info  = 0;
@@ -189,6 +193,7 @@ class ToolHeadFDM: public ModuleBase {
       memset(hotend_offset, 0, sizeof(hotend_offset));
       last_recv_time = 0;
       is_fdm_online = true;
+      filament_state = 0;
     }
 
     bool check_online();
@@ -277,6 +282,7 @@ class ToolHeadFDM: public ModuleBase {
     err_code_t set_right_extruder_pos(float raise_for_home_pos, float z_max_pos);
     uint8_t homing_active_extruder_record(void);
     void homing_active_extruder_clean(void);
+    void nozzle_fan_ctrl_check(void);
 
   // private methods
   private:
@@ -303,7 +309,7 @@ class ToolHeadFDM: public ModuleBase {
     uint8_t filament_detect_mask;
     extruder_work_state_e extruder_status[EXTRUDERS];
     float hotend_diameter[EXTRUDERS];
-    uint8_t fan_speed[3];
+    uint8_t fan_speed[FDM_MAX_FAN_NUM];
     int16_t extruders_feedrate_percentage[EXTRUDERS];
     int16_t extruders_flowrate_percentage[EXTRUDERS];
     uint8_t filament_detect_state[EXTRUDERS];

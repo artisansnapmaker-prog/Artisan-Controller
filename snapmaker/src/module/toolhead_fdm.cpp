@@ -10,6 +10,8 @@
 #include "../service/system.h"
 #include "../../../Marlin/src/core/serial.h"
 
+#define NOZZLE_FAN_AUTO_ENABLE_TEMP           60
+#define NOZZLE_FAN_AUTO_DISABLE_TEMP          58
 
 // hmi subscribe callback
 static uint16_t hmi_subscript_callback_extruder_info(void *obj, uint8_t *buffer);
@@ -1370,6 +1372,9 @@ void ToolHeadFDM::update_hotend_temp(uint8_t *data) {
     }
   }
 
+  // nozzle fan control detection
+  nozzle_fan_ctrl_check();
+
   hotend_error_sta |= (temp_error & 0xF);
   last_recv_time = millis();
 }
@@ -1507,6 +1512,9 @@ err_code_t ToolHeadFDM::set_fan_speed(uint8_t fan_index, uint16_t speed, uint8_t
 
 // TODO: The parameter of 'e', should use enum type.
 err_code_t ToolHeadFDM::set_hotend_temp(uint16_t temp, uint8_t e) {
+  err_code_t ret;
+  smcan_message_t msg;
+
   if (e > EXTRUDERS) {
     return E_PARAM;
   }
@@ -1525,56 +1533,8 @@ err_code_t ToolHeadFDM::set_hotend_temp(uint16_t temp, uint8_t e) {
     buffer[2*i + 1] = (uint8_t)hotend_temp[i].target;
   }
 
-  fan_e nozzle_fan_index = SINGLE_EXTRUDER_NOZZLE_FAN;
-  uint8_t fan_speed = 0;
-  uint8_t fan_delay = 0;
-
-  if (get_device_id() == MODULE_DEVICE_ID_FDM_1EXTRUDER_2019) {
-    if (hotend_temp[e].target >= 60) {
-      fan_speed = 255;
-    } else if (hotend_temp[e].target == 0) {
-      // check if need to delay to turn off fan
-      if (hotend_temp[e].current >= 150) {
-        fan_speed = 0;
-        fan_delay = 120;
-      }
-      else if (hotend_temp[e].target >= 60) {
-        fan_speed = 0;
-        fan_delay = 60;
-      }
-      else {
-        fan_speed = 0;
-        fan_delay = 0;
-      }
-    }
-    nozzle_fan_index = SINGLE_EXTRUDER_NOZZLE_FAN;
-  } else if (get_device_id() == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
-    if ((hotend_temp[0].target >= 60) || (hotend_temp[1].target >= 60)) {
-      fan_speed = 255;
-    } else if ((hotend_temp[0].target == 0) && (hotend_temp[1].target == 0)) {
-      // check if need to delay to turn off fan
-      if ((hotend_temp[0].current >= 150) || (hotend_temp[1].current >= 150)) {
-        fan_speed = 0;
-        fan_delay = 120;
-      } else if ((hotend_temp[0].target >= 60) || (hotend_temp[1].target >= 60)) {
-        fan_speed = 0;
-        fan_delay = 60;
-      } else {
-        fan_speed = 0;
-        fan_delay = 0;
-      }
-    }
-    nozzle_fan_index = DUAL_EXTRUDER_NOZZLE_FAN;
-  }
-
-
-  set_fan_speed((uint8_t)nozzle_fan_index, fan_speed, fan_delay);
-
-  err_code_t ret;
-  smcan_message_t msg;
-
   msg.id = get_message_id(MODULE_FUNC_SET_NOZZLE_TEMP);
-    if (msg.id == MODULE_MESSAGE_ID_INVALID) {
+  if (msg.id == MODULE_MESSAGE_ID_INVALID) {
     LOG_E("invalid message to set hotend temp\n");
     return E_FAILURE;
   }
@@ -2172,6 +2132,8 @@ err_code_t ToolHeadFDM::resume_finish() {
 }
 
 err_code_t ToolHeadFDM::standby(void) {
+  enum SystemStatus status = smprinter.get_sys_status();
+
   if (bedlevel_svc.live_z_offset_changed) {
     bedlevel_svc.live_z_offset_changed = false;
     SnapmakerSettings *smsettings = smprinter.get_settings();
@@ -2181,19 +2143,13 @@ err_code_t ToolHeadFDM::standby(void) {
     // LOG_I("fdm standby, save live_z_offet: %f, %f\n", bedlevel_svc.live_z_offset[0], bedlevel_svc.live_z_offset[1]);
   }
 
-  enum SystemStatus status = smprinter.get_sys_status();
   if (status != SYSTEM_STATUS_PAUSING) {
+    motion_platform_svc.set_hotend_temp(0, 0);
     if (get_device_id() == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
-      motion_platform_svc.set_hotend_temp(0, 0);
       motion_platform_svc.set_hotend_temp(0, 1);
-      set_fan_speed(0, 0);
-      set_fan_speed(1, 0);
-      set_fan_speed(2, 0);
-    } else if (get_device_id() == MODULE_DEVICE_ID_FDM_1EXTRUDER_2019) {
-      motion_platform_svc.set_hotend_temp(0, 0);
-      set_fan_speed(0, 0);
       set_fan_speed(1, 0);
     }
+    set_fan_speed(0, 0);
   }
 
   return E_SUCCESS;
@@ -2314,13 +2270,11 @@ void ToolHeadFDM::delay_turnoff_heating_process() {
       if (device_id == MODULE_DEVICE_ID_FDM_1EXTRUDER_2019) {
         motion_platform_svc.set_hotend_temp(0, 0);
         set_fan_speed(0, 0);
-        set_fan_speed(1, 0);
       } else if (device_id == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
         motion_platform_svc.set_hotend_temp(0, 0);
         motion_platform_svc.set_hotend_temp(0, 1);
         set_fan_speed(0, 0);
         set_fan_speed(1, 0);
-        set_fan_speed(2, 0);
       }
     }
   } else {
@@ -2542,4 +2496,46 @@ void ToolHeadFDM::homing_active_extruder_clean(void) {
     active_extruder_bak = HOTEND_INVALID_INDEX;
   else
     LOG_I("[%s] the current state does not allow clear\n", __FUNCTION__);
+}
+
+void ToolHeadFDM::nozzle_fan_ctrl_check(void) {
+  uint8_t nozzle_fan_index = 0XFF;
+  uint8_t enable_fan = 0xFF;
+  uint8_t i = 0;
+  uint8_t extruders = smprinter.get_extruders_count();
+
+  if (get_device_id() == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
+    nozzle_fan_index = DUAL_EXTRUDER_NOZZLE_FAN;
+  }
+  else if (get_device_id() == MODULE_DEVICE_ID_FDM_1EXTRUDER_2019) {
+    nozzle_fan_index = SINGLE_EXTRUDER_NOZZLE_FAN;
+  }
+
+  if (nozzle_fan_index == 0xFF || nozzle_fan_index >= FDM_MAX_FAN_NUM || extruders == 0)
+    return;
+
+  // detects the temperature of the hot end and determines whether the fan needs to be turned on
+  for (i = 0; i < extruders; i++) {
+    if (hotend_temp[i].target >= NOZZLE_FAN_AUTO_ENABLE_TEMP || hotend_temp[i].current >= NOZZLE_FAN_AUTO_ENABLE_TEMP * 10) {
+      enable_fan = 1;
+    }
+  }
+
+  // detects the current temperature of the hot end to determine if the fan needs to be turned off
+  if (enable_fan == 0xFF) {
+    for (i = 0; i < extruders; i++) {
+      if (hotend_temp[i].current > NOZZLE_FAN_AUTO_DISABLE_TEMP * 10)
+        break;
+    }
+
+    if (i >= extruders)
+      enable_fan = 0;
+  }
+
+  if (enable_fan != 0xFF && nozzle_fan_index != 0xFF) {
+    if ((enable_fan == 0 && fan_speed[nozzle_fan_index]) || (enable_fan == 1 && fan_speed[nozzle_fan_index] != 255)) {
+      LOG_I("%s nozzle fan\n", enable_fan ? "enable" : "disable");
+      set_fan_speed(nozzle_fan_index, enable_fan ? 255 : 0);
+    }
+  }
 }

@@ -61,18 +61,24 @@
  */
 void GcodeSuite::M106() {
   #if (MB_SNAPMAKER)
+    uint8_t extruders = smprinter.get_extruders_count();
     bool seen_p = parser.seenval('P');
     uint8_t p = parser.byteval('P', 0);
     uint16_t s = parser.ushortval('S', 255);
-    NOMORE(p, 3);
+
+    if (extruders == 0)
+      return;
+
+    NOMORE(p, extruders - 1);
     NOMORE(s, 255U);
-    uint8_t extruders = smprinter.fdm->get_extruders_count();
     if (seen_p) {
       thermalManager.set_fan_speed(p, s);
-    } else {
+    }
+    else {
       if (extruders == 1) {
         thermalManager.set_fan_speed(0, s);
-      } else if (extruders == 2) {
+      }
+      else if (extruders == 2) {
         thermalManager.set_fan_speed(active_extruder, s);
       }
     }
@@ -120,14 +126,18 @@ void GcodeSuite::M106() {
  */
 void GcodeSuite::M107() {
   #if (MB_SNAPMAKER)
+    uint8_t extruders = smprinter.get_extruders_count();
     bool seen_p = parser.seenval('P');
     uint8_t p = parser.byteval('P', 0);
-    NOMORE(p, 3);
-    thermalManager.set_fan_speed(p, 0);
-    uint8_t extruders = smprinter.fdm->get_extruders_count();
+
+    if (extruders == 0)
+      return;
+
+    NOMORE(p, extruders - 1);
     if (seen_p) {
       thermalManager.set_fan_speed(p, 0);
-    } else {
+    }
+    else {
       if (extruders == 1) {
         thermalManager.set_fan_speed(0, 0);
       } else if (extruders == 2) {

@@ -2105,10 +2105,10 @@ uint32_t Stepper::block_phase_isr() {
     if (axisManager.getNextAxisStepper(&axis_stepper)) {
 
       hal_timer_t st = HAL_timer_get_count(MF_TIMER_STEP);
-      if (axis_stepper.delta_time > 0.01) {
+      if (axis_stepper.delta_time > 0.02) {
         axisManager.calcNextAxisStepper();
-      } else if (axis_stepper.delta_time > 0.02) {
         axisManager.calcNextAxisStepper();
+      } else if (axis_stepper.delta_time > 0.01) {
         axisManager.calcNextAxisStepper();
       }
       hal_timer_t et = HAL_timer_get_count(MF_TIMER_STEP);

@@ -1318,7 +1318,6 @@ void Planner::shaped_loop() {
     if (nr_moves < 6 && delay_before_delivering > SHAPED_WAITING_MIN_TIME) {
         return;
     }
-    delay_before_delivering = 0;
     // LOG_I("r: %lf\n", remaining_consume_time);
 
     // uint8_t tail_index = block_buffer_tail;
@@ -1428,7 +1427,8 @@ void Planner::shaped_loop() {
     }
 
     // LOG_I("remainingConsumeTime: %lf, %d, %d, %d, %d\n", axisManager.getRemainingConsumeTime(), tail_index, shaped_index, planned_index, head_index);
-
+    delay_before_delivering = 0;
+    
     block_buffer_shaped = shaped_index;
 }
 

@@ -58,7 +58,10 @@
 #define SINGLE_EXTRUDER_STEPS_PER_UNIT_DEFAULT  212.21
 #define DUAL_EXTRUDER_STEPS_PER_UNIT_DEFAULT    667.222
 
-#define HOTEND_INVALID_INDEX  0xFF
+#define HOTEND_INVALID_INDEX                    0xFF
+#define EXTRUDER_NVALID_STATUS_STABLE_CNT       0xFFFFFFFF
+#define EXTRUDER_STATUS_STABLE_CNT              10
+#define EXTRUDER_STATUS_CHECK_INTERVAL          50
 
 /****************************************************************************************
 reference links: https://snapmaker2.atlassian.net/wiki/spaces/SNAP/pages/1984987369/FDM
@@ -194,6 +197,9 @@ class ToolHeadFDM: public ModuleBase {
       last_recv_time = 0;
       is_fdm_online = true;
       filament_state = 0;
+      extruder_state = 0;
+      extruder_check_tick = 0;
+      extruder_sta_stable_cnt = EXTRUDER_NVALID_STATUS_STABLE_CNT;
     }
 
     bool check_online();
@@ -283,7 +289,7 @@ class ToolHeadFDM: public ModuleBase {
     uint8_t homing_active_extruder_record(void);
     void homing_active_extruder_clean(void);
     void nozzle_fan_ctrl_check(void);
-
+    void extruder_state_check(void);
   // private methods
   private:
 
@@ -296,6 +302,9 @@ class ToolHeadFDM: public ModuleBase {
   // private properties
   private:
     uint32_t fdm_state;
+    uint32_t extruder_check_tick;
+    uint32_t extruder_sta_stable_cnt;
+    uint8_t extruder_state;
     uint8_t probe_state;
     probe_sensor_t probe_sensor;
     uint8_t extruder_info;

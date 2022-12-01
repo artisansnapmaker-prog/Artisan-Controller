@@ -13,6 +13,8 @@
 #define NOZZLE_FAN_AUTO_ENABLE_TEMP           60
 #define NOZZLE_FAN_AUTO_DISABLE_TEMP          58
 
+#define EXTRUDER_STATE_CHANGE_CONFIRM_TICK    500
+
 // hmi subscribe callback
 static uint16_t hmi_subscript_callback_extruder_info(void *obj, uint8_t *buffer);
 // hmi request callback
@@ -1260,21 +1262,23 @@ void ToolHeadFDM::set_hotend_type(uint8_t *data) {
 }
 
 void ToolHeadFDM::report_extruder_info(uint8_t *data) {
-  uint8_t extruder_state = data[0];
+  extruder_state = data[0];
+  // #ifdef USE_FDM_INTERRUPT_LOG
+    LOG_I("module extr: %d, cur extr: %d\n", data[1], active_extruder);
+  // #endif
 
-  LOG_I("module extr: %d\n", data[1]);
 
-  if (extruder_state) {
-    if (((fdm_state >> FDM_FAULT_EXTRUDER_STATE) & 0x01) == 0) {
-      fdm_exception_trigger(FDM_FAULT_EXTRUDER_STATE);
-      system_svc.raise_exception(get_device_id(), FDM_EXCEP_STA_EXTRUDER_STATE_ERROR);
-    }
-  } else {
-    if (((fdm_state >> FDM_FAULT_EXTRUDER_STATE) & 0x01) == 1) {
-      fdm_exception_clear(FDM_FAULT_EXTRUDER_STATE);
-      system_svc.clear_exception(get_device_id(), FDM_EXCEP_STA_EXTRUDER_STATE_ERROR);
-    }
-  }
+  // if (extruder_state) {
+  //   if (((fdm_state >> FDM_FAULT_EXTRUDER_STATE) & 0x01) == 0) {
+  //     fdm_exception_trigger(FDM_FAULT_EXTRUDER_STATE);
+  //     system_svc.raise_exception(get_device_id(), FDM_EXCEP_STA_EXTRUDER_STATE_ERROR);
+  //   }
+  // } else {
+  //   if (((fdm_state >> FDM_FAULT_EXTRUDER_STATE) & 0x01) == 1) {
+  //     fdm_exception_clear(FDM_FAULT_EXTRUDER_STATE);
+  //     system_svc.clear_exception(get_device_id(), FDM_EXCEP_STA_EXTRUDER_STATE_ERROR);
+  //   }
+  // }
 }
 
 void ToolHeadFDM::update_hotend_temp(uint8_t *data) {
@@ -1984,6 +1988,8 @@ err_code_t fdm_callback_routine(void *obj) {
       }
     }
   } else {
+    // only detect the extruder status when the module is online
+    fdm.extruder_state_check();
     if (fdm.is_fdm_online == false) {
       LOG_E("fdm resume online\n");
       fdm.is_fdm_online = true;
@@ -2536,6 +2542,45 @@ void ToolHeadFDM::nozzle_fan_ctrl_check(void) {
     if ((enable_fan == 0 && fan_speed[nozzle_fan_index]) || (enable_fan == 1 && fan_speed[nozzle_fan_index] != 255)) {
       LOG_I("%s nozzle fan\n", enable_fan ? "enable" : "disable");
       set_fan_speed(nozzle_fan_index, enable_fan ? 255 : 0);
+    }
+  }
+}
+
+void ToolHeadFDM::extruder_state_check(void) {
+  if (get_device_id() == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
+    if (ELAPSED(xTaskGetTickCount(), extruder_check_tick + EXTRUDER_STATUS_CHECK_INTERVAL)) {
+      extruder_check_tick = xTaskGetTickCount();
+      // the extruder state is changed
+      if (((fdm_state >> FDM_FAULT_EXTRUDER_STATE) & 0x01) == (!!extruder_state)) {
+        extruder_sta_stable_cnt = EXTRUDER_NVALID_STATUS_STABLE_CNT;
+      }
+      else {
+        // update the anti-shake value if the state is not the same as the current state
+        if (extruder_sta_stable_cnt == EXTRUDER_NVALID_STATUS_STABLE_CNT || extruder_sta_stable_cnt == 0)
+          extruder_sta_stable_cnt = EXTRUDER_STATUS_STABLE_CNT;
+      }
+
+      if (extruder_sta_stable_cnt != EXTRUDER_NVALID_STATUS_STABLE_CNT && extruder_sta_stable_cnt > 0) {
+        if (extruder_sta_stable_cnt > EXTRUDER_STATUS_STABLE_CNT)
+          extruder_sta_stable_cnt = EXTRUDER_STATUS_STABLE_CNT;
+        extruder_sta_stable_cnt -= 1;
+
+        // no change in status within the specified time
+        if (extruder_sta_stable_cnt == 0) {
+          if (extruder_state) {
+            if (((fdm_state >> FDM_FAULT_EXTRUDER_STATE) & 0x01) == 0) {
+              fdm_exception_trigger(FDM_FAULT_EXTRUDER_STATE);
+              system_svc.raise_exception(get_device_id(), FDM_EXCEP_STA_EXTRUDER_STATE_ERROR);
+            }
+          }
+          else {
+            if (((fdm_state >> FDM_FAULT_EXTRUDER_STATE) & 0x01) == 1) {
+              fdm_exception_clear(FDM_FAULT_EXTRUDER_STATE);
+              system_svc.clear_exception(get_device_id(), FDM_EXCEP_STA_EXTRUDER_STATE_ERROR);
+            }
+          }
+        }
+      }
     }
   }
 }

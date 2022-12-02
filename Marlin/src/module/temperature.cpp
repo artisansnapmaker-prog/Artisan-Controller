@@ -3911,6 +3911,12 @@ void Temperature::isr() {
     #endif
 
     bool Temperature::wait_for_hotend(const uint8_t target_extruder, const bool no_wait_for_cooling/*=true*/
+      #if ENABLED(ENABLE_CUSTOM_M109_PARAM)
+        ,
+        celsius_t temp_window/*=TEMP_WINDOW*/,
+        celsius_t temp_hystersis/*=TEMP_HYSTERESIS*/,
+        uint32_t  temp_residency_time/*=TEMP_RESIDENCY_TIME*/
+      #endif
       OPTARG(G26_CLICK_CAN_CANCEL, const bool click_to_cancel/*=false*/)
     ) {
       #if ENABLED(AUTOTEMP)
@@ -3921,7 +3927,11 @@ void Temperature::isr() {
         millis_t residency_start_ms = 0;
         bool first_loop = true;
         // Loop until the temperature has stabilized
-        #define TEMP_CONDITIONS (!residency_start_ms || PENDING(now, residency_start_ms + SEC_TO_MS(TEMP_RESIDENCY_TIME)))
+        #if ENABLED(ENABLE_CUSTOM_M109_PARAM)
+          #define TEMP_CONDITIONS (!residency_start_ms || PENDING(now, residency_start_ms + SEC_TO_MS(temp_residency_time)))
+        #else
+          #define TEMP_CONDITIONS (!residency_start_ms || PENDING(now, residency_start_ms + SEC_TO_MS(TEMP_RESIDENCY_TIME)))
+        #endif
       #else
         // Loop until the temperature is very close target
         #define TEMP_CONDITIONS (wants_to_cool ? isCoolingHotend(target_extruder) : isHeatingHotend(target_extruder))
@@ -3975,7 +3985,14 @@ void Temperature::isr() {
           #if TEMP_RESIDENCY_TIME > 0
             SERIAL_ECHOPGM(" W:");
             if (residency_start_ms)
+            #if ENABLED(ENABLE_CUSTOM_M109_PARAM)
+              {
+                if (temp_residency_time > 0)
+                  SERIAL_ECHO(long((SEC_TO_MS(temp_residency_time) - (now - residency_start_ms)) / 1000UL));
+              }
+            #else
               SERIAL_ECHO(long((SEC_TO_MS(TEMP_RESIDENCY_TIME) - (now - residency_start_ms)) / 1000UL));
+            #endif
             else
               SERIAL_CHAR('?');
           #endif
@@ -4004,10 +4021,19 @@ void Temperature::isr() {
 
           if (!residency_start_ms) {
             // Start the TEMP_RESIDENCY_TIME timer when we reach target temp for the first time.
-            if (temp_diff < TEMP_WINDOW)
-              residency_start_ms = now + (first_loop ? SEC_TO_MS(TEMP_RESIDENCY_TIME) / 3 : 0);
+            #if ENABLED(ENABLE_CUSTOM_M109_PARAM)
+              if (temp_diff < temp_window)
+                residency_start_ms = now + (first_loop ? (SEC_TO_MS(temp_residency_time) / 3 > 200 ? 200 : SEC_TO_MS(temp_residency_time)) : 0);
+            #else
+              if (temp_diff < TEMP_WINDOW)
+                residency_start_ms = now + (first_loop ? SEC_TO_MS(TEMP_RESIDENCY_TIME) / 3 : 0);
+            #endif
           }
-          else if (temp_diff > TEMP_HYSTERESIS) {
+          #if ENABLED(ENABLE_CUSTOM_M109_PARAM)
+            else if (temp_diff > temp_hystersis) {
+          #else
+            else if (temp_diff > TEMP_HYSTERESIS) {
+          #endif
             // Restart the timer whenever the temperature falls outside the hysteresis.
             residency_start_ms = now;
           }

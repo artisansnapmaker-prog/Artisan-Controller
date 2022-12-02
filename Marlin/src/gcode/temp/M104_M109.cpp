@@ -137,8 +137,29 @@ void GcodeSuite::M104_M109(const bool isM109) {
 
   TERN_(AUTOTEMP, planner.autotemp_M104_M109());
 
-  if (isM109 && got_temp)
-    (void)thermalManager.wait_for_hotend(target_extruder, no_wait_for_cooling);
+  if (isM109 && got_temp) {
+    #if ENABLED(ENABLE_CUSTOM_M109_PARAM)
+      uint32_t  temp_residency_time = TEMP_RESIDENCY_TIME;
+      celsius_t temp_windown = TEMP_WINDOW;
+      celsius_t temp_hysteresis = TEMP_HYSTERESIS;
+      if (parser.seen('C')) {
+        if (parser.has_value()) {
+          // If M109 has parameter 'C', temp_windown and temp_hysteresiss will both change
+          temp_hysteresis = temp_windown = parser.value_celsius();
+        }
+      }
+      temp_residency_time = parser.ulongval('W', TEMP_RESIDENCY_TIME);
+
+      // parameter detection to prevent waiting after heating cannot be stopped
+      NOLESS(temp_windown, 1);
+      NOLESS(temp_hysteresis, 1);
+      NOLESS(temp_residency_time, (uint32_t)0);
+      (void)thermalManager.wait_for_hotend(target_extruder, no_wait_for_cooling, \
+                                           temp_windown, temp_hysteresis, temp_residency_time);
+    #else
+      (void)thermalManager.wait_for_hotend(target_extruder, no_wait_for_cooling);
+    #endif
+  }
 }
 
 #endif // EXTRUDERS

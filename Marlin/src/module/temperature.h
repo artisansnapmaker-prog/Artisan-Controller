@@ -778,7 +778,15 @@ class Temperature {
       }
 
       #if HAS_TEMP_HOTEND
+        // Enable ENABLE_CUSTOM_M109_PARAM M109 'C' 'W'
+        #define ENABLE_CUSTOM_M109_PARAM
         static bool wait_for_hotend(const uint8_t target_extruder, const bool no_wait_for_cooling=true
+        #if ENABLED(ENABLE_CUSTOM_M109_PARAM)
+          ,
+          celsius_t temp_window = TEMP_WINDOW,
+          celsius_t temp_hystersis = TEMP_HYSTERESIS,
+          uint32_t  temp_residency_time = TEMP_RESIDENCY_TIME
+        #endif
           OPTARG(G26_CLICK_CAN_CANCEL, const bool click_to_cancel=false)
         );
 

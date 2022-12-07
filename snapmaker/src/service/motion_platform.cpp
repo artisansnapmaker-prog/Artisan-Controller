@@ -1,6 +1,7 @@
 
 #include "motion_platform.h"
 #include "../common/debug.h"
+#include "../common/utility.h"
 #include "Arduino.h"
 #include "../snapmaker.h"
 #include "bed_level.h"
@@ -441,7 +442,9 @@ err_code_t MotionPlatformService::hmi_cb_set_inputshaper_frequency(void *obj, sa
     a = msg->data[0] - 1;
 
     // convert the frequency
-    freq = *(int32_t *)(msg->data + 1) / 1000.0f;
+    // freq = *((int32_t *)(msg->data + 1)) / 1000.0f;
+    freq = LITTLE_STREAM_TO_32(msg->data + 1);
+    freq /= 1000.0f;
 
     LOG_I("axis=%u, freq=%.3f\n", a, freq);
 
@@ -579,14 +582,12 @@ err_code_t MotionPlatformService::hmi_cb_get_inputshaper_state(void *obj, sacp_h
 
   LOG_I("HMI set switch of input shaper: ");
 
+  msg->length = 2;
+
   do {
     if (!ssettings) {
       msg->data[0] = E_FAILURE;
-      break;
-    }
-
-    if (msg->length < 1) {
-      msg->data[0] = E_PARAM;
+      msg->length = 1;
       break;
     }
 
@@ -601,7 +602,6 @@ err_code_t MotionPlatformService::hmi_cb_get_inputshaper_state(void *obj, sacp_h
   } while (0);
 
 
-  msg->length = 2;
   return host_hmi.send_ack(msg);
 }
 
@@ -665,6 +665,15 @@ void MotionPlatformService::init() {
 
   host_hmi.register_callback(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_HOME,
             (void *)this, hmi_cb_request_home, SACP_CB_ATTR_BLOCKED_WITH_MOTION);
+
+  host_hmi.register_callback(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_SET_IS_FREQ,
+            (void *)this, hmi_cb_set_inputshaper_frequency, SACP_CB_ATTR_BLOCKED_WITH_MOTION);
+  host_hmi.register_callback(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_GET_IS_FREQ,
+            (void *)this, hmi_cb_get_inputshaper_frequency);
+  host_hmi.register_callback(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_SET_IS_SWITCH,
+            (void *)this, hmi_cb_set_inputshaper_switch, SACP_CB_ATTR_BLOCKED_WITH_MOTION);
+  host_hmi.register_callback(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_GET_IS_SWITCH,
+            (void *)this, hmi_cb_get_inputshaper_state);
 
   init_motion_request();
 

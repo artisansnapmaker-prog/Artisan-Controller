@@ -117,6 +117,12 @@ enum SACPCommandSet {
 
 #define SACP_CMD_ID_GLOABL_REQ_ENTRY_REPLACE_MODE     (0x3d)
 
+// commands for input shaper
+#define SACP_CMD_ID_GLOABL_REQ_SET_IS_FREQ      (0x3e)
+#define SACP_CMD_ID_GLOABL_REQ_GET_IS_FREQ      (0x3f)
+#define SACP_CMD_ID_GLOABL_REQ_SET_IS_SWITCH    (0x40)
+#define SACP_CMD_ID_GLOABL_REQ_GET_IS_SWITCH    (0x41)
+
 #define SACP_CMD_ID_GLOABL_REQ_HEARTBEAT          (0xa0)
 #define SACP_CMD_ID_GLOABL_REQ_SUB_COORDINATE     (0xa2)
 

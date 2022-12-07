@@ -202,6 +202,56 @@ void GcodeSuite::M2000() {
     }
     break;
 
+  case 11:
+  { // set freq of input shaper
+    uint8_t buffer[8];
+    if (x > 0) {
+      buffer[0] = X_AXIS + 1;
+      *(int32_t *)(buffer + 1) = (int32_t)(x * 1000);
+      host_hmi.test_interface(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_SET_IS_FREQ, buffer, 5);
+    }
+
+    if (y > 0) {
+      buffer[0] = Y_AXIS + 1;
+      *(int32_t *)(buffer + 1) = (int32_t)(y * 1000);
+      host_hmi.test_interface(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_SET_IS_FREQ, buffer, 5);
+    }
+  }
+  break;
+
+  case 12:
+  {
+  { // get freq of input shaper
+    uint8_t buffer[8];
+    if (x > 0) {
+      buffer[0] = X_AXIS + 1;
+      host_hmi.test_interface(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_GET_IS_FREQ, buffer, 1);
+    }
+
+    if (y > 0) {
+      buffer[0] = Y_AXIS + 1;
+      host_hmi.test_interface(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_GET_IS_FREQ, buffer, 1);
+    }
+  }
+  }
+  break;
+
+  case 13:
+  { // set is switch
+    uint8_t buffer[4] {0};
+    if (i > 0) {
+      buffer[0] = 1;
+    }
+    host_hmi.test_interface(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_SET_IS_SWITCH, buffer, 1);
+  }
+  break;
+
+  case 14:
+  { // get is switch
+    host_hmi.test_interface(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_SET_IS_SWITCH, NULL, 0);
+  }
+  break;
+
   default:
     break;
   }

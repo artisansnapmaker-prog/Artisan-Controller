@@ -2292,6 +2292,7 @@ void ToolHeadFDM::fdm_exception_clear(fdm_fault_e fault) {
 void ToolHeadFDM::show_fdm_info() {
   LOG_I("fdm fault state: 0x%x\n", fdm_state);
   LOG_I("fdm status: %d\n", get_status());
+  LOG_I("z compensation [0]=%.3f, [1]=%.3f\n", bedlevel_svc.z_compensation_[0], bedlevel_svc.z_compensation_[1]);
 }
 
 void ToolHeadFDM::delay_turnoff_heating_process() {

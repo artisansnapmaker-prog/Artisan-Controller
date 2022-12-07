@@ -968,7 +968,7 @@ bool MotionPlatformService::is_original_position_offset() {
 }
 
 
-void MotionPlatformService::moveto(xyze_pos_t target, float feedrate, bool blocked) {
+void MotionPlatformService::moveto(const xyze_pos_t &target, float feedrate, bool blocked) {
   motion_request *mq;
 
   if (smprinter.is_in_motion_thread()) {

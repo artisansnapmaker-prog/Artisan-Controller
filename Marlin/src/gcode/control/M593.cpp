@@ -5,25 +5,10 @@
 
 
 void GcodeSuite::M593() {
-    ShaperSettings *ssettings;
-    ModuleBase *toolhead = smprinter.get_cur_toolhead();
     AxisInputShaper *x_shaper = axisManager.axis[0].axis_input_shaper, *y_shaper = axisManager.axis[1].axis_input_shaper;
 
-    if (!toolhead) {
-      LOG_E("cannot setup shaper without toolhead plugged\n");
-      return;
-    }
-
-    if (toolhead->get_device_id() == MODULE_DEVICE_ID_FDM_1EXTRUDER_2019) {
-      ssettings = smprinter.get_settings()->fdm1_shaper_settings;
-    }
-    else if (toolhead->get_device_id() == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
-      ssettings = smprinter.get_settings()->fdm2_shaper_settings;
-    }
-    else {
-      LOG_E("can only setup input shaper with FDM toolhead plugged!\n");
-      LOG_I("X type: %s, frequency: %lf, zeta: %lf\n", input_shaper_type_name[x_shaper->type], x_shaper->frequency, x_shaper->zeta);
-      LOG_I("Y type: %s, frequency: %lf, zeta: %lf\n", input_shaper_type_name[y_shaper->type], y_shaper->frequency, y_shaper->zeta);
+    ShaperSettings *ssettings = smprinter.get_shaper_settings();
+    if (!ssettings) {
       return;
     }
 

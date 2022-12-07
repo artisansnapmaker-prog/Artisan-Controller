@@ -3,7 +3,6 @@
 #include "FuncManager.h"
 
 #define SHAPER_VIBRATION_REDUCTION 20
-#define SHAPER_TYPE_DEFAULT (6) // zvd
 #define SHAPER_FREQ_DEFAULT (50)
 #define SHAPER_ZETA_DEFAULT (0.1f)
 #define SHAPER_AXIS_COUNT   (2) // X & Y
@@ -22,6 +21,8 @@ enum InputShaperType : int
 
   SHAPER_TYPE_MAX
 };
+
+#define SHAPER_TYPE_DEFAULT (InputShaperType::ei) // ei
 
 class ShaperParams
 {

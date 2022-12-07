@@ -666,6 +666,8 @@ class SnapmakerPrinter
 
     bool is_in_motion_thread();
 
+    ShaperSettings *get_shaper_settings();
+
   private:
     enum SystemStatus sys_status;
     SemaphoreHandle_t status_lock;

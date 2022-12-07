@@ -287,6 +287,11 @@ class MotionPlatformService {
     static err_code_t hmi_cb_set_origin(void *obj, sacp_hmi_message_t *msg);
     static err_code_t hmi_cb_move_absoluty(void *obj, sacp_hmi_message_t *msg);
     static err_code_t hmi_cb_request_home(void *obj, sacp_hmi_message_t *msg);
+    // input shaper callbacks for HMI
+    static err_code_t hmi_cb_set_inputshaper_frequency(void *obj, sacp_hmi_message_t *msg);
+    static err_code_t hmi_cb_get_inputshaper_frequency(void *obj, sacp_hmi_message_t *msg);
+    static err_code_t hmi_cb_set_inputshaper_switch(void *obj, sacp_hmi_message_t *msg);
+    static err_code_t hmi_cb_get_inputshaper_state(void *obj, sacp_hmi_message_t *msg);
 
     void show_coordiantes();
     void show_inputshaper_debug_info();

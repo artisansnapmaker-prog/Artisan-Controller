@@ -412,6 +412,200 @@ ack_hmi:
 }
 
 
+err_code_t MotionPlatformService::hmi_cb_set_inputshaper_frequency(void *obj, sacp_hmi_message_t *msg) {
+  AxisInputShaper *shaper;
+  ShaperSettings  *ssettings = smprinter.get_shaper_settings();
+
+  float freq;
+  uint32_t a;
+
+  LOG_I("HMI set freq of input shaper: ");
+
+  do {
+    if (!ssettings) {
+      msg->data[0] = E_FAILURE;
+      break;
+    }
+
+    if (msg->length < 5) {
+      msg->data[0] = E_PARAM;
+      break;
+    }
+
+    if (msg->data[0] == 0 || msg->data[0] > 2) {
+      msg->data[0] = E_PARAM;
+      break;
+    }
+
+    // map to X_AXIS or Y_AXIS
+    a = msg->data[0] - 1;
+
+    // convert the frequency
+    freq = *(int32_t *)(msg->data + 1) / 1000.0f;
+
+    LOG_I("axis=%u, freq=%.3f\n", a, freq);
+
+    // get relative input shper per the axis
+    shaper = axisManager.axis[a].axis_input_shaper;
+
+    if (freq != shaper->frequency) {
+      planner.synchronize();
+      ssettings[a].freq = freq;
+      shaper->setConfig(ssettings[a].type, freq, ssettings[a].zeta);
+      axisManager.initAxisShaper();
+      axisManager.abort();
+      settings.save();
+    }
+
+    msg->data[0] = E_SUCCESS;
+  } while (0);
+
+
+  msg->length = 1;
+  return host_hmi.send_ack(msg);
+}
+
+
+err_code_t MotionPlatformService::hmi_cb_get_inputshaper_frequency(void *obj, sacp_hmi_message_t *msg) {
+  ShaperSettings *ssettings = smprinter.get_shaper_settings();
+
+  uint32_t a;
+
+  LOG_I("HMI get freq of input shaper: ");
+
+  msg->length = 1;
+
+  do {
+    if (!ssettings) {
+      msg->data[0] = E_FAILURE;
+      break;
+    }
+
+    if (msg->length < 1) {
+      msg->data[0] = E_PARAM;
+      break;
+    }
+
+    if (msg->data[0] == 0 || msg->data[0] > 2) {
+      msg->data[0] = E_PARAM;
+      break;
+    }
+
+    // map to X_AXIS or Y_AXIS
+    a = msg->data[0] - 1;
+
+    *(int32_t *)(msg->data + 1) = (int32_t)(ssettings[a].freq * 1000);
+
+    LOG_I("axis=%u, freq=%.3f\n", a, ssettings[a].freq);
+
+    msg->data[0] = E_SUCCESS;
+    msg->length = 5;
+  } while (0);
+
+
+  return host_hmi.send_ack(msg);
+}
+
+
+err_code_t MotionPlatformService::hmi_cb_set_inputshaper_switch(void *obj, sacp_hmi_message_t *msg) {
+  AxisInputShaper *x_shaper, *y_shaper;
+  ShaperSettings  *ssettings = smprinter.get_shaper_settings();
+
+  bool update = false;
+
+  LOG_I("HMI set switch of input shaper: ");
+
+  do {
+    if (!ssettings) {
+      msg->data[0] = E_FAILURE;
+      break;
+    }
+
+    if (msg->length < 1) {
+      msg->data[0] = E_PARAM;
+      break;
+    }
+
+    x_shaper = axisManager.axis[X_AXIS].axis_input_shaper;
+    y_shaper = axisManager.axis[Y_AXIS].axis_input_shaper;
+    if (msg->data[0]) {
+      LOG_I("enable!\n");
+      if (x_shaper->type == InputShaperType::none) {
+        x_shaper->type = SHAPER_TYPE_DEFAULT;
+        ssettings[X_AXIS].type = SHAPER_TYPE_DEFAULT;
+        update = true;
+      }
+
+      if (y_shaper->type == InputShaperType::none) {
+        y_shaper->type = SHAPER_TYPE_DEFAULT;
+        ssettings[Y_AXIS].type = SHAPER_TYPE_DEFAULT;
+        update = true;
+      }
+    }
+    else {
+      LOG_I("disable!\n");
+      if (x_shaper->type != InputShaperType::none) {
+        x_shaper->type = InputShaperType::none;
+        ssettings[X_AXIS].type = InputShaperType::none;
+        update = true;
+      }
+
+      if (y_shaper->type != InputShaperType::none) {
+        y_shaper->type = InputShaperType::none;
+        ssettings[Y_AXIS].type = InputShaperType::none;
+        update = true;
+      }
+    }
+
+    if (update) {
+      planner.synchronize();
+      axisManager.initAxisShaper();
+      axisManager.abort();
+      settings.save();
+    }
+
+    msg->data[0] = E_SUCCESS;
+  } while (0);
+
+
+  msg->length = 1;
+  return host_hmi.send_ack(msg);
+}
+
+
+err_code_t MotionPlatformService::hmi_cb_get_inputshaper_state(void *obj, sacp_hmi_message_t *msg) {
+  AxisInputShaper *x_shaper, *y_shaper;
+  ShaperSettings  *ssettings = smprinter.get_shaper_settings();
+
+  LOG_I("HMI set switch of input shaper: ");
+
+  do {
+    if (!ssettings) {
+      msg->data[0] = E_FAILURE;
+      break;
+    }
+
+    if (msg->length < 1) {
+      msg->data[0] = E_PARAM;
+      break;
+    }
+
+    x_shaper = axisManager.axis[X_AXIS].axis_input_shaper;
+    y_shaper = axisManager.axis[Y_AXIS].axis_input_shaper;
+    if (x_shaper->type != InputShaperType::none && y_shaper->type != InputShaperType::none)
+      msg->data[1] = true;
+    else
+      msg->data[1] = false;
+
+    msg->data[0] = E_SUCCESS;
+  } while (0);
+
+
+  msg->length = 2;
+  return host_hmi.send_ack(msg);
+}
+
+
 void MotionPlatformService::motion_background(void *p) {
   MotionPlatformService &motion = *((MotionPlatformService *)p);
 

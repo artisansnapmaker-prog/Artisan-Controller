@@ -447,11 +447,13 @@ static void system_thread(void *p) {
   // add process esp_32 upgrade
   host_hmi.apply_cmd_set_handle(SSTP_ESP32_UPDATE_FW_EVENT_ASK, FDM_REQ_CMD_ID_SUM  + 5);
 
+  // must initialize bed leveling before initializing modules
+  bedlevel_svc.init();
+
   // module init
   module_svc.init();
 
   motion_platform_svc.init();
-  bedlevel_svc.init();
   job_ctrl_svc.init();
   upgrade_svc.init();
   sm2_module_upgrade_init();

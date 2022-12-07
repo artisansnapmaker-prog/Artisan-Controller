@@ -107,8 +107,8 @@ class BedLevelService {
       env_info.valid = false;
       for (int i = 0; i < GRID_MAX_NUM; i++) {
         for (int j = 0; j < GRID_MAX_NUM; j++) {
-          z_values_[i][j] = 0.0f;
-          manual_leveling_z_values_[i*GRID_MAX_NUM + j] = 0.0f;
+          z_values_[i][j] = DEFAUT_LEVELING_HEIGHT;
+          manual_leveling_z_values_[i*GRID_MAX_NUM + j] = DEFAUT_LEVELING_HEIGHT;
         }
       }
     }
@@ -149,9 +149,9 @@ class BedLevelService {
     float z_values_[GRID_MAX_NUM][GRID_MAX_NUM];
     float z_compensation_[EXTRUDERS];
     float detected_bed_z_values[EXTRUDERS];
-    float hotend_triggered_z_[EXTRUDERS];
-    float hotend_touch_bed_z_[EXTRUDERS];
-    float live_z_offset[EXTRUDERS];
+    float hotend_triggered_z_[EXTRUDERS] {DEFAUT_LEVELING_HEIGHT, DEFAUT_LEVELING_HEIGHT};
+    float hotend_touch_bed_z_[EXTRUDERS] {DEFAUT_LEVELING_HEIGHT, DEFAUT_LEVELING_HEIGHT};
+    float live_z_offset[EXTRUDERS] {0, 0};
     bool live_z_offset_changed;
     bool need_to_abort_auto_bedlevel;
     bool auto_bedlevel_enable;
@@ -159,10 +159,10 @@ class BedLevelService {
 
   private:
     uint8_t bedlevel_mode;
-    uint8_t manual_leveling_point_index_;
-    uint8_t manual_leveling_point_sum;
+    uint8_t manual_leveling_point_index_ = 0;
+    uint8_t manual_leveling_point_sum = 0;
     float manual_leveling_z_values_[GRID_MAX_NUM*GRID_MAX_NUM];
-    bool is_bed_leveled;
+    bool is_bed_leveled = false;
     bool end_of_leveling_process;
     bool z_drop_limit_check;
 };

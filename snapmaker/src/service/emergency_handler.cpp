@@ -133,11 +133,13 @@ void EmergencyHandler::init() {
   if (i >= PIN_STATE_SHAKE_CNT) {
     powerloss_state = PIN_STATE_TRIGGERED;
     LOG_E("EmergencyHandler: power loss detected in bootup!!!\n");
-    digitalWrite(LED_GREEN_PIN, LOW);
-    digitalWrite(LED_BLUE_PIN, LOW);
-    digitalWrite(LED_RED_PIN, HIGH);
-    emergency_hdl.power_loss();
-    smprinter.set_sys_status(SYSTEM_STATUS_POWER_LOSS, NULL);
+    if (!power_loss_signal_trigger) {
+      digitalWrite(LED_GREEN_PIN, LOW);
+      digitalWrite(LED_BLUE_PIN, LOW);
+      digitalWrite(LED_RED_PIN, HIGH);
+      emergency_hdl.power_loss();
+      smprinter.set_sys_status(SYSTEM_STATUS_POWER_LOSS, NULL);
+    }
   }
   else {
     attachInterrupt(power_loss_det, interrupt_cb_power_loss, LOW);
@@ -656,7 +658,7 @@ void EmergencyHandler::background() {
     LOG_I("A: %.3f, B: %.3f\n checksum [save: 0x%x, read: 0x%x cal: 0x%x]\n", jenv->current_pos.i, jenv->current_pos.j, write_flash_checksum,
     *((uint32_t*)(ENV_START_IN_FLASH + ENV_CHECKSUM_ADDR)), host_hmi.calculate_checksum(env, JOB_ENV_MAX_SIZE - 4));
 
-    system_svc.raise_exception(MODULE_DEVICE_ID_A400_EMERGENCY_STOP, EMERGENCY_STOP_EXCEP_STA_TRIGGERRED,
+    system_svc.raise_exception(MODULE_DEVICE_ID_A400_CONTROLLER, CONTROLLER_EXCEP_STA_POWER_LOSS,
       EXCEP_ACT_ALL&(~EXCEP_ACT_DISABLE_POWER_HMI), EXCEP_BAN_ALL);
     // smprinter.set_sys_status(SYSTEM_STATUS_POWER_LOSS, NULL);
     // host_hmi.test_interface(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_REBOOT, NULL, 0);

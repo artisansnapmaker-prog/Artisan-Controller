@@ -21,6 +21,8 @@ static uint32_t power_loss_det = POWER_LOSS_DETECT;
 #define PIN_STATE_TRIGGERED (LOW)
 #define PIN_STATE_NORMAL    (HIGH)
 
+#define PIN_STATE_SHAKE_CNT         (5)
+#define PIN_STATE_SHAKE_INTERVAL    (100)
 
 #define ENV_START_IN_FLASH          (0x0800C000)
 
@@ -80,6 +82,11 @@ static void interrupt_cb_power_loss() {
 }
 
 void EmergencyHandler::init() {
+  uint8_t i = 0;
+  uint8_t pin_state = PIN_STATE_NORMAL;
+  button_state = PIN_STATE_NORMAL;
+  powerloss_state = PIN_STATE_NORMAL;
+
   write_flash_checksum = 0;
   power_loss_signal_trigger = 0;
 
@@ -92,31 +99,57 @@ void EmergencyHandler::init() {
   msg_notify_stop.cmd_id   = SACP_CMD_ID_GLOABL_REQ_NOTIFY_EMERGENCY_STOP;
   msg_notify_stop.length   = 1;
 
+  // TODO: send notification ?
+  for (i = 0; i < PIN_STATE_SHAKE_CNT; i++) {
+    vTaskDelay(pdMS_TO_TICKS(PIN_STATE_SHAKE_INTERVAL));
+    pin_state = read_button();
+    LOG_I("read button_state: %d, retry cnt: %d\n", pin_state, i);
+    if (pin_state != PIN_STATE_TRIGGERED) {
+      break;
+    }
+  }
+
+  if (i >= PIN_STATE_SHAKE_CNT) {
+    button_state = PIN_STATE_TRIGGERED;
+    LOG_E("EmergencyHandler: emergency button is pressed!!!\n");
+    emergency_hdl.emergency_stop();
+    system_svc.raise_exception_async(MODULE_DEVICE_ID_A400_EMERGENCY_STOP, EMERGENCY_STOP_EXCEP_STA_TRIGGERRED,
+      EXCEP_ACT_ALL&(~EXCEP_ACT_DISABLE_POWER_HMI), EXCEP_BAN_ALL);
+  }
+  else {
+    attachInterrupt(stop_button, interrupt_cb_stop_button, LOW);
+  }
+
+  // TODO: raise exception ?
+  for (i = 0; i < PIN_STATE_SHAKE_CNT; i++) {
+    vTaskDelay(pdMS_TO_TICKS(PIN_STATE_SHAKE_INTERVAL));
+    pin_state = digitalRead(power_loss_det);
+    LOG_I("read powerloss_state: %d, retry cnt: %d\n", pin_state, i);
+    if (pin_state != PIN_STATE_TRIGGERED) {
+      break;
+    }
+  }
+
+  if (i >= PIN_STATE_SHAKE_CNT) {
+    powerloss_state = PIN_STATE_TRIGGERED;
+    LOG_E("EmergencyHandler: power loss detected in bootup!!!\n");
+    digitalWrite(LED_GREEN_PIN, LOW);
+    digitalWrite(LED_BLUE_PIN, LOW);
+    digitalWrite(LED_RED_PIN, HIGH);
+    emergency_hdl.power_loss();
+    smprinter.set_sys_status(SYSTEM_STATUS_POWER_LOSS, NULL);
+  }
+  else {
+    attachInterrupt(power_loss_det, interrupt_cb_power_loss, LOW);
+  }
+
   if (sizeof(JobEnv) >= (JOB_ENV_MAX_SIZE - 8)) {
     LOG_E("EmergencyHandler: env size[%u] is out of range of emergency record[%d]\n", sizeof(JobEnv), JOB_ENV_MAX_SIZE - 8);
     return;
   }
 
-  // TODO: send notification ?
-  button_state = read_button();
-  if (button_state == PIN_STATE_TRIGGERED) {
-    LOG_E("EmergencyHandler: emergency button is pressed!!!\n");
-    smprinter.set_sys_status(SYSTEM_STATUS_EMERGENCY_STOP, NULL);
-    system_svc.raise_exception_async(MODULE_DEVICE_ID_A400_EMERGENCY_STOP, EMERGENCY_STOP_EXCEP_STA_TRIGGERRED,
-      EXCEP_ACT_ALL&(~EXCEP_ACT_DISABLE_POWER_HMI), EXCEP_BAN_ALL);
-    return;
-  }
-
-  // TODO: raise exception ?
-  powerloss_state = digitalRead(power_loss_det);
-  if (powerloss_state == PIN_STATE_TRIGGERED) {
-    LOG_E("EmergencyHandler: power loss detected in bootup!!!\n");
-    smprinter.set_sys_status(SYSTEM_STATUS_POWER_LOSS, NULL);
-    return;
-  }
-
-  attachInterrupt(stop_button, interrupt_cb_stop_button, LOW);
-  attachInterrupt(power_loss_det, interrupt_cb_power_loss, LOW);
+  // attachInterrupt(stop_button, interrupt_cb_stop_button, LOW);
+  // attachInterrupt(power_loss_det, interrupt_cb_power_loss, LOW);
 
   record_avail = check_record();
   if (record_avail) {

@@ -36,6 +36,8 @@ void SystemService::init() {
     nodes_isr[i].owner = EXCEPTION_OWNER_INVALID;
   }
 
+  raise_emergency_stop = false;
+
   host_hmi.apply_cmd_set_handle(SACP_CMD_SET_NOTIFICATION, 2);
   host_hmi.register_callback(SACP_CMD_SET_NOTIFICATION, SACP_CMD_ID_NOTIFICATION_GET_EXCEPTION,
                               this, hmi_cb_get_exceptions);

@@ -308,7 +308,7 @@ class JobCtrl {
     bool req_stop_trigger;
 
     uint8_t job_print_mark = 0xFF;
-    static TimerHandle_t job_print_timer;
+    // static TimerHandle_t job_print_timer;
 
     JobCtrlNotifyHandle notify_handle_started[JOB_CTRL_NOTIFY_QUEUE_SIZE];
     JobCtrlNotifyHandle notify_handle_paused[JOB_CTRL_NOTIFY_QUEUE_SIZE];

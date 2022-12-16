@@ -44,7 +44,7 @@ static AT_CCMRAM StaticMessageBuffer_t queue_strcut_jobctrl;
 
 JobCtrl AT_CCMRAM job_ctrl_svc;
 JobSaveLineStep AT_CCMRAM job_save_line_step = JOB_SAVE_LINE_STEP_STOP;
-TimerHandle_t AT_CCMRAM JobCtrl::job_print_timer = NULL;
+TimerHandle_t /*AT_CCMRAM JobCtrl::*/job_print_timer = NULL;
 volatile uint32_t AT_CCMRAM job_print_seconds = 0;
 bool AT_CCMRAM job_printing_flag = false;
 bool AT_CCMRAM resume_relative_switch = false;
@@ -90,6 +90,9 @@ void JobCtrl::init(void) {
   got_last_gcode_packet = false;
   resume_file_line = 0xFFFFFFFF;
   resume_relative_switch = false;
+  job_save_line_step = JOB_SAVE_LINE_STEP_STOP;
+  job_print_seconds = 0;
+  job_printing_flag = false;
 
   if (!job_print_timer) {
     job_print_timer = xTimerCreate( "job_print_timer",

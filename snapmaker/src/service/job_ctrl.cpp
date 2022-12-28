@@ -1327,6 +1327,12 @@ bool JobCtrl::consume_a_gcode(uint8_t *cmd, uint16_t max_len, uint32_t *line, ui
       cmd[cmd_len] = 0;
       // LOG_I("job_ctrl: marlin consume a gcode %d: %s\r\n", *line, cmd);
       // last_gcode_execute_by_platform = false;
+
+      // considering the correspondence of line numbers, instructions with the first character ';' are not processed
+      char *strpos = strchr((const char*)cmd, ';');
+      if (strpos && cmd[0] != ';')
+        *strpos = '\0';
+
       ret = true;
       if (mark)
         *mark = get_job_print_mark();

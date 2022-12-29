@@ -1282,7 +1282,6 @@ void Planner::recalculate() {
 
 void Planner::shaped_loop() {
     if (!smprinter.is_in_motion_thread())
-
       return;
 
     const uint8_t nr_moves = movesplanned();
@@ -1387,7 +1386,7 @@ void Planner::shaped_loop() {
             if (!block->shaper_data.is_zero_speed)
             {
               planed_time += block->shaper_data.block_time;
-            } 
+            }
 
             index = next_block_index(index);
 
@@ -1411,12 +1410,13 @@ void Planner::shaped_loop() {
     shaped_index = block_buffer_shaped;
     planned_index = block_buffer_planned;
 
+    err_code_t ret = E_FAILURE;
     while (shaped_index != planned_index) {
         block = &block_buffer[shaped_index];
 
         if (!block->shaper_data.is_zero_speed)
         {
-          if (!axisManager.generateAllAxisFuncParams(shaped_index, block)) {
+          if ((ret = axisManager.generateAllAxisFuncParams(shaped_index, block)) != E_SUCCESS) {
             break;
           }
         }
@@ -1426,10 +1426,16 @@ void Planner::shaped_loop() {
         shaped_index = next_block_index(shaped_index);
     }
 
-    // LOG_I("remainingConsumeTime: %lf, %d, %d, %d, %d\n", axisManager.getRemainingConsumeTime(), tail_index, shaped_index, planned_index, head_index);
-    delay_before_delivering = 0;
-    
     block_buffer_shaped = shaped_index;
+
+    // LOG_I("remainingConsumeTime: %lf, %d, %d, %d, %d\n", axisManager.getRemainingConsumeTime(), tail_index, shaped_index, planned_index, head_index);
+
+    if (ret == E_SUCCESS)
+      delay_before_delivering = 0;
+    else {
+      quick_stop();
+      smprinter.raise_exception(SM_EXCEP_OWNER_SYSTEM, CONTROLLER_EXCEP_STA_IS_GENERATE_FUNC, EXCEP_ACT_PAUSE_WORKING);
+    }
 }
 
 #if HAS_FAN && DISABLED(LASER_SYNCHRONOUS_M106_M107)

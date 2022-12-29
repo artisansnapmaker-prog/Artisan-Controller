@@ -220,6 +220,7 @@ enum SMControllerExceptionState {
   CONTROLLER_EXCEP_STA_SYSTEM_VOLTAGE,
   CONTROLLER_EXCEP_STA_MOTIVE_VOLTAGE,
   CONTROLLER_EXCEP_STA_POWER_LOSS,
+  CONTROLLER_EXCEP_STA_IS_GENERATE_FUNC,  // input shaper exception
 };
 
 // exception state for FDM toolhead

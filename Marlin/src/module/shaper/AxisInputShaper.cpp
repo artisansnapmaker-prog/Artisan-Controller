@@ -265,31 +265,33 @@ FORCE_INLINE void AxisInputShaper::addFuncParamsToManager(FuncManager *func_mana
     }
 }
 
-float AxisInputShaper::calcPosition(int move_index, time_double_t time, int move_shaped_start, int move_shaped_end) {
+err_code_t AxisInputShaper::calcPosition(int move_index, time_double_t time, int move_shaped_start, int move_shaped_end, float &new_pos) {
     if (moveQueue.getMoveSize() == 0) {
-        LOG_I("moveQueue.getMoveSize() zero\n");
-        return 0;
+        LOG_E("no move, %d, %d, %d, %d, %d\n", move_index, move_shaped_start, move_shaped_end, moveQueue.move_tail, moveQueue.move_head);
+        return E_IS_ABNORMAL_MOVE_INDEX;
     }
 
     if (!moveQueue.isBetween(move_index)) {
-        LOG_I("isb %d, %d, %d\n",move_index, moveQueue.move_tail, moveQueue.move_head);
-        return 0;
+        LOG_E("isb %d, %d, %d, %d, %d\n", move_index, move_shaped_start, move_shaped_end, moveQueue.move_tail, moveQueue.move_head);
+        return E_IS_ABNORMAL_MOVE_INDEX;
     }
 
     if (move_index == moveQueue.move_head) {
-        LOG_I("move_index == head\n");
+        LOG_E("index reach head, %d, %d, %d, %d, %d\n", move_index, move_shaped_start, move_shaped_end, moveQueue.move_tail, moveQueue.move_head);
+        return E_IS_ABNORMAL_MOVE_INDEX;
     }
 
-    float res = 0;
+    new_pos = 0;
     for (int i = 0; i < shift_params.n; i++) {
         time_double_t t = time + shift_params.T[i];
-        res += shift_params.A[i] * moveQueue.getAxisPositionAcrossMoves(move_index, axis, t, move_shaped_start, move_shaped_end);
+        new_pos += shift_params.A[i] * moveQueue.getAxisPositionAcrossMoves(move_index, axis, t, move_shaped_start, move_shaped_end);
     }
-    return res;
+
+    return E_SUCCESS;
 }
 
 
-FORCE_INLINE void AxisInputShaper::moveShaperWindowByIndex(FuncManager *func_manager, int move_shaped_start, int move_shaped_end) {
+err_code_t AxisInputShaper::moveShaperWindowByIndex(FuncManager *func_manager, int move_shaped_start, int move_shaped_end) {
     int n = shift_params.n;
     shaper_window.n = n;
     shaper_window.zero_n = n - 1;
@@ -316,7 +318,10 @@ FORCE_INLINE void AxisInputShaper::moveShaperWindowByIndex(FuncManager *func_man
     }
 
     time_double_t shaper_time = shaper_window.time;
-    shaper_window.pos = calcPosition(move_shaped_start, shaper_time, move_shaped_start, move_shaped_end);
+    err_code_t ret = calcPosition(move_shaped_start, shaper_time, move_shaped_start, move_shaped_end, shaper_window.pos);
+    if (ret != E_SUCCESS) {
+        return ret;
+    }
 
     // if (shaper_window.pos < -48000 || shaper_window.pos > 48000) {
     //     LOG_I("debug\n");
@@ -332,18 +337,18 @@ FORCE_INLINE void AxisInputShaper::moveShaperWindowByIndex(FuncManager *func_man
     shaper_window.updateParamsA();
     addFuncParamsToManager(func_manager, shaper_window.func_params.a, shaper_time, y2, x2, y1, y2);
 
+    return E_SUCCESS;
     // LOG_I("move_index: %d, %d\n", shaper_window.params[0].move_index, shaper_window.params[1].move_index);
 }
 
 
-bool AxisInputShaper::moveShaperWindowToNext(FuncManager *func_manager, uint8_t move_shaped_start, uint8_t move_shaped_end) {
+err_code_t AxisInputShaper::moveShaperWindowToNext(FuncManager *func_manager, uint8_t move_shaped_start, uint8_t move_shaped_end) {
     ShaperWindowParams *zero_p = &shaper_window.params[shaper_window.zero_n];
 
-    if (zero_p->move_index == move_shaped_end)
-    {
-        return false;
+    if (zero_p->move_index == move_shaped_end) {
+        // no move to be shapped
+        return E_NO_RESRC;
     }
-
 
     zero_p->move_index = moveQueue.nextMoveIndex(zero_p->move_index);
 
@@ -383,7 +388,11 @@ bool AxisInputShaper::moveShaperWindowToNext(FuncManager *func_manager, uint8_t 
     time_double_t new_time = shaper_window.time + min_next_time;
     shaper_window.time = new_time;
     int move_index = shaper_window.params[0].move_index;
-    shaper_window.pos = calcPosition(move_index, shaper_window.time, move_index, move_shaped_end);
+    err_code_t ret = calcPosition(move_index, shaper_window.time, move_index, move_shaped_end, shaper_window.pos);
+
+    if (ret != E_SUCCESS) {
+        return ret;
+    }
 
     // if (shaper_window.pos < -48000 || shaper_window.pos > 48000) {
     //     LOG_I("debug\n");
@@ -406,18 +415,20 @@ bool AxisInputShaper::moveShaperWindowToNext(FuncManager *func_manager, uint8_t 
         // shaper_window.func_params.c, shaper_window.new_func_params.c
         // );
 
-    return true;
+    return E_SUCCESS;
 }
 
-bool AxisInputShaper::generateShapedFuncParams(FuncManager* func_manager, uint8_t move_shaper_start, uint8_t move_shaper_end) {
+err_code_t AxisInputShaper::generateShapedFuncParams(FuncManager* func_manager, uint8_t move_shaper_start, uint8_t move_shaper_end) {
+    err_code_t ret = E_SUCCESS;
     if (!is_shaper_window_init) {
-        moveShaperWindowByIndex(func_manager, move_shaper_start, move_shaper_end);
+        ret = moveShaperWindowByIndex(func_manager, move_shaper_start, move_shaper_end);
         // func_manager.addDeltaTimeFuncParams(shaper_window.func_params.a, shaper_window.func_params.b, shaper_window.func_params.c, func_manager.last_time, shaper_window.time, shaper_window.pos);
 
         is_shaper_window_init = true;
     }
 
-    while (moveShaperWindowToNext(func_manager, move_shaper_start, move_shaper_end)) {
+    while (ret == E_SUCCESS) {
+        ret = moveShaperWindowToNext(func_manager, move_shaper_start, move_shaper_end);
         // func_manager.addDeltaTimeFuncParams(shaper_window.func_params.a, shaper_window.func_params.b, shaper_window.func_params.c, func_manager.last_time, shaper_window.time, shaper_window.pos);
         // printf("axis: %d, generateFuncParams: %lf, %lf, %lf \n", axis, shaper_window.pos, func_manager.getPos(shaper_window.time), shaper_window.time);
     }
@@ -427,6 +438,8 @@ bool AxisInputShaper::generateShapedFuncParams(FuncManager* func_manager, uint8_
         // func_manager.max_size = func_manager.getSize();
     // }
 
+    // here we return E_SUCCESS, E_NO_RESRC, E_IS_ABNORMAL_MOVE_INDEX
+    // if caller get E_IS_ABNORMAL_MOVE_INDEX, should pause work
 
-    return true;
+    return ret;
 }

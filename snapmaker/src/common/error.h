@@ -64,9 +64,12 @@ typedef uint8_t err_code_t;
 
 #define E_MACHINE_PROCESS_BLOCK (COMMON_ERR_BASE + 17)     /* handling thread blocking*/
 
+#define E_IS_ABNORMAL_MOVE_INDEX    (COMMON_ERR_BASE + 18)     /* input shaper: got invalid move index */
+
+
+
 // for legacy use
 #define E_INVALID_CMD   E_INVALID_CMD_ID
 #define E_TIMEOUT       E_EXE_TIMEOUT
-
 
 #endif // #ifndef ERROR_H_

@@ -123,12 +123,12 @@ public:
     this->axis = axis;
   }
 
-  float calcPosition(int move_index, time_double_t time, int move_shaped_start, int move_shaped_end);
+  err_code_t calcPosition(int move_index, time_double_t time, int move_shaped_start, int move_shaped_end, float &new_pos);
 
-  FORCE_INLINE void moveShaperWindowByIndex(FuncManager *func_manager, int move_shaped_start, int move_shaped_end);
-  bool moveShaperWindowToNext(FuncManager *func_manager, uint8_t move_shaped_start, uint8_t move_shaped_end);
+  err_code_t moveShaperWindowByIndex(FuncManager *func_manager, int move_shaped_start, int move_shaped_end);
+  err_code_t moveShaperWindowToNext(FuncManager *func_manager, uint8_t move_shaped_start, uint8_t move_shaped_end);
 
-  bool generateShapedFuncParams(FuncManager *func_manager, uint8_t move_shaper_start, uint8_t move_shaper_end);
+  err_code_t generateShapedFuncParams(FuncManager *func_manager, uint8_t move_shaper_start, uint8_t move_shaper_end);
 
   FORCE_INLINE void addFuncParamsToManager(FuncManager *func_manager, float a, time_double_t right_time, float right_pos, float x2, float y1, float y2);
 };

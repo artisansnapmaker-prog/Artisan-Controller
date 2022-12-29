@@ -77,7 +77,7 @@ class Axis {
         is_shaped = axis_input_shaper->isShaped();
     }
 
-    FORCE_INLINE bool generateFuncParams(uint8_t block_index, uint8_t move_start, uint8_t move_end);
+    FORCE_INLINE err_code_t generateFuncParams(uint8_t block_index, uint8_t move_start, uint8_t move_end);
 
     void reset() {
         generated_block_index = -1;
@@ -122,10 +122,10 @@ class Axis {
     }
 
   private:
-    FORCE_INLINE bool generateAxisFuncParams(uint8_t move_start, uint8_t move_end);
+    FORCE_INLINE err_code_t generateAxisFuncParams(uint8_t move_start, uint8_t move_end);
 
     #if ENABLED(LIN_ADVANCE)
-    FORCE_INLINE bool generateEAxisFuncParams(uint8_t block_index, uint8_t move_start, uint8_t move_end);
+    FORCE_INLINE err_code_t generateEAxisFuncParams(uint8_t block_index, uint8_t move_start, uint8_t move_end);
     #endif
 
 };
@@ -137,6 +137,7 @@ enum InputShaperDebugInfoType {
   SHAPER_DBG_NOT_ENOUGH_FUNC_LIST_RESC,
   SHAPER_DBG_CALC_STEP_TIMEOUT_COUNT,
   SHAPER_DBG_CALC_STEP_TIME,
+  SHAPER_DBG_,
 
   SHAPER_DBG_MAX
 };
@@ -277,7 +278,7 @@ class AxisManager {
         return is_shaped;
     }
 
-    bool generateAllAxisFuncParams(uint8_t block_index, block_t* block);
+    err_code_t generateAllAxisFuncParams(uint8_t block_index, block_t* block);
 
     float getRemainingConsumeTime();
 

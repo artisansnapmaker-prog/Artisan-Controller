@@ -77,13 +77,13 @@ void AxisManager::reset_debug_info() {
 }
 
 
-FORCE_INLINE bool Axis::generateFuncParams(uint8_t block_index, uint8_t move_start, uint8_t move_end) {
+FORCE_INLINE err_code_t Axis::generateFuncParams(uint8_t block_index, uint8_t move_start, uint8_t move_end) {
     if (block_index == generated_block_index) {
-        return true;
+        return E_SUCCESS;
     }
     // is_get_next_step_null = false;
 
-    bool res;
+    err_code_t res;
     if (is_shaped) {
         res = axis_input_shaper->generateShapedFuncParams(&func_manager, move_start, move_end);
     #if ENABLED(LIN_ADVANCE)
@@ -93,15 +93,17 @@ FORCE_INLINE bool Axis::generateFuncParams(uint8_t block_index, uint8_t move_sta
     } else {
       res = generateAxisFuncParams(move_start, move_end);
     }
-    if (res) {
-        generated_block_index = block_index;
-    }
 
-    return res;
+    // E_NO_RESRC indicates no move to be used to generate function parameters
+    if (res == E_SUCCESS || res == E_NO_RESRC) {
+        generated_block_index = block_index;
+        return E_SUCCESS;
+    }
+    else
+        return res;
 }
 
 bool Axis::getNextStep() {
-
     if (!func_manager.getNextPosTime(1, &dir, mm_to_step, half_step_mm)) {
       is_get_next_step_null = true;
       return false;
@@ -114,7 +116,7 @@ bool Axis::getNextStep() {
 }
 
 #if ENABLED(LIN_ADVANCE)
-FORCE_INLINE bool Axis::generateEAxisFuncParams(uint8_t block_index, uint8_t move_start, uint8_t move_end) {
+FORCE_INLINE err_code_t Axis::generateEAxisFuncParams(uint8_t block_index, uint8_t move_start, uint8_t move_end) {
     uint8_t move_index;
     block_t *block = &planner.block_buffer[block_index];
     float e_la = 0;
@@ -208,12 +210,12 @@ FORCE_INLINE bool Axis::generateEAxisFuncParams(uint8_t block_index, uint8_t mov
     block->e_stepper_offset += e_la;
 
     generated_move_index = move_end;
-    return true;
+    return E_SUCCESS;
 }
 #endif
 
 
-FORCE_INLINE bool Axis::generateAxisFuncParams(uint8_t move_start, uint8_t move_end) {
+FORCE_INLINE err_code_t Axis::generateAxisFuncParams(uint8_t move_start, uint8_t move_end) {
   uint8_t move_index;
   if (generated_move_index == -1) {
       move_index = move_start;
@@ -234,7 +236,7 @@ FORCE_INLINE bool Axis::generateAxisFuncParams(uint8_t move_start, uint8_t move_
     move_index = moveQueue.nextMoveIndex(move_index);
   }
   generated_move_index = move_end;
-  return true;
+  return E_SUCCESS;
 }
 
 
@@ -262,21 +264,26 @@ float AxisManager::getRemainingConsumeTime() {
     return min_last_time - print_time;
 }
 
-bool AxisManager::generateAllAxisFuncParams(uint8_t block_index, block_t* block) {
-    bool res = true;
+err_code_t AxisManager::generateAllAxisFuncParams(uint8_t block_index, block_t* block) {
+    err_code_t res = E_SUCCESS;
 
     uint8_t move_start = block->shaper_data.move_start;
     uint8_t move_end = block->shaper_data.move_end;
 
     if (isShaped()) {
-        if (move_start != moveQueue.move_tail && moveQueue.moves[moveQueue.prevMoveIndex(move_start)].flag == 1) {
+        if (move_start != moveQueue.move_tail && moveQueue.moves[moveQueue.prevMoveIndex(move_start)].flag == MOVE_FLAG_START) {
             move_start = moveQueue.prevMoveIndex(move_start);
         }
 
-        if (move_end != moveQueue.prevMoveIndex(moveQueue.move_head) && moveQueue.moves[moveQueue.nextMoveIndex(move_end)].flag == 1) {
+        if (!moveQueue.isBetween(move_start)) {
+            move_start = moveQueue.move_tail;
+        }
+
+        if (move_end != moveQueue.prevMoveIndex(moveQueue.move_head) && moveQueue.moves[moveQueue.nextMoveIndex(move_end)].flag == MOVE_FLAG_START) {
             move_end = moveQueue.nextMoveIndex(move_end);
         }
-        if (move_end == moveQueue.move_head) {
+
+        if (!moveQueue.isBetween(move_end)) {
             move_end = moveQueue.prevMoveIndex(moveQueue.move_head);
         }
     }
@@ -289,8 +296,11 @@ bool AxisManager::generateAllAxisFuncParams(uint8_t block_index, block_t* block)
         } else if (i >= 2 && axis[i].func_manager.getFreeSize() < 4) {
             axisManager.counts[SHAPER_DBG_NOT_ENOUGH_FUNC_LIST_RESC]++;
         }
-        if (!axis[i].generateFuncParams(block_index, move_start, move_end)) {
-            res = false;
+
+        res = axis[i].generateFuncParams(block_index, move_start, move_end);
+        if (res != E_SUCCESS) {
+            LOG_E("failed to generate func for axis[%d], ret[%u]!\n", i, res);
+            return res;
         }
     }
 

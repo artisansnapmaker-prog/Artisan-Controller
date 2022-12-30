@@ -286,13 +286,21 @@ err_code_t ClientNode::issue_client(uint8_t id, uint8_t issue_ret) {
     msg.ch = client->ch;
     msg.peer = client->peer;
 
-    if (E_SUCCESS != host_hmi.send_sync(&msg, rx_buf, &rx_len)) {
-      LOG_E("Client node: Issue failure, failed to send msg\r\n");
-      return E_FAILURE;
+    if (msg.peer == SACP_HOST_ID_SCREEN) {
+      rx_buf[0] = E_SUCCESS;
+      if (E_SUCCESS != host_hmi.send_sync(&msg, rx_buf, &rx_len)) {
+        LOG_E("Client node: Issue failure, failed to send msg\r\n");
+        // return E_FAILURE;
+      }
+
+      if (E_SUCCESS != rx_buf[0]) {
+        LOG_E("Client node: Issue failure, result is not success\r\n");
+        // return E_FAILURE;
+      }
     }
-    if (E_SUCCESS != rx_buf[0]) {
-      LOG_E("Client node: Issue failure, result is not success\r\n");
-      return E_FAILURE;
+    else {
+      if (host_hmi.send(&msg))
+        LOG_E("Client node: Issue failure, failed to send msg, host[%u:%u]\r\n", client->peer, client->ch);
     }
   }
 

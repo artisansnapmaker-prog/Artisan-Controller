@@ -327,7 +327,11 @@ err_code_t SystemService::notification_raise_exception(uint16_t owner, uint8_t s
 
     LOG_I("raise exception[%u,%u] to host[%u:%u]\n", owner, state, msg.peer, msg.ch);
 
-    ret = host_hmi.send_sync(&msg, recv_buff, &recv_len);
+    if (msg.peer == SACP_HOST_ID_SCREEN)
+      ret = host_hmi.send_sync(&msg, recv_buff, &recv_len, 500);
+    else
+      ret = host_hmi.send(&msg);
+
     if (ret != E_SUCCESS) {
       LOG_E("failted to notify raise exception[%u,%u] to host[%u:%u]\n", owner, state, msg.peer, msg.ch);
     }
@@ -504,7 +508,11 @@ err_code_t SystemService::notification_clear_exception(uint16_t owner, uint8_t s
 
     LOG_I("clear exception[%u,%u] to host[%u:%u]\n", owner, state, msg.peer, msg.ch);
 
-    ret = host_hmi.send_sync(&msg, recv_buff, &recv_len);
+    if (msg.peer == SACP_HOST_ID_SCREEN)
+      ret = host_hmi.send_sync(&msg, recv_buff, &recv_len, 500);
+    else
+      ret = host_hmi.send(&msg);
+
     if (ret != E_SUCCESS) {
       LOG_E("failted to notify clear exception[%u,%u] to host[%u:%u]\n", owner, state, msg.peer, msg.ch);
     }

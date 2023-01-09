@@ -73,7 +73,7 @@ void GcodeSuite::M140_M190(const bool isM190) {
 
   #if ENABLED(SNAPMAKER_DOUBLE_ZONE_BED)
     bool heat_mode = BED_GLOBAL_HEAT_MODE;
-    if (parser.seen('M')) {
+    if (parser.seen('P')) {
       if (parser.has_value()) {
         heat_mode = (bool)parser.value_bool();
         thermalManager.set_bed_heat_mode(!!heat_mode);

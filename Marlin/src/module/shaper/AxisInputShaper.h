@@ -3,7 +3,7 @@
 #include "FuncManager.h"
 
 #define SHAPER_VIBRATION_REDUCTION 20
-#define SHAPER_FREQ_DEFAULT (50)
+#define SHAPER_FREQ_DEFAULT (38)
 #define SHAPER_ZETA_DEFAULT (0.1f)
 #define SHAPER_AXIS_COUNT   (2) // X & Y
 

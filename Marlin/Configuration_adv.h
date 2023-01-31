@@ -518,7 +518,9 @@
   #define CONTROLLERFAN_SPEED_MAX       255 // (0-255) Max speed
 
   // Use TEMP_SENSOR_BOARD as a trigger for enabling the controller fan
-  #define CONTROLLER_FAN_MIN_BOARD_TEMP 50  // (°C) Turn on the fan if the board reaches this temperature
+  #define CONTROLLER_FAN_MIN_BOARD_TEMP    53  // (°C) Turn on the fan if the board reaches this temperature
+  #define CONTROLLER_FAN_MAX_BOARD_TEMP    60  // (°C) Turn on the fan max if the board reaches this temperature
+  #define CONTROLLER_STABLE_INTERVAL_TEMP  5
 
   #define CONTROLLER_FAN_EDITABLE         // Enable M710 configurable settings
   #if ENABLED(CONTROLLER_FAN_EDITABLE)

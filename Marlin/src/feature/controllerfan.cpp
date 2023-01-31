@@ -65,14 +65,21 @@ void ControllerFan::update() {
         || TERN0(HAS_CONTROLLER_FAN_MIN_BOARD_TEMP, thermalManager.wholeDegBoard() >= CONTROLLER_FAN_MIN_BOARD_TEMP)
       ) lastMotorOn = ms; //... set time to NOW so the fan will turn on
     #else
-      if (TERN0(HAS_CONTROLLER_FAN_MIN_BOARD_TEMP, thermalManager.wholeDegBoard() >= CONTROLLER_FAN_MIN_BOARD_TEMP))
+      if (TERN0(HAS_CONTROLLER_FAN_MIN_BOARD_TEMP, thermalManager.degBoard() >= \
+               (CONTROLLER_FAN_MIN_BOARD_TEMP - (speed > 0 ? CONTROLLER_STABLE_INTERVAL_TEMP : 0))))
         lastMotorOn = ms; //... set time to NOW so the fan will turn on
     #endif
 
-    if (TERN0(HAS_CONTROLLER_FAN_MIN_BOARD_TEMP, thermalManager.wholeDegBoard() >= CONTROLLER_FAN_MIN_BOARD_TEMP + 10))
-      settings.active_speed = CONTROLLERFAN_SPEED_MAX;
-    else
-      settings.active_speed = CONTROLLERFAN_SPEED_ACTIVE;
+    settings.active_speed = CONTROLLERFAN_SPEED_ACTIVE;
+    #if ENABLED(HAS_CONTROLLER_FAN_MIN_BOARD_TEMP)
+      if (thermalManager.degBoard() >= CONTROLLER_FAN_MAX_BOARD_TEMP)
+        settings.active_speed = CONTROLLERFAN_SPEED_MAX;
+
+      if (speed == CONTROLLERFAN_SPEED_MAX && \
+          thermalManager.degBoard() >= CONTROLLER_FAN_MAX_BOARD_TEMP - CONTROLLER_STABLE_INTERVAL_TEMP) {
+        settings.active_speed = CONTROLLERFAN_SPEED_MAX;
+      }
+    #endif
 
     // Fan Settings. Set fan > 0:
     //  - If AutoMode is on and steppers have been enabled for CONTROLLERFAN_IDLE_TIME seconds.

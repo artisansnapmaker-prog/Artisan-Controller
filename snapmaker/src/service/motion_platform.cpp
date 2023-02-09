@@ -767,7 +767,7 @@ void MotionPlatformService::req_emergency_stop() {
   stepper.quick_stop();
 }
 
-void MotionPlatformService::req_quickstop(void) {
+void MotionPlatformService::req_quickstop(uint32_t clean_count) {
 
   // There is a race condition that must be handled: the marlin thread and the caller thread
   // wait for the last request finish
@@ -779,7 +779,7 @@ void MotionPlatformService::req_quickstop(void) {
   // quickstop_stepper();
   // planner.quick_stop();
   // while (planner.has_blocks_queued())
-  planner_clean_cnt = TEMP_TIMER_FREQUENCY;
+  planner_clean_cnt = clean_count;
   smprinter.req_quick_stop();
 
   // wait for the current request finish
@@ -788,18 +788,18 @@ void MotionPlatformService::req_quickstop(void) {
   quick_stop_mq = false;
 }
 
-void MotionPlatformService::req_live_Z_offset_quickstop(void) {
+// void MotionPlatformService::req_live_Z_offset_quickstop(void) {
 
-  while(req_motion_platform_quickstop) vTaskDelay(pdMS_TO_TICKS(5));
-  req_motion_platform_quickstop = true;
-  quick_stop_mq = true;
+//   while(req_motion_platform_quickstop) vTaskDelay(pdMS_TO_TICKS(5));
+//   req_motion_platform_quickstop = true;
+//   quick_stop_mq = true;
 
-  planner_clean_cnt = TEMP_TIMER_FREQUENCY/4;
-  smprinter.req_quick_stop();
+//   planner_clean_cnt = TEMP_TIMER_FREQUENCY/4;
+//   smprinter.req_quick_stop();
 
-  take_quickstop_sem(0xffffffff);
-  quick_stop_mq = false;
-}
+//   take_quickstop_sem(0xffffffff);
+//   quick_stop_mq = false;
+// }
 
 bool MotionPlatformService::planner_busy(void) {
   return planner.busy();

@@ -2150,7 +2150,7 @@ uint32_t Stepper::block_phase_isr() {
           // accumulate the E steps when complete a block
           count_position.e -= current_block->e_stepper_offset;
           discard_current_block();
-          axisManager.abort();
+          // axisManager.abort();
           is_start = true;
         }
       } else {

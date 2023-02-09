@@ -168,8 +168,8 @@ class MotionPlatformService {
     // emergency_handle will call this API in ISR to stop motion platform
     uint32_t planner_clean_cnt;
     void req_emergency_stop();
-    void req_quickstop(void);
-    void req_live_Z_offset_quickstop(void);
+    void req_quickstop(uint32_t clean_count=TEMP_TIMER_FREQUENCY);
+    // void req_live_Z_offset_quickstop(void);
     bool planner_busy(void);
     bool is_moving();
 

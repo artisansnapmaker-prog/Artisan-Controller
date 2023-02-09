@@ -304,7 +304,7 @@ err_code_t JobCtrl::req_stop( enum JobStopType st,
   }
   else {
     req_stop_trigger = true;
-    LOG_E("job_ctrl line: %d req_stop_trigger set: %d\n", __LINE__, req_stop_trigger);
+    LOG_I("job_ctrl line: %d req_stop_trigger set: %d\n", __LINE__, req_stop_trigger);
   }
 
   // abort_resume = true;
@@ -901,6 +901,21 @@ void JobCtrl::do_start(struct JobCtrlReqInfo &jri) {
   // start printing reset feedrate
   smprinter.start_work_reset_feedrate();
 
+  // subsequent requests can be stopped to add interrupt flags
+  while (motion_platform_svc.homing_now == true && !req_stop_trigger) {
+    vTaskDelay(100);
+    LOG_I("job ctrl: req_start, wait machine homing finish\r\n");
+  }
+
+  if (req_stop_trigger) {
+    LOG_I("job ctrl: stop notify trigger abort_start_printing\r\n");
+  }
+  else {
+    // stop the current movement of the machine and prepare to start printing
+    LOG_I("job ctrl: stop the current movement of the machine and prepare to start printing\r\n");
+    motion_platform_svc.req_quickstop(TEMP_TIMER_FREQUENCY/10);
+  }
+
   // requst enter next status
   if( E_SUCCESS != smprinter.set_sys_status(next_status, &ret_sys_status)) {
     LOG_E("job_ctrl: Can not enter to printing mode[%u] at current status[%u]\r\n", next_status, ret_sys_status);
@@ -949,7 +964,7 @@ void JobCtrl::do_pause(struct JobCtrlReqInfo &jri) {
   // subsequent requests can be stopped to add interrupt flags
   while (motion_platform_svc.homing_now == true && !req_stop_trigger) {
     vTaskDelay(100);
-    LOG_I("job ctrl: req_stop, wait machine homing finish\r\n");
+    LOG_I("job ctrl: req_pause, wait machine homing finish\r\n");
   }
 
   if (req_stop_trigger) {
@@ -976,7 +991,7 @@ void JobCtrl::do_pause(struct JobCtrlReqInfo &jri) {
     break;
 
     case PUASE_LIVE_Z_OFFSET:
-      motion_platform_svc.req_live_Z_offset_quickstop();
+      motion_platform_svc.req_quickstop(TEMP_TIMER_FREQUENCY/4);
       need_standby = false;
     break;
 

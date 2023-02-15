@@ -1896,6 +1896,13 @@ uint8_t SnapmakerPrinter::get_extruders_count(void) {
     return 0;
 }
 
+bool SnapmakerPrinter::get_backup_current_position(xyze_pos_t &position) {
+  if (fdm && fdm->get_device_id() == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021)
+    return fdm->get_tool_change_back_position(position);
+  else
+    return false;
+}
+
 extern "C" {
   // hook for failing to apply memory in freeRTOS
   void vApplicationMallocFailedHook( void ) {

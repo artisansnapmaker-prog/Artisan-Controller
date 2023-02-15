@@ -638,6 +638,7 @@ void MotionPlatformService::init() {
   quickstop_binary_sem = xSemaphoreCreateBinary();
   configASSERT(quickstop_binary_sem);
   homing_now = false;
+  tool_changing = false;
 
   host_hmi.register_subscription(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_SUB_COORDINATE,
             (void *)this, hmi_cb_publish_coordinate_info);
@@ -918,14 +919,14 @@ bool MotionPlatformService::bed_heatup_to_target(void) {
   if (!bed || bed->get_status() != MODULE_STATUS_NORMAL)
     return true;
 
-  if ((thermalManager.degTargetBed() > 0) && (thermalManager.degBed() < thermalManager.degTargetBed())) {
+  if ((thermalManager.degTargetBed() > 0) && (thermalManager.degBed() < thermalManager.degTargetBed() - 1)) {
     LOG_I("job_ctrl: wait for bed zone0 to reach target temp: c[%.2f]@t[%d]\r\n",
     thermalManager.degBed(), thermalManager.degTargetBed());
     return false;
   }
 
   #if ENABLED(SNAPMAKER_DOUBLE_ZONE_BED)
-  if ((thermalManager.degTargetChamber() > 0) && (thermalManager.degChamber() < thermalManager.degTargetChamber())) {
+  if ((thermalManager.degTargetChamber() > 0) && (thermalManager.degChamber() < thermalManager.degTargetChamber() - 1)) {
     LOG_I("job_ctrl: wait for bed zone1 to reach target temp: c[%.2f]@t[%d]\r\n",
     thermalManager.degChamber(), thermalManager.degTargetChamber());
     return false;
@@ -950,14 +951,14 @@ bool MotionPlatformService::hotends_heatup_to_target(void) {
     return true;
   }
 
-  if ((thermalManager.degTargetHotend(0) > 0.0) && (thermalManager.degHotend(0) < thermalManager.degTargetHotend(0))) {
+  if ((thermalManager.degTargetHotend(0) > 0.0) && (thermalManager.degHotend(0) < thermalManager.degTargetHotend(0) - 1)) {
     LOG_I("job_ctrl: wait for nozzle0 to reach target temp: c[%.2f]@t[%d]\r\n",
           thermalManager.degHotend(0), thermalManager.degTargetHotend(0));
     return false;
   }
 
   if (fdm->get_device_id() == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
-    if ((thermalManager.degTargetHotend(1) > 0.0) && (thermalManager.degHotend(1) < thermalManager.degTargetHotend(1))) {
+    if ((thermalManager.degTargetHotend(1) > 0.0) && (thermalManager.degHotend(1) < thermalManager.degTargetHotend(1) - 1)) {
       LOG_I("job_ctrl: wait for nozzle1 to reach target temp\r\n",
             thermalManager.degHotend(1), thermalManager.degTargetHotend(1));
       return false;

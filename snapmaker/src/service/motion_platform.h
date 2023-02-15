@@ -127,6 +127,7 @@ typedef struct motion_request {
 class MotionPlatformService {
   public:
     bool homing_now;
+    bool tool_changing;
 
     MotionPlatformService() {}
     void init();

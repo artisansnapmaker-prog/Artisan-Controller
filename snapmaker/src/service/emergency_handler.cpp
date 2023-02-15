@@ -280,6 +280,7 @@ void EmergencyHandler::prepare_flash(bool is_forced) {
 void EmergencyHandler::power_loss() {
   JobEnv   *job_env;
   SystemStatus sys_status = job_ctrl_svc.get_status_before_start();
+  xyze_pos_t backup_position;
 
   // - disable All ISR
   disable_all_interrupts();
@@ -302,6 +303,10 @@ void EmergencyHandler::power_loss() {
       job_ctrl_svc.update_env(true);
     // if failed to update env, show LED?
     job_env = job_ctrl_svc.get_env();
+    if (motion_platform_svc.tool_changing && smprinter.get_backup_current_position(backup_position) && job_env) {
+      job_env->current_pos = backup_position;
+      job_env->tool_changing = true;
+    }
     memcpy(env, (uint8_t *)job_env, sizeof(JobEnv));
 
     // - make modules enter standby
@@ -343,6 +348,7 @@ void EmergencyHandler::power_loss() {
 void EmergencyHandler::emergency_stop() {
   JobEnv   *job_env = (JobEnv *)env;
   SystemStatus sys_status = job_ctrl_svc.get_status_before_start();
+  xyze_pos_t backup_position;
 
   // - disable All ISR
   disable_all_interrupts();
@@ -362,6 +368,10 @@ void EmergencyHandler::emergency_stop() {
       job_ctrl_svc.update_env(true);
 
     job_env = job_ctrl_svc.get_env();
+    if (motion_platform_svc.tool_changing && smprinter.get_backup_current_position(backup_position) && job_env) {
+      job_env->current_pos = backup_position;
+      job_env->tool_changing = true;
+    }
     memcpy(env, (uint8_t *)job_env, sizeof(JobEnv));
 
     *((uint32_t *)(env + ENV_VALID_FLAG_ADDR)) = ENV_VALID_FLAG;

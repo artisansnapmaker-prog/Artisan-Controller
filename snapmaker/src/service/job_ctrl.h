@@ -91,7 +91,7 @@
 #define EXTRUSION_E_FEEDRATE               5
 #define RETRACT_E_FEEDRATE                 30
 #define RESUME_EXTRUSION_E_LENGTH          20
-#define RESUME_RETRACT_E_LENGTH            6
+#define RESUME_RETRACT_E_LENGTH            5
 
 #define JOB_CTRL_LOOP_TIME_MS              (100)
 #define JOB_CTRL_REQ_INFO_BUF              ((sizeof(struct JobCtrlReqInfo) + 8) * 4)
@@ -165,6 +165,7 @@ struct JobEnv {
   uint16_t device_id;
   bool position_invalid;
   xyze_pos_t destination;
+  bool tool_changing;
 };
 
 enum JobReqAction {
@@ -306,6 +307,7 @@ class JobCtrl {
     // uint32_t _get_gcode_buffer_req_min;                       /** the minimum buffer use to get gcode                                       */
     // bool abort_resume;
     bool req_stop_trigger;
+    bool need_pre_extrusion;
 
     uint8_t job_print_mark = 0xFF;
     // static TimerHandle_t job_print_timer;

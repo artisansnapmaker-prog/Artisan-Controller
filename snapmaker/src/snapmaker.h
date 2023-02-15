@@ -663,6 +663,7 @@ class SnapmakerPrinter
     void stop_work_reset_feedrate();
     void resume_relative_position_check(uint32_t cmd_line, uint8_t cmd_mark);
     void resume_relative_position_clear(uint8_t cmd_mark);
+    bool get_backup_current_position(xyze_pos_t &position);
 
     bool is_interrupt_block_heating(void);
     bool is_fdm_bed_level_mode(void);

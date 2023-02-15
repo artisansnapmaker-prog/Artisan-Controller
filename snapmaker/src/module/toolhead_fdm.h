@@ -22,6 +22,7 @@
 #define SNAPMAKER_TOOLHEAD_FDM_H_
 
 #include "base.h"
+#include "../../../../../Marlin/src/core/types.h"
 
 // #define USE_FDM_INTERRUPT_LOG
 
@@ -200,6 +201,7 @@ class ToolHeadFDM: public ModuleBase {
       extruder_state = 0;
       extruder_check_tick = 0;
       extruder_sta_stable_cnt = EXTRUDER_NVALID_STATUS_STABLE_CNT;
+      backup_position_valid = false;
     }
 
     bool check_online();
@@ -290,6 +292,7 @@ class ToolHeadFDM: public ModuleBase {
     void homing_active_extruder_clean(void);
     void nozzle_fan_ctrl_check(void);
     void extruder_state_check(void);
+    bool get_tool_change_back_position(xyze_pos_t &position);
   // private methods
   private:
 
@@ -328,6 +331,8 @@ class ToolHeadFDM: public ModuleBase {
     uint32_t last_recv_time;
     float single_extruder_steps_per_unit;
     float dual_extruder_steps_per_unit[EXTRUDERS];
+    bool backup_position_valid;
+    xyze_pos_t backup_current_position;
 };
 
 #endif  // #ifndef SNAPMAKER_TOOLHEAD_FDM_H_

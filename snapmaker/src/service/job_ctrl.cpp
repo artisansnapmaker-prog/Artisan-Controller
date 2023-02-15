@@ -84,6 +84,7 @@ void JobCtrl::init(void) {
   _env.gfi_valid = false;
   _env.position_invalid = true;
   _env.bed_heat_mode = BED_GLOBAL_HEAT_MODE;
+  _env.tool_changing = false;
   // abort_resume = false;
   req_stop_trigger = false;
   status_before_start = SYSTEM_STATUS_IDLE;
@@ -93,6 +94,7 @@ void JobCtrl::init(void) {
   job_save_line_step = JOB_SAVE_LINE_STEP_STOP;
   job_print_seconds = 0;
   job_printing_flag = false;
+  need_pre_extrusion = true;
 
   if (!job_print_timer) {
     job_print_timer = xTimerCreate( "job_print_timer",
@@ -414,6 +416,7 @@ err_code_t JobCtrl::save_env(bool from_isr/*=false*/, bool save_all_info/*=true*
   }
 
   _env.device_id = cur_toolhead->get_device_id();
+  _env.tool_changing = false;
 
   // LOG_I("job_ctrl: save cur_line_num %d\r\n", _env.cur_line_num);
   // print_job_env(&_env);
@@ -530,13 +533,15 @@ __pos_resume:
   dest   = motion_platform_svc.sm_current_position;
 
   if (rt != RESUME_TYPE_LIVE_Z_OFFSET && TH_TYPE_3DP == _env.type) {
-    // pre-extrusion
-    dest.e += RESUME_EXTRUSION_E_LENGTH;
-    motion_platform_svc.moveto_e(dest.e, EXTRUSION_E_FEEDRATE);
+    if (need_pre_extrusion && !_env.tool_changing) {
+      // pre-extrusion
+      dest.e += RESUME_EXTRUSION_E_LENGTH;
+      motion_platform_svc.moveto_e(dest.e, EXTRUSION_E_FEEDRATE);
 
-    // try to cut out filament
-    dest.e -= RESUME_RETRACT_E_LENGTH;
-    motion_platform_svc.moveto_e(dest.e, RETRACT_E_FEEDRATE);
+      // try to cut out filament
+      dest.e -= RESUME_RETRACT_E_LENGTH;
+      motion_platform_svc.moveto_e(dest.e, RETRACT_E_FEEDRATE);
+    }
   }
 
   dest.x = _env.current_pos.x;
@@ -546,11 +551,13 @@ __pos_resume:
   dest.z = _env.current_pos.z;
   motion_platform_svc.moveto(dest, RESUME_Z_FEEDRATE);
 
-  if (rt != RESUME_TYPE_LIVE_Z_OFFSET && TH_TYPE_3DP == _env.type) {
+  if (rt != RESUME_TYPE_LIVE_Z_OFFSET && TH_TYPE_3DP == _env.type && !_env.tool_changing) {
     // extrusion compensation
-    dest.e += RESUME_RETRACT_E_LENGTH + 0.2;
+    dest.e += (RESUME_RETRACT_E_LENGTH + (need_pre_extrusion ? 0.2 : 0));
     motion_platform_svc.moveto_e(dest.e, EXTRUSION_E_FEEDRATE);
   }
+
+  need_pre_extrusion = true;
 
   motion_platform_svc.set_feedrate(_env.print_feadrate);
   motion_platform_svc.set_travl_feedrate(_env.travel_feadrate);
@@ -612,7 +619,7 @@ err_code_t JobCtrl::machine_standby(void) {
     /* code */
     motion_platform_svc.update_position_from_platform();
     t_pos =  motion_platform_svc.sm_current_position;
-    t_pos.e -= 5;
+    t_pos.e -= RESUME_RETRACT_E_LENGTH;
     motion_platform_svc.moveto_e(t_pos.e , RETRACT_E_FEEDRATE);
     break;
 
@@ -880,6 +887,7 @@ void JobCtrl::do_start(struct JobCtrlReqInfo &jri) {
   _env.gfi_valid = true;
   // _get_gcode_buffer_req_min = 0;
   _paused = false;
+  need_pre_extrusion = true;
 
   // get next status we should enter
   switch (status_before_start) {
@@ -900,6 +908,11 @@ void JobCtrl::do_start(struct JobCtrlReqInfo &jri) {
 
   // start printing reset feedrate
   smprinter.start_work_reset_feedrate();
+
+  while(motion_platform_svc.tool_changing == true) {
+    vTaskDelay(100);
+    LOG_I("job ctrl: req_start, wait machine tool_change finish\r\n");
+  }
 
   // subsequent requests can be stopped to add interrupt flags
   while (motion_platform_svc.homing_now == true && !req_stop_trigger) {
@@ -959,6 +972,12 @@ void JobCtrl::do_pause(struct JobCtrlReqInfo &jri) {
     LOG_E("job ctrl: can not to enter SYS_PAUSEING status\r\n");
     DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, E_FAILURE);
     return;
+  }
+
+  while(motion_platform_svc.tool_changing == true) {
+    vTaskDelay(100);
+    need_pre_extrusion = false;
+    LOG_I("job ctrl: req_pause, wait machine tool_change finish\r\n");
   }
 
   // subsequent requests can be stopped to add interrupt flags
@@ -1169,6 +1188,11 @@ void JobCtrl::do_stop(struct JobCtrlReqInfo &jri) {
     // TODO: do nothing
   }
 
+  while(motion_platform_svc.tool_changing == true) {
+    vTaskDelay(100);
+    LOG_I("job ctrl: req_stop, wait machine tool_change finish\r\n");
+  }
+
   while(motion_platform_svc.homing_now) {
     vTaskDelay(100);
     tmp++;
@@ -1239,6 +1263,7 @@ void JobCtrl::do_stop(struct JobCtrlReqInfo &jri) {
     break;
   }
 
+  need_pre_extrusion = true;
   // TODO: emergency
 
   // stop printing reset feedrate

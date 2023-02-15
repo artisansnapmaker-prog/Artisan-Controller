@@ -1682,6 +1682,11 @@ err_code_t ToolHeadFDM::tool_change_unlimited(uint8_t new_tool, bool compensate_
   }
 
   motion_platform_svc.synchronize_planner();
+  taskENTER_CRITICAL();
+  motion_platform_svc.update_position_from_platform();
+  backup_current_position = motion_platform_svc.sm_current_position;
+  backup_position_valid = true;
+  taskEXIT_CRITICAL();
   const bool leveling_was_active = motion_platform_svc.leveling_active();
   motion_platform_svc.disable_leveling();
   float hotend_offset_tmp[3][EXTRUDERS] = {0};
@@ -1802,6 +1807,9 @@ err_code_t ToolHeadFDM::tool_change_unlimited(uint8_t new_tool, bool compensate_
 
 EXIT:
   motion_platform_svc.set_bed_leveling_state(leveling_was_active);
+  taskENTER_CRITICAL();
+  backup_position_valid = false;
+  taskEXIT_CRITICAL();
   return ret;
 }
 
@@ -2583,4 +2591,9 @@ void ToolHeadFDM::extruder_state_check(void) {
       }
     }
   }
+}
+
+bool ToolHeadFDM::get_tool_change_back_position(xyze_pos_t &position) {
+  position = backup_current_position;
+  return backup_position_valid;
 }

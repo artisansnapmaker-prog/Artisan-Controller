@@ -15,6 +15,9 @@
 
 #define EXTRUDER_STATE_CHANGE_CONFIRM_TICK    500
 
+#define MAX_TARGET_FDM_1E_2019  (275)
+#define MAX_TARGET_FDM_2E_2021  (300)
+
 // hmi subscribe callback
 static uint16_t hmi_subscript_callback_extruder_info(void *obj, uint8_t *buffer);
 // hmi request callback
@@ -554,20 +557,21 @@ static err_code_t hmi_req_callback_set_hotend_temp(void *obj, sacp_hmi_message_t
   ToolHeadFDM &fdm = *(ToolHeadFDM *)obj;
   err_code_t ret = E_SUCCESS;
   int16_t target_temp = 0;
-
-  LOG_I("hmi request set hotend%d_temp: %d\n", msg->data[1], msg->data[2] | msg->data[3] << 8);
-
   uint8_t extruders = fdm.get_extruders_count();
 
-  if (msg->data[1] > extruders - 1) {
+  if (msg->length < 4) {
+    LOG_E("invalid msg length[%u] to set hotend temp!\n", msg->length);
     ret = E_PARAM;
     goto EXIT;
   }
 
   target_temp = msg->data[2] | msg->data[3] << 8;
-  if (target_temp < 0) {
-    LOG_E("[%s] invalid temp parameter\n", __FUNCTION__);
+
+  LOG_I("hmi request set hotend%d_temp: %d\n", msg->data[1], target_temp);
+
+  if (msg->data[1] > extruders - 1) {
     ret = E_PARAM;
+    LOG_E("invalid target E: %u\n", msg->data[1]);
     goto EXIT;
   }
 
@@ -577,13 +581,7 @@ static err_code_t hmi_req_callback_set_hotend_temp(void *obj, sacp_hmi_message_t
     goto EXIT;
   }
 
-  {
-    char gcode_cmd[32];
-    snprintf(gcode_cmd, 32, "M104 T%d S%d\n", msg->data[1], target_temp);
-    // motion_platform_svc.run_gcode(gcode_cmd);
-    parser.parse(gcode_cmd);
-    gcode.process_parsed_command();
-  }
+  motion_platform_svc.set_hotend_temp(target_temp, msg->data[1]);
 
 EXIT:
   // response
@@ -1515,7 +1513,7 @@ err_code_t ToolHeadFDM::set_fan_speed(uint8_t fan_index, uint16_t speed, uint8_t
 }
 
 // TODO: The parameter of 'e', should use enum type.
-err_code_t ToolHeadFDM::set_hotend_temp(uint16_t temp, uint8_t e) {
+err_code_t ToolHeadFDM::set_hotend_temp(int16_t temp, uint8_t e) {
   err_code_t ret;
   smcan_message_t msg;
 
@@ -1527,6 +1525,16 @@ err_code_t ToolHeadFDM::set_hotend_temp(uint16_t temp, uint8_t e) {
     LOG_E("hotend %d is invalid\n", e);
     return E_HARDWARE;
   }
+
+  if (temp < 0)
+    temp = 0;
+
+  int16_t maxtarget = MAX_TARGET_FDM_2E_2021;
+  if (get_device_id() == MODULE_DEVICE_ID_FDM_1EXTRUDER_2019) {
+    maxtarget = MAX_TARGET_FDM_1E_2019;
+  }
+  if (temp > maxtarget)
+    temp = maxtarget;
 
   hotend_temp[e].target = temp;
   LOG_I("Set T%d=%d\n", e, hotend_temp[e].target);

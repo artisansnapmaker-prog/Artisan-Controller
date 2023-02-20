@@ -242,7 +242,7 @@ class ToolHeadFDM: public ModuleBase {
     bool get_probe_state(probe_sensor_t sensor);
     err_code_t set_pid(float p, float i, float d);
     void update_hotend_temp(uint8_t *data);
-    err_code_t set_hotend_temp(uint16_t temp, uint8_t e);
+    err_code_t set_hotend_temp(int16_t temp, uint8_t e);
     float get_hotend_temp(uint8_t e);
     float get_hotend_target_temp(uint8_t e);
     err_code_t set_fan_speed(uint8_t fan_index, uint16_t speed, uint8_t delay_time=0);

@@ -1304,7 +1304,7 @@ void Planner::shaped_loop() {
 
     // if duration of moving which has been shapped is more than SHAPED_WAITING_MIN_TIME
     // will return directly, cause we have
-    if (remaining_consume_time > SHAPED_WAITING_MIN_TIME) {
+    if (remaining_consume_time > SHAPED_WAITING_MIN_TIME && stepper.is_busy()) {
       // if remaining_consume_time is not changed, it indicates stepper didn't consume function list
       // should known this problem
       return;

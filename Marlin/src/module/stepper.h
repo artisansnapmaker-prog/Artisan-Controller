@@ -337,6 +337,7 @@ class Stepper {
                        axis_did_move;       // Last Movement in the given direction is not null, as computed when the last movement was fetched from planner
 
     static bool abort_current_block;        // Signals to the stepper that current block should be aborted
+    static bool busy;
 
     #if ENABLED(X_DUAL_ENDSTOPS)
       static bool locked_X_motor, locked_X2_motor;
@@ -628,6 +629,7 @@ class Stepper {
       set_directions();
     }
 
+    static bool is_busy() { return busy; }
   private:
 
     // Set the current position in steps

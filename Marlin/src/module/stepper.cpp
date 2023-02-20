@@ -188,6 +188,7 @@ axis_bits_t Stepper::current_direction_bits,
             Stepper::axis_did_move; // = 0
 
 bool Stepper::abort_current_block;
+bool Stepper::busy = false;
 
 #if DISABLED(MIXING_EXTRUDER) && HAS_MULTI_EXTRUDER
   uint8_t Stepper::last_moved_extruder = 0xFF;
@@ -2099,6 +2100,7 @@ uint32_t Stepper::block_phase_isr() {
   if (axisManager.req_abort)
     return interval;
 
+  busy = true;
   static uint32_t done_count = 0;
   // If there is a current block
   if (current_block) {
@@ -2676,6 +2678,9 @@ uint32_t Stepper::block_phase_isr() {
 
       // Calculate the initial timer interval
       // interval = calc_timer_interval(current_block->initial_rate, &steps_per_isr);
+    }
+    else {
+      busy = false;
     }
     #if ENABLED(LASER_POWER_INLINE_CONTINUOUS)
       else { // No new block found; so apply inline laser parameters

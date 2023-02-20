@@ -1943,8 +1943,9 @@
  * NOTE: This method is less reliable as it can only catch hangups while
  * interrupts are enabled.
  */
-//#define USE_WATCHDOG
+#define USE_WATCHDOG
 #if ENABLED(USE_WATCHDOG)
+  #define WDT_TIMEOUT_US  (20 * 1000 * 1000)  // for now 20s
   //#define WATCHDOG_RESET_MANUAL
 #endif
 

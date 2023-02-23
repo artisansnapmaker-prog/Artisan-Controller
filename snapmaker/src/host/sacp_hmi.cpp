@@ -628,8 +628,10 @@ err_code_t HostSACPHMI::parse_packets(sacp_channel_t &channel) {
   uint8_t header_checksum;
   uint16_t calc_checksum, recv_checksum;
 
+  int c1, c2;
+
   if (!link) {
-    return E_FAILURE;
+    return ret;
   }
 
   avail_bytes = link->available();
@@ -639,32 +641,60 @@ err_code_t HostSACPHMI::parse_packets(sacp_channel_t &channel) {
     if (avail_bytes < SACP_FRONT_HEADER_MIN_SIZE)
       return E_NO_RESRC;
 
-    for (int i = 0; i < avail_bytes; i++) {
-      if (link->read() != SACP_FRAME_SOF_1)
-        continue;
+    c1 = -1;
+    c2 = link->read();
 
-      if (link->read() == SACP_FRAME_SOF_2) {
+    while (c2 >= 0 && avail_bytes-- > 0) {
+      if (c1 == SACP_FRAME_SOF_1 && c2 == SACP_FRAME_SOF_2) {
         parser.status = SACP_PARSER_STA_GOT_SOF;
-        parser.buffer[0] = SACP_FRAME_SOF_1;
-        parser.buffer[1] = SACP_FRAME_SOF_2;
         break;
       }
+      c1 = c2;
+      c2 = link->read();
     }
 
-    // if didn't got SOF, break out
+    if (c1 == SACP_FRAME_SOF_1 && c2 < 0) {
+      parser.status = SACP_PARSER_STA_GOT_SOF1;
+      parser.next_timeout = millis() + 5;
+    }
+
+    // to here:
+    // SACP_PARSER_STA_GOT_SOF indicates buffer maybe contain available data.
+    // SACP_PARSER_STA_GOT_SOF1 indicate no data in the buffer, should break the cases.
     if (parser.status != SACP_PARSER_STA_GOT_SOF) {
+      // didn't get SOF or just get SOF1
       break;
     }
-    else {
-      avail_bytes = link->available();
 
-      // wait up to 5 seconds for font header
+    avail_bytes = link->available();
+    parser.next_timeout = millis() + 5;
+
+  case SACP_PARSER_STA_GOT_SOF1:
+    // to here, the status maybe SACP_PARSER_STA_GOT_SOF
+    if (parser.status == SACP_PARSER_STA_GOT_SOF1) {
+      if (avail_bytes <= 0) {
+        if (ELAPSED(millis(), parser.next_timeout)) {
+          // if timeout on waiting for SOF2, reset parser
+          parser.status = SACP_PARSER_STA_IDLE;
+        }
+        return E_NO_RESRC;
+      }
+
+      if (link->read() != SACP_FRAME_SOF_2) {
+        // byte follow SOF1 is not SOF2, need break out
+        parser.status = SACP_PARSER_STA_IDLE;
+        break;
+      }
+
+      parser.status = SACP_PARSER_STA_GOT_SOF;
+
+      avail_bytes = link->available();
+      // wait up to 5 ms for font header
       parser.next_timeout = millis() + 5;
     }
 
   case SACP_PARSER_STA_GOT_SOF:
-
-    if (avail_bytes < SACP_FRONT_HEADER_MIN_SIZE) {
+    if (avail_bytes < SACP_FRONT_HEADER_MIN_SIZE - 2) {
       // if we have waited it for enough time, reset the parser
       if (ELAPSED(millis(), parser.next_timeout)) {
         parser.status = SACP_PARSER_STA_IDLE;
@@ -675,6 +705,9 @@ err_code_t HostSACPHMI::parse_packets(sacp_channel_t &channel) {
         break;
       }
     }
+
+    parser.buffer[0] = SACP_FRAME_SOF_1;
+    parser.buffer[1] = SACP_FRAME_SOF_2;
 
     for (int i = 2; i < SACP_FRONT_HEADER_MIN_SIZE; i++) {
       parser.buffer[i] = link->read();

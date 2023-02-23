@@ -134,7 +134,6 @@ class HostSACPHMI: public HostSACP {
     HostSACPHMI(SACPVerion ver, uint32_t id): HostSACP() {
       version = ver;
       host_id = id;
-      ch_recv_signal = NULL;
       events_normal  = NULL;
       events_blocked_without_motion = NULL;
       events_with_motion = NULL;
@@ -240,7 +239,6 @@ class HostSACPHMI: public HostSACP {
     // sacp_parser_t parsers[SACP_HMI_CH_MAX];
     uint32_t  peers[SACP_HMI_CH_MAX];
     sacp_channel_t channels[SACP_HMI_CH_MAX];
-    SemaphoreHandle_t ch_recv_signal;
 
     MessageBufferHandle_t events_normal;
     MessageBufferHandle_t events_blocked_without_motion;

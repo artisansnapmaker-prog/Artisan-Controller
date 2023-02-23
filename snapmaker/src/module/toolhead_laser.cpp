@@ -1246,7 +1246,6 @@ void ToolHeadLaser::setup_camera_port(uint8_t port) {
     uint8_t *buffer = (uint8_t *)pvPortMalloc(SACP_PDU_MAX_SIZE / 2);
     configASSERT(buffer);
     link_camera.set_sec_rx_buffer(buffer, SACP_PDU_MAX_SIZE / 2);
-    link_camera.set_sec_rx_waiting(SACP_V1_PDU_MIN_SIZE);
     // setup TX
     buffer = (uint8_t *)pvPortMalloc(SACP_PDU_MAX_SIZE);
     configASSERT(buffer);

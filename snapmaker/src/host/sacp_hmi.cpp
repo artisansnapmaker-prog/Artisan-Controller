@@ -63,9 +63,6 @@ static void hmi_blocked_event_handler(void *param) {
 }
 
 err_code_t HostSACPHMI::init(TaskHandle_t event_task, SemaphoreHandle_t recv_signal) {
-  recv_signal = xSemaphoreCreateCounting(65535, 0);
-  configASSERT(recv_signal);
-
   waiting_lock = xSemaphoreCreateMutex();
   configASSERT(waiting_lock);
 
@@ -85,12 +82,10 @@ err_code_t HostSACPHMI::init(TaskHandle_t event_task, SemaphoreHandle_t recv_sig
   configASSERT(subscription_lock);
 
   // setup links
-  ch_recv_signal = recv_signal;
   link_pc.set_serial(&MSerial1);
 
   // setup RX
   link_pc.set_sec_rx_buffer(serial_rx_buffer_pc, SACP_PDU_MAX_SIZE);
-  link_pc.set_sec_rx_waiting(SACP_V1_PDU_MIN_SIZE);
 
   // setup TX
   link_pc.set_sec_tx_buffer(serial_tx_buffer_pc, SACP_PDU_MAX_SIZE);
@@ -100,7 +95,6 @@ err_code_t HostSACPHMI::init(TaskHandle_t event_task, SemaphoreHandle_t recv_sig
   link_screen.set_serial(&MSerial2);
   // setup RX
   link_screen.set_sec_rx_buffer(serial_rx_buffer_screen, SACP_PDU_MAX_SIZE);
-  link_screen.set_sec_rx_waiting(SACP_V1_PDU_MIN_SIZE);
   // setup TX
   link_screen.set_sec_tx_buffer(serial_tx_buffer_screen, SACP_PDU_MAX_SIZE);
 
@@ -208,8 +202,6 @@ err_code_t HostSACPHMI::add_channel(SACPChannel ch, LinkUART *link) {
   xSemaphoreTake(channels[ch].lock, portMAX_DELAY);
   channels[ch].link = link;
   xSemaphoreGive(channels[ch].lock);
-
-  link->set_sec_rx_signal(ch_recv_signal);
 
   return E_SUCCESS;
 }

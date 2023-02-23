@@ -72,11 +72,6 @@ struct MarlinSerial : public HardwareSerial {
     return active_ch;
   }
 
-  void set_sec_rx_signal(void *signal) {
-    if (!signal)
-      sec_rx_signal = signal;
-  }
-
   void set_sec_rx_buffer(uint8_t *buffer, uint16_t size) {
     if (sec_rx_buffer)
       return;
@@ -92,8 +87,6 @@ struct MarlinSerial : public HardwareSerial {
     sec_tx_buffer = buffer;
     sec_tx_size = size;
   }
-
-  void set_sec_rx_waiting(uint16_t waiting_bytes);
 
   int read_multi(uint8_t ch, uint8_t *buffer, uint16_t length);
   int write_multi(uint8_t ch, uint8_t *buffer, uint16_t length);
@@ -113,9 +106,6 @@ protected:
   uint16_t sec_rx_size = 0;
   uint16_t sec_rx_head = 0;
   uint16_t sec_rx_tail = 0;
-
-  void *sec_rx_signal = NULL;
-  uint16_t sec_rx_waiting = 0;
 
   uint8_t *sec_tx_buffer = NULL;
   uint16_t sec_tx_size = 0;

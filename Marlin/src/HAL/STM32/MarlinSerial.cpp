@@ -115,15 +115,7 @@ void MarlinSerial::_rx_complete_irq(serial_t *obj) {
       obj->rx_head = i;
     }
 
-    BaseType_t if_wakeup_task = pdFALSE;
     if (active_ch == MARLIN_SERIAL_CHANNEL_SECOND) {
-      if (sec_rx_signal) {
-        if (available_sec() >= sec_rx_waiting) {
-          sec_rx_waiting = 0xFFFF;
-          xSemaphoreGiveFromISR((SemaphoreHandle_t)sec_rx_signal, &if_wakeup_task);
-          portYIELD_FROM_ISR(if_wakeup_task);
-        }
-      }
       return;
     }
 
@@ -275,11 +267,6 @@ int MarlinSerial::available_sec(void) {
   return ((unsigned int)(sec_rx_size + _serial.rx_head - _serial.rx_tail)) % sec_rx_size;
 }
 
-void MarlinSerial::set_sec_rx_waiting(uint16_t waiting_bytes) {
-  taskENTER_CRITICAL();
-  sec_rx_waiting = waiting_bytes;
-  taskEXIT_CRITICAL();
-}
 
 int MarlinSerial::read_multi(uint8_t ch, uint8_t *buffer, uint16_t length) {
   if (ch != active_ch)
@@ -383,8 +370,6 @@ int MarlinSerial::set_active_channel(uint8_t new_ch) {
     sec_tx_head = _serial.tx_head;
     sec_tx_tail = _serial.tx_tail;
     // clear signal
-    if (sec_rx_signal)
-      while (xSemaphoreTake((SemaphoreHandle_t)sec_rx_signal, 0) != pdFALSE);
 
     // clear orignal buffer index
     orig_rx_head = 0;

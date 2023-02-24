@@ -83,6 +83,7 @@ err_code_t HostSACPHMI::init(TaskHandle_t event_task, SemaphoreHandle_t recv_sig
 
   // setup links
   link_pc.set_serial(&MSerial1);
+  link_pc.set_irq_priority(MARLIN_SERIAL_IRQ_PRIORITY);
 
   // setup RX
   link_pc.set_sec_rx_buffer(serial_rx_buffer_pc, SACP_PDU_MAX_SIZE);
@@ -93,6 +94,7 @@ err_code_t HostSACPHMI::init(TaskHandle_t event_task, SemaphoreHandle_t recv_sig
   // initialize HMI
   MSerial2.begin(115200);
   link_screen.set_serial(&MSerial2);
+  link_screen.set_irq_priority(HMI_SERIAL_IRQ_PRIORITY);
   // setup RX
   link_screen.set_sec_rx_buffer(serial_rx_buffer_screen, SACP_PDU_MAX_SIZE);
   // setup TX

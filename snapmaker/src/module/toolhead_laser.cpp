@@ -1242,6 +1242,7 @@ void ToolHeadLaser::setup_camera_port(uint8_t port) {
   if (!ch->link) {
     serial->begin(115200);
     link_camera.set_serial(serial);
+    link_camera.set_irq_priority(EXECUTOR_SERIAL_IRQ_PRIORITY);
     // setup RX
     uint8_t *buffer = (uint8_t *)pvPortMalloc(SACP_PDU_MAX_SIZE / 2);
     configASSERT(buffer);

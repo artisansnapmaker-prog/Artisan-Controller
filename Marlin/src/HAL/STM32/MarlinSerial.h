@@ -52,6 +52,8 @@ struct MarlinSerial : public HardwareSerial {
 
   void _rx_complete_irq(serial_t *obj);
 
+  void set_irq_priority(uint32_t prio);
+
   static int _sec_tx_complete_irq(serial_t *obj);
 
   int peek(void);

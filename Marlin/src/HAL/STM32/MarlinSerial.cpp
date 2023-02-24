@@ -125,6 +125,16 @@ void MarlinSerial::_rx_complete_irq(serial_t *obj) {
   }
 }
 
+void MarlinSerial::set_irq_priority(uint32_t prio) {
+  /* Must disable interrupt to prevent handle lock contention */
+  HAL_NVIC_DisableIRQ(_serial.irq);
+
+  // HAL_UART_Receive_IT(uart_handlers[obj->index], &(obj->recv), 1);
+
+  /* Enable interrupt */
+  HAL_NVIC_SetPriority(_serial.irq, UART_IRQ_PRIO, UART_IRQ_SUBPRIO);
+  HAL_NVIC_EnableIRQ(_serial.irq);
+}
 
 int MarlinSerial::_sec_tx_complete_irq(serial_t *obj) {
   // If interrupts are enabled, there must be more data in the output

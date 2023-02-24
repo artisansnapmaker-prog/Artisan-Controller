@@ -124,6 +124,10 @@ class LinkUART {
 
     uint8_t get_active_ch() { return active_ch; }
 
+    void set_irq_priority(uint32_t prio) {
+      serial->set_irq_priority(prio);
+    }
+
   // private methods
   private:
 

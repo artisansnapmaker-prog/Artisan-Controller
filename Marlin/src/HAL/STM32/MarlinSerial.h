@@ -93,6 +93,10 @@ struct MarlinSerial : public HardwareSerial {
   int read_multi(uint8_t ch, uint8_t *buffer, uint16_t length);
   int write_multi(uint8_t ch, uint8_t *buffer, uint16_t length);
 
+  int uart2_rx_dma1_init(void);
+  int set_dma_rx_buffer(uint8_t *buffer, uint16_t size);
+  friend void _usart_rx_check(void);
+
 protected:
   usart_rx_callback_t _rx_callback;
 

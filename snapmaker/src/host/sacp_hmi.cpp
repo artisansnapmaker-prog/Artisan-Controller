@@ -94,11 +94,14 @@ err_code_t HostSACPHMI::init(TaskHandle_t event_task, SemaphoreHandle_t recv_sig
   // initialize HMI
   MSerial2.begin(115200);
   link_screen.set_serial(&MSerial2);
-  link_screen.set_irq_priority(HMI_SERIAL_IRQ_PRIORITY);
   // setup RX
   link_screen.set_sec_rx_buffer(serial_rx_buffer_screen, SACP_PDU_MAX_SIZE);
   // setup TX
   link_screen.set_sec_tx_buffer(serial_tx_buffer_screen, SACP_PDU_MAX_SIZE);
+
+  MSerial2.uart2_rx_dma1_init();
+
+  link_screen.set_irq_priority(HMI_SERIAL_IRQ_PRIORITY);
 
   // active second channel
   link_screen.set_active_channel(MARLIN_SERIAL_CHANNEL_SECOND);
@@ -700,6 +703,7 @@ err_code_t HostSACPHMI::parse_packets(sacp_channel_t &channel) {
       // if we have waited it for enough time, reset the parser
       if (ELAPSED(millis(), parser.next_timeout)) {
         parser.status = SACP_PARSER_STA_IDLE;
+        LOG_I("parse_packets line: %d:\n", __LINE__);
         break;
       }
       else {
@@ -779,6 +783,7 @@ err_code_t HostSACPHMI::parse_packets(sacp_channel_t &channel) {
       // if we have waited it for enough time, reset the parser
       if (ELAPSED(millis(), parser.next_timeout)) {
         parser.status = SACP_PARSER_STA_IDLE;
+        LOG_I("parse_packets line: %d: time out!!!  avail_bytes: %d, parser.length\n", __LINE__, avail_bytes, parser.length);
         break;
       }
       else {

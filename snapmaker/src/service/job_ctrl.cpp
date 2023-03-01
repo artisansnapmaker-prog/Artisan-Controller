@@ -60,7 +60,7 @@ void job_ctrl_thread_entry(void *p) {
 void job_request_gcode(void *p) {
   for(;;) {
     job_ctrl_svc.request_gcode_process(p);
-    vTaskDelay(pdMS_TO_TICKS(50));
+    vTaskDelay(pdMS_TO_TICKS(10));
   }
 }
 
@@ -1343,7 +1343,7 @@ bool JobCtrl::consume_a_gcode(uint8_t *cmd, uint16_t max_len, uint32_t *line, ui
   ModuleBase *cur_toolhead;
   uint32_t cmd_len;
 
-  if (!smprinter.on_printing()) {
+  if (!smprinter.on_printing() || _gcode_rb.is_empty()) {
     return false;
   }
 
@@ -1354,6 +1354,7 @@ bool JobCtrl::consume_a_gcode(uint8_t *cmd, uint16_t max_len, uint32_t *line, ui
     UNLOCK(_lock);
     return false;
   }
+
   while(_gcode_rb.remove_one(c)) {
     if(cmd_len >= max_len) {
       LOG_W("gcode too long for the command buffer");

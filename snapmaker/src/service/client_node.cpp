@@ -69,7 +69,7 @@ void ClientNode::class_init(void) {
   // job control
   ret |= host_hmi.apply_cmd_set_handle(CMD_SET_JOB_CTRL, CMD_ID_JOB_CTRL_NUM);
   ret |= host_hmi.register_callback(CMD_SET_JOB_CTRL, CMD_ID_JOB_GET_GCODE_FILE_INFO, NULL, sacp_cb);
-  ret |= host_hmi.register_callback(CMD_SET_JOB_CTRL, CMD_ID_JOB_CTRL_START, NULL, sacp_cb/*, SACP_CB_ATTR_BLOCKED_WITH_MOTION*/);
+  ret |= host_hmi.register_callback(CMD_SET_JOB_CTRL, CMD_ID_JOB_CTRL_START, NULL, sacp_cb, SACP_CB_ATTR_BLOCKED_WITH_MOTION);
   ret |= host_hmi.register_callback(CMD_SET_JOB_CTRL, CMD_ID_JOB_CTRL_PAUSE, NULL, sacp_cb, SACP_CB_ATTR_BLOCKED_WITHOUT_MOTION);
   ret |= host_hmi.register_callback(CMD_SET_JOB_CTRL, CMD_ID_JOB_CTRL_RESUME, NULL, sacp_cb, SACP_CB_ATTR_BLOCKED_WITH_MOTION);
   ret |= host_hmi.register_callback(CMD_SET_JOB_CTRL, CMD_ID_JOB_CTRL_STOP, NULL, sacp_cb);

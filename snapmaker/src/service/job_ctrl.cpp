@@ -784,7 +784,8 @@ void JobCtrl::get_gcodes_from_client(void) {
   if (/*_err_get_batch_gcode_cnt*/retry_times >= 3) {
     LOG_W("can not get batch gcode from clinet for 3 times\r\n");
     // _err_get_batch_gcode_cnt = 0;
-    req_stop(STOP_EXCEPTION, SACP_JOB_PAUSE_ISSUE_RET_IVALID_GCODE_LINE_NUMBER);
+    // req_stop(STOP_EXCEPTION, SACP_JOB_PAUSE_ISSUE_RET_IVALID_GCODE_LINE_NUMBER);
+    req_pause(PAUSE_EXCEPTION, NULL, NULL);
   }
 }
 

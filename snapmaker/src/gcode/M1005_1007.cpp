@@ -99,10 +99,14 @@ void GcodeSuite::M1006() {
   switch (smprinter.get_toolhead_type()) {
   case TH_TYPE_3DP:
     LOG_I("3DP\n");
+    smprinter.show_fdm_info();
+    LOG_I("\n");
     break;
 
   case TH_TYPE_LASER:
     LOG_I("LASER\n");
+    smprinter.show_laser_info();
+    LOG_I("\n");
     // LOG_I("Current Status: \n");
     // SERIAL_ECHOLN((laser->state() == TOOLHEAD_LASER_STATE_ON)? "ON" : "OFF");
     // SERIAL_ECHO_MSG("Current Power: ", laser->power());
@@ -111,6 +115,8 @@ void GcodeSuite::M1006() {
 
   case TH_TYPE_CNC:
     LOG_I("CNC\n");
+    smprinter.get_spindle_status();
+    LOG_I("\n");
     // SERIAL_ECHO_MSG("Current Power: ", cnc.power());
     // SERIAL_ECHO_MSG("RPM: ", cnc.rpm());
     break;

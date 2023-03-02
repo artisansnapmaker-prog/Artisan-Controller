@@ -1665,6 +1665,16 @@ void ToolHeadLaser::show_status() {
   LOG_I("safety_lock: %s\n", safety_lock ? "LOCK" : "UNLOCK");
   LOG_I("power_limit: %f\n", power_limit);
   LOG_I("exception_state: 0x%x\n", exception_state);
+  if (bt_mac[0] == 0) {
+    LOG_I("BT MAC: ");
+    for (int i = 1; i < 7; i++) {
+      LOG_I("%02X ", bt_mac[i]);
+    }
+    LOG_I("\n");
+  }
+  else {
+    LOG_I("BT MAC: ineffective\n");
+  }
 }
 
 typedef struct __packed LaserEnv {

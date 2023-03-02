@@ -402,9 +402,10 @@ class SnapmakerPrinter
     }
 
     // FDM
-    uint8_t homing_active_extruder_record(void);
+    void show_fdm_info(void) { if (fdm) fdm->show_fdm_info(); }
     void homing_active_extruder_clean(void);
     uint8_t get_extruders_count(void);
+    uint8_t homing_active_extruder_record(void);
     void set_probe_sensor(probe_sensor_t sensor) {
       if (fdm) {
         fdm->set_probe_sensor(sensor);
@@ -581,6 +582,7 @@ class SnapmakerPrinter
     // LASER
     void set_laser_fan_speed(uint16_t speed) {}
     void laser_enable_env_check(void) { if (laser) laser->check_insert_enclosure(); }
+    void show_laser_info(void) { if (laser) laser->show_status(); }
 
     // DryBox
     void set_drybox_temp(int16_t heater_temp, int16_t chamber_temp) {

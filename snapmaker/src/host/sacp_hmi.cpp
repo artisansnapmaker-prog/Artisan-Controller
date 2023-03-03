@@ -783,7 +783,7 @@ err_code_t HostSACPHMI::parse_packets(sacp_channel_t &channel) {
       // if we have waited it for enough time, reset the parser
       if (ELAPSED(millis(), parser.next_timeout)) {
         parser.status = SACP_PARSER_STA_IDLE;
-        LOG_I("parse_packets line: %d: time out!!!  avail_bytes: %d, parser.length\n", __LINE__, avail_bytes, parser.length);
+        LOG_I("parse_packets line: %d: time out!!!  avail_bytes: %d, parser.length: %d\n", __LINE__, avail_bytes, parser.length);
         break;
       }
       else {

@@ -20,6 +20,7 @@
 
 // hmi subscribe callback
 static uint16_t hmi_subscript_callback_extruder_info(void *obj, uint8_t *buffer);
+static uint16_t hmi_subscript_callback_fan_info(void *obj, uint8_t *buffer);
 // hmi request callback
 static err_code_t hmi_req_callback_get_toolhead_info(void *obj, sacp_hmi_message_t *msg);
 static err_code_t hmi_req_callback_set_hotend_temp(void *obj, sacp_hmi_message_t *msg);
@@ -125,6 +126,7 @@ err_code_t ToolHeadFDM::single_extruder_post_init() {
 
   // register hmi subscript callback
   host_hmi.register_subscription(SACP_CMD_SET_FDM, FDM_SUBSCRIPT_CMD_ID_EXTRUDER_INFO, this, hmi_subscript_callback_extruder_info);
+  host_hmi.register_subscription(SACP_CMD_SET_FDM, FDM_SUBSCRIPT_CMD_ID_FAN_INFO, this, hmi_subscript_callback_fan_info);
 
   // apply fdm cmd ids handle and register hmi request callback
   host_hmi.apply_cmd_set_handle(SACP_CMD_SET_FDM, FDM_REQ_CMD_ID_SUM);
@@ -231,6 +233,7 @@ err_code_t ToolHeadFDM::dual_extruder_post_init() {
 
   // register hmi subscript callback
   host_hmi.register_subscription(SACP_CMD_SET_FDM, FDM_SUBSCRIPT_CMD_ID_EXTRUDER_INFO, this, hmi_subscript_callback_extruder_info);
+  host_hmi.register_subscription(SACP_CMD_SET_FDM, FDM_SUBSCRIPT_CMD_ID_FAN_INFO, this, hmi_subscript_callback_fan_info);
 
   // apply fdm cmd ids handle and register hmi request callback
   host_hmi.apply_cmd_set_handle(SACP_CMD_SET_FDM, FDM_REQ_CMD_ID_SUM);
@@ -454,6 +457,37 @@ static uint16_t hmi_subscript_callback_extruder_info(void *obj, uint8_t *buffer)
   return index;
 }
 
+static uint16_t hmi_subscript_callback_fan_info(void *obj, uint8_t *buffer) {
+  uint8_t fan_cnt = 2;
+  uint16_t index = 0;
+
+  if (!obj || !buffer) {
+    return 0;
+  }
+
+  ToolHeadFDM &fdm = *(ToolHeadFDM *)obj;
+
+  // result
+  buffer[index++] = E_SUCCESS;
+
+  // key
+  buffer[index++] = fdm.get_key();
+
+  // array size
+  if (fdm.get_device_id() == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
+    fan_cnt = 3;
+  }
+
+  buffer[index++] = fan_cnt;
+  for (uint8_t i = 0; i < fan_cnt; i++) {
+    buffer[index++] = i;
+    buffer[index++] = (i != fan_cnt -1 ? i : 2);
+    buffer[index++] = fdm.get_fan_speed(i);
+  }
+
+  return index;
+}
+
 // hmi request callback
 static err_code_t hmi_req_callback_get_toolhead_info(void *obj, sacp_hmi_message_t *msg) {
   ToolHeadFDM &fdm = *(ToolHeadFDM *)obj;
@@ -536,12 +570,12 @@ static err_code_t hmi_req_callback_get_toolhead_info(void *obj, sacp_hmi_message
 
   msg->data[index++] = fan_sum;
 
-  for (uint32_t i = 0; i < fan_sum; i++) {
+  for (uint8_t i = 0; i < fan_sum; i++) {
     // fan index
     msg->data[index++] = i;
 
     // fan type
-    msg->data[index++] = i;
+    msg->data[index++] = (i != fan_sum -1 ? i : 2);;
 
     // fan speed
     msg->data[index++] = fdm.get_fan_speed(i);
@@ -1721,6 +1755,8 @@ err_code_t ToolHeadFDM::tool_change_unlimited(uint8_t new_tool, bool compensate_
     LOG_I("toolchange without z compensation\n");
     hotend_offset_tmp[Z_AXIS][1] = 0;
   }
+
+  LOG_I("T%d ->  T%d\n", current_extruder, new_tool);
 
   if (new_tool != current_extruder) {
     motion_platform_svc.sync_feedrate_percentage_to_platform(100);

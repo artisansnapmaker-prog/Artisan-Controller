@@ -87,6 +87,7 @@ typedef enum {
 
 typedef enum {
   FDM_SUBSCRIPT_CMD_ID_EXTRUDER_INFO = 0xa0,
+  FDM_SUBSCRIPT_CMD_ID_FAN_INFO      = 0xa3,
 }fdm_subscript_cmd_id_e;
 
 typedef enum {

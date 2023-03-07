@@ -1417,8 +1417,8 @@ extern uint8_t E_ENABLE_ON;
 // @section machine
 
 // The size of the printable area
-#define X_BED_SIZE 410
-#define Y_BED_SIZE 410
+#define X_BED_SIZE 407
+#define Y_BED_SIZE 407
 
 // Travel limits (mm) after homing, corresponding to endstop positions.
 #define X_MIN_POS 0

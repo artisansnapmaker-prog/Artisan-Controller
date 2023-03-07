@@ -202,7 +202,7 @@ err_code_t ToolHeadFDM::single_extruder_post_init() {
 
   motion_platform_svc.set_e_axis_enable_on_state(0);
   motion_platform_svc.set_steps_per_unit(single_extruder_steps_per_unit, E_AXIS);
-  motion_platform_svc.set_home_offset(-4.3, 0, 0);
+  motion_platform_svc.set_home_offset(-4.3, -3, 0);
   motion_platform_svc.set_hotend_maxtemp(0, 275);
   motion_platform_svc.pins_post_init();
   extruders_feedrate_percentage[0] = motion_platform_svc.get_feedrate_percentage();
@@ -362,7 +362,7 @@ err_code_t ToolHeadFDM::dual_extruder_post_init() {
 
   motion_platform_svc.set_e_axis_enable_on_state(1);
   motion_platform_svc.set_steps_per_unit(dual_extruder_steps_per_unit[0], E_AXIS);
-  motion_platform_svc.set_home_offset(-31.601, -5.594, 0);
+  motion_platform_svc.set_home_offset(-31.601, -2.594, 0);
   motion_platform_svc.set_hotend_maxtemp(0, 350);
   motion_platform_svc.set_hotend_maxtemp(1, 350);
   motion_platform_svc.pins_post_init();
@@ -2455,9 +2455,9 @@ void ToolHeadFDM::reset_e_steps_per_unit() {
 void ToolHeadFDM::reset_home_offset() {
   uint16_t device_id = get_device_id();
   if (device_id == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
-    motion_platform_svc.set_home_offset(-31.601, -5.594, 0);
+    motion_platform_svc.set_home_offset(-31.601, -2.594, 0);
   } else if (device_id == MODULE_DEVICE_ID_FDM_1EXTRUDER_2019) {
-    motion_platform_svc.set_home_offset(-4.3, 0, 0);
+    motion_platform_svc.set_home_offset(-4.3, -3, 0);
   }
 }
 

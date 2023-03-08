@@ -775,7 +775,6 @@ void ToolHeadLaser::can_cb_handle_security_status(void *obj, uint8_t *data, uint
   laser.safety_state = data[0];
 
   diff_state = laser.safety_state^pre_state;
-  pre_state = laser.safety_state;
   if (diff_state) {
     new_state   = diff_state & laser.safety_state;
     clear_state = diff_state & pre_state;
@@ -824,6 +823,7 @@ void ToolHeadLaser::can_cb_handle_security_status(void *obj, uint8_t *data, uint
     }
   }
 
+  pre_state = laser.safety_state;
   laser.pitch = data[1]<<8 | data[2];
   laser.roll  = data[3]<<8 | data[4];
   laser.tube_temp = (int8_t)data[5];

@@ -712,6 +712,18 @@ void GcodeSuite::M2000() {
           fdm->right_extruder_move_to_destination(GO_HOME, 0);
         }
         break;
+
+      case 20:
+        {
+          extern bool enable_extruder_check;
+          if (parser.seenval('P')) {
+            p = parser.byteval('P', 0);
+            enable_extruder_check = !!p;
+          }
+          LOG_I("extruder_state_check: %s\n", (enable_extruder_check ? "enable" : "disable"));
+        }
+        break;
+
       case 100:
         {
           ToolHeadFDM *fdm = NULL;

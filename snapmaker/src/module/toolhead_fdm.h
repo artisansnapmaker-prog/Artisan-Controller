@@ -64,6 +64,11 @@
 #define EXTRUDER_STATUS_STABLE_CNT              10
 #define EXTRUDER_STATUS_CHECK_INTERVAL          50
 
+#define EXTRUDER_STATE_CHECK_WINDOW_CNT         100
+#define EXTRUDER_STATE_ERROR_EXCEED_NUMBER      2          // must be greater than 0
+#define EXTRUDER_STATE_ERROR_OVERTIME_CNT       30
+#define EXTRUDER_STATE_ERROR_CHECK_INIT_VALUE   0xFFFFFFFF
+
 /****************************************************************************************
 reference links: https://snapmaker2.atlassian.net/wiki/spaces/SNAP/pages/1984987369/FDM
 ****************************************************************************************/
@@ -203,6 +208,11 @@ class ToolHeadFDM: public ModuleBase {
       extruder_check_tick = 0;
       extruder_sta_stable_cnt = EXTRUDER_NVALID_STATUS_STABLE_CNT;
       backup_position_valid = false;
+      extruder_sta_check_window_cnt = EXTRUDER_STATE_ERROR_CHECK_INIT_VALUE;
+      extruder_sta_err_overtime_cnt = EXTRUDER_STATE_ERROR_CHECK_INIT_VALUE;
+      for (int i = 0; i < EXTRUDER_STATE_ERROR_EXCEED_NUMBER; i++) {
+        extruder_sta_err_exceed_cnt[i] = EXTRUDER_STATE_ERROR_CHECK_INIT_VALUE;
+      }
     }
 
     bool check_online();
@@ -293,6 +303,7 @@ class ToolHeadFDM: public ModuleBase {
     void homing_active_extruder_clean(void);
     void nozzle_fan_ctrl_check(void);
     void extruder_state_check(void);
+    bool extruder_state_pre_process(void);
     bool get_tool_change_back_position(xyze_pos_t &position);
   // private methods
   private:
@@ -308,6 +319,9 @@ class ToolHeadFDM: public ModuleBase {
     uint32_t fdm_state;
     uint32_t extruder_check_tick;
     uint32_t extruder_sta_stable_cnt;
+    uint32_t extruder_sta_err_exceed_cnt[EXTRUDER_STATE_ERROR_EXCEED_NUMBER];    // number of abnormal extruder status occurrences during the printing process
+    uint32_t extruder_sta_err_overtime_cnt;                                      // extruder status abnormal duration count during printing
+    uint32_t extruder_sta_check_window_cnt;
     uint8_t extruder_state;
     uint8_t probe_state;
     probe_sensor_t probe_sensor;

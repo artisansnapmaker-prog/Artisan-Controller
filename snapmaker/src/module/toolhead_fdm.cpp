@@ -18,6 +18,8 @@
 #define MAX_TARGET_FDM_1E_2019  (275)
 #define MAX_TARGET_FDM_2E_2021  (300)
 
+#define _NOMORE(a, b)  if ( (a) > (b) ) (a) = (b);
+
 // hmi subscribe callback
 static uint16_t hmi_subscript_callback_extruder_info(void *obj, uint8_t *buffer);
 static uint16_t hmi_subscript_callback_fan_info(void *obj, uint8_t *buffer);
@@ -83,6 +85,9 @@ static module_func_prio_t prio_map_single_extruder[] = {
 * bit5 hotend E1 max temperature error
 */
 uint32_t hotend_error_sta = 0;
+bool enable_extruder_check = true;                /* turn on or off extruder detection during printing with this variable */
+static uint8_t job_mask = 0xFF;
+static uint8_t extruder_state_check_maker = 0;
 
 err_code_t fdm_callback_routine(void *obj);
 void fdm_callback_start_print(void *, uint8_t status_before_start);
@@ -2599,29 +2604,169 @@ void ToolHeadFDM::nozzle_fan_ctrl_check(void) {
   }
 }
 
+bool ToolHeadFDM::extruder_state_pre_process(void) {
+  bool enable_check = false;
+  if (get_device_id() == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
+    uint8_t init_type = 0;
+    uint8_t job_mask_tmp = job_ctrl_svc.get_job_print_mark();
+    enable_check = enable_extruder_check;
+    if (job_mask != job_mask_tmp) {
+      // new print job starts, clears exceptions
+      if (enable_check)
+        init_type = 1;
+      else
+        init_type = 2;
+      job_mask = job_mask_tmp;
+    }
+    else if ((!smprinter.on_working() && !smprinter.on_printing()) || !enable_check) {
+      init_type = 2;
+    }
+
+    if (init_type) {
+      if (extruder_state_check_maker & (1 << 0)) {
+        system_svc.clear_exception(get_device_id(), FDM_EXCEP_STA_EXTRUDER_ERROR_OVERTIME);
+        extruder_state_check_maker &= ~(1 << 0);
+      }
+
+      if (extruder_state_check_maker & (1 << 1)) {
+        system_svc.clear_exception(get_device_id(), FDM_EXCEP_STA_EXTRUDER_ERROR_EXCEED_NUMBER);
+        extruder_state_check_maker &= ~(1 << 1);
+      }
+
+      if (init_type == 1)
+        extruder_sta_err_overtime_cnt = EXTRUDER_STATE_ERROR_OVERTIME_CNT;
+      else
+        extruder_sta_err_overtime_cnt = EXTRUDER_STATE_ERROR_CHECK_INIT_VALUE;
+
+      extruder_sta_check_window_cnt = EXTRUDER_STATE_ERROR_CHECK_INIT_VALUE;
+      // if EXTRUDER_STATE_ERROR_EXCEED_NUMBER is large, you need to modify the current way of assigning values in a loop each time
+      for (int i = 0; i < EXTRUDER_STATE_ERROR_EXCEED_NUMBER; i++) {
+        extruder_sta_err_exceed_cnt[i] = EXTRUDER_STATE_ERROR_CHECK_INIT_VALUE;
+      }
+    }
+
+    // no need to detect again when not printing or when an extruder status exception has been triggered
+    if ((!smprinter.on_printing()) || extruder_state_check_maker)
+      enable_check = false;
+
+    if (enable_check) {
+      if (extruder_sta_check_window_cnt != EXTRUDER_STATE_ERROR_CHECK_INIT_VALUE) {
+        // the countdown to the earliest exception trigger is consumed
+        if (extruder_sta_check_window_cnt == 0) {
+          extruder_sta_err_exceed_cnt[0] = EXTRUDER_STATE_ERROR_CHECK_INIT_VALUE;
+          for (int i = 1; i < EXTRUDER_STATE_ERROR_EXCEED_NUMBER; i++) {
+            if (extruder_sta_err_exceed_cnt[i] != EXTRUDER_STATE_ERROR_CHECK_INIT_VALUE) {
+              for (int j = 0; j < EXTRUDER_STATE_ERROR_EXCEED_NUMBER; j++) {
+                if (i + j < EXTRUDER_STATE_ERROR_EXCEED_NUMBER)
+                  extruder_sta_err_exceed_cnt[j] = extruder_sta_err_exceed_cnt[i + j];
+                else
+                  extruder_sta_err_exceed_cnt[j] = EXTRUDER_STATE_ERROR_CHECK_INIT_VALUE;
+              }
+              break;
+            }
+          }
+          extruder_sta_check_window_cnt = extruder_sta_err_exceed_cnt[0];
+        }
+
+        if (extruder_sta_check_window_cnt != EXTRUDER_STATE_ERROR_CHECK_INIT_VALUE) {
+          _NOMORE(extruder_sta_check_window_cnt, EXTRUDER_STATE_CHECK_WINDOW_CNT);
+          if (extruder_sta_check_window_cnt > 0)
+            extruder_sta_check_window_cnt--;
+        }
+      }
+    }
+  }
+
+  return enable_check;
+}
+
 void ToolHeadFDM::extruder_state_check(void) {
   if (get_device_id() == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
     if (ELAPSED(xTaskGetTickCount(), extruder_check_tick + EXTRUDER_STATUS_CHECK_INTERVAL)) {
+      bool enable_check = extruder_state_pre_process();
+      bool send_msg = false;
       extruder_check_tick = xTaskGetTickCount();
-      // the extruder state is changed
+
+      // no change in extruder status
       if (((fdm_state >> FDM_FAULT_EXTRUDER_STATE) & 0x01) == (!!extruder_state)) {
         extruder_sta_stable_cnt = EXTRUDER_NVALID_STATUS_STABLE_CNT;
+
+        // abnormal state continuous trigger
+        if (enable_check && extruder_state) {
+          if (extruder_sta_err_overtime_cnt != EXTRUDER_STATE_ERROR_CHECK_INIT_VALUE && extruder_sta_err_overtime_cnt > 0) {
+            if (smprinter.on_printing()) {
+              _NOMORE(extruder_sta_err_overtime_cnt, EXTRUDER_STATE_ERROR_OVERTIME_CNT);
+              extruder_sta_err_overtime_cnt -= 1;
+              if (extruder_sta_err_overtime_cnt == 0) {
+                send_msg = true;
+                extruder_state_check_maker |= (1 << 0);
+                extruder_sta_err_overtime_cnt = EXTRUDER_STATE_ERROR_CHECK_INIT_VALUE;
+                LOG_E("warning: extruder status abnormal continuous trigger\n");
+              }
+            }
+          }
+        }
       }
       else {
         // update the anti-shake value if the state is not the same as the current state
         if (extruder_sta_stable_cnt == EXTRUDER_NVALID_STATUS_STABLE_CNT || extruder_sta_stable_cnt == 0)
           extruder_sta_stable_cnt = EXTRUDER_STATUS_STABLE_CNT;
+
+        if (enable_check) {
+          if (extruder_sta_err_overtime_cnt != EXTRUDER_STATE_ERROR_CHECK_INIT_VALUE && extruder_sta_err_overtime_cnt > 0) {
+            if (smprinter.on_printing()) {
+              // the count will be reset once the status changes
+              extruder_sta_err_overtime_cnt = EXTRUDER_STATE_ERROR_OVERTIME_CNT;
+            }
+          }
+        }
       }
 
       if (extruder_sta_stable_cnt != EXTRUDER_NVALID_STATUS_STABLE_CNT && extruder_sta_stable_cnt > 0) {
-        if (extruder_sta_stable_cnt > EXTRUDER_STATUS_STABLE_CNT)
-          extruder_sta_stable_cnt = EXTRUDER_STATUS_STABLE_CNT;
+        _NOMORE(extruder_sta_stable_cnt, EXTRUDER_STATUS_STABLE_CNT);
         extruder_sta_stable_cnt -= 1;
 
         // no change in status within the specified time
-        if (extruder_sta_stable_cnt == 0) {
+        if (extruder_sta_stable_cnt == 0 || !extruder_state) {
+          extruder_sta_stable_cnt = EXTRUDER_NVALID_STATUS_STABLE_CNT;
           if (extruder_state) {
             if (((fdm_state >> FDM_FAULT_EXTRUDER_STATE) & 0x01) == 0) {
+              if (enable_check && smprinter.on_printing()) {
+                // check for a sufficient number of exceptions
+                if (extruder_sta_err_exceed_cnt[EXTRUDER_STATE_ERROR_EXCEED_NUMBER - 1] != EXTRUDER_STATE_ERROR_CHECK_INIT_VALUE) {
+                  // exceeds the allowed number of errors
+                  send_msg = true;
+                  extruder_state_check_maker |= (1 << 1);
+                  for (int i = 0; i < EXTRUDER_STATE_ERROR_EXCEED_NUMBER; i++) {
+                    extruder_sta_err_exceed_cnt[i] = EXTRUDER_STATE_ERROR_CHECK_INIT_VALUE;
+                  }
+                  LOG_E("warning: exceeds the allowed number of errors\n");
+                }
+                else {
+                  uint8_t insert = 0;
+                  uint32_t consumed_tick = 0;
+                  for (insert = 0; insert < EXTRUDER_STATE_ERROR_EXCEED_NUMBER; insert++) {
+                    if (extruder_sta_err_exceed_cnt[insert] != EXTRUDER_STATE_ERROR_CHECK_INIT_VALUE) {
+                      if (insert > 0)
+                        consumed_tick += extruder_sta_err_exceed_cnt[insert];
+                    }
+                    else {
+                      break;
+                    }
+                  }
+
+                  if (insert == 0) {
+                    extruder_sta_err_exceed_cnt[insert] = 0;
+                    extruder_sta_check_window_cnt = EXTRUDER_STATE_CHECK_WINDOW_CNT;
+                  }
+                  else {
+                    if (consumed_tick + extruder_sta_check_window_cnt >= EXTRUDER_STATE_CHECK_WINDOW_CNT)
+                      extruder_sta_err_exceed_cnt[insert] = 0;
+                    else
+                      extruder_sta_err_exceed_cnt[insert] = EXTRUDER_STATE_CHECK_WINDOW_CNT - consumed_tick - extruder_sta_check_window_cnt;
+                  }
+                }
+              }
               fdm_exception_trigger(FDM_FAULT_EXTRUDER_STATE);
               system_svc.raise_exception(get_device_id(), FDM_EXCEP_STA_EXTRUDER_STATE_ERROR);
             }
@@ -2632,6 +2777,16 @@ void ToolHeadFDM::extruder_state_check(void) {
               system_svc.clear_exception(get_device_id(), FDM_EXCEP_STA_EXTRUDER_STATE_ERROR);
             }
           }
+        }
+      }
+
+      if (send_msg) {
+        LOG_I("extruder_state_check_maker: 0x%x\n", extruder_state_check_maker);
+        if (extruder_state_check_maker & (1 << 0)) {
+          system_svc.raise_exception(get_device_id(), FDM_EXCEP_STA_EXTRUDER_ERROR_OVERTIME, EXCEP_ACT_PAUSE_WORKING);
+        }
+        else if (extruder_state_check_maker & (1 << 1)) {
+          system_svc.raise_exception(get_device_id(), FDM_EXCEP_STA_EXTRUDER_ERROR_EXCEED_NUMBER, EXCEP_ACT_PAUSE_WORKING);
         }
       }
     }

@@ -21,6 +21,43 @@
  */
 #pragma once
 
+#include <stdint.h>
+
+// Common exception frame for ARM, should work for all ARM CPU
+// Described here (modified for convenience): https://interrupt.memfault.com/blog/cortex-m-fault-debug
+struct __attribute__((packed)) ContextStateFrame {
+  uint32_t r0;
+  uint32_t r1;
+  uint32_t r2;
+  uint32_t r3;
+  uint32_t r12;
+  uint32_t lr;
+  uint32_t pc;
+  uint32_t xpsr;
+};
+
+struct __attribute__((packed)) ContextSavedFrame {
+  uint32_t R0;
+  uint32_t R1;
+  uint32_t R2;
+  uint32_t R3;
+  uint32_t R12;
+  uint32_t LR;
+  uint32_t PC;
+  uint32_t XPSR;
+
+  uint32_t CFSR;
+  uint32_t HFSR;
+  uint32_t DFSR;
+  uint32_t AFSR;
+  uint32_t MMAR;
+  uint32_t BFAR;
+
+  uint32_t ESP;
+  uint32_t ELR;
+};
+
+
 /* Here is the expected behavior of a system producing a CPU exception with this hook installed:
    1. Before the system is crashed
      1.1 Upon validation (not done yet in this code, but we could be using DEBUG flags here to allow/disallow hooking)

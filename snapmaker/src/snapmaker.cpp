@@ -594,6 +594,8 @@ void SnapmakerPrinter::post_init() {
   LOG_I("Data\t, start: 0x%08x, end: 0x%08x, size: %.3f kBytes\n", data_start, data_end, (data_end - data_start) * 4 / 1024.0);
   LOG_I("BSS\t, start: 0x%08x, end: 0x%08x, size: %.3f kBytes\n\n", bss_start, bss_end, (bss_end - bss_start) * 4 / 1024.0);
 
+  system_crash_info_parse(1);
+
   if ((int)(CCRAM_SIZE - (ccram_end - ccram_start)) < 256) {
     LOG_E("\n\nThe remaining space of CCRAM is too small!!!\n");
     digitalWrite(LED_RED_PIN, LOW);

@@ -22,6 +22,7 @@
 #include "upgrade_service.h"
 #include "../../boot/boot_upgrade.h"
 #include "../../snapmaker.h"
+#include "../../service/system.h"
 
 UpgradeHostToController ugr_hc_svc;
 
@@ -146,6 +147,8 @@ err_code_t UpgradeHostToController::start_proc(sacp_hmi_message_t *msg) {
     reset_to_idle();
     return start_ack(msg, RET_STATE_ERROR);
   }
+
+  system_crash_info_parse(2);
 
   if (!flash_erase(module_fw_partition)) {
     if (!flash_erase(module_fw_partition)) {

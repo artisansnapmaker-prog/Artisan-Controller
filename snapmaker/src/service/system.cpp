@@ -3,6 +3,7 @@
 #include "job_ctrl.h"
 #include "emergency_handler.h"
 #include "../snapmaker.h"
+#include "../common/flash.h"
 
 #include "../HAL/interrupt.h"
 
@@ -750,3 +751,170 @@ void SystemService::background_thread() {
     }
   }
 }
+
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#include "../../../../../Marlin/src/HAL/shared/cpu_exception/exception_hook.h"
+
+#define SYSTEM_CRASH_POWERLOSS              (POWER_DOMAIN_MOTIVE_POWER | POWER_DOMAIN_8P_TOOLHEAD | \
+                                                POWER_DOMAIN_8P_MOTOR | POWER_DOMAIN_4P_ADDON | \
+                                                POWER_DOMAIN_BED | POWER_DOMAIN_HMI)
+
+// #define SYSTEM_CRASH_INFO_MAX_LEN           (sizeof(struct ContextSavedFrame) + strlen(SYSTEM_CRASH_INFO_VALID_MARK) + 1 + 8 + SYSTEM_CRASH_FW_VERSION_MAX_LEN)
+//                                                                           // 1  whether the exception message has been output (reserve)
+//                                                                           // 8  checksum &  struct ContextSavedFrame len
+//                                                                           // 40 version info buff size
+
+#define SYSTEM_CRASH_INFO_VALID_MARK                      "system crash info"
+#define SYSTEM_CRASH_INFO_MARK_LEN                        (strlen(SYSTEM_CRASH_INFO_VALID_MARK))
+#define SYSTEM_CRASH_FW_VERSION_MAX_LEN                    40
+
+typedef struct {
+  char info_title[SYSTEM_CRASH_INFO_MARK_LEN + 1];
+  struct ContextSavedFrame frame_info;
+  uint8_t last_cause;
+  uint32_t frame_info_len;
+  char version[SYSTEM_CRASH_FW_VERSION_MAX_LEN + 1];
+  uint32_t cal_checksum;
+} system_crash_flash_info;
+
+void system_crash_protect_action(void) {
+  // turn off power to peripheral modules
+  smprinter.disable_power_domain(SYSTEM_CRASH_POWERLOSS);
+}
+
+void system_crash_info_save(struct ContextSavedFrame save_frame, uint8_t last_cause) {
+  // parameter exceptions not allowed to be saved
+  if (sizeof(system_crash_flash_info) > FLASH_MODULE_FW_DOWNLOAD_SIZE)
+    return;
+
+  system_crash_flash_info tmp_value;
+  uint32_t ver_len = 0;
+  uint32_t cal_checksum = 0;
+  flash_partition_t controller_fault_partition = {
+    // share the partition where the upgrade firmware is temporarily stored
+    FLASH_MODULE_FW_DOWNLOAD_ADDR,     // Start addr
+    FLASH_MODULE_FW_DOWNLOAD_ADDR,     // Write addr
+    FLASH_MODULE_FW_DOWNLOAD_SIZE      // Partition addr
+  };
+
+  memset(&tmp_value, 0, sizeof(system_crash_flash_info));
+  memcpy(tmp_value.info_title, SYSTEM_CRASH_INFO_VALID_MARK, SYSTEM_CRASH_INFO_MARK_LEN);
+  ver_len = strlen(SHORT_BUILD_VERSION);
+  if (strlen(SHORT_BUILD_VERSION) > SYSTEM_CRASH_FW_VERSION_MAX_LEN)
+    ver_len = SYSTEM_CRASH_FW_VERSION_MAX_LEN;
+  tmp_value.info_title[SYSTEM_CRASH_INFO_MARK_LEN] = '\0';
+  tmp_value.frame_info = save_frame;
+  tmp_value.frame_info_len = sizeof(struct ContextSavedFrame);
+  tmp_value.last_cause = last_cause;
+  memcpy(tmp_value.version, SHORT_BUILD_VERSION, ver_len);
+  for (uint32_t i = 0; i < sizeof(system_crash_flash_info) - 4; i++) {
+    cal_checksum += ((uint8_t *)(&tmp_value))[i];
+  }
+  cal_checksum ^= 0x20;
+
+  tmp_value.cal_checksum = cal_checksum;
+
+  // disable All ISR
+  disable_all_interrupts();
+
+  // erase flash
+  flash_erase(controller_fault_partition);
+  flash_write(controller_fault_partition, (uint8_t *)(&tmp_value), sizeof(system_crash_flash_info));
+
+  // enable All ISR
+  enable_all_interrupts();
+}
+
+void system_crash_info_parse(uint8_t level) {
+  system_crash_flash_info tmp_value;
+  uint32_t save_checksum = 0;
+  memset(&tmp_value, 0, sizeof(system_crash_flash_info));
+  memcpy(&tmp_value, (const void*)FLASH_MODULE_FW_DOWNLOAD_ADDR, sizeof(system_crash_flash_info));
+
+  // parse data
+  tmp_value.info_title[SYSTEM_CRASH_INFO_MARK_LEN] = '\0';
+  tmp_value.version[SYSTEM_CRASH_INFO_MARK_LEN] = '\0';
+
+  // 1. check info_title
+  if (strcmp(tmp_value.info_title, SYSTEM_CRASH_INFO_VALID_MARK)) {
+    if (level > 2)
+      LOG_I("system crash msg: title mismatch\n");
+    return;
+  }
+
+  // 2. detect the length of ContextSavedFrame
+  if (tmp_value.frame_info_len != sizeof(struct ContextSavedFrame)) {
+    if (level > 2)
+      LOG_I("system crash msg: detect the length of ContextSavedFrame fail\n");
+    return;
+  }
+
+  for (uint32_t i = 0; i < sizeof(system_crash_flash_info) - 4; i++) {
+    save_checksum += ((uint8_t *)(&tmp_value))[i];
+  }
+  save_checksum ^= 0x20;
+
+  // 3. detect checksum
+  if (tmp_value.cal_checksum != save_checksum) {
+    if (level > 2)
+      LOG_I("system crash msg: detect the length of ContextSavedFrame fail\n");
+    return;
+  }
+
+  if (level > 1) {
+    // 4. output system crash info
+    LOG_I("System Crash Info:\n");
+    LOG_I("Fw version  : %s\n", tmp_value.version);
+    LOG_I("Cause       : %d\n", tmp_value.last_cause);
+    LOG_I("R0          : 0x%08x\n", tmp_value.frame_info.R0);
+    LOG_I("R1          : 0x%08x\n", tmp_value.frame_info.R1);
+    LOG_I("R2          : 0x%08x\n", tmp_value.frame_info.R2);
+    LOG_I("R3          : 0x%08x\n", tmp_value.frame_info.R3);
+    LOG_I("R12         : 0x%08x\n", tmp_value.frame_info.R12);
+    LOG_I("LR          : 0x%08x\n", tmp_value.frame_info.LR);
+    LOG_I("PC          : 0x%08x\n", tmp_value.frame_info.PC);
+    LOG_I("XPSR        : 0x%08x\n", tmp_value.frame_info.XPSR);
+    LOG_I("CFSR        : 0x%08x\n", tmp_value.frame_info.CFSR);
+    LOG_I("HFSR        : 0x%08x\n", tmp_value.frame_info.HFSR);
+    LOG_I("DFSR        : 0x%08x\n", tmp_value.frame_info.DFSR);
+    LOG_I("AFSR        : 0x%08x\n", tmp_value.frame_info.AFSR);
+    LOG_I("MMAR        : 0x%08x\n", tmp_value.frame_info.MMAR);
+    LOG_I("BFAR        : 0x%08x\n", tmp_value.frame_info.BFAR);
+    LOG_I("ELR         : 0x%08x\n", tmp_value.frame_info.ELR);
+    LOG_I("ESP         : 0x%08x\n", tmp_value.frame_info.ESP);
+  }
+  else {
+    LOG_I("system crash message is valid!!!\n");
+    if (level > 0)
+      LOG_I("%s, PC: 0x%08x LR: 0x%08x\n", tmp_value.version, tmp_value.frame_info.PC, tmp_value.frame_info.LR);
+  }
+}
+
+void system_crash_info_clear(void) {
+  if (smprinter.get_sys_status() == SYSTEM_STATUS_IDLE) {
+    flash_partition_t controller_fault_partition = {
+      // share the partition where the upgrade firmware is temporarily stored
+      FLASH_MODULE_FW_DOWNLOAD_ADDR,     // Start addr
+      FLASH_MODULE_FW_DOWNLOAD_ADDR,     // Write addr
+      FLASH_MODULE_FW_DOWNLOAD_SIZE      // Partition addr
+    };
+    // disable All ISR
+    disable_all_interrupts();
+    // erase flash
+    flash_erase(controller_fault_partition);
+    // enable All ISR
+    enable_all_interrupts();
+    LOG_I("system crash info clear successfully\n");
+  }
+  else {
+    LOG_I("system crash info clear fail, system status %d\n", smprinter.get_sys_status());
+  }
+}
+
+#ifdef __cplusplus
+}
+#endif

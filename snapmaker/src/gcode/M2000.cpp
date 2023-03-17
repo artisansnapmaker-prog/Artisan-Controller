@@ -252,6 +252,17 @@ void GcodeSuite::M2000() {
   }
   break;
 
+  case 20:
+  {
+    p = parser.byteval('P', 3);
+    if (p == 99) {
+      system_crash_info_clear();
+      break;
+    }
+    system_crash_info_parse(p);
+  }
+  break;
+
   default:
     break;
   }

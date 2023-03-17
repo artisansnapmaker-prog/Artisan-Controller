@@ -51,10 +51,12 @@
   a USB serial port since it's physically impossible.
   You will get a crash report in all other cases.
 */
-
+#include <IWatchdog.h>
 #include "exception_hook.h"
 #include "../backtrace/backtrace.h"
 #include "../HAL_MinSerial.h"
+#include "../../../../../snapmaker/src/service/system.h"
+
 
 #define HW_REG(X)  (*((volatile unsigned long *)(X)))
 
@@ -66,40 +68,6 @@ void * hook_get_memfault_vector_address(unsigned vtor)   { return (void*)(vtor +
 void * hook_get_busfault_vector_address(unsigned vtor)   { return (void*)(vtor + 0x05); }
 void * hook_get_usagefault_vector_address(unsigned vtor) { return (void*)(vtor + 0x06); }
 void * hook_get_reserved_vector_address(unsigned vtor)   { return (void*)(vtor + 0x07); }
-
-// Common exception frame for ARM, should work for all ARM CPU
-// Described here (modified for convenience): https://interrupt.memfault.com/blog/cortex-m-fault-debug
-struct __attribute__((packed)) ContextStateFrame {
-  uint32_t r0;
-  uint32_t r1;
-  uint32_t r2;
-  uint32_t r3;
-  uint32_t r12;
-  uint32_t lr;
-  uint32_t pc;
-  uint32_t xpsr;
-};
-
-struct __attribute__((packed)) ContextSavedFrame {
-  uint32_t R0;
-  uint32_t R1;
-  uint32_t R2;
-  uint32_t R3;
-  uint32_t R12;
-  uint32_t LR;
-  uint32_t PC;
-  uint32_t XPSR;
-
-  uint32_t CFSR;
-  uint32_t HFSR;
-  uint32_t DFSR;
-  uint32_t AFSR;
-  uint32_t MMAR;
-  uint32_t BFAR;
-
-  uint32_t ESP;
-  uint32_t ELR;
-};
 
 #if NONE(STM32F0xx, STM32G0xx)
   extern "C"
@@ -171,6 +139,10 @@ static ContextSavedFrame savedFrame;
 static uint8_t           lastCause;
 bool resume_from_fault() {
   static const char* causestr[] = { "Thread", "Rsvd", "NMI", "Hard", "Mem", "Bus", "Usage", "7", "8", "9", "10", "SVC", "Dbg", "13", "PendSV", "SysTk", "IRQ" };
+
+  // Call the last resort function here
+  hook_last_resort_func();
+
   // Reinit the serial link (might only work if implemented in each of your boards)
   MinSerial::init();
 
@@ -213,14 +185,12 @@ bool resume_from_fault() {
   // The stack pointer is pushed by 8 words upon entering an exception, so we need to revert this
   backtrace_ex(savedFrame.ESP + 8*4, savedFrame.LR, savedFrame.PC);
 
-  // Call the last resort function here
-  hook_last_resort_func();
-
   const uint32_t start = millis(), end = start + 100; // 100ms should be enough
   // We need to wait for the serial buffers to be output but we don't know for how long
   // So we'll just need to refresh the watchdog for a while and then stop for the system to reboot
   uint32_t last = start;
   while (PENDING(last, end)) {
+    IWatchdog.begin(3 * 1000 * 1000);
     watchdog_refresh();
     while (millis() == last) { /* nada */ }
     last = millis();
@@ -374,6 +344,11 @@ void hook_cpu_exceptions() {
 
     SERIAL_ECHOLNPGM("Installed fault handlers");
   #endif
+}
+
+void hook_last_resort_func() {
+  system_crash_protect_action();
+  system_crash_info_save(savedFrame, lastCause);
 }
 
 #endif // __arm__ || __thumb__

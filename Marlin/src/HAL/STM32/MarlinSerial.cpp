@@ -535,108 +535,113 @@ void _usart_rx_check(void) {
   }
 }
 
-extern "C"
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+void DMA1_Stream5_IRQHandler(void) {
+  /* Check half-transfer complete interrupt */
+  if (LL_DMA_IsEnabledIT_HT(DMA1, LL_DMA_STREAM_5) && LL_DMA_IsActiveFlag_HT5(DMA1)) {
+      LL_DMA_ClearFlag_HT5(DMA1);             /* Clear half-transfer complete flag */
+      _usart_rx_check();                       /* Check for data to process */
+  }
+
+  /* Check transfer-complete interrupt */
+  if (LL_DMA_IsEnabledIT_TC(DMA1, LL_DMA_STREAM_5) && LL_DMA_IsActiveFlag_TC5(DMA1)) {
+      LL_DMA_ClearFlag_TC5(DMA1);             /* Clear transfer complete flag */
+      _usart_rx_check();                       /* Check for data to process */
+  }
+}
+
+void _LL_USART_ClearFlag_IDLE(USART_TypeDef *USARTx)
 {
-  void DMA1_Stream5_IRQHandler(void) {
-    /* Check half-transfer complete interrupt */
-    if (LL_DMA_IsEnabledIT_HT(DMA1, LL_DMA_STREAM_5) && LL_DMA_IsActiveFlag_HT5(DMA1)) {
-        LL_DMA_ClearFlag_HT5(DMA1);             /* Clear half-transfer complete flag */
-        _usart_rx_check();                       /* Check for data to process */
-    }
+  __IO uint32_t tmpreg;
+  tmpreg = USARTx->SR;
+  (void) tmpreg;
+  tmpreg = USARTx->DR;
+  (void) tmpreg;
+}
 
-    /* Check transfer-complete interrupt */
-    if (LL_DMA_IsEnabledIT_TC(DMA1, LL_DMA_STREAM_5) && LL_DMA_IsActiveFlag_TC5(DMA1)) {
-        LL_DMA_ClearFlag_TC5(DMA1);             /* Clear transfer complete flag */
-        _usart_rx_check();                       /* Check for data to process */
-    }
-  }
+HAL_StatusTypeDef __UART_Transmit_IT(UART_HandleTypeDef *huart)
+{
+  uint16_t *tmp;
 
-  void _LL_USART_ClearFlag_IDLE(USART_TypeDef *USARTx)
+  /* Check that a Tx process is ongoing */
+  if (huart->gState == HAL_UART_STATE_BUSY_TX)
   {
-    __IO uint32_t tmpreg;
-    tmpreg = USARTx->SR;
-    (void) tmpreg;
-    tmpreg = USARTx->DR;
-    (void) tmpreg;
-  }
-
-  HAL_StatusTypeDef __UART_Transmit_IT(UART_HandleTypeDef *huart)
-  {
-    uint16_t *tmp;
-
-    /* Check that a Tx process is ongoing */
-    if (huart->gState == HAL_UART_STATE_BUSY_TX)
+    if (huart->Init.WordLength == UART_WORDLENGTH_9B)
     {
-      if (huart->Init.WordLength == UART_WORDLENGTH_9B)
+      tmp = (uint16_t *) huart->pTxBuffPtr;
+      huart->Instance->DR = (uint16_t)(*tmp & (uint16_t)0x01FF);
+      if (huart->Init.Parity == UART_PARITY_NONE)
       {
-        tmp = (uint16_t *) huart->pTxBuffPtr;
-        huart->Instance->DR = (uint16_t)(*tmp & (uint16_t)0x01FF);
-        if (huart->Init.Parity == UART_PARITY_NONE)
-        {
-          huart->pTxBuffPtr += 2U;
-        }
-        else
-        {
-          huart->pTxBuffPtr += 1U;
-        }
+        huart->pTxBuffPtr += 2U;
       }
       else
       {
-        huart->Instance->DR = (uint8_t)(*huart->pTxBuffPtr++ & (uint8_t)0x00FF);
+        huart->pTxBuffPtr += 1U;
       }
-
-      if (--huart->TxXferCount == 0U)
-      {
-        /* Disable the UART Transmit Complete Interrupt */
-        __HAL_UART_DISABLE_IT(huart, UART_IT_TXE);
-
-        /* Enable the UART Transmit Complete Interrupt */
-        __HAL_UART_ENABLE_IT(huart, UART_IT_TC);
-      }
-      return HAL_OK;
     }
     else
     {
-      return HAL_BUSY;
+      huart->Instance->DR = (uint8_t)(*huart->pTxBuffPtr++ & (uint8_t)0x00FF);
     }
+
+    if (--huart->TxXferCount == 0U)
+    {
+      /* Disable the UART Transmit Complete Interrupt */
+      __HAL_UART_DISABLE_IT(huart, UART_IT_TXE);
+
+      /* Enable the UART Transmit Complete Interrupt */
+      __HAL_UART_ENABLE_IT(huart, UART_IT_TC);
+    }
+    return HAL_OK;
   }
-
-  void USART2_IRQHandler(void) {
-    /* Check for IDLE line interrupt */
-    // if (LL_USART_IsEnabledIT_IDLE(USART3) && LL_USART_IsActiveFlag_IDLE(USART3)) {
-    //     LL_USART_ClearFlag_IDLE(USART3);        /* Clear IDLE line flag */
-    //     usart_rx_check();                       /* Check for data to process */
-    // }
-    HAL_NVIC_ClearPendingIRQ(USART2_IRQn);
-    if ((READ_BIT(USART2->CR1, USART_CR1_IDLEIE) == (USART_CR1_IDLEIE)) && \
-        (READ_BIT(USART2->SR, USART_SR_IDLE) == (USART_SR_IDLE))) {
-      // __HAL_UART_CLEAR_PEFLAG();
-      _LL_USART_ClearFlag_IDLE(USART2);
-      _usart_rx_check();
-    }
-
-     /* UART in mode Transmitter ------------------------------------------------*/
-    if (((USART2->SR & USART_SR_TXE) != RESET) && ((USART2->CR1 & USART_CR1_TXEIE) != RESET))
-    {
-      __UART_Transmit_IT(_dma_serial_handle);
-      return;
-    }
-
-    /* UART in mode Transmitter end --------------------------------------------*/
-    if (((USART2->SR & USART_SR_TC) != RESET) && ((USART2->CR1 & USART_CR1_TCIE) != RESET))
-    {
-      // UART_EndTransmit_IT(_dma_serial_handle);
-
-       /* Disable the UART Transmit Complete Interrupt */
-      __HAL_UART_DISABLE_IT(_dma_serial_handle, UART_IT_TC);
-
-      /* Tx process is ended, restore huart->gState to Ready */
-      _dma_serial_handle->gState = HAL_UART_STATE_READY;
-      /*Call legacy weak Tx complete callback*/
-      HAL_UART_TxCpltCallback(_dma_serial_handle);
-      return;
-    }
+  else
+  {
+    return HAL_BUSY;
   }
 }
+
+void USART2_IRQHandler(void) {
+  /* Check for IDLE line interrupt */
+  // if (LL_USART_IsEnabledIT_IDLE(USART3) && LL_USART_IsActiveFlag_IDLE(USART3)) {
+  //     LL_USART_ClearFlag_IDLE(USART3);        /* Clear IDLE line flag */
+  //     usart_rx_check();                       /* Check for data to process */
+  // }
+  HAL_NVIC_ClearPendingIRQ(USART2_IRQn);
+  if ((READ_BIT(USART2->CR1, USART_CR1_IDLEIE) == (USART_CR1_IDLEIE)) && \
+      (READ_BIT(USART2->SR, USART_SR_IDLE) == (USART_SR_IDLE))) {
+    // __HAL_UART_CLEAR_PEFLAG();
+    _LL_USART_ClearFlag_IDLE(USART2);
+    _usart_rx_check();
+  }
+
+    /* UART in mode Transmitter ------------------------------------------------*/
+  if (((USART2->SR & USART_SR_TXE) != RESET) && ((USART2->CR1 & USART_CR1_TXEIE) != RESET))
+  {
+    __UART_Transmit_IT(_dma_serial_handle);
+    return;
+  }
+
+  /* UART in mode Transmitter end --------------------------------------------*/
+  if (((USART2->SR & USART_SR_TC) != RESET) && ((USART2->CR1 & USART_CR1_TCIE) != RESET))
+  {
+    // UART_EndTransmit_IT(_dma_serial_handle);
+
+      /* Disable the UART Transmit Complete Interrupt */
+    __HAL_UART_DISABLE_IT(_dma_serial_handle, UART_IT_TC);
+
+    /* Tx process is ended, restore huart->gState to Ready */
+    _dma_serial_handle->gState = HAL_UART_STATE_READY;
+    /*Call legacy weak Tx complete callback*/
+    HAL_UART_TxCpltCallback(_dma_serial_handle);
+    return;
+  }
+}
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // HAL_STM32

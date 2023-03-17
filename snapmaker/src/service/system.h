@@ -160,5 +160,16 @@ class SystemService {
 
 extern SystemService system_svc;
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
+void system_crash_protect_action(void);
+void system_crash_info_save(struct ContextSavedFrame save_frame, uint8_t last_cause);
+void system_crash_info_parse(uint8_t level);
+void system_crash_info_clear(void);
+
+#ifdef __cplusplus
+}
+#endif
 #endif

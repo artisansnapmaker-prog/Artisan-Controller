@@ -757,21 +757,21 @@ static err_code_t hmi_req_callback_set_hotend_offset(void *obj, sacp_hmi_message
     switch(axis) {
       case X_AXIS:
         if (((float)offset/1000 < DEFAULT_HOTEND_OFFSET_X - BIAS_HOTEND_OFFSET_X) || ((float)offset/1000 > DEFAULT_HOTEND_OFFSET_X + BIAS_HOTEND_OFFSET_X)) {
-          LOG_E("set x hotend offset error: %f\n", offset);
+          LOG_E("set x hotend offset error: %f\n", (float)offset/1000);
           ret = E_PARAM;
           goto EXIT;
         }
         break;
       case Y_AXIS:
         if (((float)offset/1000 < DEFAULT_HOTEND_OFFSET_Y - BIAS_HOTEND_OFFSET_Y) || ((float)offset/1000 > DEFAULT_HOTEND_OFFSET_Y + BIAS_HOTEND_OFFSET_Y)) {
-          LOG_E("set y hotend offset error: %f\n", offset);
+          LOG_E("set y hotend offset error: %f\n", (float)offset/1000);
           ret = E_PARAM;
           goto EXIT;
         }
         break;
       case Z_AXIS:
         if (((float)offset/1000 < DEFAULT_HOTEND_OFFSET_Z - BIAS_HOTEND_OFFSET_Z) || ((float)offset/1000 > DEFAULT_HOTEND_OFFSET_Z + BIAS_HOTEND_OFFSET_Z)) {
-          LOG_E("set z hotend offset error: %f\n", offset);
+          LOG_E("set z hotend offset error: %f\n", (float)offset/1000);
           ret = E_PARAM;
           goto EXIT;
         }

@@ -50,8 +50,8 @@
 #define DEFAULT_HOTEND_OFFSET_X                 26
 #define DEFAULT_HOTEND_OFFSET_Y                 0
 #define DEFAULT_HOTEND_OFFSET_Z                 -1.5
-#define BIAS_HOTEND_OFFSET_X                    1.2
-#define BIAS_HOTEND_OFFSET_Y                    1.2
+#define BIAS_HOTEND_OFFSET_X                    1.8
+#define BIAS_HOTEND_OFFSET_Y                    1.8
 #define BIAS_HOTEND_OFFSET_Z                    1.2
 
 #define CHECK_ONLINE_TIMEOUT  5000

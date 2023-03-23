@@ -307,6 +307,9 @@ void GcodeSuite::M204_report(const bool forReplay/*=true*/) {
  *    J = Junction Deviation (mm) (If not using CLASSIC_JERK)
  */
 void GcodeSuite::M205() {
+  if (parser.seen("XYZE"))
+    return;
+
   if (!parser.seen("BST" TERN_(HAS_JUNCTION_DEVIATION, "V") TERN_(HAS_CLASSIC_JERK, "XYZE")))
     return M205_report();
 

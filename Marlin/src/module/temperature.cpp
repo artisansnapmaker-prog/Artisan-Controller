@@ -3817,7 +3817,7 @@ void Temperature::isr() {
       SERIAL_ECHOPGM(" (", TERN(HAS_MAXTC_LIBRARIES, k == 'T', false) ? r : r * RECIPROCAL(OVERSAMPLENR));
       SERIAL_CHAR(')');
     #endif
-    delay(2);
+    // delay(2);
   }
 
   void Temperature::print_heater_states(const uint8_t target_extruder

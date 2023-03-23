@@ -665,9 +665,9 @@ bool SystemService::allow_homing() {
 
 
 bool SystemService::allow_heating_bed() {
-  if (bans & (EXCEP_BAN_ENABLE_POWER_MOTIVE |
+  if ((bans & (EXCEP_BAN_ENABLE_POWER_MOTIVE |
               EXCEP_BAN_ENABLE_POWER_BED |
-              EXCEP_BAN_HEATING_BED)) {
+              EXCEP_BAN_HEATING_BED)) || !thermalManager.get_bed_inserted()) {
     return false;
   }
 

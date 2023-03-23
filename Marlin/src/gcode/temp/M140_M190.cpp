@@ -59,6 +59,11 @@ void GcodeSuite::M140_M190(const bool isM190) {
 
   if (DEBUGGING(DRYRUN)) return;
 
+  if (!thermalManager.get_bed_inserted()) {
+    LOG_E("Hot bed not inserted, no heating allowed\n");
+    return;
+  }
+
   bool got_temp = false;
   celsius_t temp = 0;
 

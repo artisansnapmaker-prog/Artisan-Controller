@@ -23,7 +23,7 @@
 
 #include "base.h"
 
-#define PURIFIER_LOST_TIME_OUT           (3000) 
+#define PURIFIER_LOST_TIME_OUT           (10000) 
 #define PURIFIER_SAMP_STATUS_INTERVAL    (500) 
 #define PURIFIER_FAN_MAX_POWER           (100) 
 

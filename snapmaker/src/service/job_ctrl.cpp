@@ -647,6 +647,11 @@ err_code_t JobCtrl::machine_standby(void) {
     z_max = Z_MAX_POS - endstop_backoff[Z_AXIS];
     if (cur_toolhead->get_device_id() == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021)
       z_max -= DUAL_EXTRUDER_SAFE_SPACE_MAX_Z;
+
+    if (TH_TYPE_3DP == _env.type && smprinter.get_sys_status() == SYSTEM_STATUS_PAUSING) {
+      z_max = t_pos.z + 50;
+    }
+
     NOLESS(t_pos.z, z_max);
     NOMORE(t_pos.z, soft_endstop.max.z);
 
@@ -658,7 +663,15 @@ err_code_t JobCtrl::machine_standby(void) {
     if (leveling_active)
       set_bed_leveling_enabled(true);
 
-    if (TH_TYPE_3DP == _env.type || TH_TYPE_LASER == _env.type) {
+    if (TH_TYPE_3DP == _env.type && smprinter.get_sys_status() == SYSTEM_STATUS_PAUSING) {
+      motion_platform_svc.update_position_from_platform();
+      t_pos = motion_platform_svc.sm_current_position;
+      NOMORE(t_pos.x, 20);
+      LOG_I("job_ctrl: x move %f\r\n", t_pos.x);
+      motion_platform_svc.moveto(t_pos, RESUME_XY_FEEDRATE, true);
+    }
+
+    if ((TH_TYPE_3DP == _env.type && smprinter.get_sys_status() != SYSTEM_STATUS_PAUSING) || TH_TYPE_LASER == _env.type) {
       LOG_I("job_ctrl: y move to fronthead\r\n");
       motion_platform_svc.update_position_from_platform();
       t_pos = motion_platform_svc.sm_current_position;

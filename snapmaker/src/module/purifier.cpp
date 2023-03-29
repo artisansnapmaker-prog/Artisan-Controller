@@ -219,12 +219,17 @@ err_code_t Purifier::get_purifier_info(PurifierReportInfoType report_type, bool 
 
 err_code_t purifier_callback_routine(void *obj) {
   Purifier &purifier = *(Purifier *)obj;
+  static bool first_loop = true;
   if (obj) {
     if (purifier.online) {
       if (ELAPSED(xTaskGetTickCount(), purifier.loop_next_time + PURIFIER_SAMP_STATUS_INTERVAL)) {
         bool send_close_fan = false;
         purifier.get_purifier_info(PURIFIER_INFO_ALL);
         if (purifier.public_mutex_lock()) {
+          if (first_loop) {
+            first_loop = false;
+            purifier.tick = xTaskGetTickCount();
+          }
           purifier.loop_next_time = xTaskGetTickCount();
           if (purifier.close_delay_tick > 0) {
             purifier.close_delay_tick--;
@@ -240,7 +245,9 @@ err_code_t purifier_callback_routine(void *obj) {
           purifier.set_fan_control(false); 
       }
     }
-    purifier.purifier_offline_check();
+
+    if (!first_loop)
+      purifier.purifier_offline_check();
   }
   return E_SUCCESS;
 }

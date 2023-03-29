@@ -244,7 +244,7 @@ class ToolHeadLaser: public ModuleBase {
     err_code_t set_bt_info();
 
     void setup_camera_port(uint8_t port);
-    err_code_t get_bt_mac();
+    err_code_t get_bt_mac(uint32_t delay_ms=200, uint8_t retry=0, bool log_err=false);
 
     void read_safety_state();
     err_code_t factory_reset();

@@ -505,6 +505,10 @@ static void system_thread(void *p) {
                                 0, EXCEP_BAN_WORKING);
   }
 
+  // forced update of speed parameters
+  motion_platform_svc.run_gcode((char*)"M203 X200 Y200 Z40");
+  motion_platform_svc.run_gcode((char*)"M201 X3500 Y3500 Z500");
+
   // loop
   for (;;) {
     module_svc.background_thread();

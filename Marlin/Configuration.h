@@ -946,11 +946,11 @@
  * Override with M203
  *                                      X, Y, Z [, I [, J [, K]]], E0 [, E1[, E2...]]
  */
-#define DEFAULT_MAX_FEEDRATE          { 280, 280, 40, 280, 45, 30 }
+#define DEFAULT_MAX_FEEDRATE          { 200, 200, 40, 200, 45, 30 }
 
 #define LIMITED_MAX_FR_EDITING        // Limit edit via M203 or LCD to DEFAULT_MAX_FEEDRATE * 2
 #if ENABLED(LIMITED_MAX_FR_EDITING)
-  #define MAX_FEEDRATE_EDIT_VALUES    { 300, 300, 40, 300, 45, 40 } // ...or, set your own edit limits
+  #define MAX_FEEDRATE_EDIT_VALUES    { 200, 200, 40, 200, 45, 40 } // ...or, set your own edit limits
 #endif
 
 /**
@@ -959,11 +959,11 @@
  * Override with M201
  *                                      X, Y, Z [, I [, J [, K]]], E0 [, E1[, E2...]]
  */
-#define DEFAULT_MAX_ACCELERATION      { 5000, 5000, 500, 500, 500, 5000 }
+#define DEFAULT_MAX_ACCELERATION      { 3000, 3000, 500, 500, 500, 5000 }
 
 #define LIMITED_MAX_ACCEL_EDITING     // Limit edit via M201 or LCD to DEFAULT_MAX_ACCELERATION * 2
 #if ENABLED(LIMITED_MAX_ACCEL_EDITING)
-  #define MAX_ACCEL_EDIT_VALUES       { 5000, 5000, 500, 500, 500, 5000 } // ...or, set your own edit limits
+  #define MAX_ACCEL_EDIT_VALUES       { 3500, 3500, 500, 500, 500, 5000 } // ...or, set your own edit limits
 #endif
 
 /**

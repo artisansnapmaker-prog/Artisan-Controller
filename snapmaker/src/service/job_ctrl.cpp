@@ -728,7 +728,7 @@ void JobCtrl::get_gcodes_from_client(void) {
       // shoule we check the line number?
       uint8_t *p, *ls;
       p = ls = res_batch_gcode.gcode_str;
-      LOG_I("SART: %d ~ STOP: %d\r\n", res_batch_gcode.start_line_num, res_batch_gcode.end_line_num);
+      // LOG_I("SART: %d ~ STOP: %d\r\n", res_batch_gcode.start_line_num, res_batch_gcode.end_line_num);
       // LOG_I("get gcode:\r\n %s\r\n", p);
       // uint8_t str_temp[MAX_CMD_SIZE];
       uint32_t rx_line_num = 0;

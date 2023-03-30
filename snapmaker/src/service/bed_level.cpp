@@ -6,6 +6,7 @@
 #include "../service/system.h"
 #include "motion_platform.h"
 #include "../config.h"
+#include "../../../Marlin/src/feature/babystep.h"
 
 #define _BEDLEVEL_ENV_GET_MESH_X(I) (float(bedlevel_svc.env_info.bilinear_start.x + (I) * bedlevel_svc.env_info.bilinear_grid_spacing.x))
 #define _BEDLEVEL_ENV_GET_MESH_Y(J) (float(bedlevel_svc.env_info.bilinear_start.y + (J) * bedlevel_svc.env_info.bilinear_grid_spacing.y))
@@ -1260,15 +1261,18 @@ err_code_t BedLevelService::unapply_live_z_offset(uint8_t e) {
 
 void BedLevelService::set_live_z_offset(uint8_t e, float offset) {
   if (live_z_offset[e] != offset) {
+    bool use_babystep = false;
     live_z_offset_changed = true;
     LOG_I("z cur height changed: %f\n", offset - live_z_offset[e]);
     if (e == smprinter.fdm->get_active_extruder()) {
       err_code_t ret = E_FAILURE;
-      bool req_pause = false;
+      // bool req_pause = false;
       if (smprinter.on_printing()) {
-        ret = job_ctrl_svc.req_pause(PUASE_LIVE_Z_OFFSET, NULL, NULL);
-        if (ret == E_SUCCESS)
-          req_pause = true;
+        use_babystep = true;
+        ret = E_SUCCESS;
+        // ret = job_ctrl_svc.req_pause(PUASE_LIVE_Z_OFFSET, NULL, NULL);
+        // if (ret == E_SUCCESS)
+        //   req_pause = true;
       }
       else {
         if (smprinter.get_sys_status() == SYSTEM_STATUS_PAUSED || smprinter.get_sys_status() == SYSTEM_STATUS_IDLE) {
@@ -1277,24 +1281,38 @@ void BedLevelService::set_live_z_offset(uint8_t e, float offset) {
       }
 
       if (ret != E_SUCCESS) {
-        LOG_E("The current state does not allow modification of live_z_offsett\n");
+        LOG_E("The current state does not allow modification of live_z_offset\n");
+        return;
+      }
+
+      if (motion_platform_svc.homing_now == true) {
+        LOG_E("homing now, z_offset is not allowed to be adjusted\n");
         return;
       }
 
       // TODO: add plus timeout to jump out
-      while(smprinter.get_sys_status() != SYSTEM_STATUS_PAUSED && \
-            smprinter.get_sys_status() != SYSTEM_STATUS_IDLE) {
+      // while(smprinter.get_sys_status() != SYSTEM_STATUS_PAUSED &&
+      //       smprinter.get_sys_status() != SYSTEM_STATUS_IDLE) {
+      //   motion_platform_svc.synchronize_planner();
+      // }
+
+      if (!use_babystep) {
         motion_platform_svc.synchronize_planner();
+        float cur_z = motion_platform_svc.get_current_position(Z_AXIS);
+        motion_platform_svc.moveto_z(cur_z + (offset - live_z_offset[e]), 5);
+        motion_platform_svc.sm_current_position[Z_AXIS] = cur_z;
+        motion_platform_svc.sync_plan_position_to_platform();
+      }
+      else {
+        extern Babystep babystep;
+        taskENTER_CRITICAL();
+        babystep.add_mm(Z_AXIS, offset - live_z_offset[e]);
+        taskEXIT_CRITICAL();
       }
 
-      float cur_z = motion_platform_svc.get_current_position(Z_AXIS);
-      motion_platform_svc.moveto_z(cur_z + (offset - live_z_offset[e]), 5);
-      motion_platform_svc.sm_current_position[Z_AXIS] = cur_z;
-      motion_platform_svc.sync_plan_position_to_platform();
-
-      if (req_pause) {
-        job_ctrl_svc.req_resume(0, NULL, NULL, RESUME_TYPE_LIVE_Z_OFFSET);
-      }
+      // if (req_pause) {
+      //   job_ctrl_svc.req_resume(0, NULL, NULL, RESUME_TYPE_LIVE_Z_OFFSET);
+      // }
     }
     live_z_offset[e] = offset;
     if (smprinter.get_sys_status() == SYSTEM_STATUS_IDLE) {

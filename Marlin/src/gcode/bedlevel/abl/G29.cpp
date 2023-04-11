@@ -68,6 +68,10 @@
   #include "../../../module/tool_change.h"
 #endif
 
+#include "../../../../../snapmaker/src/snapmaker.h"
+
+#include "../../../../../snapmaker/src/service/motion_platform.h"
+
 #if ABL_USES_GRID
   #if ENABLED(PROBE_Y_FIRST)
     #define PR_OUTER_VAR  abl.meshCount.x
@@ -281,7 +285,9 @@ G29_TYPE GcodeSuite::G29() {
         }
 
         const float rz = parser.seenval('Z') ? RAW_Z_POSITION(parser.value_linear_units()) : current_position.z;
-        if (!WITHIN(rz, -10, 10)) {
+        // TODO
+        // It is very dangerous to cancel this condition， need to add strict judgment!!!
+        if (!WITHIN(rz, 10, 25)) {
           SERIAL_ERROR_MSG("Bad Z value");
           G29_RETURN(false);
         }
@@ -301,7 +307,20 @@ G29_TYPE GcodeSuite::G29() {
         }
         if (WITHIN(i, 0, (GRID_MAX_POINTS_X) - 1) && WITHIN(j, 0, (GRID_MAX_POINTS_Y) - 1)) {
           set_bed_leveling_enabled(false);
-          z_values[i][j] = rz;
+          // z_values[i][j] = rz;
+          extern BedLevelService bedlevel_svc;
+          extern MotionPlatformService motion_platform_svc;
+          LOG_I("z_compensation: %f\n", bedlevel_svc.z_compensation_[0]);
+          z_values_raw[i][j] = rz;
+          motion_platform_svc.sync_z_values_from_platform();
+          motion_platform_svc.sync_z_values_to_platform(bedlevel_svc.z_compensation_[0]);
+          motion_platform_svc.extrapolate_unprobed_points();
+          motion_platform_svc.interpolate_virt_points();
+          motion_platform_svc.print_leveling_grid();
+          motion_platform_svc.print_leveling_grid_virt();
+          // save z_values
+          // motion_platform_svc.save_settings();
+
           TERN_(ABL_BILINEAR_SUBDIVISION, bed_level_virt_interpolate());
           TERN_(EXTENSIBLE_UI, ExtUI::onMeshUpdate(i, j, rz));
           set_bed_leveling_enabled(abl.reenable);

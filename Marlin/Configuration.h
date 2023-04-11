@@ -1631,6 +1631,10 @@ extern uint8_t E_ENABLE_ON;
   // #define SEGMENT_LEVELED_MOVES
   #define LEVELED_SEGMENT_LENGTH 5.0 // (mm) Length of all segments (except the last one)
 
+  #if DISABLED(SEGMENT_LEVELED_MOVES)
+    #define CUSTOM_SEGMENT_LEVELED_MOVES
+  #endif
+
   /**
    * Enable the G26 Mesh Validation Pattern tool.
    */

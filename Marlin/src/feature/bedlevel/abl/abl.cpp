@@ -35,6 +35,8 @@
   #include "../../../lcd/extui/ui_api.h"
 #endif
 
+#include "../../../module/planner.h"
+
 float startx = DOUBLE_EXTRUDER_X_BILINEAR_START_POINT;
 float endx   = DOUBLE_EXTRUDER_X_BILINEAR_END_POINT;
 float starty = DOUBLE_EXTRUDER_Y_BILINEAR_START_POINT;
@@ -367,6 +369,7 @@ float bilinear_z_offset(const xy_pos_t &raw) {
    * Prepare a bilinear-leveled linear move on Cartesian,
    * splitting the move where it crosses grid borders.
    */
+#if DISABLED(CUSTOM_SEGMENT_LEVELED_MOVES)
   void bilinear_line_to_destination(const_feedRate_t scaled_fr_mm_s, uint16_t x_splits, uint16_t y_splits) {
     // Get current and destination cells for this line
     xy_int_t c1 { (short int)CELL_INDEX(x, current_position.x), (short int)CELL_INDEX(y, current_position.y) },
@@ -427,6 +430,225 @@ float bilinear_z_offset(const xy_pos_t &raw) {
     bilinear_line_to_destination(scaled_fr_mm_s, x_splits, y_splits);
   }
 
+#else
+
+  #define  MIN_VALID_SEGMENT_LENGTH        5.0   //mm
+
+  static float mesh_index_to_xpos(int16_t i) {
+    NOMORE(i, ABL_BG_POINTS_X - 1);
+    NOLESS(i, 0);
+    return bilinear_start.x + ABL_BG_SPACING(x) * i;
+  }
+  static float mesh_index_to_ypos(int16_t i) {
+    NOMORE(i, ABL_BG_POINTS_Y - 1);
+    NOLESS(i, 0);
+    return bilinear_start.y + ABL_BG_SPACING(y) * i;
+  }
+
+  void bilinear_line_to_destination(const_feedRate_t scaled_fr_mm_s, uint16_t x_splits, uint16_t y_splits) {
+    const xyze_pos_t &start = current_position, &end = destination;
+    const xyze_pos_t dist = end - start;
+    // Get current and destination cells for this line
+    xy_int_t istart { (short int)CELL_INDEX(x, current_position.x), (short int)CELL_INDEX(y, current_position.y) },
+             iend { (short int)CELL_INDEX(x, destination.x), (short int)CELL_INDEX(y, destination.y) };
+    LIMIT(istart.x, 0, ABL_BG_POINTS_X - 1);
+    LIMIT(istart.y, 0, ABL_BG_POINTS_Y - 1);
+    LIMIT(iend.x, 0, ABL_BG_POINTS_X - 1);
+    LIMIT(iend.y, 0, ABL_BG_POINTS_Y - 1);
+
+    extern Planner planner;
+    // LOG_I("start.x: %f start.y:%f, end.x: %f end.y : %f\n", start.x, start.y, end.x, end.y);
+    // A move within the same cell needs no splitting
+    if ((!dist.x && !dist.y) || !planner.leveling_active || istart == iend) {
+
+      FINAL_MOVE:
+
+      planner.buffer_line(destination, scaled_fr_mm_s);
+      // LOG_I("FINAL_MOVE, istart.x: %d, istart.y: %d, end.x: %f end.y : %f, end.e: %f end.i: %f, end.j: %f\n", istart.x, istart.y, end.x, end.y, end.e, end.i, end.j);
+      current_position = destination;
+      return;
+    }
+
+    const xy_bool_t neg { dist.x < 0, dist.y < 0 };
+    const xy_int_t ineg { int8_t(neg.x), int8_t(neg.y) };
+    const xy_float_t sign { neg.x ? -1.0f : 1.0f, neg.y ? -1.0f : 1.0f };
+    const xy_int_t iadd { int8_t(iend.x == istart.x ? 0 : sign.x), int8_t(iend.y == istart.y ? 0 : sign.y) };
+    const xy_float_t ad = sign * dist;
+    const bool use_x_dist = ad.x > ad.y;
+    // float on_axis_distance = use_x_dist ? dist.x : dist.y;
+    xy_int_t icell = istart;
+    const float ratio = dist.y / dist.x,        // Allow divide by zero
+              c = start.y - ratio * start.x;
+    const bool inf_ratio_flag = isinf(ratio);
+    xyze_pos_t dest = start;
+    xyze_pos_t cur_dest = start;
+    // xyze_int8_t dist_need_move = {  (int8_t)(dist.x == 0 ? 0 : 1),
+    //                                 (int8_t)(dist.y == 0 ? 0 : 1),
+    //                                 (int8_t)(dist.z == 0 ? 0 : 1),
+    //                               #if HAS_EXTRUDERS
+    //                                 (int8_t)(dist.e == 0 ? 0 : 1),
+    //                               #endif
+    //                               #if LINEAR_AXES >= 4
+    //                                 (int8_t)(dist.i == 0 ? 0 : 1),
+    //                               #endif
+    //                               #if LINEAR_AXES >= 5
+    //                                 (int8_t)(dist.j == 0 ? 0 : 1),
+    //                               #endif
+    //                              };
+
+    float normalized_dist = 0;
+    float min_valid_segment_len_sqr = MIN_VALID_SEGMENT_LENGTH * MIN_VALID_SEGMENT_LENGTH;
+
+    #define CAL_LINE_SEGMENT_END(start, end, scale) (start + (end - start) * scale)
+    #define CAL_(start, end, scale) (start + (end - start) * scale)
+
+    if (iadd.x == 0) {
+      icell.y += ineg.y;
+      while (icell.y != iend.y + ineg.y) {
+        icell.y += iadd.y;
+        const float next_mesh_line_y = mesh_index_to_ypos(icell.y);
+        dest.x = inf_ratio_flag ? start.x : (next_mesh_line_y - c) / ratio;
+        dest.y = mesh_index_to_ypos(icell.y);
+
+        if (dest.y != start.y) {
+          normalized_dist = (dest.y - start.y) / (end.y - start.y);
+          dest.z = CAL_LINE_SEGMENT_END(start.z, end.z, normalized_dist);
+          TERN_(LINEAR_AXES >= 4, dest.i = CAL_LINE_SEGMENT_END(start.i, end.i, normalized_dist));
+          TERN_(LINEAR_AXES >= 5, dest.j = CAL_LINE_SEGMENT_END(start.j, end.j, normalized_dist));
+          TERN_(HAS_EXTRUDERS, dest.e = CAL_LINE_SEGMENT_END(start.e, end.e, normalized_dist));
+          // planner.buffer_line(dest, scaled_fr_mm_s);
+          if (((dest.x - cur_dest.x)*(dest.x - cur_dest.x) + (dest.y - cur_dest.y) * (dest.y - cur_dest.y)) >= min_valid_segment_len_sqr) {
+            // LOG_I("icell.x: %d, icell.y: %d\n", icell.x, icell.y);
+            // LOG_I("start.x: %f, start.y: %f, end.x: %f, end.y: %f, k: %f, ratio: %f, inf_ratio_flag: %d\n", cur_dest.x, cur_dest.y, dest.x, dest.y, (dest.y - cur_dest.y)/(dest.x - cur_dest.x), ratio, inf_ratio_flag);
+            cur_dest = dest;
+            if (!planner.buffer_line(dest, scaled_fr_mm_s)) break;
+          }
+          // LOG_I("dest.y != start.y\n");
+          // LOG_I("dest.y != start.y, istart.x: %d, istart.y: %d, end.x: %f end.y : %f end.e: %f end.i: %f, end.j: %f\n", icell.x, icell.y, dest.x, dest.y, dest.e, dest.i, dest.j);
+          // if (dest.i != 0 || dest.i != 0) {
+          //   LOG_I("\n\ndest.i: %f, dest.j: %f, normalized_dist: %f start.i: %f, start.j: %f\n", dest.i, dest.j, normalized_dist, start.i, start.j);
+          // }
+        }
+      }
+
+      if (dest != end)
+        goto FINAL_MOVE;
+
+      current_position = destination;
+      return;
+    }
+
+    if (iadd.y == 0) {
+      icell.x += ineg.x;
+
+      while (icell.x != iend.x + ineg.x) {
+        icell.x += iadd.x;
+        dest.x = mesh_index_to_xpos(icell.x);
+        dest.y = ratio * dest.x + c;
+
+        if (dest.x != start.x) {
+          normalized_dist = (dest.x - start.x) / (end.x - start.x);
+          dest.z = CAL_LINE_SEGMENT_END(start.z, end.z, normalized_dist);
+          TERN_(LINEAR_AXES >= 4, dest.i = CAL_LINE_SEGMENT_END(start.i, end.i, normalized_dist));
+          TERN_(LINEAR_AXES >= 5, dest.j = CAL_LINE_SEGMENT_END(start.j, end.j, normalized_dist));
+          TERN_(HAS_EXTRUDERS, dest.e = CAL_LINE_SEGMENT_END(start.e, end.e, normalized_dist));
+          // planner.buffer_line(dest, scaled_fr_mm_s);
+          if (((dest.x - cur_dest.x)*(dest.x - cur_dest.x) + (dest.y - cur_dest.y) * (dest.y - cur_dest.y)) >= min_valid_segment_len_sqr) {
+            // LOG_I("start.x: %f, start.y: %f, end.x: %f, end.y: %f, k: %f, ratio: %f, inf_ratio_flag: %d\n", cur_dest.x, cur_dest.y, dest.x, dest.y, (dest.y - cur_dest.y)/(dest.x - cur_dest.x), ratio, inf_ratio_flag);
+            cur_dest = dest;
+            // LOG_I("icell.x: %d, icell.y: %d\n", icell.x, icell.y);
+            if (!planner.buffer_line(dest, scaled_fr_mm_s)) break;
+          }
+          // if (dest.i != 0 || dest.i != 0) {
+          //   LOG_I("\n\ndest.i: %f, dest.j: %f, normalized_dist: %f start.i: %f, start.j: %f\n", dest.i, dest.j, normalized_dist, start.i, start.j);
+          // }
+          // LOG_I("dest.x != start.x\n");
+          // LOG_I("dest.x != start.x, istart.x: %d, istart.y: %d, end.x: %f end.y : %f end.e: %f end.i: %f, end.j: %f\n", icell.x, icell.y, dest.x, dest.y, dest.e, dest.i, dest.j);
+        }
+      }
+
+      if (dest != end)
+        goto FINAL_MOVE;
+
+      current_position = destination;
+      return;
+    }
+
+    xy_int_t cnt = (istart - iend).ABS();
+    icell += ineg;
+
+    while (cnt) {
+
+      const float next_mesh_line_x = mesh_index_to_xpos(icell.x + iadd.x),
+                  next_mesh_line_y = mesh_index_to_ypos(icell.y + iadd.y);
+
+      dest.y = ratio * next_mesh_line_x + c;
+      dest.x = (next_mesh_line_y - c) / ratio;
+
+      if (neg.x == (dest.x > next_mesh_line_x)) { // Check if we hit the Y line first
+        dest.y = next_mesh_line_y;
+        if (use_x_dist)
+          normalized_dist = (dest.x - start.x) / (end.x - start.x);
+        else
+          normalized_dist = (dest.y - start.y) / (end.y - start.y);
+        // dest.y = CAL_LINE_SEGMENT_END(start.y, end.y, normalized_dist);
+        dest.z = CAL_LINE_SEGMENT_END(start.z, end.z, normalized_dist);
+        TERN_(LINEAR_AXES >= 4, dest.i = CAL_LINE_SEGMENT_END(start.i, end.i, normalized_dist));
+        TERN_(LINEAR_AXES >= 5, dest.j = CAL_LINE_SEGMENT_END(start.j, end.j, normalized_dist));
+        TERN_(HAS_EXTRUDERS, dest.e = CAL_LINE_SEGMENT_END(start.e, end.e, normalized_dist));
+        // planner.buffer_line(dest, scaled_fr_mm_s);
+        if (((dest.x - cur_dest.x)*(dest.x - cur_dest.x) + (dest.y - cur_dest.y) * (dest.y - cur_dest.y)) >= min_valid_segment_len_sqr) {
+          // LOG_I("start.x: %f, start.y: %f, end.x: %f, end.y: %f, k: %f, ratio: %f, inf_ratio_flag: %d\n", cur_dest.x, cur_dest.y, dest.x, dest.y, (dest.y - cur_dest.y)/(dest.x - cur_dest.x), ratio, inf_ratio_flag);
+          cur_dest = dest;
+          // LOG_I("icell.x: %d, icell.y: %d\n", icell.x, icell.y);
+          if (!planner.buffer_line(dest, scaled_fr_mm_s)) break;
+        }
+        // LOG_I("neg.x == (dest.x > next_mesh_line_x)\n");
+        // LOG_I("neg.x == (dest.x > next_mesh_line_x), istart.x: %d, istart.y: %d, end.x: %f end.y : %f end.e: %f end.i: %f, end.j: %f\n", icell.x, icell.y, dest.x, dest.y, dest.e, dest.i, dest.j);
+        // if (dest.i != 0 || dest.i != 0) {
+        //   LOG_I("\n\ndest.i: %f, dest.j: %f, normalized_dist: %f start.i: %f, start.j: %f\n", dest.i, dest.j, normalized_dist, start.i, start.j);
+        // }
+        icell.y += iadd.y;
+        cnt.y--;
+      }
+      else {
+        dest.x = next_mesh_line_x;
+        if (use_x_dist)
+          normalized_dist = (dest.x - start.x) / (end.x - start.x);
+        else
+          normalized_dist = (dest.y - start.y) / (end.y - start.y);
+        // dest.x = CAL_LINE_SEGMENT_END(start.x, end.x, normalized_dist);
+        dest.z = CAL_LINE_SEGMENT_END(start.z, end.z, normalized_dist);
+        TERN_(LINEAR_AXES >= 4, dest.i = CAL_LINE_SEGMENT_END(start.i, end.i, normalized_dist));
+        TERN_(LINEAR_AXES >= 5, dest.j = CAL_LINE_SEGMENT_END(start.j, end.j, normalized_dist));
+        TERN_(HAS_EXTRUDERS, dest.e = CAL_LINE_SEGMENT_END(start.e, end.e, normalized_dist));
+        // planner.buffer_line(dest, scaled_fr_mm_s);
+        if (((dest.x - cur_dest.x)*(dest.x - cur_dest.x) + (dest.y - cur_dest.y) * (dest.y - cur_dest.y)) >= min_valid_segment_len_sqr) {
+          // LOG_I("start.x: %f, start.y: %f, end.x: %f, end.y: %f, k: %f, ratio: %f, inf_ratio_flag: %d\n", cur_dest.x, cur_dest.y, dest.x, dest.y, (dest.y - cur_dest.y)/(dest.x - cur_dest.x), ratio, inf_ratio_flag);
+          cur_dest = dest;
+          // LOG_I("icell.x: %d, icell.y: %d\n", icell.x, icell.y);
+          if (!planner.buffer_line(dest, scaled_fr_mm_s)) break;
+        }
+        // LOG_I("neg.x != (dest.x > next_mesh_line_x)\n");
+        // LOG_I("neg.x != (dest.x > next_mesh_line_x), istart.x: %d, istart.y: %d, end.x: %f end.y : %f end.e: %f end.i: %f, end.j: %f\n", icell.x, icell.y, dest.x, dest.y, dest.e, dest.i, dest.j);
+        // if (dest.i != 0 || dest.i != 0) {
+        //   LOG_I("\n\ndest.i: %f, dest.j: %f, normalized_dist: %f start.i: %f, start.j: %f\n", dest.i, dest.j, normalized_dist, start.i, start.j);
+        // }
+        icell.x += iadd.x;
+        cnt.x--;
+      }
+
+      if (cnt.x < 0 || cnt.y < 0) break;
+    }
+
+    if (dest != end)
+      goto FINAL_MOVE;
+
+    current_position = destination;
+    return;
+  }
 #endif // IS_CARTESIAN && !SEGMENT_LEVELED_MOVES
+
+#endif
 
 #endif // AUTO_BED_LEVELING_BILINEAR

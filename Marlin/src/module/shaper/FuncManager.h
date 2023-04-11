@@ -35,8 +35,8 @@ class FuncParams {
 //    static float getX(float y, float a, float b, float c, float left_time, int8_t type);
 //};
 
-#define FUNC_PARAMS_X_SIZE 200
-#define FUNC_PARAMS_Y_SIZE 200
+#define FUNC_PARAMS_X_SIZE 300
+#define FUNC_PARAMS_Y_SIZE 300
 #define FUNC_PARAMS_Z_SIZE 64
 #define FUNC_PARAMS_I_SIZE 64
 #define FUNC_PARAMS_J_SIZE 64

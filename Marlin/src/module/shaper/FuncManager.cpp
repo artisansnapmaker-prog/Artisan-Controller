@@ -69,7 +69,8 @@ void FuncManager::addFuncParams(float a, float b, float c, int type, time_double
             FuncParams &f_p = funcParams[prevFuncParamsIndex(func_params_head)];
 
             if (!IS_ZERO(f_p.right_pos - right_pos)) {
-                LOG_I("error type: %lf, %lf\n", f_p.right_pos, right_pos);
+                if (axis != E_AXIS)
+                    LOG_I("error type: %lf, %lf, a: %d\n", f_p.right_pos, right_pos, axis);
             }
 
             f_p.right_time = right_time;

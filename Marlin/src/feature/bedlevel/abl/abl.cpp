@@ -432,16 +432,16 @@ float bilinear_z_offset(const xy_pos_t &raw) {
 
 #else
 
-  #define  MIN_VALID_SEGMENT_LENGTH        5.0   //mm
+  #define  MIN_VALID_SEGMENT_LENGTH                   5.0   //mm
+  #define  CAL_LINE_SEGMENT_END(start, end, scale)    (start + (end - start) * scale)
 
   static float mesh_index_to_xpos(int16_t i) {
-    NOMORE(i, ABL_BG_POINTS_X - 1);
-    NOLESS(i, 0);
+    LIMIT(i, 0, ABL_BG_POINTS_X - 1);
     return bilinear_start.x + ABL_BG_SPACING(x) * i;
   }
+
   static float mesh_index_to_ypos(int16_t i) {
-    NOMORE(i, ABL_BG_POINTS_Y - 1);
-    NOLESS(i, 0);
+    LIMIT(i, 0, ABL_BG_POINTS_Y - 1);
     return bilinear_start.y + ABL_BG_SPACING(y) * i;
   }
 
@@ -458,6 +458,7 @@ float bilinear_z_offset(const xy_pos_t &raw) {
 
     extern Planner planner;
     // LOG_I("start.x: %f start.y:%f, end.x: %f end.y : %f\n", start.x, start.y, end.x, end.y);
+    // LOG_I("istart.x: %d istart.y:%d, iend.x: %d iend.y : %d\n", istart.x, istart.y, iend.x, iend.y);
     // A move within the same cell needs no splitting
     if ((!dist.x && !dist.y) || !planner.leveling_active || istart == iend) {
 
@@ -498,9 +499,6 @@ float bilinear_z_offset(const xy_pos_t &raw) {
 
     float normalized_dist = 0;
     float min_valid_segment_len_sqr = MIN_VALID_SEGMENT_LENGTH * MIN_VALID_SEGMENT_LENGTH;
-
-    #define CAL_LINE_SEGMENT_END(start, end, scale) (start + (end - start) * scale)
-    #define CAL_(start, end, scale) (start + (end - start) * scale)
 
     if (iadd.x == 0) {
       icell.y += ineg.y;

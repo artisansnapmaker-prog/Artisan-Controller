@@ -606,6 +606,8 @@ err_code_t ClientNode::req_start_job(ClientNode *client, sacp_hmi_message_t *msg
     }
     return ret;
   }
+
+  LOG_I("peer: %d, ch: %d: request print %s!!!\n", client->peer, client->ch, gfi.name);
   *msg_cp = *msg;
   ret = job_ctrl_svc.req_start(id, &gfi, type, job_request_cb, msg_cp);
   if (E_SUCCESS != ret) {

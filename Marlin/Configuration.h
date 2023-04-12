@@ -1034,8 +1034,8 @@
  */
 #if DISABLED(CLASSIC_JERK)
   #define JUNCTION_DEVIATION_MM 0.01        // (mm) Distance from real junction edge
-  #define DEFAULT_CORNER_VELOCITY     5.0   // mm/s
-  #define DEFAULT_CORNER_VELOCITY_MAX 10.0  // mm/s
+  #define DEFAULT_CORNER_VELOCITY     10.0   // mm/s
+  #define DEFAULT_CORNER_VELOCITY_MAX 20.0   // mm/s
   #define JD_HANDLE_SMALL_SEGMENTS          // Use curvature estimation instead of just the junction angle
                                             // for small segments (< 1mm) with large junction angles (> 135°).
 #endif

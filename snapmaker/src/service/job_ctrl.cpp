@@ -943,6 +943,10 @@ void JobCtrl::do_start(struct JobCtrlReqInfo &jri) {
     motion_platform_svc.req_quickstop(TEMP_TIMER_FREQUENCY/10);
   }
 
+  if (!motion_platform_svc.is_all_axes_homed() && _env.type == TH_TYPE_3DP) {
+    motion_platform_svc.run_gcode((char*)"G28");
+  }
+
   // requst enter next status
   if( E_SUCCESS != smprinter.set_sys_status(next_status, &ret_sys_status)) {
     LOG_E("job_ctrl: Can not enter to printing mode[%u] at current status[%u]\r\n", next_status, ret_sys_status);

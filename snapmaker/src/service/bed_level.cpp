@@ -54,6 +54,9 @@ static err_code_t hmi_req_callback_set_level_mode(void *obj, sacp_hmi_message_t 
 
   LOG_I("hmi request set bedlevel mode: %d\n", msg->data[0]);
 
+  // initial acceleration
+  motion_platform_svc.run_gcode((char*)"M204 S1000");
+
   if (smprinter.get_sys_status() != SYSTEM_STATUS_IDLE) {
     ret = E_BUSY;
     LOG_I("system is busy now!\n");

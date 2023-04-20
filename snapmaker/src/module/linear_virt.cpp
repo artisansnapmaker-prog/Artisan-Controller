@@ -24,7 +24,7 @@ extern int16_t Z2_STANDBY_PIN_var;
 static float voltage_threshold[3][2] = {
   {1.1, 2.1}, /* X */
   {1.1, 2.1}, /* Y */
-  {2.15, 2.65}, /* Z */
+  {2.15, 2.9}, /* Z */
 };
 
 LinearVirtual *LinearVirtual::objects[LINEAR_VIRTUAL_OBJECT_MAX] {NULL, NULL, NULL, NULL, NULL, NULL};
@@ -312,6 +312,7 @@ void LinearVirtual::check_initialization() {
   if (total_online >= 5) {
     LOG_I("detect all linear, will reset TMC drivers for A400\n");
     motion_platform_svc.reset_linear_drivers();
+    LinearVirtual::show_info();
   }
   else if (total_online > 0) {
     if ((!objects[MODULE_LINEAR_Y1] || objects[MODULE_LINEAR_Y1]->get_status() != MODULE_STATUS_NORMAL) ||

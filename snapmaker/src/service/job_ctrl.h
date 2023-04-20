@@ -91,7 +91,7 @@
 #define EXTRUSION_E_FEEDRATE               5
 #define RETRACT_E_FEEDRATE                 30
 #define RESUME_EXTRUSION_E_LENGTH          20
-#define RESUME_RETRACT_E_LENGTH            5
+#define RESUME_RETRACT_E_LENGTH            1.0
 
 #define JOB_CTRL_LOOP_TIME_MS              (100)
 #define JOB_CTRL_REQ_INFO_BUF              ((sizeof(struct JobCtrlReqInfo) + 8) * 4)

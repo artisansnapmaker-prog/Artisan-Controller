@@ -553,7 +553,7 @@ __pos_resume:
 
   if (rt != RESUME_TYPE_LIVE_Z_OFFSET && TH_TYPE_3DP == _env.type && !_env.tool_changing) {
     // extrusion compensation
-    dest.e += (RESUME_RETRACT_E_LENGTH + (need_pre_extrusion ? 0.2 : 0));
+    dest.e += (RESUME_RETRACT_E_LENGTH + (need_pre_extrusion ? 0.1 : 0));
     motion_platform_svc.moveto_e(dest.e, EXTRUSION_E_FEEDRATE);
   }
 

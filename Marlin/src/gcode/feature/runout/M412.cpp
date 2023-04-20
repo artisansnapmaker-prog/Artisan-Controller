@@ -45,7 +45,13 @@ void GcodeSuite::M412() {
       if (parser.seen('H')) runout.host_handling = parser.value_bool();
     #endif
     const bool seenR = parser.seen_test('R'), seenS = parser.seen('S');
-    if (seenR || seenS) runout.reset();
+    if (seenR || seenS) {
+      runout.reset();
+      if (smprinter.get_toolhead_type() == TH_TYPE_3DP) {
+        smprinter.clear_fdm_state(FDM_FAULT_FILAMENT);
+        smprinter.clear_exception(SM_EXCEP_OWNER_TOOLHEAD, FDM_EXCEP_STA_FILAMENT_RUNOUT);
+      }
+    }
     if (seenS) runout.enabled = parser.value_bool();
     #if HAS_FILAMENT_RUNOUT_DISTANCE
       if (parser.seen('D')) runout.set_runout_distance(parser.value_linear_units());

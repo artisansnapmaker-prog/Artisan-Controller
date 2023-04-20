@@ -88,6 +88,7 @@ uint32_t hotend_error_sta = 0;
 bool enable_extruder_check = true;                /* turn on or off extruder detection during printing with this variable */
 static uint8_t job_mask = 0xFF;
 static uint8_t extruder_state_check_maker = 0;
+static bool runout_enable_changed = false;
 
 err_code_t fdm_callback_routine(void *obj);
 void fdm_callback_start_print(void *, uint8_t status_before_start);
@@ -426,7 +427,8 @@ static uint16_t hmi_subscript_callback_extruder_info(void *obj, uint8_t *buffer)
     buffer[index++] = fdm.get_filament_state(i);
 
     // filament detection ctrl status
-    buffer[index++] = fdm.get_filament_detection_state(i);
+    // buffer[index++] = fdm.get_filament_detection_state(i);
+    buffer[index++] = motion_platform_svc.get_filament_runout() ? 0 : 1;
 
     // extruder active status
     buffer[index++] = fdm.get_extruder_status(i);
@@ -635,14 +637,14 @@ static err_code_t hmi_req_callback_set_filament_detect_ctrl(void *obj, sacp_hmi_
   ToolHeadFDM &fdm = *(ToolHeadFDM *)obj;
   err_code_t ret = E_SUCCESS;
 
+  LOG_I("hmi request set extruder%d filament state: %s\n", msg->data[1], msg->data[2] ? "off" : "on");
+
   if (msg->data[1] > fdm.get_extruders_count() - 1) {
     ret = E_PARAM;
     goto EXIT;
   }
 
   ret = fdm.filament_detect_ctrl(msg->data[2], msg->data[1]);
-
-  LOG_I("hmi request set extruder%d filament state: %d\n", msg->data[1], msg->data[2]);
 
 EXIT:
   uint16_t index = 0;
@@ -1924,14 +1926,27 @@ err_code_t ToolHeadFDM::filament_detect_ctrl(uint8_t state, uint8_t e) {
     return E_PARAM;
   }
 
-  filament_detect_state[e] = state;
-  if (state == 1) {
-    motion_platform_svc.enable_filament_runout();
-  } else if (state == 0) {
-    motion_platform_svc.disable_filament_runout();
+  // // detection enable switch shared by different nozzles
+  // for (uint8_t i = 0; i < get_extruders_count(); i++) {
+  //   filament_detect_state[i] = state;
+  // }
+
+  if (!state) {
+    motion_platform_svc.enable_filament_runout(true);
+  }
+  else {
+    motion_platform_svc.disable_filament_runout(true);
+    smprinter.clear_fdm_state(FDM_FAULT_FILAMENT);
+    smprinter.clear_exception(SM_EXCEP_OWNER_TOOLHEAD, FDM_EXCEP_STA_FILAMENT_RUNOUT);
   }
 
-  motion_platform_svc.save_settings();
+  if (smprinter.get_sys_status() == SYSTEM_STATUS_IDLE) {
+    runout_enable_changed = false;
+    motion_platform_svc.save_settings();
+  }
+  else {
+    runout_enable_changed = true;
+  }
 
   return E_SUCCESS;
 }
@@ -2197,8 +2212,9 @@ err_code_t ToolHeadFDM::resume_finish() {
 err_code_t ToolHeadFDM::standby(void) {
   enum SystemStatus status = smprinter.get_sys_status();
 
-  if (bedlevel_svc.live_z_offset_changed) {
+  if (bedlevel_svc.live_z_offset_changed || runout_enable_changed) {
     bedlevel_svc.live_z_offset_changed = false;
+    runout_enable_changed = false;
     SnapmakerSettings *smsettings = smprinter.get_settings();
     smsettings->bedlevel_settings.live_z_offset[0] = bedlevel_svc.live_z_offset[0];
     smsettings->bedlevel_settings.live_z_offset[1] = bedlevel_svc.live_z_offset[1];
@@ -2247,7 +2263,7 @@ err_code_t ToolHeadFDM::prepare_start(void) {
     ret = E_JOB_FDM_NOZZLE_TYPE;
   } else if (((fdm_state >> FDM_FAULT_EXTRUDER_STATE) & 0x01) == 1) {
     ret = E_JOB_FDM_EXTRUDER_STATE;
-  } else if (((fdm_state >> FDM_FAULT_FILAMENT) & 0x01) == 1) {
+  } else if ((((fdm_state >> FDM_FAULT_FILAMENT) & 0x01) == 1) && motion_platform_svc.get_filament_runout()) {
     ret = E_JOB_FDM_FILAMENT_RUNOUT;
   }
 

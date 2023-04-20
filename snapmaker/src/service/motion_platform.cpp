@@ -1048,12 +1048,20 @@ void MotionPlatformService::sync_hotend_offset_to_platform(float x_offset, float
   LOG_I("hotend_offset, T1, X%.2f, Y%.2f, Z%.2f\n", hotend_offset[1][X_AXIS], hotend_offset[1][Y_AXIS], hotend_offset[1][Z_AXIS]);
 }
 
-void MotionPlatformService::enable_filament_runout() {
+void MotionPlatformService::enable_filament_runout(bool is_reset) {
+  if (is_reset)
+    runout.reset();
   runout.enabled = true;
 }
 
-void MotionPlatformService::disable_filament_runout() {
+void MotionPlatformService::disable_filament_runout(bool is_reset) {
+  if (is_reset)
+    runout.reset();
   runout.enabled = false;
+}
+
+bool MotionPlatformService::get_filament_runout() {
+  return runout.enabled;
 }
 
 void MotionPlatformService::set_hotend_maxtemp(uint8_t e, int16_t temp) {

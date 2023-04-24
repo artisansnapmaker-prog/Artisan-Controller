@@ -100,7 +100,7 @@ void MoveQueue::calculateMoves(block_t* block) {
     block->cruise_speed = cruise_speed * 1000;
 
     Move& end_move = moves[block->shaper_data.move_end];
-    for (int i = 0; i < NUM_AXIS; ++i) {
+    for (int i = 0; i < LINEAR_AXES; ++i) {
         float p1 = end_move.end_pos[i];
         end_move.end_pos[i] = LROUND(end_move.end_pos[i]);
         if (ABS(p1 - end_move.end_pos[i]) > 1) {
@@ -109,6 +109,13 @@ void MoveQueue::calculateMoves(block_t* block) {
         // if (i == 0 || i == 1) {
             // LOG_I("%d %lf %lf\n", i, tmp, end_move.end_pos[i]);
         // }
+    }
+    {
+        double p1 = end_move.end_pos_e;
+        end_move.end_pos_e = (int64_t)(end_move.end_pos_e + 0.5);
+        if (ABS(p1 - end_move.end_pos_e) > 1) {
+            LOG_I("error E LROUND: %lf, %lf\n", p1, end_move.end_pos_e);
+        }
     }
 
     block->shaper_data.last_print_time = moves[block->shaper_data.move_end].end_t;
@@ -142,7 +149,7 @@ void MoveQueue::setMove(uint8_t move_index, float start_v, float end_v, float ac
         // LOG_I("error v: %lf, %lf\n", last_end_v,  move.start_v);
     }
 
-    for (int i = 0; i < NUM_AXIS; ++i) {
+    for (int i = 0; i < LINEAR_AXES; ++i) {
         move.start_pos[i] = is_first ? 0 : last_move.end_pos[i];
         move.end_pos[i] = move.start_pos[i] + move.distance * move.axis_r[i];
 
@@ -155,6 +162,8 @@ void MoveQueue::setMove(uint8_t move_index, float start_v, float end_v, float ac
             LOG_I("debug: %d, %lf, %lf\n", i, move.distance, move.end_pos[i]);
         }
     }
+    move.start_pos_e = is_first ? 0 : last_move.end_pos_e;
+    move.end_pos_e = move.start_pos_e + move.distance * move.axis_r[E_AXIS];
 
     is_first = false;
 

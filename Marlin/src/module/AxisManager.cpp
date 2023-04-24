@@ -13,7 +13,8 @@ static const char *dbg_name[SHAPER_DBG_MAX] = {
   "NOT_ENOUGH_MOVES_RESC",
   "NOT_ENOUGH_FUNC_LIST_RESC",
   "CALC_STEP_TIMEOUT_COUNT",
-  "CALC_STEP_TIME"
+  "CALC_STEP_TIME",
+  "ABORT_END_BLOCK"
 };
 
 void AxisManager::input_shaper_reset() {
@@ -87,7 +88,7 @@ FORCE_INLINE err_code_t Axis::generateFuncParams(uint8_t block_index, uint8_t mo
     if (is_shaped) {
         res = axis_input_shaper->generateShapedFuncParams(&func_manager, move_start, move_end);
     #if ENABLED(LIN_ADVANCE)
-    } else if (axis == 5) {
+    } else if (axis == E_AXIS) {
         res = generateEAxisFuncParams(block_index, move_start, move_end);
     #endif
     } else {
@@ -104,7 +105,12 @@ FORCE_INLINE err_code_t Axis::generateFuncParams(uint8_t block_index, uint8_t mo
 }
 
 bool Axis::getNextStep() {
-    if (!func_manager.getNextPosTime(1, &dir, mm_to_step, half_step_mm)) {
+    bool result;
+    if (axis == E_AXIS)
+        result = func_manager.getNextPosTimeEextend(1, &dir, mm_to_step, half_step_mm);
+    else
+        result = func_manager.getNextPosTime(1, &dir, mm_to_step, half_step_mm);
+    if (!result) {
       is_get_next_step_null = true;
       return false;
     }
@@ -120,6 +126,8 @@ FORCE_INLINE err_code_t Axis::generateEAxisFuncParams(uint8_t block_index, uint8
     uint8_t move_index;
     block_t *block = &planner.block_buffer[block_index];
     float e_la = 0;
+
+    // LOG_I("generate E AxisFuncParams!\n");
 
     if (generated_move_index == -1) {
         move_index = move_start;
@@ -142,19 +150,19 @@ FORCE_INLINE err_code_t Axis::generateEAxisFuncParams(uint8_t block_index, uint8
 
         // LOG_I("k: %lf, d_v: %lf, eda: %lf\n", K, delta_v, eda);
 
-        float a = 0.5f * move->accelerate * move->axis_r[axis];
-        float b, c;
+        double a = 0.5f * move->accelerate * move->axis_r[axis];
+        double b, c, x2, y2, dx, dy;
 
         if (eda < 0 && move->start_v + delta_v > 0 && move->end_v + delta_v < 0) {
             float zero_t = ABS((move->start_v + delta_v) / move->accelerate);
             float zero_pos = ((move->start_v + delta_v) * zero_t + 0.5f * move->accelerate * sq(zero_t)) * move->axis_r[axis];
 
-            float y2 = move->start_pos[axis] + delta_e + zero_pos;
-            float dy = zero_pos;
-            float x2 = zero_t;
-            float dx = zero_t;
+            y2 = move->start_pos_e + delta_e + zero_pos;
+            dy = zero_pos;
+            x2 = zero_t;
+            dx = zero_t;
 
-            c = move->start_pos[axis] + delta_e;
+            c = move->start_pos_e + delta_e;
             b = dy / dx - a * x2;
 
             int type;
@@ -165,14 +173,14 @@ FORCE_INLINE err_code_t Axis::generateEAxisFuncParams(uint8_t block_index, uint8
             }
 
             time_double_t end_t = move->start_t + zero_t;
-            func_manager.addFuncParams(a, b, c, type, end_t, y2);
+            func_manager.addFuncParamsExtend(a, b, c, type, end_t, y2);
 
-            y2 = move->end_pos[axis] + delta_e + eda;
-            dy = move->end_pos[axis] - move->start_pos[axis] + eda - zero_pos;
+            y2 = move->end_pos_e + delta_e + eda;
+            dy = move->end_pos_e - move->start_pos_e + eda - zero_pos;
             x2 = move->t - zero_t;
             dx = move->t - zero_t;
 
-            c = move->start_pos[axis] + delta_e + zero_pos;
+            c = move->start_pos_e + delta_e + zero_pos;
             b = dy / dx - a * x2;
 
             if (IS_ZERO(dy)) {
@@ -182,14 +190,14 @@ FORCE_INLINE err_code_t Axis::generateEAxisFuncParams(uint8_t block_index, uint8
             }
 
             end_t = move->end_t;
-            func_manager.addFuncParams(a, b, c, type, end_t, y2);
+            func_manager.addFuncParamsExtend(a, b, c, type, end_t, y2);
         } else {
-            float y2 = move->end_pos[axis] + delta_e + eda;
-            float dy = move->end_pos[axis] - move->start_pos[axis] + eda;
-            float x2 = move->t;
-            float dx = move->t;
+            y2 = move->end_pos_e + delta_e + eda;
+            dy = move->end_pos_e - move->start_pos_e + eda;
+            x2 = move->t;
+            dx = move->t;
 
-            c = move->start_pos[axis] + delta_e;
+            c = move->start_pos_e + delta_e;
             b = dy / dx - a * x2;
 
             int type;
@@ -199,7 +207,7 @@ FORCE_INLINE err_code_t Axis::generateEAxisFuncParams(uint8_t block_index, uint8
                 type = dy > 0 ? 1 : -1;
             }
             time_double_t end_t = move->end_t;
-            func_manager.addFuncParams(a, b, c, type, end_t, y2);
+            func_manager.addFuncParamsExtend(a, b, c, type, end_t, y2);
         }
 
         delta_e += eda;
@@ -217,6 +225,9 @@ FORCE_INLINE err_code_t Axis::generateEAxisFuncParams(uint8_t block_index, uint8
 
 FORCE_INLINE err_code_t Axis::generateAxisFuncParams(uint8_t move_start, uint8_t move_end) {
   uint8_t move_index;
+
+    // LOG_I("generateAxisFuncParams!\n");
+
   if (generated_move_index == -1) {
       move_index = move_start;
   } else {

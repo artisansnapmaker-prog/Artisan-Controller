@@ -20,6 +20,18 @@ class FuncParams {
     }
 };
 
+class FuncParamsExtend {
+  public:
+    double a, b, c, right_pos;
+    time_double_t right_time = 0;
+
+    void update(double a, double b, double c) {
+        this->a = a;
+        this->b = b;
+        this->c = c;
+    }
+};
+
 //class Func {
 //  public:
 //    float a, b, c;
@@ -53,7 +65,7 @@ class FuncManager {
     int average_index = 0;
     int average_count = 0;
     int average_step = 0;
-    float average_delta_time = 0;
+    time_double_t average_delta_time = 0;
     time_double_t average_print = 0;
 
   public:
@@ -62,7 +74,7 @@ class FuncManager {
     static FuncParams FUNC_PARAMS_Z[FUNC_PARAMS_Z_SIZE];
     static FuncParams FUNC_PARAMS_I[FUNC_PARAMS_I_SIZE];
     static FuncParams FUNC_PARAMS_J[FUNC_PARAMS_J_SIZE];
-    static FuncParams FUNC_PARAMS_E[FUNC_PARAMS_E_SIZE];
+    static FuncParamsExtend FUNC_PARAMS_E[FUNC_PARAMS_E_SIZE];
 
     static int8_t FUNC_PARAMS_TYPE_X[FUNC_PARAMS_X_SIZE];
     static int8_t FUNC_PARAMS_TYPE_Y[FUNC_PARAMS_Y_SIZE];
@@ -72,6 +84,8 @@ class FuncManager {
     static int8_t FUNC_PARAMS_TYPE_E[FUNC_PARAMS_E_SIZE];
 
     FuncParams* funcParams;
+    FuncParamsExtend *funcParamsExtend;
+
     int8_t* funcParamsTypes;
 
     int func_params_tail = 0;
@@ -87,12 +101,14 @@ class FuncManager {
 
     time_double_t last_time = 0;
     float last_pos = 0;
+    double last_pos_e = 0;
     bool last_is_zero = false;
 
     // Consume
     time_double_t left_time = 0;
     time_double_t print_time = 0;
     float print_pos = 0;
+    double print_pos_e = 0;
     int print_step = 0;
 
     FuncManager(){};
@@ -127,7 +143,7 @@ class FuncManager {
                 break;
              case 5:
                 size = FUNC_PARAMS_E_SIZE;
-                funcParams = FUNC_PARAMS_E;
+                funcParamsExtend = FUNC_PARAMS_E;
                 funcParamsTypes = FUNC_PARAMS_TYPE_E;
                 break;
         }
@@ -140,11 +156,13 @@ class FuncManager {
 
         last_time = 0;
         last_pos = 0;
+        last_pos_e = 0;
         last_is_zero = false;
 
         left_time = 0;
         print_time = 0;
         print_pos = 0;
+        print_pos_e = 0;
         print_step = 0;
 
         average_index = 0;
@@ -176,6 +194,7 @@ class FuncManager {
     // void addDeltaTimeFuncParams(float a, float b, float c, time_double_t left_time, time_double_t right_time, float right_pos);
 
     void addFuncParams(float a, float b, float c,int type, time_double_t right_time, float right_pos);
+    void addFuncParamsExtend(double a, double b, double c, int type, time_double_t right_time, double right_pos);
 
     float getPos(time_double_t time);
 
@@ -186,10 +205,12 @@ class FuncManager {
     //    float getXAndMove(float y, int *func_params_start, int func_params_end);
 
     bool getNextPosTime(int delta_step, int8_t *dir, float& mm_to_step, float& half_step_mm);
+    bool getNextPosTimeEextend(int delta_step, int8_t *dir, float& mm_to_step, float& half_step_mm);
 
   private:
 
     float getPosByFuncParams(time_double_t time, int func_params_use);
 
     FORCE_INLINE float getTimeByFuncParams(FuncParams* f_p, int8_t type, float pos, int func_params_use);
+    FORCE_INLINE double getTimeByFuncParamsExtend(FuncParamsExtend* f_p, int8_t type, double pos, int func_params_use);
 };

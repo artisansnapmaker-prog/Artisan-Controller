@@ -580,6 +580,8 @@ void SnapmakerPrinter::pre_init(void) {
   digitalWrite(LED_RED_PIN, HIGH);
   digitalWrite(LED_GREEN_PIN, HIGH);
   digitalWrite(LED_BLUE_PIN, HIGH);
+
+  pinMode(PB13, OUTPUT);
 }
 
 

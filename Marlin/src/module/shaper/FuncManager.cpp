@@ -7,7 +7,7 @@ FuncParams FuncManager::FUNC_PARAMS_Y[FUNC_PARAMS_Y_SIZE];
 FuncParams FuncManager::FUNC_PARAMS_Z[FUNC_PARAMS_Z_SIZE];
 FuncParams FuncManager::FUNC_PARAMS_I[FUNC_PARAMS_I_SIZE];
 FuncParams FuncManager::FUNC_PARAMS_J[FUNC_PARAMS_J_SIZE];
-FuncParams FuncManager::FUNC_PARAMS_E[FUNC_PARAMS_E_SIZE];
+FuncParamsExtend FuncManager::FUNC_PARAMS_E[FUNC_PARAMS_E_SIZE];
 
 int8_t FuncManager::FUNC_PARAMS_TYPE_X[FUNC_PARAMS_X_SIZE];
 int8_t FuncManager::FUNC_PARAMS_TYPE_Y[FUNC_PARAMS_Y_SIZE];
@@ -55,6 +55,30 @@ FORCE_INLINE float FuncManager::getTimeByFuncParams(FuncParams* f_p, int8_t type
     }
 }
 
+FORCE_INLINE double FuncManager::getTimeByFuncParamsExtend(FuncParamsExtend* f_p, int8_t type, double pos, int func_params_use) {
+    double a = f_p->a;
+    double b = f_p->b;
+    double c = f_p->c;
+    c = c - pos;
+
+    if (IS_ZERO(a)) {
+        return -c / b;
+    }
+
+    double d2 = b * b - 4 * a * c;
+    if (d2 < 0) {
+        d2 = 0.0f;
+    }
+
+    double d = SQRT(d2);
+
+    if (type > 0) {
+        return (-b + d) / (2 * a);
+    } else {
+        return (-b - d) / (2 * a);
+    }
+}
+
 void FuncManager::addFuncParams(float a, float b, float c, int type, time_double_t right_time, float right_pos) {
     if (max_size < getSize()) {
         max_size = getSize();
@@ -63,14 +87,15 @@ void FuncManager::addFuncParams(float a, float b, float c, int type, time_double
         type = 0;
     }
 
+    // LOG_I("addFuncParams: axis%d!\n", axis);
+
     if (type == 0) {
         int func_params_use_tmp = func_params_use;
         if (last_is_zero && func_params_use_tmp != func_params_head && func_params_use_tmp != prevFuncParamsIndex(func_params_head)) {
             FuncParams &f_p = funcParams[prevFuncParamsIndex(func_params_head)];
 
             if (!IS_ZERO(f_p.right_pos - right_pos)) {
-                if (axis != E_AXIS)
-                    LOG_I("error type: %lf, %lf, a: %d\n", f_p.right_pos, right_pos, axis);
+                LOG_I("error type: %lf, %lf, a: %d\n", f_p.right_pos, right_pos, axis);
             }
 
             f_p.right_time = right_time;
@@ -110,6 +135,70 @@ void FuncManager::addFuncParams(float a, float b, float c, int type, time_double
 
     last_time = right_time;
     last_pos = right_pos;
+
+    func_params_head = nextFuncParamsIndex(func_params_head);
+}
+
+void FuncManager::addFuncParamsExtend(double a, double b, double c, int type, time_double_t right_time, double right_pos) {
+    if (axis != E_AXIS) {
+        return;
+    }
+
+    // LOG_I("addFuncParamsExtend: axis%d!\n", axis);
+
+    if (max_size < getSize()) {
+        max_size = getSize();
+    }
+    if (ABS(last_pos_e - right_pos) < EPSILON) {
+        type = 0;
+    }
+
+    if (type == 0) {
+        int func_params_use_tmp = func_params_use;
+        if (last_is_zero && func_params_use_tmp != func_params_head && func_params_use_tmp != prevFuncParamsIndex(func_params_head)) {
+            FuncParamsExtend &f_p = funcParamsExtend[prevFuncParamsIndex(func_params_head)];
+
+            if (ABS(f_p.right_pos - right_pos)>1) {
+                LOG_I("error type: %lf, %lf, a: %d\n", f_p.right_pos, right_pos, axis);
+            }
+
+            f_p.right_time = right_time;
+            f_p.right_pos = right_pos;
+
+            last_time = right_time;
+            last_pos_e = right_pos;
+
+            return;
+        } else {
+            last_is_zero = true;
+        }
+    } else {
+        last_is_zero = false;
+    }
+
+
+    FuncParamsExtend &f_p = funcParamsExtend[func_params_head];
+    funcParamsTypes[func_params_head] = type;
+
+    f_p.a = a;
+    f_p.b = b;
+    f_p.c = c;
+
+    f_p.right_time = right_time;
+    f_p.right_pos = right_pos;
+
+    // if (type > 0 && right_pos <= last_pos) {
+    //     LOG_I("error1 1 for right_pos: %lf, %lf\n", right_pos, last_pos);
+    // }
+    // if (type == 0 && right_pos != last_pos) {
+    //     LOG_I("error1 0 for right_pos: %lf, %lf\n", right_pos, last_pos);
+    // }
+    // if (type < 0 && right_pos >= last_pos) {
+    //     LOG_I("error1 -1 for right_pos: %lf, %lf\n", right_pos, last_pos);
+    // }
+
+    last_time = right_time;
+    last_pos_e = right_pos;
 
     func_params_head = nextFuncParamsIndex(func_params_head);
 }
@@ -187,6 +276,87 @@ bool FuncManager::getNextPosTime(int delta_step, int8_t *dir, float& mm_to_step,
                 average_count = count;
                 average_step = -delta_step;
                 average_delta_time = (float) average_step / func_params->b;
+                average_print = print_time;
+            }
+        }
+    }
+
+    return true;
+}
+
+bool FuncManager::getNextPosTimeEextend(int delta_step, int8_t *dir, float& mm_to_step, float& half_step_mm) {
+    if (func_params_use == func_params_head) {
+        return false;
+    }
+
+    if (average_index < average_count) {
+        average_index++;
+        print_step += average_step;
+        print_time = average_print + average_delta_time * average_index;
+        return true;
+    }
+    average_index = 0;
+    average_count = 0;
+
+    FuncParamsExtend *func_params = &funcParamsExtend[func_params_use];
+    int8_t type = funcParamsTypes[func_params_use];
+
+    int next_step = print_step;
+    double next_pos = print_pos_e;
+    while (func_params_use != func_params_head) {
+        if (type == 0) {
+        } else if (type > 0) {
+            next_step = print_step + delta_step;
+            next_pos = (float)next_step - 0.5f;
+            if (next_pos <= func_params->right_pos + EPSILON) {
+                *dir = 1;
+                break;
+            }
+        } else {
+            next_step = print_step - delta_step;
+            next_pos = (float)next_step + 0.5f;
+            if (next_pos >= func_params->right_pos - EPSILON) {
+                *dir = -1;
+                break;
+            }
+        }
+        func_params_use = nextFuncParamsIndex(func_params_use);
+
+        left_time = func_params->right_time;
+
+        func_params = &funcParamsExtend[func_params_use];
+        type = funcParamsTypes[func_params_use];
+    }
+
+    if (func_params_tail != func_params_use) {
+        func_params_tail = prevFuncParamsIndex(func_params_use);
+    }
+
+    if (func_params_use == func_params_head) {
+        return false;
+    }
+
+    time_double_t next_time = left_time + getTimeByFuncParamsExtend(func_params, type, next_pos, func_params_use);
+
+    print_time = next_time;
+    print_pos_e = next_pos;
+    print_step = next_step;
+
+    if (average_count == 0 && IS_ZERO(func_params->a)) {
+        if (type > 0) {
+            int count = FLOOR((func_params->right_pos + EPSILON - next_pos));
+            if (count > 0) {
+                average_count = count;
+                average_step = delta_step;
+                average_delta_time = average_step / func_params->b;
+                average_print = print_time;
+            }
+        } else if (type < 0) {
+            int count = FLOOR((next_pos - func_params->right_pos + EPSILON));
+            if (count > 0) {
+                average_count = count;
+                average_step = -delta_step;
+                average_delta_time = average_step / func_params->b;
                 average_print = print_time;
             }
         }

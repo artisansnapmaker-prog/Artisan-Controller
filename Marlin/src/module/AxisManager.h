@@ -18,7 +18,7 @@ class AxisStepper {
     int8_t last_axis = -1;
     int8_t dir = 0;
     time_double_t print_time = 0;
-    float delta_time = 0;
+    time_double_t delta_time = 0;
 };
 
 class Axis {
@@ -39,7 +39,7 @@ class Axis {
     int8_t dir = 0;
     bool is_get_next_step_null = false;
 
-    float delta_e = 0;
+    double delta_e = 0;
 
   private:
     int8_t axis;
@@ -137,6 +137,7 @@ enum InputShaperDebugInfoType {
   SHAPER_DBG_NOT_ENOUGH_FUNC_LIST_RESC,
   SHAPER_DBG_CALC_STEP_TIMEOUT_COUNT,
   SHAPER_DBG_CALC_STEP_TIME,
+  SHAPER_DBG_ABORT_END_BLOCK,
 
   SHAPER_DBG_MAX
 };

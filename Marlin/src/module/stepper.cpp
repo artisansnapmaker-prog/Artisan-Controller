@@ -1497,9 +1497,11 @@ void Stepper::set_directions() {
 
 HAL_STEP_TIMER_ISR() {
   HAL_timer_isr_prologue(MF_TIMER_STEP);
+  digitalWrite(PB13, HIGH);
 
   Stepper::isr();
 
+  digitalWrite(PB13, LOW);
   HAL_timer_isr_epilogue(MF_TIMER_STEP);
 }
 
@@ -2107,10 +2109,10 @@ uint32_t Stepper::block_phase_isr() {
     if (axisManager.getNextAxisStepper(&axis_stepper)) {
 
       hal_timer_t st = HAL_timer_get_count(MF_TIMER_STEP);
-      if (axis_stepper.delta_time > 0.03) {
+      if (axis_stepper.delta_time > 0.06) {
         axisManager.calcNextAxisStepper();
         axisManager.calcNextAxisStepper();
-      } else if (axis_stepper.delta_time > 0.015) {
+      } else if (axis_stepper.delta_time > 0.03) {
         axisManager.calcNextAxisStepper();
       }
       hal_timer_t et = HAL_timer_get_count(MF_TIMER_STEP);
@@ -2152,6 +2154,7 @@ uint32_t Stepper::block_phase_isr() {
           // accumulate the E steps when complete a block
           count_position.e -= current_block->e_stepper_offset;
           discard_current_block();
+          axisManager.counts[SHAPER_DBG_ABORT_END_BLOCK]++;
           // axisManager.abort();
           is_start = true;
         }
@@ -2526,9 +2529,10 @@ uint32_t Stepper::block_phase_isr() {
 
       block_print_time = current_block->shaper_data.last_print_time;
       Move& end_move = moveQueue.moves[current_block->shaper_data.move_end];
-      for (int i = 0; i < NUM_AXIS; ++i) {
+      for (int i = 0; i < LINEAR_AXES; ++i) {
           block_move_target_steps[i] = LROUND(end_move.end_pos[i]);
       }
+      block_move_target_steps[E_AXIS] = (int)(end_move.end_pos_e + 0.5);
 
       // // Based on the oversampling factor, do the calculations
       // step_event_count = current_block->steps.e;

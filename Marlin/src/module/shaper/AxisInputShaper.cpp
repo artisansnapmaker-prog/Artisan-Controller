@@ -420,6 +420,7 @@ err_code_t AxisInputShaper::moveShaperWindowToNext(FuncManager *func_manager, ui
 
 err_code_t AxisInputShaper::generateShapedFuncParams(FuncManager* func_manager, uint8_t move_shaper_start, uint8_t move_shaper_end) {
     err_code_t ret = E_SUCCESS;
+    // LOG_I("will shapping axis: %d!\n", axis);
     if (!is_shaper_window_init) {
         ret = moveShaperWindowByIndex(func_manager, move_shaper_start, move_shaper_end);
         // func_manager.addDeltaTimeFuncParams(shaper_window.func_params.a, shaper_window.func_params.b, shaper_window.func_params.c, func_manager.last_time, shaper_window.time, shaper_window.pos);

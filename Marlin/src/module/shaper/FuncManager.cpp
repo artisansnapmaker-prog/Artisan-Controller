@@ -6,7 +6,7 @@ FuncParams FuncManager::FUNC_PARAMS_X[FUNC_PARAMS_X_SIZE];
 FuncParams FuncManager::FUNC_PARAMS_Y[FUNC_PARAMS_Y_SIZE];
 FuncParams FuncManager::FUNC_PARAMS_Z[FUNC_PARAMS_Z_SIZE];
 FuncParams FuncManager::FUNC_PARAMS_I[FUNC_PARAMS_I_SIZE];
-FuncParams FuncManager::FUNC_PARAMS_J[FUNC_PARAMS_J_SIZE];
+FuncParamsExtend FuncManager::FUNC_PARAMS_J[FUNC_PARAMS_J_SIZE];
 FuncParamsExtend FuncManager::FUNC_PARAMS_E[FUNC_PARAMS_E_SIZE];
 
 int8_t FuncManager::FUNC_PARAMS_TYPE_X[FUNC_PARAMS_X_SIZE];
@@ -140,7 +140,7 @@ void FuncManager::addFuncParams(float a, float b, float c, int type, time_double
 }
 
 void FuncManager::addFuncParamsExtend(double a, double b, double c, int type, time_double_t right_time, double right_pos) {
-    if (axis != E_AXIS) {
+    if (axis != E_AXIS && axis != J_AXIS) {
         return;
     }
 
@@ -149,8 +149,16 @@ void FuncManager::addFuncParamsExtend(double a, double b, double c, int type, ti
     if (max_size < getSize()) {
         max_size = getSize();
     }
-    if (ABS(last_pos_e - right_pos) < EPSILON) {
-        type = 0;
+
+    if (axis == E_AXIS) {
+        if (ABS(last_pos_e - right_pos) < EPSILON) {
+            type = 0;
+        }
+    }
+    else {
+        if (ABS(last_pos_j - right_pos) < EPSILON) {
+            type = 0;
+        }
     }
 
     if (type == 0) {
@@ -166,7 +174,10 @@ void FuncManager::addFuncParamsExtend(double a, double b, double c, int type, ti
             f_p.right_pos = right_pos;
 
             last_time = right_time;
-            last_pos_e = right_pos;
+            if (axis == E_AXIS)
+                last_pos_e = right_pos;
+            else
+                last_pos_j = right_pos;
 
             return;
         } else {
@@ -198,7 +209,10 @@ void FuncManager::addFuncParamsExtend(double a, double b, double c, int type, ti
     // }
 
     last_time = right_time;
-    last_pos_e = right_pos;
+    if (axis == E_AXIS)
+        last_pos_e = right_pos;
+    else
+        last_pos_j = right_pos;
 
     func_params_head = nextFuncParamsIndex(func_params_head);
 }
@@ -303,18 +317,21 @@ bool FuncManager::getNextPosTimeEextend(int delta_step, int8_t *dir, float& mm_t
 
     int next_step = print_step;
     double next_pos = print_pos_e;
+    if (axis == J_AXIS)
+        next_pos = print_pos_j;
+
     while (func_params_use != func_params_head) {
         if (type == 0) {
         } else if (type > 0) {
             next_step = print_step + delta_step;
-            next_pos = (float)next_step - 0.5f;
+            next_pos = next_step - 0.5;
             if (next_pos <= func_params->right_pos + EPSILON) {
                 *dir = 1;
                 break;
             }
         } else {
             next_step = print_step - delta_step;
-            next_pos = (float)next_step + 0.5f;
+            next_pos = next_step + 0.5;
             if (next_pos >= func_params->right_pos - EPSILON) {
                 *dir = -1;
                 break;
@@ -339,7 +356,10 @@ bool FuncManager::getNextPosTimeEextend(int delta_step, int8_t *dir, float& mm_t
     time_double_t next_time = left_time + getTimeByFuncParamsExtend(func_params, type, next_pos, func_params_use);
 
     print_time = next_time;
-    print_pos_e = next_pos;
+    if (axis == E_AXIS)
+        print_pos_e = next_pos;
+    else
+        print_pos_j = next_pos;
     print_step = next_step;
 
     if (average_count == 0 && IS_ZERO(func_params->a)) {

@@ -121,6 +121,31 @@ class Axis {
         func_manager.addFuncParams(a, b, c, type, end_t, y2);
     }
 
+    FORCE_INLINE void generateLineFuncParamsExtend(Move* move) {
+        if (axis != J_AXIS)
+            return;
+
+        double y2 = move->end_pos_j;
+        double dy = move->end_pos_j - move->start_pos_j;
+        double x2 = move->t;
+        double dx = move->t;
+
+        double a = 0.5f * move->accelerate * move->axis_r[axis];
+        double c = move->start_pos_j;
+        double b = dy / dx - a * x2;
+
+        // LOG_I("a %f b %f c %f\r\n", a, b, c);
+
+        int type;
+        if (IS_ZERO(dy)) {
+            type = 0;
+        } else {
+            type = dy > 0 ? 1 : -1;
+        }
+        time_double_t end_t = move->end_t;
+        func_manager.addFuncParamsExtend(a, b, c, type, end_t, y2);
+    }
+
   private:
     FORCE_INLINE err_code_t generateAxisFuncParams(uint8_t move_start, uint8_t move_end);
 

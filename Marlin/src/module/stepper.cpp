@@ -1497,11 +1497,9 @@ void Stepper::set_directions() {
 
 HAL_STEP_TIMER_ISR() {
   HAL_timer_isr_prologue(MF_TIMER_STEP);
-  digitalWrite(PB13, HIGH);
 
   Stepper::isr();
 
-  digitalWrite(PB13, LOW);
   HAL_timer_isr_epilogue(MF_TIMER_STEP);
 }
 
@@ -1648,6 +1646,8 @@ void Stepper::isr() {
     // Advance pulses if not enough time to wait for the next ISR
   } while (next_isr_ticks < min_ticks);
 
+  if (next_isr_ticks > HAL_TIMER_TYPE_MAX)
+    next_isr_ticks = HAL_TIMER_TYPE_MAX;
   // Now 'next_isr_ticks' contains the period to the next Stepper ISR - And we are
   // sure that the time has not arrived yet - Warrantied by the scheduler
 
@@ -2105,10 +2105,10 @@ uint32_t Stepper::block_phase_isr() {
   busy = true;
   static uint32_t done_count = 0;
   // If there is a current block
+  hal_timer_t st = HAL_timer_get_count(MF_TIMER_STEP);
   if (current_block) {
     if (axisManager.getNextAxisStepper(&axis_stepper)) {
 
-      hal_timer_t st = HAL_timer_get_count(MF_TIMER_STEP);
       if (axis_stepper.delta_time > 0.06) {
         axisManager.calcNextAxisStepper();
         axisManager.calcNextAxisStepper();
@@ -2117,7 +2117,10 @@ uint32_t Stepper::block_phase_isr() {
       }
       hal_timer_t et = HAL_timer_get_count(MF_TIMER_STEP);
 
-      interval = CEIL(axis_stepper.delta_time * STEPPER_TIMER_TICKS_PER_MS);
+      if (axis_stepper.delta_time < 0.001)
+        interval = 1;
+      else
+        interval = (uint32_t)(axis_stepper.delta_time * STEPPER_TIMER_TICKS_PER_MS);
 
       if (interval < (et - st)) {
         axisManager.counts[SHAPER_DBG_CALC_STEP_TIMEOUT_COUNT]++;
@@ -2529,10 +2532,11 @@ uint32_t Stepper::block_phase_isr() {
 
       block_print_time = current_block->shaper_data.last_print_time;
       Move& end_move = moveQueue.moves[current_block->shaper_data.move_end];
-      for (int i = 0; i < LINEAR_AXES; ++i) {
+      for (int i = 0; i < LINEAR_AXES - 1; ++i) {
           block_move_target_steps[i] = LROUND(end_move.end_pos[i]);
       }
       block_move_target_steps[E_AXIS] = (int)(end_move.end_pos_e + 0.5);
+      block_move_target_steps[J_AXIS] = (int)(end_move.end_pos_j + 0.5);
 
       // // Based on the oversampling factor, do the calculations
       // step_event_count = current_block->steps.e;

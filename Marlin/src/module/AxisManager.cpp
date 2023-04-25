@@ -106,7 +106,7 @@ FORCE_INLINE err_code_t Axis::generateFuncParams(uint8_t block_index, uint8_t mo
 
 bool Axis::getNextStep() {
     bool result;
-    if (axis == E_AXIS)
+    if (axis == E_AXIS || axis == J_AXIS)
         result = func_manager.getNextPosTimeEextend(1, &dir, mm_to_step, half_step_mm);
     else
         result = func_manager.getNextPosTime(1, &dir, mm_to_step, half_step_mm);
@@ -242,7 +242,10 @@ FORCE_INLINE err_code_t Axis::generateAxisFuncParams(uint8_t move_start, uint8_t
       continue;
     }
 
-    generateLineFuncParams(move);
+    if (axis == J_AXIS)
+        generateLineFuncParamsExtend(move);
+    else
+        generateLineFuncParams(move);
 
     move_index = moveQueue.nextMoveIndex(move_index);
   }

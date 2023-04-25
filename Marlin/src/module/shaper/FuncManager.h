@@ -8,6 +8,7 @@
 #define FUNC_PARAMS_SIZE 512
 #define FUNC_PARAMS_MOD(n, size) ((n + size) % size)
 
+
 class FuncParams {
   public:
     float a, b, c, right_pos;
@@ -73,7 +74,8 @@ class FuncManager {
     static FuncParams FUNC_PARAMS_Y[FUNC_PARAMS_Y_SIZE];
     static FuncParams FUNC_PARAMS_Z[FUNC_PARAMS_Z_SIZE];
     static FuncParams FUNC_PARAMS_I[FUNC_PARAMS_I_SIZE];
-    static FuncParams FUNC_PARAMS_J[FUNC_PARAMS_J_SIZE];
+    // temporary solutions
+    static FuncParamsExtend FUNC_PARAMS_J[FUNC_PARAMS_J_SIZE];
     static FuncParamsExtend FUNC_PARAMS_E[FUNC_PARAMS_E_SIZE];
 
     static int8_t FUNC_PARAMS_TYPE_X[FUNC_PARAMS_X_SIZE];
@@ -102,6 +104,7 @@ class FuncManager {
     time_double_t last_time = 0;
     float last_pos = 0;
     double last_pos_e = 0;
+    double last_pos_j = 0;
     bool last_is_zero = false;
 
     // Consume
@@ -109,6 +112,7 @@ class FuncManager {
     time_double_t print_time = 0;
     float print_pos = 0;
     double print_pos_e = 0;
+    double print_pos_j = 0;
     int print_step = 0;
 
     FuncManager(){};
@@ -138,7 +142,7 @@ class FuncManager {
                 break;
             case 4:
                 size = FUNC_PARAMS_J_SIZE;
-                funcParams = FUNC_PARAMS_J;
+                funcParamsExtend = FUNC_PARAMS_J;
                 funcParamsTypes = FUNC_PARAMS_TYPE_J;
                 break;
              case 5:
@@ -157,12 +161,14 @@ class FuncManager {
         last_time = 0;
         last_pos = 0;
         last_pos_e = 0;
+        last_pos_j = 0;
         last_is_zero = false;
 
         left_time = 0;
         print_time = 0;
         print_pos = 0;
         print_pos_e = 0;
+        print_pos_j = 0;
         print_step = 0;
 
         average_index = 0;

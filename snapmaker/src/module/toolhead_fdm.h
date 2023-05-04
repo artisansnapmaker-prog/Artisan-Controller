@@ -60,7 +60,7 @@
 #define DUAL_EXTRUDER_STEPS_PER_UNIT_DEFAULT    667.222
 
 #define HOTEND_INVALID_INDEX                    0xFF
-#define EXTRUDER_NVALID_STATUS_STABLE_CNT       0xFFFFFFFF
+#define EXTRUDER_INVALID_STATUS_STABLE_CNT      0xFFFFFFFF
 #define EXTRUDER_STATUS_STABLE_CNT              10
 #define EXTRUDER_STATUS_CHECK_INTERVAL          50
 
@@ -68,6 +68,10 @@
 #define EXTRUDER_STATE_ERROR_EXCEED_NUMBER      2          // must be greater than 0
 #define EXTRUDER_STATE_ERROR_OVERTIME_CNT       30
 #define EXTRUDER_STATE_ERROR_CHECK_INIT_VALUE   0xFFFFFFFF
+
+#define FILAMENT_STABLE_CNT                     (10 + 1)
+#define FILAMENT_STATUS_CHECK_INTERVAL          50
+#define FILAMENT_INVALID_STATUS_STABLE_CNT      0xFFFFFFFF
 
 /****************************************************************************************
 reference links: https://snapmaker2.atlassian.net/wiki/spaces/SNAP/pages/1984987369/FDM
@@ -204,9 +208,13 @@ class ToolHeadFDM: public ModuleBase {
       last_recv_time = 0;
       is_fdm_online = true;
       filament_state = 0;
+      filament_real_state = 0;
+      filament_check_tick = 0;
+      filament0_sta_stable_cnt = FILAMENT_INVALID_STATUS_STABLE_CNT;
+      filament1_sta_stable_cnt = FILAMENT_INVALID_STATUS_STABLE_CNT;
       extruder_state = 0;
       extruder_check_tick = 0;
-      extruder_sta_stable_cnt = EXTRUDER_NVALID_STATUS_STABLE_CNT;
+      extruder_sta_stable_cnt = EXTRUDER_INVALID_STATUS_STABLE_CNT;
       backup_position_valid = false;
       extruder_sta_check_window_cnt = EXTRUDER_STATE_ERROR_CHECK_INIT_VALUE;
       extruder_sta_err_overtime_cnt = EXTRUDER_STATE_ERROR_CHECK_INIT_VALUE;
@@ -302,6 +310,7 @@ class ToolHeadFDM: public ModuleBase {
     uint8_t homing_active_extruder_record(void);
     void homing_active_extruder_clean(void);
     void nozzle_fan_ctrl_check(void);
+    void filament_state_check(void);
     void extruder_state_check(void);
     bool extruder_state_pre_process(void);
     bool get_tool_change_back_position(xyze_pos_t &position);
@@ -317,6 +326,9 @@ class ToolHeadFDM: public ModuleBase {
   // private properties
   private:
     uint32_t fdm_state;
+    uint32_t filament_check_tick;
+    uint32_t filament0_sta_stable_cnt;
+    uint32_t filament1_sta_stable_cnt;
     uint32_t extruder_check_tick;
     uint32_t extruder_sta_stable_cnt;
     uint32_t extruder_sta_err_exceed_cnt[EXTRUDER_STATE_ERROR_EXCEED_NUMBER];    // number of abnormal extruder status occurrences during the printing process
@@ -329,6 +341,7 @@ class ToolHeadFDM: public ModuleBase {
     uint8_t hotend_type[EXTRUDERS];
     hotend_temp_t hotend_temp[EXTRUDERS];
     uint8_t filament_state;
+    uint8_t filament_real_state;
     uint8_t active_extruder_bak;
     uint8_t current_extruder;
     uint8_t target_extruder;

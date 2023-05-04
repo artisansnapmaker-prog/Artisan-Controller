@@ -1200,16 +1200,17 @@ void ToolHeadFDM::set_probe_state(probe_sensor_t sensor, uint8_t state) {
 }
 
 void ToolHeadFDM::update_filament_state(uint8_t *data) {
+  static uint8_t filament_pre_state = 0;
   if (get_device_id() == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
     if (data[0])
-      filament_state |= 0x01;
+      filament_real_state |= 0x01;
     else
-      filament_state &= ~0x01;
+      filament_real_state &= ~0x01;
 
     if (data[1])
-      filament_state |= 0x02;
+      filament_real_state |= 0x02;
     else
-      filament_state &= ~0x02;
+      filament_real_state &= ~0x02;
 
     // if (filament_detect_state[0]) {
     //   filament_state &= ~0x01;
@@ -1220,14 +1221,19 @@ void ToolHeadFDM::update_filament_state(uint8_t *data) {
     // }
   } else if (get_device_id() == MODULE_DEVICE_ID_FDM_1EXTRUDER_2019) {
     if (!data[0])
-      filament_state |= 0x01;
+      filament_real_state |= 0x01;
     else
-      filament_state &= ~0x01;
+      filament_real_state &= ~0x01;
 
     // if (filament_detect_state[0]) {
     //   filament_state &= ~0x01;
     // }
   }
+
+  if (filament_pre_state != filament_real_state) {
+    LOG_I("filament_state: 0x%x -> 0x%x\n", filament_pre_state, filament_real_state);
+  }
+  filament_pre_state = filament_real_state;
 }
 
 void ToolHeadFDM::report_pid(uint8_t *data) {
@@ -2062,6 +2068,7 @@ err_code_t fdm_callback_routine(void *obj) {
   } else {
     // only detect the extruder status when the module is online
     fdm.extruder_state_check();
+    fdm.filament_state_check();
     if (fdm.is_fdm_online == false) {
       LOG_E("fdm resume online\n");
       fdm.is_fdm_online = true;
@@ -2705,7 +2712,7 @@ void ToolHeadFDM::extruder_state_check(void) {
 
       // no change in extruder status
       if (((fdm_state >> FDM_FAULT_EXTRUDER_STATE) & 0x01) == (!!extruder_state)) {
-        extruder_sta_stable_cnt = EXTRUDER_NVALID_STATUS_STABLE_CNT;
+        extruder_sta_stable_cnt = EXTRUDER_INVALID_STATUS_STABLE_CNT;
 
         // abnormal state continuous trigger
         if (enable_check && extruder_state) {
@@ -2725,7 +2732,7 @@ void ToolHeadFDM::extruder_state_check(void) {
       }
       else {
         // update the anti-shake value if the state is not the same as the current state
-        if (extruder_sta_stable_cnt == EXTRUDER_NVALID_STATUS_STABLE_CNT || extruder_sta_stable_cnt == 0)
+        if (extruder_sta_stable_cnt == EXTRUDER_INVALID_STATUS_STABLE_CNT || extruder_sta_stable_cnt == 0)
           extruder_sta_stable_cnt = EXTRUDER_STATUS_STABLE_CNT;
 
         if (enable_check) {
@@ -2738,13 +2745,13 @@ void ToolHeadFDM::extruder_state_check(void) {
         }
       }
 
-      if (extruder_sta_stable_cnt != EXTRUDER_NVALID_STATUS_STABLE_CNT && extruder_sta_stable_cnt > 0) {
+      if (extruder_sta_stable_cnt != EXTRUDER_INVALID_STATUS_STABLE_CNT && extruder_sta_stable_cnt > 0) {
         _NOMORE(extruder_sta_stable_cnt, EXTRUDER_STATUS_STABLE_CNT);
         extruder_sta_stable_cnt -= 1;
 
         // no change in status within the specified time
         if (extruder_sta_stable_cnt == 0 || !extruder_state) {
-          extruder_sta_stable_cnt = EXTRUDER_NVALID_STATUS_STABLE_CNT;
+          extruder_sta_stable_cnt = EXTRUDER_INVALID_STATUS_STABLE_CNT;
           if (extruder_state) {
             if (((fdm_state >> FDM_FAULT_EXTRUDER_STATE) & 0x01) == 0) {
               if (enable_check && smprinter.on_printing()) {
@@ -2812,4 +2819,53 @@ void ToolHeadFDM::extruder_state_check(void) {
 bool ToolHeadFDM::get_tool_change_back_position(xyze_pos_t &position) {
   position = backup_current_position;
   return backup_position_valid;
+}
+
+void ToolHeadFDM::filament_state_check(void) {
+  if (ELAPSED(xTaskGetTickCount(), filament_check_tick + FILAMENT_STATUS_CHECK_INTERVAL)) {
+    if ((filament_state & 0x01) != (filament_real_state & 0x01)) {
+      if (filament0_sta_stable_cnt == FILAMENT_INVALID_STATUS_STABLE_CNT || filament0_sta_stable_cnt == 0)
+        filament0_sta_stable_cnt = EXTRUDER_STATUS_STABLE_CNT;
+
+      if (filament0_sta_stable_cnt != FILAMENT_INVALID_STATUS_STABLE_CNT && filament0_sta_stable_cnt > 0) {
+        _NOMORE(filament0_sta_stable_cnt, FILAMENT_STABLE_CNT);
+        filament0_sta_stable_cnt -= 1;
+        if (filament0_sta_stable_cnt == 0 || !(filament_real_state & 0x01)) {
+          uint8_t filament_state_tmp = filament_state;
+          filament_state_tmp &= (~0x1);
+          filament_state_tmp |= (filament_real_state & 0x01);
+          filament_state = filament_state_tmp;
+          filament0_sta_stable_cnt = FILAMENT_INVALID_STATUS_STABLE_CNT;
+          LOG_I("filament0 sta: %s -> %s\n", !!!(filament_real_state & 0x01) ? "TRIGGERED" : "open", !!(filament_real_state & 0x01) ? "TRIGGERED" : "open");
+        }
+      }
+    }
+    else {
+      filament0_sta_stable_cnt = FILAMENT_INVALID_STATUS_STABLE_CNT;
+    }
+
+    if (get_device_id() == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
+      if ((filament_state & 0x02) != (filament_real_state & 0x02))  {
+        if (filament1_sta_stable_cnt == FILAMENT_INVALID_STATUS_STABLE_CNT || filament1_sta_stable_cnt == 0)
+          filament1_sta_stable_cnt = EXTRUDER_STATUS_STABLE_CNT;
+
+        if (filament1_sta_stable_cnt != FILAMENT_INVALID_STATUS_STABLE_CNT && filament1_sta_stable_cnt > 0) {
+          _NOMORE(filament1_sta_stable_cnt, FILAMENT_STABLE_CNT);
+          filament1_sta_stable_cnt -= 1;
+          if (filament1_sta_stable_cnt == 0 || !(filament_real_state & 0x02)) {
+            uint8_t filament_state_tmp = filament_state;
+            filament_state_tmp &= (~0x2);
+            filament_state_tmp |= (filament_real_state & 0x02);
+            filament_state = filament_state_tmp;
+            filament1_sta_stable_cnt = FILAMENT_INVALID_STATUS_STABLE_CNT;
+            LOG_I("filament1 sta: %s -> %s\n", !!!(filament_real_state & 0x02) ? "TRIGGERED" : "open", !!(filament_real_state & 0x02) ? "TRIGGERED" : "open");
+          }
+        }
+      }
+      else {
+        filament1_sta_stable_cnt = FILAMENT_INVALID_STATUS_STABLE_CNT;
+      }
+    }
+    filament_check_tick = xTaskGetTickCount();
+  }
 }

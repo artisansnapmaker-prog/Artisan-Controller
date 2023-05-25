@@ -982,7 +982,8 @@ void ToolHeadLaser::set_power_limit(float limit) {
   // recover power_current
   power_current = tmp_power;
 
-  if (tube_status == LASER_TUBE_STA_ON)
+  // if (tube_status == LASER_TUBE_STA_ON)
+  if (power_current > 0)
     turn_on();
 }
 

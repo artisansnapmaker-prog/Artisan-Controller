@@ -32,6 +32,8 @@ static err_code_t hmi_req_callback_set_fan_speed(void *obj, sacp_hmi_message_t *
 static err_code_t hmi_req_callback_set_hotend_offset(void *obj, sacp_hmi_message_t *msg);
 static err_code_t hmi_req_callback_get_hotend_offset(void *obj, sacp_hmi_message_t *msg);
 static err_code_t hmi_req_callback_extruder_motion(void *obj, sacp_hmi_message_t *msg);
+static err_code_t hmi_req_callback_get_extruder_map_type(void *obj, sacp_hmi_message_t *msg);
+static err_code_t hmi_req_callback_set_extruder_map_type(void *obj, sacp_hmi_message_t *msg);
 
 // every module must define itself function and priority map !!!!
 // then set it to ModuleBase with set_func_prio_map() in pre_init()
@@ -89,6 +91,8 @@ bool enable_extruder_check = true;                /* turn on or off extruder det
 static uint8_t job_mask = 0xFF;
 static uint8_t extruder_state_check_maker = 0;
 static bool runout_enable_changed = false;
+
+extern bool job_printing_flag;
 
 err_code_t fdm_callback_routine(void *obj);
 void fdm_callback_start_print(void *, uint8_t status_before_start);
@@ -251,6 +255,8 @@ err_code_t ToolHeadFDM::dual_extruder_post_init() {
   host_hmi.register_callback(SACP_CMD_SET_FDM, FDM_REQ_CMD_ID_SET_HOTEND_OFFSET, this, hmi_req_callback_set_hotend_offset);
   host_hmi.register_callback(SACP_CMD_SET_FDM, FDM_REQ_CMD_ID_GET_HOTEND_OFFSET, this, hmi_req_callback_get_hotend_offset);
   host_hmi.register_callback(SACP_CMD_SET_FDM, FDM_REQ_CMD_ID_EXTRUDER_MOTION, this, hmi_req_callback_extruder_motion, SACP_CB_ATTR_BLOCKED_WITH_MOTION);
+  host_hmi.register_callback(SACP_CMD_SET_FDM, FDM_REQ_CMD_ID_GET_EXTRUDER_MAP_TYPE, this, hmi_req_callback_get_extruder_map_type);
+  host_hmi.register_callback(SACP_CMD_SET_FDM, FDM_REQ_CMD_ID_SET_EXTRUDER_MAP_TYPE, this, hmi_req_callback_set_extruder_map_type);
 
   // register some callback for info report
   uint16_t msg_id;
@@ -892,6 +898,47 @@ static err_code_t hmi_req_callback_extruder_motion(void *obj, sacp_hmi_message_t
   msg->attr          = 0;
   host_hmi.send_sync(msg, recv_buffer, &recv_len, 2000, 3);
   return E_SUCCESS;
+}
+
+static err_code_t hmi_req_callback_get_extruder_map_type(void *obj, sacp_hmi_message_t *msg) {
+  ToolHeadFDM &fdm = *(ToolHeadFDM *)obj;
+  if (!msg || !obj) {
+    LOG_E("[%s] got a invalid parameter\n",__FUNCTION__);
+    return host_hmi.send_ack(msg, E_PARAM);
+  }
+
+  if (msg->data[0] != fdm.get_key()) {
+    LOG_E("[%s] msg key is %d, obj key is %d, No processing\n",\
+      __FUNCTION__, msg->data[0], fdm.get_key());
+    return host_hmi.send_ack(msg, E_INVALID_MODULE_KEY);
+  }
+
+  LOG_I("hmi get extruder map type\n");
+
+  msg->data[0] = E_SUCCESS;
+  msg->data[1] = (uint8_t)fdm.get_extruder_map_type();
+
+  msg->length = 2;
+  return host_hmi.send_ack(msg);
+}
+
+static err_code_t hmi_req_callback_set_extruder_map_type(void *obj, sacp_hmi_message_t *msg) {
+  ToolHeadFDM &fdm = *(ToolHeadFDM *)obj;
+  err_code_t result = E_FAILURE;
+  if (!msg || !obj || msg->length < 2) {
+    LOG_E("[%s] got a invalid parameter\n",__FUNCTION__);
+    return host_hmi.send_ack(msg, E_PARAM);
+  }
+
+  if (msg->data[0] != fdm.get_key()) {
+    LOG_E("[%s] msg key is %d, obj key is %d, No processing\n",\
+      __FUNCTION__, msg->data[0], fdm.get_key());
+    return host_hmi.send_ack(msg, E_INVALID_MODULE_KEY);
+  }
+
+  LOG_I("hmi set extruder map type: %d\n", msg->data[1]);
+  result = fdm.set_extruder_map_type((extruder_print_map_type)msg->data[1]);
+  return host_hmi.send_ack(msg, result);
 }
 
 static void fdm_callback_probe_state(void *obj, uint8_t *data, uint8_t length) {
@@ -2113,7 +2160,7 @@ err_code_t ToolHeadFDM::save_env(uint8_t *env_buf, uint32_t &len) {
   recovery_data.target_temp[0] = hotend_temp[0].target;
   recovery_data.target_temp[1] = hotend_temp[1].target;
   // LOG_I("save env, target_temp: %f, %f\n", recovery_data.target_temp[0], recovery_data.target_temp[1]);
-
+  recovery_data.extruder_map_type = extruder_map_type;
   len = sizeof(fdm_recovery_data_t);
   memcpy(env_buf, (uint8_t *)&recovery_data, len);
 
@@ -2148,6 +2195,8 @@ err_code_t ToolHeadFDM::recover_env(uint8_t *env_buf, uint32_t &len) {
     motion_platform_svc.set_hotend_temp(recovery_data.target_temp[0], 0);
     motion_platform_svc.set_hotend_temp(recovery_data.target_temp[1], 1);
   }
+
+  extruder_map_type = recovery_data.extruder_map_type;
 
   bedlevel_svc.live_z_offset[0] = recovery_data.live_z_offset[0];
   bedlevel_svc.live_z_offset[1] = recovery_data.live_z_offset[1];
@@ -2568,6 +2617,9 @@ void ToolHeadFDM::start_work_reset_feedrate() {
 
 void ToolHeadFDM::stop_work_reset_feedrate() {
   prepare_to_start_a_new_print_job();
+
+  // clear mapping mode
+  extruder_map_type = NORMAL_MODE;
 }
 
 uint8_t ToolHeadFDM::homing_active_extruder_record(void) {
@@ -2868,4 +2920,87 @@ void ToolHeadFDM::filament_state_check(void) {
     }
     filament_check_tick = xTaskGetTickCount();
   }
+}
+
+int8_t ToolHeadFDM::extruder_map_convert(int8_t extruder_index) {
+  int8_t tmp_extruder = extruder_index;
+  // currently only the current dual extrusion module is supported to do the corresponding mapping
+  if (get_device_id() == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
+    if (smprinter.on_working() || job_printing_flag) {
+
+#if 0
+      switch (extruder_map_type)
+      {
+        case NORMAL_MODE:
+          break;
+
+        case SWAP_MODE:
+          if (extruder_index == 0)
+            tmp_extruder = 1;
+          else if (extruder_index == 1)
+            tmp_extruder = 0;
+          break;
+
+        case LEFT_NOZZLE_MODE:
+          if (extruder_index == 1)
+            tmp_extruder = 0;
+          break;
+
+        case RIGHT_NOZZLE:
+          if (extruder_index == 0)
+            tmp_extruder = 1;
+          break;
+
+        default:
+          break;
+      }
+#endif
+
+      if (extruder_map_type == SWAP_MODE) {
+        if (extruder_index == 0)
+          tmp_extruder = 1;
+        else if (extruder_index == 1)
+          tmp_extruder = 0;
+
+        LOG_I("extruder map convert T%d -> T%d\n", extruder_index, tmp_extruder);
+      }
+
+    }
+  }
+  return tmp_extruder;
+}
+
+err_code_t ToolHeadFDM::set_extruder_map_type(extruder_print_map_type map_type) {
+  err_code_t ret = E_SUCCESS;
+  extruder_print_map_type tmp_map_type = extruder_map_type;
+  if (get_device_id() == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
+    // currently only allows nozzle mapping to be enabled when the system is idle
+    if (smprinter.get_sys_status() != SYSTEM_STATUS_IDLE) {
+      ret = E_INVALID_STATE;
+      LOG_E("currently only allows nozzle mapping to be enabled when the system is idle, cur sys_sta: %d\n", \
+              smprinter.get_sys_status());
+      goto END;
+    }
+
+    // if (map_type >= NORMAL_MODE && map_type <= RIGHT_NOZZLE)
+    if (map_type >= NORMAL_MODE && map_type <= SWAP_MODE) {
+      extruder_map_type = map_type;
+    }
+    else {
+      ret = E_PARAM;
+      LOG_E("invalid extruder map type!!!\n");
+    }
+  }
+  else {
+    ret = E_FAILURE;
+  }
+
+END:
+  LOG_I("set extruder map type %d -> %d %s, ret: %d\n", tmp_map_type, map_type, ret ? "fail": "success", ret);
+
+  return ret;
+}
+
+extruder_print_map_type ToolHeadFDM::get_extruder_map_type(void) {
+  return extruder_map_type;
 }

@@ -1336,7 +1336,7 @@ void JobCtrl::do_stop(struct JobCtrlReqInfo &jri) {
 
 exit_do_stop:
   req_stop_trigger = false;
-  LOG_I("job_ctrl line: %d req_stop_trigger set: %d\n", __LINE__, req_stop_trigger);
+  LOG_I("job_ctrl line: %d req_stop_trigger set: %d, job_print_seconds: %us\n", __LINE__, req_stop_trigger, job_print_seconds);
   motion_platform_svc.show_inputshaper_debug_info();
   motion_platform_svc.reset_inputshaper_debug_info();
 }

@@ -531,7 +531,8 @@ err_code_t ClientNode::req_start_job(ClientNode *client, sacp_hmi_message_t *msg
   uint8_t recv_buff[4];
   uint16_t recv_len = 4;
 
-  LOG_I("client_node: client %d request start a job at sta %u\r\n", client->id, smprinter.get_sys_status());
+  LOG_I("client_node: client %d  peer: %d request start a job at sta %u ext map type: %d\r\n", \
+          client->id, client->peer, smprinter.get_sys_status(), smprinter.get_extruder_map_type());
 
   p = msg->data;
   // check MD5

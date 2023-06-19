@@ -80,7 +80,14 @@ void GcodeSuite::M104_M109(const bool isM109) {
   #if ENABLED(MIXING_EXTRUDER) && MIXING_VIRTUAL_TOOLS > 1
     constexpr int8_t target_extruder = 0;
   #else
-    const int8_t target_extruder = get_target_extruder_from_command();
+    #if MB_SNAPMAKER
+      const int8_t tmp_extruder = get_target_extruder_from_command();
+      int8_t target_extruder = tmp_extruder;
+      if (parser.seenval('T'))
+        target_extruder = smprinter.extruder_map_convert(tmp_extruder);
+    #else
+      const int8_t target_extruder = get_target_extruder_from_command();
+    #endif
     if (target_extruder < 0) return;
   #endif
 

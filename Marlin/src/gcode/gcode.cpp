@@ -1124,11 +1124,11 @@ void GcodeSuite::process_parsed_command(const bool no_ok/*=false*/) {
 
     case 'T':
       #if MB_SNAPMAKER
-      motion_platform_svc.tool_changing = true;
-      #endif
-      T(parser.codenum);
-      #if MB_SNAPMAKER
-      motion_platform_svc.tool_changing = false;
+        motion_platform_svc.tool_changing = true;
+        T(smprinter.extruder_map_convert(parser.codenum));
+        motion_platform_svc.tool_changing = false;
+      #else
+        T(parser.codenum);
       #endif
     break;                           // Tn: Tool Change
 

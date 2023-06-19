@@ -408,6 +408,8 @@ class SnapmakerPrinter
     void homing_active_extruder_clean(void);
     uint8_t get_extruders_count(void);
     uint8_t homing_active_extruder_record(void);
+    int8_t extruder_map_convert(int8_t extruder_index);
+    extruder_print_map_type get_extruder_map_type(void);
     void set_probe_sensor(probe_sensor_t sensor) {
       if (fdm) {
         fdm->set_probe_sensor(sensor);

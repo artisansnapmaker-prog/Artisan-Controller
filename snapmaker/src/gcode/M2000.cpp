@@ -735,6 +735,20 @@ void GcodeSuite::M2000() {
         }
         break;
 
+      case 21:
+        {
+          ToolHeadFDM *fdm = NULL;
+          fdm = (ToolHeadFDM *)module_svc.get_module(MODULE_DEVICE_ID_FDM_2EXTRUDER_2021, 0);
+          if (fdm) {
+            if (parser.seenval('P')) {
+              p = parser.byteval('P', 0);
+              fdm->set_extruder_map_type((extruder_print_map_type)p);
+            }
+            LOG_I("cur extruder map type %d\n", fdm->get_extruder_map_type());
+          }
+        }
+        break;
+
       case 100:
         {
           ToolHeadFDM *fdm = NULL;

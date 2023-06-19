@@ -86,8 +86,10 @@ typedef enum {
   FDM_REQ_CMD_ID_GET_HOTEND_OFFSET     = 8,
   FDM_REQ_CMD_ID_EXTRUDER_MOTION       = 9,
   FDM_REQ_CMD_ID_CHANGE_NOZZLE_CTRL    = 10,
+  FDM_REQ_CMD_ID_GET_EXTRUDER_MAP_TYPE = 0xd,
+  FDM_REQ_CMD_ID_SET_EXTRUDER_MAP_TYPE = 0xe,
 
-  FDM_REQ_CMD_ID_SUM                   = 9,      // Adding or deleting IDs requires changing this value
+  FDM_REQ_CMD_ID_SUM                   = 11,      // Adding or deleting IDs requires changing this value
 
 
   FDM_REQ_CMD_ID_SWITCH_EXTRUDER_RESULT = 0x0b,
@@ -162,6 +164,13 @@ typedef enum {
   EXTRUDER_WORK_STATE_UNAVAILABLE,
 }extruder_work_state_e;
 
+typedef enum {
+  NORMAL_MODE,
+  SWAP_MODE,
+  // LEFT_NOZZLE_MODE,
+  // RIGHT_NOZZLE,
+}extruder_print_map_type;
+
 typedef struct {
   uint8_t active_extruder;
   int16_t feedrate_percentage[EXTRUDERS];
@@ -170,6 +179,7 @@ typedef struct {
   float live_z_offset_changed;
   uint8_t fan_speed[3];
   int16_t target_temp[EXTRUDERS];
+  extruder_print_map_type extruder_map_type;
 } __attribute__((packed)) fdm_recovery_data_t;
 
 typedef enum {
@@ -221,6 +231,7 @@ class ToolHeadFDM: public ModuleBase {
       for (int i = 0; i < EXTRUDER_STATE_ERROR_EXCEED_NUMBER; i++) {
         extruder_sta_err_exceed_cnt[i] = EXTRUDER_STATE_ERROR_CHECK_INIT_VALUE;
       }
+      extruder_map_type = NORMAL_MODE;
     }
 
     bool check_online();
@@ -314,6 +325,9 @@ class ToolHeadFDM: public ModuleBase {
     void extruder_state_check(void);
     bool extruder_state_pre_process(void);
     bool get_tool_change_back_position(xyze_pos_t &position);
+    int8_t extruder_map_convert(int8_t extruder_index);
+    err_code_t set_extruder_map_type(extruder_print_map_type map_type);
+    extruder_print_map_type get_extruder_map_type(void);
   // private methods
   private:
 
@@ -361,6 +375,7 @@ class ToolHeadFDM: public ModuleBase {
     float dual_extruder_steps_per_unit[EXTRUDERS];
     bool backup_position_valid;
     xyze_pos_t backup_current_position;
+    extruder_print_map_type extruder_map_type;
 };
 
 #endif  // #ifndef SNAPMAKER_TOOLHEAD_FDM_H_

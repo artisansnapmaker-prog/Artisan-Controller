@@ -1911,6 +1911,20 @@ bool SnapmakerPrinter::get_backup_current_position(xyze_pos_t &position) {
     return false;
 }
 
+int8_t SnapmakerPrinter::extruder_map_convert(int8_t extruder_index) {
+ if (fdm && fdm->get_device_id() == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021)
+    return fdm->extruder_map_convert(extruder_index);
+  else
+    return extruder_index;
+}
+
+extruder_print_map_type SnapmakerPrinter::get_extruder_map_type(void) {
+ if (fdm && fdm->get_device_id() == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021)
+    return fdm->get_extruder_map_type();
+  else
+    return NORMAL_MODE;
+}
+
 extern "C" {
   // hook for failing to apply memory in freeRTOS
   void vApplicationMallocFailedHook( void ) {

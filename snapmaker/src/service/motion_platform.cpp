@@ -639,6 +639,8 @@ void MotionPlatformService::init() {
   configASSERT(quickstop_binary_sem);
   homing_now = false;
   tool_changing = false;
+  is_running_m600 = false;
+  gcode_m600_line = 0xFFFFFFFF;
 
   host_hmi.register_subscription(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_SUB_COORDINATE,
             (void *)this, hmi_cb_publish_coordinate_info);
@@ -1685,7 +1687,7 @@ void MotionPlatformService::run_motion_request(motion_request_t *mq) {
       break;
 
     parser.parse((char *)mq->gcode);
-    gcode.process_parsed_command();
+    gcode.process_parsed_command(true, true);
     mq->current_state = MQ_STATE_PLANNED;
     if (mq->blocked) {
       planner.synchronize();

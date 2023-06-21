@@ -172,4 +172,29 @@ void GcodeSuite::M600() {
   TERN_(MIXING_EXTRUDER, mixer.T(old_mixing_tool)); // Restore original mixing tool
 }
 
+#else
+
+#if MB_SNAPMAKER
+
+#include "../../gcode.h"
+#include "../../../module/motion.h"
+#include "../../../../../snapmaker/src/service/job_ctrl.h"
+
+// currently only normal request pauses are supported
+void GcodeSuite::M600(bool is_internal_gocde) {
+  if (is_internal_gocde || queue.file_mark_number() == 0) {
+    LOG_I("ch: %s, M600 req do pause\n", is_internal_gocde ? "sacp" : "serial");
+    motion_platform_svc.gcode_m600_line = 0xFFFFFFFF;
+    smprinter.pause_trigger(PUASE_WITH_SERIAL_OR_SACP_M600);
+  }
+  else {
+    planner.synchronize();
+    LOG_I("ch: gcode file, M600 req do pause, line: %u\n", queue.file_line_number());
+    motion_platform_svc.gcode_m600_line = queue.file_line_number();
+    smprinter.pause_trigger(PUASE_WITH_GCODE_M600);
+  }
+}
+
+#endif
+
 #endif // ADVANCED_PAUSE_FEATURE

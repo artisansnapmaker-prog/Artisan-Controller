@@ -413,7 +413,7 @@ public:
   static int8_t get_target_e_stepper_from_command(const int8_t dval=-1);
   static void get_destination_from_command();
 
-  static void process_parsed_command(const bool no_ok=false);
+  static void process_parsed_command(const bool no_ok=false, bool is_internal_gocde=false);
   static void process_next_command();
 
   // Execute G-code in-place, preserving current G-code parameters
@@ -1066,6 +1066,10 @@ private:
     static void M600();
     static void M603();
     static void M603_report(const bool forReplay=true);
+  #else
+    #if MB_SNAPMAKER
+      static void M600(bool is_internal_gocde);
+    #endif
   #endif
 
   #if HAS_DUPLICATION_MODE

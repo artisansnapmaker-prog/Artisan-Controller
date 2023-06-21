@@ -335,7 +335,7 @@ void GcodeSuite::dwell(millis_t time) {
 /**
  * Process the parsed command and dispatch it to its handler
  */
-void GcodeSuite::process_parsed_command(const bool no_ok/*=false*/) {
+void GcodeSuite::process_parsed_command(const bool no_ok/*=false*/, bool is_internal_gocde/*=false*/) {
   TERN_(HAS_FANCHECK, fan_check.check_deferred_error());
 
   KEEPALIVE_STATE(IN_HANDLER);
@@ -945,6 +945,14 @@ void GcodeSuite::process_parsed_command(const bool no_ok/*=false*/) {
       #if ENABLED(ADVANCED_PAUSE_FEATURE)
         case 600: M600(); break;                                  // M600: Pause for Filament Change
         case 603: M603(); break;                                  // M603: Configure Filament Change
+      #else
+        #if MB_SNAPMAKER
+          case 600:
+            motion_platform_svc.is_running_m600 = true;
+            M600(is_internal_gocde);
+            motion_platform_svc.is_running_m600 = false;
+          break;
+        #endif
       #endif
 
       #if HAS_DUPLICATION_MODE

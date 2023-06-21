@@ -128,6 +128,8 @@ class MotionPlatformService {
   public:
     bool homing_now;
     bool tool_changing;
+    bool is_running_m600;
+    uint32_t gcode_m600_line;
 
     MotionPlatformService() {}
     void init();

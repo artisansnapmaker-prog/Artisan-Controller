@@ -1095,8 +1095,8 @@ void HostSACPHMI::handle_receive() {
 
     if (parser_buff[SACP_V1_FRAME_INDEX_VER] == SACP_VER_1) {
       if (parser_buff[SACP_V1_FRAME_INDEX_RECV_ID] != host_id) {
-        LOG_E("recv id of msg[%x, %x] isn't me!\n", parser_buff[SACP_V1_FRAME_INDEX_CMD_SET],
-            parser_buff[SACP_V1_FRAME_INDEX_CMD_ID]);
+        LOG_E("recv id of msg[%x, %x] isn't me!, %d, %d\n", parser_buff[SACP_V1_FRAME_INDEX_CMD_SET],
+            parser_buff[SACP_V1_FRAME_INDEX_CMD_ID], parser_buff[SACP_V1_FRAME_INDEX_RECV_ID], host_id);
 
         // forward message
         forward_message(parser_buff[SACP_V1_FRAME_INDEX_RECV_ID], parser_buff, buffer_len);

@@ -248,7 +248,7 @@ err_code_t JobCtrl::req_pause( enum JobPauseType pt,
         SYSTEM_STATUS_XY_CALIBRATING_PRINTING != smprinter.get_sys_status() &&
         SYSTEM_STATUS_LASER_CALIBRATION_PRINTING != smprinter.get_sys_status() &&
         SYSTEM_STATUS_RESUMING != smprinter.get_sys_status()) {
-    LOG_E("job client: can not pause a job as current status is no printing\r\n");
+    LOG_E("job client: can not pause a job as current status is no printing, sys_sta: %d\r\n", smprinter.get_sys_status());
     return E_JOB_NOT_IN_WORKING_STATUS;
   }
 
@@ -939,7 +939,8 @@ void JobCtrl::do_start(struct JobCtrlReqInfo &jri) {
   }
   else {
     // stop the current movement of the machine and prepare to start printing
-    LOG_I("job ctrl: stop the current movement of the machine and prepare to start printing\r\n");
+    LOG_I("job ctrl: stop the current movement of the machine and prepare to start printing, ext map type: %d\r\n", \
+            smprinter.get_extruder_map_type());
     motion_platform_svc.req_quickstop(TEMP_TIMER_FREQUENCY/10);
   }
 
@@ -971,6 +972,7 @@ void JobCtrl::do_pause(struct JobCtrlReqInfo &jri) {
   uint32_t start_millis, end_millis;
   bool need_standby = false;
   err_code_t ret = E_FAILURE;
+  uint32_t sum_cnt = 0;
 
   ret_sys_status = smprinter.get_sys_status();
   if (  SYSTEM_STATUS_PRINTING != ret_sys_status &&
@@ -1004,6 +1006,14 @@ void JobCtrl::do_pause(struct JobCtrlReqInfo &jri) {
     LOG_I("job ctrl: req_pause, wait machine homing finish\r\n");
   }
 
+  while (motion_platform_svc.is_running_m600 == true && !req_stop_trigger) {
+    vTaskDelay(1);
+    if (++sum_cnt >= 1000) {
+      sum_cnt = 0;
+      LOG_I("job ctrl: M600 req_pause, wait machine moving finish\r\n");
+    }
+  }
+
   if (req_stop_trigger) {
     // No need to resume printing
     LOG_I("job ctrl: stop notify trigger abort_pasue, no need to resume printing\r\n");
@@ -1023,6 +1033,8 @@ void JobCtrl::do_pause(struct JobCtrlReqInfo &jri) {
     case PAUSE_WRONG_EXTRUDER:
     case PAUSE_WRONG_NOZZLE:
     case PAUSE_NOZZLE_TEMP:
+    case PUASE_WITH_GCODE_M600:
+    case PUASE_WITH_SERIAL_OR_SACP_M600:
       motion_platform_svc.req_quickstop();
       need_standby = true;
     break;
@@ -1043,6 +1055,18 @@ void JobCtrl::do_pause(struct JobCtrlReqInfo &jri) {
 
   // only some information needs to be updated
   ret = save_env(false, false);
+  LOG_I("_env.cur_line_num: %u, gcode_m600_line: %u\n", _env.cur_line_num, motion_platform_svc.gcode_m600_line);
+  if (PUASE_WITH_GCODE_M600 == jri.req_data.req_pause_data.type && motion_platform_svc.gcode_m600_line != 0xFFFFFFFF) {
+    if (motion_platform_svc.gcode_m600_line >= _env.cur_line_num ) {
+      LOG_I("M600 update the line number of a record, %u -> %u\n", _env.cur_line_num, motion_platform_svc.gcode_m600_line + 1);
+      // the position information of the relative mode should be set to invalid
+      _env.position_invalid = true;
+      _env.cur_line_num = motion_platform_svc.gcode_m600_line + 1;
+    }
+  }
+
+  motion_platform_svc.gcode_m600_line = 0xFFFFFFFF;
+
   if (E_SUCCESS != ret) {
     LOG_I("job_ctrl:failed to save env, ret=%u\r\n", ret);
     smprinter.set_sys_status(SYSTEM_STATUS_IDLE, &ret_sys_status);
@@ -1092,6 +1116,9 @@ abort_pasue:
       _issue_ret_rb.insert_one(SACP_JOB_PAUSE_ISSUE_RET_STALL_PROTECTION);
   } else if (PAUSE_FILM_RUNOUT == jri.req_data.req_pause_data.type) {
     _issue_ret_rb.insert_one(SACP_JOB_PAUSE_ISSUE_RET_FILAMENT_RUNOUT);
+  } else if (PUASE_WITH_GCODE_M600 == jri.req_data.req_pause_data.type || \
+             PUASE_WITH_SERIAL_OR_SACP_M600  == jri.req_data.req_pause_data.type) {
+    _issue_ret_rb.insert_one(SACP_JOB_PAUSE_ISSUE_RET_GCODE_PAUSE);
   }
   DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, E_SUCCESS);
 

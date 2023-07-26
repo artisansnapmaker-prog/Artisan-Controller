@@ -2536,7 +2536,7 @@ uint32_t Stepper::block_phase_isr() {
           block_move_target_steps[i] = LROUND(end_move.end_pos[i]);
       }
       block_move_target_steps[E_AXIS] = (int)(end_move.end_pos_e + 0.5);
-      block_move_target_steps[J_AXIS] = (int)(end_move.end_pos_j + 0.5);
+      block_move_target_steps[J_AXIS] = (int)(end_move.end_pos_j + (end_move.end_pos_j >= 0 ? 0.5 : -0.5));
 
       // // Based on the oversampling factor, do the calculations
       // step_event_count = current_block->steps.e;

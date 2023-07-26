@@ -118,7 +118,7 @@ void MoveQueue::calculateMoves(block_t* block) {
         }
 
         p1 = end_move.end_pos_j;
-        end_move.end_pos_j = (int64_t)(end_move.end_pos_j + 0.5);
+        end_move.end_pos_j = (int64_t)(end_move.end_pos_j + (end_move.end_pos_j >= 0 ? 0.5 : -0.5));
         if (ABS(p1 - end_move.end_pos_j) > 1) {
             LOG_I("error B LROUND: %lf, %lf\n", p1, end_move.end_pos_j);
         }

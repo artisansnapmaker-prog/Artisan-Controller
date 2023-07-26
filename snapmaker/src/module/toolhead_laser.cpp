@@ -946,6 +946,7 @@ err_code_t ToolHeadLaser::set_output(float power) {
 void ToolHeadLaser::update_power(float new_power) {
   int   integer;
   float decimal;
+  float tmp_power;
 
   if (get_status() != MODULE_STATUS_NORMAL)
     return;
@@ -953,13 +954,13 @@ void ToolHeadLaser::update_power(float new_power) {
   if (new_power > LASER_POWER_MAX)
     new_power = LASER_POWER_MAX;
 
-  power_current = new_power;
+  power_current = tmp_power = new_power;
 
-  if (power_current > power_limit)
-    power_current = power_limit;
+  if (tmp_power > power_limit)
+    tmp_power = power_limit;
 
-  integer = (int)power_current;
-  decimal = power_current - integer;
+  integer = (int)tmp_power;
+  decimal = tmp_power - integer;
 
   power_pwm = (uint16_t)(power_table[integer] + (power_table[integer + 1] - power_table[integer]) * decimal);
 }

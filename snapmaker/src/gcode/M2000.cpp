@@ -43,6 +43,11 @@ void GcodeSuite::M2000() {
   // common info
   __unused uint32_t p = (uint32_t)parser.ulongval('P', (uint32_t)0);
   __unused int32_t q = (int32_t)parser.longval('Q', (int32_t)0);
+
+  // common info for float
+  __unused float g = parser.floatval('G', .0);
+  __unused float h = parser.floatval('H', .0);
+
   // coordinates
   __unused float x = (float)parser.floatval('X', (float)0);
   __unused float y = (float)parser.floatval('Y', (float)0);
@@ -272,8 +277,14 @@ void GcodeSuite::M2000() {
     ModuleBase *device = NULL;
     sacp_hmi_message_t laser_msg;
     uint8_t buffer[32];
+    laser = (ToolHeadLaser *)module_svc.get_module(MODULE_DEVICE_ID_LASER_10W_2021, 0);
+    if (!laser) laser = (ToolHeadLaser *)module_svc.get_module(MODULE_DEVICE_ID_LASER_20W_2023, 0);
+    if (!laser) laser = (ToolHeadLaser *)module_svc.get_module(MODULE_DEVICE_ID_LASER_40W_2023, 0);
+    if (!laser) {
+      LOG_E("No laser module found!\n");
+      return;
+    }
     if (l < 0xff) {
-      laser = (ToolHeadLaser *)module_svc.get_module(MODULE_DEVICE_ID_LASER_10W_2021, 0);
       laser_msg.ch = SACP_HMI_CH_SCREEN;
       laser_msg.attr = 0;
       laser_msg.cmd_set = SACP_CMD_SET_LASER;
@@ -299,8 +310,7 @@ void GcodeSuite::M2000() {
     case 1:
       // set safety lock
       {
-        if (device && (device->get_device_id() == MODULE_DEVICE_ID_LASER_10W_2021 || \
-            device->get_device_id() == MODULE_DEVICE_ID_LASER_1P6W_2019))
+        if (device && laser)
           ((ToolHeadLaser *)device)->set_safety_lock(!!p);
       }
       break;
@@ -399,6 +409,127 @@ void GcodeSuite::M2000() {
         int32_t *tmp = (int32_t *)(buffer + 1);
         *tmp = q;
         host_hmi.test_interface(SACP_CMD_SET_LASER, SACP_CMD_ID_LASER_SET_4AXIS_HIGHT, buffer, 5);
+      }
+      break;
+
+    case 11:
+      { // set laser power limit
+        LOG_I("Set laser power limit to %.3f\n", (float)p);
+        laser->set_power_limit((float)p);
+      }
+      break;
+
+    case 12:
+      { // set laser fan speed
+        LOG_I("Set laser fan speed to %d\n", p);
+        laser->set_fan(p);
+      }
+      break;
+
+    case 13:
+      { // set laser crossligh
+        LOG_I("Set laser crosslight to %s\n", p ? "on" : "off");
+        if (E_SUCCESS != laser->set_crosslight(p)) {
+          LOG_E("Can not set the crosslight\n");
+        }
+      }
+      break;
+
+    case 14:
+      { // get laser crossligh
+        LOG_I("Get laser crosslight state\n");
+        bool cls;
+        if (E_SUCCESS == laser->get_crosslight_state(cls)) {
+          LOG_I("Laser crosslight %s\n", cls ? "on" : "off");
+        }
+        else {
+          LOG_E("Can not get laser crosslight state\n");
+        }
+      }
+      break;
+
+    case 15:
+      { // set laser master switch state
+        LOG_I("Set laser master switch state %d\n", p ? 1 : 0);
+        if (E_SUCCESS != laser->set_master_switch(p)) {
+          LOG_E("Can not set laser master switch state\n");
+        }
+      }
+      break;
+
+    case 16:
+      { // set fire sensor sensitivity
+        LOG_I("Set laser fire sensor sensitivity to %d\n", int(p));
+        if (E_SUCCESS != laser->set_fire_sensor_sensitivity(p)) {
+          LOG_E("err\n");
+        }
+      }
+      break;
+
+    case 17:
+      { // get fire sensor sensitivity
+        LOG_I("Get laser fire sensor sensitivity.\n");
+        uint16_t fss;
+        if (E_SUCCESS == laser->get_fire_sensor_sensitivity(fss)) {
+          LOG_I("fire sensor sensitivity %d\n", fss);
+        }
+        else {
+          LOG_E("err\n");
+        }
+      }
+      break;
+
+    case 18:
+      { // Set crosslight offset
+        LOG_I("Set crosslight offset to x %f y %f\n", g, h);
+        if (E_SUCCESS != laser->set_crosslight_offset(g, h)) {
+          LOG_E("err\n");
+        }
+      }
+      break;
+
+    case 19:
+      { // Get crosslight offset
+        LOG_I("Get crosslight offset\n");
+        float x, y;
+        if (E_SUCCESS != laser->get_crosslight_offset(x, y)) {
+          LOG_E("err\n");
+        }
+        else {
+          LOG_I("x offset %f, y offset %f\n", x, y);
+        }
+      }
+      break;
+
+    case 20:
+      {
+        LOG_I("Set fire sensor report time to %d\n", p);
+        if (E_SUCCESS != laser->set_fire_sensor_report_time(p)) {
+          LOG_E("err\n");
+        }
+      }
+      break;
+
+    case 21:
+      {
+        LOG_I("Get fire sensor rawdata %d\n", laser->get_fire_sensor_rawdata());
+      }
+      break;
+
+    case 22:
+      {
+        LOG_I("Set fire sensor trigger to %d\n", p ? 1 : 0);
+        uint8_t data[8] = {0};
+        if (p) data[0] |= 1<<5;
+        laser->can_cb_handle_security_status(laser, data, 8);
+      }
+      break;
+
+    case 23:
+      {
+        LOG_I("Set half power mode %s\n", p ? "close" : "open");
+        if (laser)
+          laser->set_branch_switch(!!p);
       }
       break;
 

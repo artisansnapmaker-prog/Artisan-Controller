@@ -36,6 +36,10 @@
 #define ESP32_UPDATE_OPCODE_TRANS_NOTIFY         (0x01)
 #define ESP32_UPDATE_OPCODE_END_NOTIFY           (0x02)
 #define ESP32_UPDATE_OPCODE_FAIL_NOTIFY          (0xFF)
+#define SWITCH_STATE_ON                          (1)
+#define SWITCH_STATE_OFF                         (0)
+#define CROSSLIGHT_MAX_OFFSET                    (50)  // mm
+#define INVALID_OFFSET                           (-10000)
 
 
 enum LaserSACPCommandId {
@@ -49,6 +53,13 @@ enum LaserSACPCommandId {
   SACP_CMD_ID_LASER_SET_PLATFORM_HIGHT,
   SACP_CMD_ID_LASER_SET_4AXIS_HIGHT,
   SACP_CMD_ID_LASER_GET_SAFETY_LOCK,
+  SACP_CMD_ID_LASER_SET_CROSSLIGHT, // 11
+  SACP_CMD_ID_LASER_GET_CROSSLIGHT, // 12
+  SACP_CMD_ID_LASER_SET_FIRE_SENSOR_SENSITIVITY, // 13
+  SACP_CMD_ID_LASER_GET_FIRE_SENSOR_SENSITIVITY, // 14
+  SACP_CMD_ID_LASER_SET_FIRE_SENSOR_REPORT_TIME, // 15
+  SACP_CMD_ID_LASER_SET_CROSSLIGHT_OFFSET, // 16
+  SACP_CMD_ID_LASER_GET_CROSSLIGHT_OFFSET, // 17
 
   SACP_CMD_ID_LASER_MAX
 };
@@ -56,6 +67,7 @@ enum LaserSACPCommandId {
 enum LaserSACPSubscriptionCommandId {
   SACP_CMD_ID_LASER_SUBSCRIBE_SAFETY_STATE = 0xa0,
   SACP_CMD_ID_LASER_SUBSCRIBE_POWER,
+  SACP_CMD_ID_LASER_SUBSCRIBE_FIRE_SENSOR_RAWDATA,
 
   SACP_CMD_ID_LASER_SUBSCRIBE_MAX
 };
@@ -131,9 +143,6 @@ enum ToolheadLaserFanState {
   LASER_FAN_STATE_INVALID
 };
 
-
-#define SWITCH_STATE_ON   (1)
-#define SWITCH_STATE_OFF  (0)
 enum ToolheadLaserSwitchState {
   LASER_SWITCH_STATE_OPEN,
   LASER_SWITCH_STATE_TO_BE_CLOSED,
@@ -187,11 +196,21 @@ class ToolHeadLaser: public ModuleBase {
     void if_close_fan();
 
     err_code_t set_master_switch(bool state);
+    err_code_t set_branch_switch(bool state);
     void check_master_switch(uint16_t new_power_pwm);
     void if_disable_switch();
     void check_insert_enclosure(void);
+    err_code_t set_crosslight(bool onoff);
+    err_code_t get_crosslight_state(bool &on_off);
+    uint16_t get_fire_sensor_rawdata(void);
+    err_code_t set_fire_sensor_sensitivity(uint16_t sen, bool is_save=true);
+    err_code_t get_fire_sensor_sensitivity(uint16_t &sen);
+    err_code_t set_fire_sensor_report_time(uint16_t itv);
+    err_code_t set_crosslight_offset(float x, float y);
+    err_code_t get_crosslight_offset(float &x, float &y);
 
     static void can_cb_handle_security_status(void *obj, uint8_t *data, uint8_t length);
+    static void can_cb_handle_fire_sensor_rawdata(void *obj, uint8_t *data, uint8_t length);
     // callback for module event and routine
     static void can_cb_handle_focal_len(void *obj, uint8_t *data, uint8_t length);
     static void client_cb_report_bt_mac(void *obj, uint8_t id, SACPRouteStatus status);
@@ -223,10 +242,18 @@ class ToolHeadLaser: public ModuleBase {
     static err_code_t hmi_cb_exit_calibraion(void *obj, sacp_hmi_message_t *message);
     static err_code_t hmi_cb_set_safety_lock(void *obj, sacp_hmi_message_t *message);
     static err_code_t hmi_cb_get_safety_lock(void *obj, sacp_hmi_message_t *message);
+    static err_code_t hmi_cb_set_crosslight(void *obj, sacp_hmi_message_t *message);
+    static err_code_t hmi_cb_get_crosslight(void *obj, sacp_hmi_message_t *message);
+    static err_code_t hmi_cb_set_fire_sensor_sensitivity(void *obj, sacp_hmi_message_t *message);
+    static err_code_t hmi_cb_get_fire_sensor_sensitivity(void *obj, sacp_hmi_message_t *message);
+    static err_code_t hmi_cb_set_fire_sensor_report_time(void *obj, sacp_hmi_message_t *message);
+    static err_code_t hmi_cb_set_crosslight_offset(void *obj, sacp_hmi_message_t *message);
+    static err_code_t hmi_cb_get_crosslight_offset(void *obj, sacp_hmi_message_t *message);
 
     // callback for HMI publish
     static uint16_t hmi_cb_publish_safety_state(void *obj, uint8_t *buffer);
     static uint16_t hmi_cb_publish_power(void *obj, uint8_t *buffer);
+    static uint16_t hmi_cb_publish_fire_sensor_rawdata(void *obj, uint8_t *buffer);
 
   private:
     err_code_t confirm_pwm_pin_state(uint32_t pin);
@@ -287,6 +314,12 @@ class ToolHeadLaser: public ModuleBase {
     int8_t  tube_temp;
     int8_t  imu_temp;
     bool pwm_normal;
+    bool fire_trigger_state = false;
+    bool half_power_mode;
+    // uint16_t fire_sensor_sensitivity = 0xFFFF;
+    uint16_t fire_sensor_rawdata = 0xFFFF;
+    float crosslight_offset_x = INVALID_OFFSET;
+    float crosslight_offset_y = INVALID_OFFSET;
 
     uint8_t bt_mac[8] {0xff};
     uint8_t tell_mac = 0;

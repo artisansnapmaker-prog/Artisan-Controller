@@ -353,7 +353,7 @@ void ModuleService::init() {
   // host_can_cfg.register_callback(MODULE_EXT_CMD_TRANS_FW_ACK, (void *)this, (sacp_module_callback)handle_fw_request);
 
   // waiting modules to finish intialization
-  vTaskDelay(pdMS_TO_TICKS(500));
+  vTaskDelay(pdMS_TO_TICKS(1000));
 
   status = MS_STATUS_SCANNING;
   // scan the modules
@@ -362,7 +362,7 @@ void ModuleService::init() {
 
   uint32_t waiting_time = 0;
   // after all module done init, waiting for 500ms again
-  while (waiting_time < 50) {
+  while (waiting_time < 100) {
     // return 1 while Semaphore is available, indicates no module is initializing
     if (uxSemaphoreGetCount(configuring_lock)) {
       waiting_time = 0;

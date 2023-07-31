@@ -27,6 +27,7 @@
 #define SAFETY_STATE_BIT_ATTITUDE             (1<<2)
 #define SAFETY_STATE_BIT_PWM_PIN              (1<<3)
 #define SAFETY_STATE_BIT_FAN_RUN              (1<<4)
+#define SAFETY_STATE_BIT_FIRE_DECT            (1<<5)
 
 #define MODULE_EXCEP_BIT_TUBE_TEMP_TOO_LOW    (1<<0)
 #define MODULE_EXCEP_BIT_IMU_OVERTEMP         (1<<1)
@@ -39,6 +40,10 @@
 
 #define LASER_10W_TEMP_THRESHOLD_PROTECTED  (55)
 #define LASER_10W_TEMP_THRESHOLD_RECOVER    (45)
+#define LASER_20W_TEMP_THRESHOLD_PROTECTED  (55)
+#define LASER_20W_TEMP_THRESHOLD_RECOVER    (45)
+#define LASER_40W_TEMP_THRESHOLD_PROTECTED  (55)
+#define LASER_40W_TEMP_THRESHOLD_RECOVER    (45)
 
 static module_func_prio_t prio_map[] = {
   { MODULE_FUNC_SET_FAN1,              MODULE_FUNC_PRIORITY_MEDIUM },
@@ -53,6 +58,15 @@ static module_func_prio_t prio_map[] = {
   { MODULE_FUNC_GET_HW_VERSION,        MODULE_FUNC_PRIORITY_LOW },
   { MODULE_FUNC_GET_PWM_PIN_STATE,     MODULE_FUNC_PRIORITY_LOW },
   { MODULE_FUNC_CONFIRM_PWN_PIN_STATE, MODULE_FUNC_PRIORITY_LOW },
+  { MODULE_FUNC_SET_CROSSLIGHT,                     MODULE_FUNC_PRIORITY_LOW },
+  { MODULE_FUNC_GET_CROSSLIGHT_STATE,               MODULE_FUNC_PRIORITY_LOW },
+  { MODULE_FUNC_SET_FIRE_SENSOR_SENSITIVITY,        MODULE_FUNC_PRIORITY_LOW },
+  { MODULE_FUNC_GET_FIRE_SENSOR_SENSITIVITY,        MODULE_FUNC_PRIORITY_LOW },
+  { MODULE_FUNC_SET_FIRE_SENSOR_REPORT_TIME,        MODULE_FUNC_PRIORITY_LOW },
+  { MODULE_FUNC_REPORT_FIRE_SENSOR_RAWDATA,         MODULE_FUNC_PRIORITY_LOW },
+  { MODULE_FUNC_SET_CROSSLIGHT_OFFSET,              MODULE_FUNC_PRIORITY_MEDIUM },
+  { MODULE_FUNC_GET_CROSSLIGHT_OFFSET,              MODULE_FUNC_PRIORITY_MEDIUM },
+  { MODULE_FUNC_LASER_BRANCH_CTRL,                  MODULE_FUNC_PRIORITY_MEDIUM },
 
   // must set the last element as below !!!!
   { MODULE_FUNCTION_ID_INVALID, MODULE_FUNCTION_PRIORITY_INVALID }
@@ -78,6 +92,34 @@ static __attribute__((section(".data"))) uint8_t power_table_1p6w[]= {
 };
 
 static __attribute__((section(".data"))) uint8_t power_table_10w[]= {
+  0, 15, 27, 29, 32, 35, 37, 40, 42, 45,
+  47, 49, 51, 54, 56, 59, 61, 63, 65, 68,
+  70, 72, 75, 77, 79, 82, 84, 87, 90, 92,
+  94, 97, 99, 101, 103, 106, 108, 110, 112, 115,
+  117, 120, 122, 124, 126, 128, 131, 133, 135, 138,
+  140, 142, 144, 147, 149, 151, 153, 156, 158, 161,
+  163, 166, 168, 171, 173, 176, 178, 180, 182, 185,
+  188, 190, 192, 193, 195, 198, 200, 202, 204, 207,
+  209, 212, 214, 216, 218, 221, 224, 226, 228, 230,
+  233, 235, 239, 241, 242, 245, 247, 250, 252, 254,
+  255
+};
+
+static __attribute__((section(".data"))) uint8_t power_table_20w[]= {
+  0, 15, 27, 29, 32, 35, 37, 40, 42, 45,
+  47, 49, 51, 54, 56, 59, 61, 63, 65, 68,
+  70, 72, 75, 77, 79, 82, 84, 87, 90, 92,
+  94, 97, 99, 101, 103, 106, 108, 110, 112, 115,
+  117, 120, 122, 124, 126, 128, 131, 133, 135, 138,
+  140, 142, 144, 147, 149, 151, 153, 156, 158, 161,
+  163, 166, 168, 171, 173, 176, 178, 180, 182, 185,
+  188, 190, 192, 193, 195, 198, 200, 202, 204, 207,
+  209, 212, 214, 216, 218, 221, 224, 226, 228, 230,
+  233, 235, 239, 241, 242, 245, 247, 250, 252, 254,
+  255
+};
+
+static __attribute__((section(".data"))) uint8_t power_table_40w[]= {
   0, 15, 27, 29, 32, 35, 37, 40, 42, 45,
   47, 49, 51, 54, 56, 59, 61, 63, 65, 68,
   70, 72, 75, 77, 79, 82, 84, 87, 90, 92,
@@ -160,6 +202,25 @@ uint16_t ToolHeadLaser::hmi_cb_publish_power(void *obj, uint8_t *buffer) {
   LOG_V("power cur[%d], target[%d]\n", *current_power, *target_power);
 
   return 10;
+}
+
+uint16_t ToolHeadLaser::hmi_cb_publish_fire_sensor_rawdata(void *obj, uint8_t *buffer) {
+  ToolHeadLaser &laser = *(ToolHeadLaser *)obj;
+  uint16_t i = 0;
+
+  if (!obj || !buffer)
+    return 0;
+
+  if (MODULE_DEVICE_ID_LASER_1P6W_2019 == laser.get_device_id() || MODULE_DEVICE_ID_LASER_10W_2021 == laser.get_device_id()) {
+    return 0;
+  }
+
+  buffer[i++] = E_SUCCESS;
+  buffer[i++] = laser.get_key();
+  buffer[i++] = laser.fire_sensor_rawdata & 0xFF;
+  buffer[i++] = (laser.fire_sensor_rawdata>>8) & 0xFF;
+
+  return i;
 }
 
 struct __packed FanInfo {
@@ -278,7 +339,7 @@ err_code_t ToolHeadLaser::hmi_cb_set_output(void *obj, sacp_hmi_message_t *messa
 
   power = (int32_t *)(message->data + 1);
 
-  LOG_I("set laser power[%d]\n", *power);
+  LOG_I("set laser power[%f]\n", *power / 1000.0);
 
   if (!system_svc.allow_turn_on_laser() && *power > 0) {
     LOG_E("cannot turn on laser as bans[0x%x]\n", system_svc.get_bans());
@@ -469,6 +530,11 @@ err_code_t ToolHeadLaser::hmi_cb_do_manual_focusing(void *obj, sacp_hmi_message_
 err_code_t ToolHeadLaser::hmi_cb_do_auto_focusing(void *obj, sacp_hmi_message_t *message) {
   ToolHeadLaser &laser = *(ToolHeadLaser *)obj;
 
+  if (laser.get_device_id() == MODULE_DEVICE_ID_LASER_20W_2023 || laser.get_device_id() == MODULE_DEVICE_ID_LASER_40W_2023) {
+    LOG_E("20W or 40W laser do not support auto focusing\n");
+    return host_hmi.send_ack(message, E_UNSUPPORTED_OPERATION);
+  }
+
   if (!system_svc.allow_moving() || !system_svc.allow_turn_on_laser()) {
     LOG_E("cannot do laser calibration mode as exception [0x%x]\n", system_svc.get_bans());
     return host_hmi.send_ack(message, E_EXCEPTION);
@@ -587,6 +653,14 @@ err_code_t ToolHeadLaser::hmi_cb_set_cali_mode(void *obj, sacp_hmi_message_t *me
 
   LOG_I("hmi_cb_set_cali_mode [%u]\n", message->data[0]);
 
+  if (laser.get_device_id() == MODULE_DEVICE_ID_LASER_20W_2023 || laser.get_device_id() == MODULE_DEVICE_ID_LASER_40W_2023) {
+    if (message->data[0] + SYSTEM_STATUS_LASER_CALI_START != SYSTEM_STATUS_LASER_DETECT_PLATFORM_POSITION &&  \
+        message->data[0] + SYSTEM_STATUS_LASER_CALI_START != SYSTEM_STATUS_LASER_DETECT_4AXIS_CENTER_POSITION) {
+      LOG_E("20W or 40W laser do not support current calibration mode: %d\n", message->data[0]);
+      return host_hmi.send_ack(message, E_UNSUPPORTED_OPERATION);
+    }
+  }
+
   if (!system_svc.allow_moving()) {
     LOG_E("cannot enter calibration mode as exception [0x%x]\n", system_svc.get_bans());
     return host_hmi.send_ack(message, E_EXCEPTION);
@@ -685,6 +759,199 @@ err_code_t ToolHeadLaser::hmi_cb_get_safety_lock(void *obj, sacp_hmi_message_t *
   return host_hmi.send_ack(message, message->data, data_len);
 }
 
+err_code_t ToolHeadLaser::hmi_cb_set_crosslight(void *obj, sacp_hmi_message_t *message) {
+  ToolHeadLaser &laser = *(ToolHeadLaser *)obj;
+
+  if (!obj || !message || message->length < 1) {
+    LOG_E("set crosslight: invalid param\n");
+    return host_hmi.send_ack(message, E_PARAM);
+  }
+
+  if (message->data[0] != laser.get_key()) {
+    LOG_E("invalid module key[%u] in cmd[%x:%x]\n", message->data[0], message->cmd_set, message->cmd_id);
+    return host_hmi.send_ack(message, E_INVALID_MODULE_KEY);
+  }
+
+  LOG_I("HMI set crosslight to [%d]\n", message->data[1]);
+  message->data[0] = laser.set_crosslight(message->data[1]);
+  message->length = 1;
+
+  return host_hmi.send_ack(message, E_SUCCESS);
+}
+
+err_code_t ToolHeadLaser::hmi_cb_get_crosslight(void *obj, sacp_hmi_message_t *message) {
+  ToolHeadLaser &laser = *(ToolHeadLaser *)obj;
+  uint16_t data_len = 0;
+
+  if (!obj || !message || message->length < 1) {
+    LOG_E("get crosslight state: invalid param\n");
+    return host_hmi.send_ack(message, E_PARAM);
+  }
+
+  if (message->data[0] != laser.get_key()) {
+    LOG_E("invalid module key[%u] in cmd[%x:%x]\n", message->data[0], message->cmd_set, message->cmd_id);
+    return host_hmi.send_ack(message, E_INVALID_MODULE_KEY);
+  }
+
+  bool onoff;
+  if (E_SUCCESS == laser.get_crosslight_state(onoff)) {
+    message->data[data_len++] = E_SUCCESS;
+    message->data[data_len++] = onoff ? 1 : 0;
+  }
+  else {
+    message->data[data_len++] = E_FAILURE;
+    message->data[data_len++] = 0xff; // confusing?
+  }
+
+  message->length = data_len;
+  LOG_I("HMI get crosslight state %d\n", onoff);
+  return host_hmi.send_ack(message, message->data, data_len);
+}
+
+err_code_t ToolHeadLaser::hmi_cb_set_fire_sensor_sensitivity(void *obj, sacp_hmi_message_t *message) {
+  ToolHeadLaser &laser = *(ToolHeadLaser *)obj;
+  uint16_t tmp_sensitivity = 0xFFFF;
+
+  if (!obj || !message || message->length < 3) {
+    LOG_E("set fire sensor sen: invalid param\n");
+    return host_hmi.send_ack(message, E_PARAM);
+  }
+
+  if (message->data[0] != laser.get_key()) {
+    LOG_E("invalid module key[%u] in cmd[%x:%x]\n", message->data[0], message->cmd_set, message->cmd_id);
+    return host_hmi.send_ack(message, E_INVALID_MODULE_KEY);
+  }
+
+  tmp_sensitivity = *((uint16_t*)(message->data+1));
+  LOG_I("HMI set fire sensor sensitivity to [%d]\n", tmp_sensitivity);
+  message->data[0] = laser.set_fire_sensor_sensitivity(tmp_sensitivity);
+  message->length = 1;
+
+  return host_hmi.send_ack(message, E_SUCCESS);
+}
+
+err_code_t ToolHeadLaser::hmi_cb_get_fire_sensor_sensitivity(void *obj, sacp_hmi_message_t *message) {
+  ToolHeadLaser &laser = *(ToolHeadLaser *)obj;
+  uint16_t data_len = 0;
+
+  if (!obj || !message || message->length < 1) {
+    LOG_E("get fire sensor sen: invalid param\n");
+    return host_hmi.send_ack(message, E_PARAM);
+  }
+
+  if (message->data[0] != laser.get_key()) {
+    LOG_E("invalid module key[%u] in cmd[%x:%x]\n", message->data[0], message->cmd_set, message->cmd_id);
+    return host_hmi.send_ack(message, E_INVALID_MODULE_KEY);
+  }
+
+  uint16_t fds = 0xFFFF;
+  message->data[data_len++] = laser.get_fire_sensor_sensitivity(fds);
+  message->data[data_len++] = fds & 0xFF;
+  message->data[data_len++] = ((fds >> 8) & 0xFF);
+  message->length = data_len;
+
+  LOG_I("HMI get fire sensor %d, result: %d\n", fds, message->data[0]);
+
+  return host_hmi.send_ack(message, message->data, data_len);
+}
+
+err_code_t ToolHeadLaser::hmi_cb_set_fire_sensor_report_time(void *obj, sacp_hmi_message_t *message) {
+  ToolHeadLaser &laser = *(ToolHeadLaser *)obj;
+  uint16_t data_len = 0;
+
+  if (!obj || !message || message->length < 3) {
+    LOG_E("set fire rawdata report time: invalid param\n");
+    return host_hmi.send_ack(message, E_PARAM);
+  }
+
+  if (message->data[0] != laser.get_key()) {
+    LOG_E("invalid module key[%u] in cmd[%x:%x]\n", message->data[0], message->cmd_set, message->cmd_id);
+    return host_hmi.send_ack(message, E_INVALID_MODULE_KEY);
+  }
+
+  uint16_t rp_itv = (message->data[2] << 8) | message->data[1];
+  LOG_I("HMI set fire rawdata report time to %d ms\n", rp_itv);
+  message->data[data_len++] = laser.set_fire_sensor_report_time(rp_itv);
+  message->length = data_len;
+
+  return host_hmi.send_ack(message, message->data, data_len);
+}
+
+err_code_t ToolHeadLaser::hmi_cb_set_crosslight_offset(void *obj, sacp_hmi_message_t *message) {
+  ToolHeadLaser &laser = *(ToolHeadLaser *)obj;
+
+  if (!obj || !message || message->length < 9) {
+    LOG_E("set crosslight offset: invalid param\n");
+    return host_hmi.send_ack(message, E_PARAM);
+  }
+
+  if (message->data[0] != laser.get_key()) {
+    LOG_E("invalid module key[%u] in cmd[%x:%x]\n", message->data[0], message->cmd_set, message->cmd_id);
+    return host_hmi.send_ack(message, E_INVALID_MODULE_KEY);
+  }
+
+  int32_t x_offset, y_offset;
+  x_offset = (message->data[4]<<24) | (message->data[3]<<16) | (message->data[2]<<8) | message->data[1];
+  y_offset = (message->data[8]<<24) | (message->data[7]<<16) | (message->data[6]<<8) | message->data[5];
+  float x_offset_f = x_offset / 1000.0;
+  float y_offset_f = y_offset / 1000.0;
+
+  if (fabs(x_offset_f) > CROSSLIGHT_MAX_OFFSET || fabs(y_offset_f) > CROSSLIGHT_MAX_OFFSET) {
+    LOG_E("set crosslight offset: invalid param, x_offset: %f, y_offset: %f\n", x_offset_f, y_offset);
+    return host_hmi.send_ack(message, E_PARAM);
+  }
+
+  message->data[0] = laser.set_crosslight_offset(x_offset_f, y_offset_f);
+  message->length = 1;
+
+  LOG_I("HMI set crosslight offset to [x:%f, y:%f], result: %d\n", x_offset_f, y_offset_f, message->data[0]);
+
+  return host_hmi.send_ack(message, E_SUCCESS);
+}
+
+err_code_t ToolHeadLaser::hmi_cb_get_crosslight_offset(void *obj, sacp_hmi_message_t *message) {
+  ToolHeadLaser &laser = *(ToolHeadLaser *)obj;
+  uint16_t data_len = 0;
+
+  if (!obj || !message || message->length < 1) {
+    LOG_E("get crosslight offset: invalid param\n");
+    return host_hmi.send_ack(message, E_PARAM);
+  }
+
+  if (message->data[0] != laser.get_key()) {
+    LOG_E("invalid module key[%u] in cmd[%x:%x]\n", message->data[0], message->cmd_set, message->cmd_id);
+    return host_hmi.send_ack(message, E_INVALID_MODULE_KEY);
+  }
+
+  float x, y;
+  LOG_I("HMI get crosslight offset\n");
+  if (E_SUCCESS == laser.get_crosslight_offset(x, y)) {
+    message->data[data_len++] = E_SUCCESS;
+    if (!(fabs(x) > CROSSLIGHT_MAX_OFFSET || fabs(y) > CROSSLIGHT_MAX_OFFSET)) {
+      laser.crosslight_offset_x = x;
+      laser.crosslight_offset_y = y;
+    }
+    else {
+      LOG_E("get crosslight offset: invalid param, x_offset: %f, y_offset: %f\n", x, y);
+    }
+  }
+  else {
+    message->data[data_len++] = E_FAILURE;
+  }
+
+  *((int32_t*)(message->data + data_len)) = laser.crosslight_offset_x * 1000;
+  data_len += 4;
+
+  *((int32_t*)(message->data + data_len)) = laser.crosslight_offset_y * 1000;
+  data_len += 4;
+
+  message->length = data_len;
+  LOG_I("HMI get crosslight offset [%f, %f]\n", laser.crosslight_offset_x, laser.crosslight_offset_y);
+
+  return host_hmi.send_ack(message, message->data, data_len);
+}
+
+
 void ToolHeadLaser::set_safety_lock(bool lock_state) {
   safety_lock = lock_state;
   LOG_I("laser: set safety_lock: %s\n", safety_lock ? "LOCK" : "UNLOCK");
@@ -722,8 +989,10 @@ err_code_t laser_routine(void *obj) {
   if (laser.get_status() != MODULE_STATUS_NORMAL)
     return E_INVALID_STATE;
 
-  if (laser.bt_mac[0] != 0) {
-    laser.get_bt_mac();
+  if ((laser.get_device_id() == MODULE_DEVICE_ID_LASER_1P6W_2019 || laser.get_device_id() == MODULE_DEVICE_ID_LASER_10W_2021)) {
+    if (laser.bt_mac[0] != 0) {
+      laser.get_bt_mac();
+    }
   }
 
   // run every 100ms
@@ -802,6 +1071,11 @@ void ToolHeadLaser::can_cb_handle_security_status(void *obj, uint8_t *data, uint
                                         EXCEP_BAN_TURN_ON_LASER | EXCEP_BAN_WORKING);
     }
 
+    if (new_state & SAFETY_STATE_BIT_FIRE_DECT) {
+      system_svc.raise_exception_async(laser.get_device_id(), LASER_EXCEP_STA_FIRE_DECT, EXCEP_ACT_PAUSE_WORKING,
+                                        EXCEP_BAN_TURN_ON_LASER | EXCEP_BAN_WORKING);
+    }
+
     if (clear_state & SAFETY_STATE_BIT_IMU_CONNECTION) {
       system_svc.clear_exception_async(laser.get_device_id(), LASER_EXCEP_STA_IMU_EXCEPTION);
     }
@@ -828,6 +1102,11 @@ void ToolHeadLaser::can_cb_handle_security_status(void *obj, uint8_t *data, uint
   laser.roll  = data[3]<<8 | data[4];
   laser.tube_temp = (int8_t)data[5];
   laser.imu_temp   = (int8_t)data[6];
+
+  if ((laser.get_device_id() == MODULE_DEVICE_ID_LASER_20W_2023 || laser.get_device_id() == MODULE_DEVICE_ID_LASER_40W_2023) && \
+      length >= 8) {
+    laser.fire_trigger_state = !!data[7];
+  }
 
   if (laser.tube_temp < 0) {
     if (!(laser.exception_state & MODULE_EXCEP_BIT_TUBE_TEMP_TOO_LOW)) {
@@ -872,11 +1151,27 @@ void ToolHeadLaser::can_cb_handle_focal_len(void *obj, uint8_t *data, uint8_t le
   laser.offline_count = 0;
 }
 
+void ToolHeadLaser::can_cb_handle_fire_sensor_rawdata(void *obj, uint8_t *data, uint8_t length) {
+  if (length < 2) {
+    LOG_W("invlaid laser security data, len=%u\n", length);
+    return;
+  }
+
+  ToolHeadLaser &laser = *(ToolHeadLaser *)obj;
+  laser.fire_sensor_rawdata = (data[1]<<8) | data[0];
+  LOG_I("laser.fire_sensor_rawdata ADC %d\n", laser.fire_sensor_rawdata);
+}
+
 
 void ToolHeadLaser::client_cb_report_bt_mac(void *obj, uint8_t id, SACPRouteStatus status) {
   ToolHeadLaser &laser = *(ToolHeadLaser *)obj;
   ClientNode *node = NULL;
   int i = 5;
+
+  if (laser.get_device_id() == MODULE_DEVICE_ID_LASER_20W_2023 || laser.get_device_id() == MODULE_DEVICE_ID_LASER_40W_2023) {
+    LOG_I("20W or 40W laser do not support reporting BT mac\n");
+    return;
+  }
 
   if (status == SACP_ROUTE_STA_ONLINE) {
     while (laser.bt_mac[0] != 0 && i > 0) {
@@ -1102,9 +1397,46 @@ err_code_t ToolHeadLaser::post_init() {
 
     smprinter.register_module(MODULE_DEVICE_ID_LASER_10W_2021, this);
   }
+  else if (get_device_id() == MODULE_DEVICE_ID_LASER_20W_2023 || get_device_id() == MODULE_DEVICE_ID_LASER_40W_2023) {
+    msg_id_ctrl_switch = get_message_id(MODULE_FUNC_SET_LASER_SWITCH);
+    if (msg_id_ctrl_switch == MODULE_MESSAGE_ID_INVALID) {
+      LOG_E("invalid message id for func: %u\n", MODULE_FUNC_SET_LASER_SWITCH);
+    }
+
+    power_table = get_device_id() == MODULE_DEVICE_ID_LASER_20W_2023 ? power_table_20w : power_table_40w;
+    host_can_rou.register_callback(get_message_id(MODULE_FUNC_REPORT_SECURITY_STATUS), (void *)this, can_cb_handle_security_status);
+    host_can_rou.register_callback(get_message_id(MODULE_FUNC_REPORT_FIRE_SENSOR_RAWDATA), (void *)this, can_cb_handle_fire_sensor_rawdata);
+
+    LOG_I("msg_id_ctrl_switch %d\n", msg_id_ctrl_switch);
+    ret = confirm_pwm_pin_state(output_pin);
+    if (ret != E_SUCCESS) {
+      pwm_normal = false;
+    }
+    else {
+      pwm_normal = true;
+    }
+
+    uint8_t try_cnt = 3;
+    float x_offset, y_offset;
+    crosslight_offset_x = crosslight_offset_y = INVALID_OFFSET;
+    while(try_cnt--) {
+      if (E_SUCCESS == get_crosslight_offset(x_offset, y_offset)) {
+        crosslight_offset_x = x_offset;
+        crosslight_offset_y = y_offset;
+        break;
+      }
+      vTaskDelay(pdMS_TO_TICKS(100));
+    }
+
+    if (try_cnt < 0) {
+      LOG_E("Can not get crosslight offset\n");
+    }
+
+    smprinter.register_module(get_device_id(), this);
+  }
   else {
     power_table = power_table_1p6w;
-    smprinter.register_module(MODULE_DEVICE_ID_LASER_1P6W_2019, this);\
+    smprinter.register_module(MODULE_DEVICE_ID_LASER_1P6W_2019, this);
     // for old laser, couldn't check PWM
     pwm_normal = true;
   }
@@ -1130,51 +1462,48 @@ err_code_t ToolHeadLaser::post_init() {
   if (get_device_id() == MODULE_DEVICE_ID_LASER_10W_2021) {
     LOG_I("Got 10W laser!\n");
     host_hmi.apply_cmd_set_handle(SACP_CMD_SET_LASER, SACP_CMD_ID_LASER_MAX);
-
-    host_hmi.register_subscription(SACP_CMD_SET_LASER, SACP_CMD_ID_LASER_SUBSCRIBE_SAFETY_STATE, (void *)this,
-      hmi_cb_publish_safety_state);
-    host_hmi.register_callback(SACP_CMD_SET_LASER, SACP_CMD_ID_LASER_SET_FOCUS_ASSIST_LIGHT, (void *)this,
-      hmi_cb_set_focus_assist_light);
-    host_hmi.register_callback(SACP_CMD_SET_LASER, SACP_CMD_ID_LASER_SET_TEMP_THRESHOLD, (void *)this,
-      hmi_cb_set_temp_threshold);
+    host_hmi.register_subscription(SACP_CMD_SET_LASER, SACP_CMD_ID_LASER_SUBSCRIBE_SAFETY_STATE, (void *)this, hmi_cb_publish_safety_state);
+    host_hmi.register_callback(SACP_CMD_SET_LASER, SACP_CMD_ID_LASER_SET_FOCUS_ASSIST_LIGHT, (void *)this, hmi_cb_set_focus_assist_light);
+    host_hmi.register_callback(SACP_CMD_SET_LASER, SACP_CMD_ID_LASER_SET_TEMP_THRESHOLD, (void *)this, hmi_cb_set_temp_threshold);
+  }
+  else if (get_device_id() == MODULE_DEVICE_ID_LASER_20W_2023 || get_device_id() == MODULE_DEVICE_ID_LASER_40W_2023) {
+    LOG_I("Got %s laser!\n", MODULE_DEVICE_ID_LASER_20W_2023 == get_device_id() ? "20W" : "40W");
+    host_hmi.apply_cmd_set_handle(SACP_CMD_SET_LASER, SACP_CMD_ID_LASER_MAX);
+    host_hmi.register_subscription(SACP_CMD_SET_LASER, SACP_CMD_ID_LASER_SUBSCRIBE_SAFETY_STATE, (void *)this, hmi_cb_publish_safety_state);
+    host_hmi.register_subscription(SACP_CMD_SET_LASER, SACP_CMD_ID_LASER_SUBSCRIBE_FIRE_SENSOR_RAWDATA, (void *)this, hmi_cb_publish_fire_sensor_rawdata);
+    host_hmi.register_callback(SACP_CMD_SET_LASER, SACP_CMD_ID_LASER_SET_FOCUS_ASSIST_LIGHT, (void *)this, hmi_cb_set_focus_assist_light);
+    host_hmi.register_callback(SACP_CMD_SET_LASER, SACP_CMD_ID_LASER_SET_TEMP_THRESHOLD, (void *)this, hmi_cb_set_temp_threshold);
+    host_hmi.register_callback(SACP_CMD_SET_LASER, SACP_CMD_ID_LASER_SET_CROSSLIGHT, (void *)this, hmi_cb_set_crosslight);
+    host_hmi.register_callback(SACP_CMD_SET_LASER, SACP_CMD_ID_LASER_GET_CROSSLIGHT, (void *)this, hmi_cb_get_crosslight);
+    host_hmi.register_callback(SACP_CMD_SET_LASER, SACP_CMD_ID_LASER_SET_FIRE_SENSOR_SENSITIVITY, (void *)this, hmi_cb_set_fire_sensor_sensitivity);
+    host_hmi.register_callback(SACP_CMD_SET_LASER, SACP_CMD_ID_LASER_GET_FIRE_SENSOR_SENSITIVITY, (void *)this, hmi_cb_get_fire_sensor_sensitivity);
+    host_hmi.register_callback(SACP_CMD_SET_LASER, SACP_CMD_ID_LASER_SET_FIRE_SENSOR_REPORT_TIME, (void *)this, hmi_cb_set_fire_sensor_report_time);
+    host_hmi.register_callback(SACP_CMD_SET_LASER, SACP_CMD_ID_LASER_SET_CROSSLIGHT_OFFSET, (void *)this, hmi_cb_set_crosslight_offset);
+    host_hmi.register_callback(SACP_CMD_SET_LASER, SACP_CMD_ID_LASER_GET_CROSSLIGHT_OFFSET, (void *)this, hmi_cb_get_crosslight_offset);
   }
   else {
     LOG_I("Got 1.6W laser!\n");
-
     host_hmi.apply_cmd_set_handle(SACP_CMD_SET_LASER, SACP_CMD_ID_LASER_MAX - 2);
-
     // calibration Callback for MODULE_DEVICE_ID_LASER_1P6W_2019 only
-    host_hmi.register_callback(SACP_CMD_SET_CALIBRATE_LASER, SACP_CMD_ID_LASER_CALI_MANUAL, (void *)this,
-      hmi_cb_do_manual_focusing, SACP_CB_ATTR_BLOCKED_WITH_MOTION);
-    host_hmi.register_callback(SACP_CMD_SET_CALIBRATE_LASER, SACP_CMD_ID_LASER_CALI_AUTO, (void *)this,
-    hmi_cb_do_auto_focusing, SACP_CB_ATTR_BLOCKED_WITH_MOTION);
+    host_hmi.register_callback(SACP_CMD_SET_CALIBRATE_LASER, SACP_CMD_ID_LASER_CALI_MANUAL, (void *)this, hmi_cb_do_manual_focusing, SACP_CB_ATTR_BLOCKED_WITH_MOTION);
+    host_hmi.register_callback(SACP_CMD_SET_CALIBRATE_LASER, SACP_CMD_ID_LASER_CALI_AUTO, (void *)this, hmi_cb_do_auto_focusing, SACP_CB_ATTR_BLOCKED_WITH_MOTION);
   }
 
   // common API
-  host_hmi.register_callback(SACP_CMD_SET_LASER, SACP_CMD_ID_LASER_SET_PLATFORM_HIGHT, (void *)this,
-    hmi_cb_set_platform_hight);
-  host_hmi.register_callback(SACP_CMD_SET_LASER, SACP_CMD_ID_LASER_SET_4AXIS_HIGHT, (void *)this,
-    hmi_cb_set_4axis_center_hight);
-  host_hmi.register_callback(SACP_CMD_SET_LASER, SACP_CMD_ID_LASER_GET_INFO, (void *)this,
-    hmi_cb_get_info);
-  host_hmi.register_callback(SACP_CMD_SET_LASER, SACP_CMD_ID_LASER_SET_POWER, (void *)this,
-    hmi_cb_set_output);
-  host_hmi.register_callback(SACP_CMD_SET_LASER, SACP_CMD_ID_LASER_SET_FOCAL_LENGTH, (void *)this,
-    hmi_cb_set_focal_length);
-  host_hmi.register_callback(SACP_CMD_SET_LASER, SACP_CMD_ID_LASER_SET_SAFETY_LOCK, (void *)this,
-    hmi_cb_set_safety_lock);
-  host_hmi.register_callback(SACP_CMD_SET_LASER, SACP_CMD_ID_LASER_GET_SAFETY_LOCK, (void *)this,
-    hmi_cb_get_safety_lock);
+  host_hmi.register_callback(SACP_CMD_SET_LASER, SACP_CMD_ID_LASER_SET_PLATFORM_HIGHT, (void *)this, hmi_cb_set_platform_hight);
+  host_hmi.register_callback(SACP_CMD_SET_LASER, SACP_CMD_ID_LASER_SET_4AXIS_HIGHT, (void *)this, hmi_cb_set_4axis_center_hight);
+  host_hmi.register_callback(SACP_CMD_SET_LASER, SACP_CMD_ID_LASER_GET_INFO, (void *)this, hmi_cb_get_info);
+  host_hmi.register_callback(SACP_CMD_SET_LASER, SACP_CMD_ID_LASER_SET_POWER, (void *)this, hmi_cb_set_output);
+  host_hmi.register_callback(SACP_CMD_SET_LASER, SACP_CMD_ID_LASER_SET_FOCAL_LENGTH, (void *)this, hmi_cb_set_focal_length);
+  host_hmi.register_callback(SACP_CMD_SET_LASER, SACP_CMD_ID_LASER_SET_SAFETY_LOCK, (void *)this, hmi_cb_set_safety_lock);
+  host_hmi.register_callback(SACP_CMD_SET_LASER, SACP_CMD_ID_LASER_GET_SAFETY_LOCK, (void *)this, hmi_cb_get_safety_lock);
 
   // publish power
-  host_hmi.register_subscription(SACP_CMD_SET_LASER, SACP_CMD_ID_LASER_SUBSCRIBE_POWER, (void *)this,
-    hmi_cb_publish_power);
+  host_hmi.register_subscription(SACP_CMD_SET_LASER, SACP_CMD_ID_LASER_SUBSCRIBE_POWER, (void *)this, hmi_cb_publish_power);
 
   // calibration API
-  host_hmi.register_callback(SACP_CMD_SET_CALIBRATE_LASER, SACP_CMD_ID_LASER_CALI_SET_MODE, (void *)this,
-    hmi_cb_set_cali_mode, SACP_CB_ATTR_BLOCKED_WITH_MOTION);
-  host_hmi.register_callback(SACP_CMD_SET_CALIBRATE_LASER, SACP_CMD_ID_LASER_CALI_REQ_EXIT, (void *)this,
-    hmi_cb_exit_calibraion, SACP_CB_ATTR_BLOCKED_WITH_MOTION);
+  host_hmi.register_callback(SACP_CMD_SET_CALIBRATE_LASER, SACP_CMD_ID_LASER_CALI_SET_MODE, (void *)this, hmi_cb_set_cali_mode, SACP_CB_ATTR_BLOCKED_WITH_MOTION);
+  host_hmi.register_callback(SACP_CMD_SET_CALIBRATE_LASER, SACP_CMD_ID_LASER_CALI_REQ_EXIT, (void *)this, hmi_cb_exit_calibraion, SACP_CB_ATTR_BLOCKED_WITH_MOTION);
 
   tube_status = LASER_TUBE_STA_OFF;
 
@@ -1223,6 +1552,11 @@ err_code_t ToolHeadLaser::post_init() {
 void ToolHeadLaser::setup_camera_port(uint8_t port) {
   sacp_channel_t *ch = host_hmi.get_channel(SACP_HMI_CH_CAMERA);
   MSerialT *serial = NULL;
+
+  if (get_device_id() == MODULE_DEVICE_ID_LASER_20W_2023 || get_device_id() == MODULE_DEVICE_ID_LASER_40W_2023) {
+    LOG_E("20W or 40W laser do not have any camera\n");
+    return;
+  }
 
   switch (port) {
   case PORT_INDEX_P1:
@@ -1274,6 +1608,11 @@ err_code_t ToolHeadLaser::get_bt_mac(uint32_t delay_ms, uint8_t retry, bool log_
   uint8_t  recv_buff[12];
   uint16_t recv_len = 12;
   uint8_t cmd = 0;
+
+  if (get_device_id() == MODULE_DEVICE_ID_LASER_20W_2023 || get_device_id() == MODULE_DEVICE_ID_LASER_40W_2023) {
+    LOG_E("20W or 40W laser do not have a Bluetooth\n");
+    return E_UNSUPPORTED_OPERATION;
+  }
 
   if (is_getting) {
     return E_BUSY;
@@ -1363,6 +1702,11 @@ err_code_t ToolHeadLaser::write_focal_length(uint16_t len) {
   msg.length = 3;
   msg.data   = buffer;
 
+  if (msg.id == MODULE_MESSAGE_ID_INVALID) {
+    LOG_E("invalid message id for func: %u\n", MODULE_FUNC_SET_LASER_FOCUS);
+    return E_FAILURE;
+  }
+
   // ret = host_can_rou.send(&msg);
   ret = host_can_rou.send(&msg);
   if (ret != E_SUCCESS) {
@@ -1399,6 +1743,11 @@ err_code_t ToolHeadLaser::read_focal_length() {
   msg.ch     = get_channel();
   msg.length = 1;
   msg.data   = buffer;
+
+  if (msg.id == MODULE_MESSAGE_ID_INVALID) {
+    LOG_E("invalid message id for func: %u\n", MODULE_FUNC_GET_LASER_FOCUS);
+    return E_FAILURE;
+  }
 
   ret = host_can_rou.send_sync(&msg, recv_buffer, &recv_len, 500);
   if (ret != E_SUCCESS) {
@@ -1440,6 +1789,11 @@ uint8_t ToolHeadLaser::get_pwm_pin_state() {
   msg.length = 1;
   msg.data   = buffer;
 
+  if (msg.id == MODULE_MESSAGE_ID_INVALID) {
+    LOG_E("invalid message id for func: %u\n", MODULE_FUNC_GET_PWM_PIN_STATE);
+    return 0xFF;
+  }
+
   // ret = host_can_rou.send(&msg);
   ret = host_can_rou.send_sync(&msg, recv_buffer, &recv_len, 2000);
   if (ret != E_SUCCESS) {
@@ -1451,11 +1805,24 @@ uint8_t ToolHeadLaser::get_pwm_pin_state() {
 }
 
 err_code_t ToolHeadLaser::confirm_pwm_pin_state(uint32_t pin) {
-  if (get_device_id() != MODULE_DEVICE_ID_LASER_10W_2021)
+  if (get_device_id() == MODULE_DEVICE_ID_LASER_1P6W_2019)
     return E_SUCCESS;
 
   uint8_t pin_state_high, pin_state_low;
   pinMode(pin, OUTPUT);
+
+  uint8_t cnt = 10;
+  while(cnt--) {
+    if (E_SUCCESS == set_master_switch(SWITCH_STATE_OFF))
+      break;
+    else
+      vTaskDelay(pdMS_TO_TICKS(10));
+  }
+
+  if (cnt < 0) {
+    LOG_E("Can not turn off the master switch\n");
+    return E_FAILURE;
+  }
 
   digitalWrite(pin, HIGH);
   vTaskDelay(pdMS_TO_TICKS(1));
@@ -1479,6 +1846,11 @@ err_code_t ToolHeadLaser::confirm_pwm_pin_state(uint32_t pin) {
   msg.length = 1;
   msg.data   = buffer;
 
+  if (msg.id == MODULE_MESSAGE_ID_INVALID) {
+    LOG_E("invalid message id for func: %u\n", MODULE_FUNC_CONFIRM_PWN_PIN_STATE);
+    return 0xFF;
+  }
+
   ret = host_can_rou.send(&msg);
   if (ret != E_SUCCESS) {
     LOG_E("failed to confirm pwm pin state! ret: %u\n", ret);
@@ -1500,6 +1872,11 @@ err_code_t ToolHeadLaser::set_temp_threshold(int8_t protect_temp, int8_t recover
   msg.length = 2;
   msg.data   = (uint8_t *)buffer;
 
+  if (msg.id == MODULE_MESSAGE_ID_INVALID) {
+    LOG_E("invalid message id for func: %u\n", MODULE_FUNC_SET_PROTECT_TEMP);
+    return E_FAILURE;
+  }
+
   ret = host_can_rou.send(&msg);
   if (ret != E_SUCCESS) {
     LOG_E("failed to set protect temp! ret: %u\n", ret);
@@ -1516,10 +1893,20 @@ err_code_t ToolHeadLaser::set_focus_assist_light(uint8_t state) {
   uint8_t recv_buffer[4];
   uint8_t recv_len = 4;
 
+  if (get_device_id() == MODULE_DEVICE_ID_LASER_20W_2023 || get_device_id() == MODULE_DEVICE_ID_LASER_40W_2023) {
+    LOG_E("20W or 40W laser do not have any focus assist light\n");
+    return E_UNSUPPORTED_OPERATION;
+  }
+
   msg.id     = get_message_id(MODULE_FUNC_SET_AUTOFOCUS_LIGHT);
   msg.ch     = get_channel();
   msg.length = 1;
   msg.data   = buffer;
+
+  if (msg.id == MODULE_MESSAGE_ID_INVALID) {
+    LOG_E("invalid message id for func: %u\n", MODULE_FUNC_SET_AUTOFOCUS_LIGHT);
+    return E_FAILURE;
+  }
 
   if (state)
     buffer[0] = 1;
@@ -1556,9 +1943,37 @@ err_code_t ToolHeadLaser::set_master_switch(bool state) {
   return ret;
 }
 
+err_code_t ToolHeadLaser::set_branch_switch(bool state) {
+  err_code_t ret;
+  smcan_message_t msg;
+  uint8_t buffer[2] = {state};
+  uint8_t recv_buffer[4];
+  uint8_t recv_len = 4;
+
+  msg.id     = get_message_id(MODULE_FUNC_LASER_BRANCH_CTRL);
+  msg.ch     = get_channel();
+  msg.length = 1;
+  msg.data   = buffer;
+
+  if (msg.id == MODULE_MESSAGE_ID_INVALID) {
+    LOG_E("invalid message id for func: %u\n", MODULE_FUNC_LASER_BRANCH_CTRL);
+    return E_FAILURE;
+  }
+
+  ret = host_can_rou.send_sync(&msg, recv_buffer, &recv_len);
+  if (ret != E_SUCCESS) {
+    LOG_E("failed to set master switch! ret: %u\n", ret);
+    return 0xFF;
+  }
+
+  half_power_mode = !state;
+
+  return ret;
+}
+
 
 void ToolHeadLaser::check_master_switch(uint16_t new_power_pwm) {
-  if (get_device_id() != MODULE_DEVICE_ID_LASER_10W_2021)
+  if (get_device_id() == MODULE_DEVICE_ID_LASER_1P6W_2019)
     return;
 
   switch (master_switch_state) {
@@ -1590,7 +2005,7 @@ void ToolHeadLaser::check_master_switch(uint16_t new_power_pwm) {
 
 // 2s
 void ToolHeadLaser::if_disable_switch() {
-  if (get_device_id() != MODULE_DEVICE_ID_LASER_10W_2021)
+  if (get_device_id() == MODULE_DEVICE_ID_LASER_1P6W_2019)
     return;
 
   if (master_switch_state == LASER_SWITCH_STATE_TO_BE_CLOSED) {
@@ -1610,6 +2025,11 @@ err_code_t ToolHeadLaser::report_bt_mac(uint32_t peer, uint8_t ch) {
   err_code_t ret = E_SUCCESS;
   uint8_t buffer[12];
   int len = 0;
+
+  if (get_device_id() == MODULE_DEVICE_ID_LASER_20W_2023 || get_device_id() == MODULE_DEVICE_ID_LASER_40W_2023) {
+    LOG_E("20W or 40W laser do not have any Bluetooth\n");
+    return E_UNSUPPORTED_OPERATION;
+  }
 
   uint8_t recv_buff[2];
   uint16_t recv_len = sizeof(recv_buff);
@@ -1666,8 +2086,8 @@ void ToolHeadLaser::show_status() {
   LOG_I("platform hight: %d\n", smsettings->laser_platform_hight);
   LOG_I("4axis center hight: %d\n", smsettings->laser_4axis_center_hight);
   LOG_I("safety_lock: %s\n", safety_lock ? "LOCK" : "UNLOCK");
-  LOG_I("power_limit: %f\n", power_limit);
   LOG_I("exception_state: 0x%x\n", exception_state);
+  LOG_I("half power mode: %s\n", half_power_mode ? "open" : "close");
   if (bt_mac[0] == 0) {
     LOG_I("BT MAC: ");
     for (int i = 1; i < 7; i++) {
@@ -1780,6 +2200,12 @@ err_code_t ToolHeadLaser::prepare_start(void) {
     else if (safety_state & SAFETY_STATE_BIT_FAN_RUN) {
       ret = E_JOB_LASER_FAN_EXCEPTION;
     }
+    else if (safety_state & SAFETY_STATE_BIT_FIRE_DECT) {
+      ret = E_JOB_LASER_LASER_FIRE_TRIGGER;
+    }
+    else {
+      ret = E_JOB_FAILURE;
+    }
 
     return ret;
   }
@@ -1803,6 +2229,12 @@ err_code_t ToolHeadLaser::prepare_start(void) {
 }
 
 err_code_t ToolHeadLaser::register_esp32_upgrade_callbake(void) {
+
+  if (get_device_id() == MODULE_DEVICE_ID_LASER_20W_2023 || get_device_id() == MODULE_DEVICE_ID_LASER_40W_2023) {
+    LOG_E("20W or 40W laser do not have any Bluetooth\n");
+    return E_UNSUPPORTED_OPERATION;
+  }
+
   if ( host_hmi.register_callback(S_UPDATRE_ACK, ESP32_UPDATE_OPCODE_START_NOTIFY,
         (void *)this, esp32_camera_upgrade_start_ack_cb, 0, SACP_VER_0))
     return E_FAILURE;
@@ -1829,6 +2261,13 @@ err_code_t ToolHeadLaser::factory_reset() {
   if (get_device_id() == MODULE_DEVICE_ID_LASER_10W_2021) {
     ret += set_temp_threshold(LASER_10W_TEMP_THRESHOLD_PROTECTED, LASER_10W_TEMP_THRESHOLD_RECOVER);
   }
+  else if (get_device_id() == MODULE_DEVICE_ID_LASER_20W_2023) {
+    ret += set_temp_threshold(LASER_20W_TEMP_THRESHOLD_PROTECTED, LASER_20W_TEMP_THRESHOLD_RECOVER);
+  }
+  else if (get_device_id() == MODULE_DEVICE_ID_LASER_40W_2023) {
+    ret += set_temp_threshold(LASER_40W_TEMP_THRESHOLD_PROTECTED, LASER_40W_TEMP_THRESHOLD_RECOVER);
+  }
+
   safety_lock = true;
 
   return ret;
@@ -1898,3 +2337,241 @@ void ToolHeadLaser::check_insert_enclosure() {
     }
   }
 }
+
+err_code_t ToolHeadLaser::set_crosslight(bool onoff) {
+  if (get_device_id() == MODULE_DEVICE_ID_LASER_1P6W_2019 || get_device_id() == MODULE_DEVICE_ID_LASER_10W_2021) {
+    LOG_E("Laser 1P6W or 10W do not have crosslight\n");
+    return E_UNSUPPORTED_OPERATION;
+  }
+
+  err_code_t ret;
+  smcan_message_t msg;
+  uint8_t buffer[1];
+
+  msg.id     = get_message_id(MODULE_FUNC_SET_CROSSLIGHT);
+  if (msg.id == MODULE_MESSAGE_ID_INVALID) {
+    LOG_E("invalid message id for func: %u\n", MODULE_FUNC_SET_CROSSLIGHT);
+    return E_FAILURE;
+  }
+  msg.ch     = get_channel();
+  msg.length = 1;
+  msg.data   = buffer;
+
+  buffer[0] = onoff;
+  ret = host_can_rou.send(&msg);
+  if (ret != E_SUCCESS)
+    LOG_E("failed to set laser fan! ret: %u\n", ret);
+
+  return ret;
+}
+
+err_code_t ToolHeadLaser::get_crosslight_state(bool &on_off) {
+  if (get_device_id() == MODULE_DEVICE_ID_LASER_1P6W_2019 || get_device_id() == MODULE_DEVICE_ID_LASER_10W_2021) {
+    LOG_E("Laser 1P6W or 10W do not have crosslight\n");
+    return E_UNSUPPORTED_OPERATION;
+  }
+
+  err_code_t ret = E_SUCCESS;
+  smcan_message_t msg;
+  uint8_t buffer[2] = {0};
+
+  uint8_t recv_buffer[1];
+  uint8_t recv_len = 1;
+
+  msg.id     = get_message_id(MODULE_FUNC_GET_CROSSLIGHT_STATE);
+  if (msg.id == MODULE_MESSAGE_ID_INVALID) {
+    LOG_E("invalid message id for func: %u\n", MODULE_FUNC_GET_CROSSLIGHT_STATE);
+    return E_FAILURE;
+  }
+  msg.ch     = get_channel();
+  msg.length = 1;
+  msg.data   = buffer;
+
+  ret = host_can_rou.send_sync(&msg, recv_buffer, &recv_len, 2000);
+  if (ret != E_SUCCESS) {
+    LOG_E("failed to get crosslight state! ret: %u\n", ret);
+    return E_FAILURE;
+  }
+
+  on_off = !!recv_buffer[0];
+  return ret;
+}
+
+uint16_t ToolHeadLaser::get_fire_sensor_rawdata(void) {
+  return fire_sensor_rawdata;
+}
+
+err_code_t ToolHeadLaser::set_fire_sensor_sensitivity(uint16_t sen, bool is_save) {
+  if (get_device_id() == MODULE_DEVICE_ID_LASER_1P6W_2019 || get_device_id() == MODULE_DEVICE_ID_LASER_10W_2021) {
+    LOG_E("Laser 1P6W or 10W do not have fire sensor sensor\n");
+    return E_UNSUPPORTED_OPERATION;
+  }
+
+  err_code_t ret;
+  smcan_message_t msg;
+  uint8_t buffer[8];
+
+  msg.id    = get_message_id(MODULE_FUNC_SET_FIRE_SENSOR_SENSITIVITY);
+  if (msg.id == MODULE_MESSAGE_ID_INVALID) {
+    LOG_E("invalid message id for func: %u\n", MODULE_FUNC_SET_FIRE_SENSOR_SENSITIVITY);
+    return E_FAILURE;
+  }
+
+  buffer[0] = sen & 0xFF;
+  buffer[1] = (sen >> 8) & 0xFF;
+  buffer[2] = is_save;
+
+  msg.ch     = get_channel();
+  msg.length = 3;
+  msg.data   = buffer;
+
+  ret = host_can_rou.send(&msg);
+  if (ret != E_SUCCESS)
+    LOG_E("failed to set fire sensor sensitivity! ret: %u\n", ret);
+
+  return ret;
+}
+
+err_code_t ToolHeadLaser::get_fire_sensor_sensitivity(uint16_t &sen) {
+  if (get_device_id() == MODULE_DEVICE_ID_LASER_1P6W_2019 || get_device_id() == MODULE_DEVICE_ID_LASER_10W_2021) {
+    LOG_E("Laser 1P6W or 10W do not have fire sensor sensor\n");
+    return E_UNSUPPORTED_OPERATION;
+  }
+
+  err_code_t ret = E_SUCCESS;
+  smcan_message_t msg;
+  uint8_t buffer[2] = {0};
+  uint8_t recv_buffer[4] = {0};
+  uint8_t recv_len = 2;
+
+  msg.id     = get_message_id(MODULE_FUNC_GET_FIRE_SENSOR_SENSITIVITY);
+  if (msg.id == MODULE_MESSAGE_ID_INVALID) {
+    LOG_E("invalid message id for func: %u\n", MODULE_FUNC_GET_FIRE_SENSOR_SENSITIVITY);
+    return E_FAILURE;
+  }
+  msg.ch     = get_channel();
+  msg.length = 0;
+  msg.data   = buffer;
+
+  ret = host_can_rou.send_sync(&msg, recv_buffer, &recv_len, 2000);
+  if (ret != E_SUCCESS) {
+    LOG_E("failed to get crosslight state! ret: %u\n", ret);
+    return E_FAILURE;
+  }
+
+  sen = (recv_buffer[0] | (recv_buffer[1] << 8));
+
+  return ret;
+}
+
+err_code_t ToolHeadLaser::set_fire_sensor_report_time(uint16_t itv) {
+  if (get_device_id() == MODULE_DEVICE_ID_LASER_1P6W_2019 || get_device_id() == MODULE_DEVICE_ID_LASER_10W_2021) {
+    LOG_E("Laser 1P6W or 10W do not have fire sensor\n");
+    return E_UNSUPPORTED_OPERATION;
+  }
+
+  err_code_t ret;
+  smcan_message_t msg;
+  uint8_t buffer[2];
+
+  msg.id     = get_message_id(MODULE_FUNC_SET_FIRE_SENSOR_REPORT_TIME);
+  if (msg.id == MODULE_MESSAGE_ID_INVALID) {
+    LOG_E("invalid message id for func: %u\n", MODULE_FUNC_SET_FIRE_SENSOR_REPORT_TIME);
+    return E_FAILURE;
+  }
+  msg.ch     = get_channel();
+  msg.length = 2;
+  msg.data   = buffer;
+
+  buffer[0] = itv & 0xFF;
+  buffer[1] = (itv>>8) & 0xFF;
+  ret = host_can_rou.send(&msg);
+  if (ret != E_SUCCESS)
+    LOG_E("failed to set fire sensor report time, ret: %u\n", ret);
+
+  return ret;
+}
+
+err_code_t ToolHeadLaser::set_crosslight_offset(float x, float y) {
+  if (get_device_id() == MODULE_DEVICE_ID_LASER_1P6W_2019 || get_device_id() == MODULE_DEVICE_ID_LASER_10W_2021) {
+    LOG_E("Laser 1P6W or 10W do not have any crosslight\n");
+    return E_UNSUPPORTED_OPERATION;
+  }
+
+  err_code_t ret;
+  smcan_message_t msg;
+  uint8_t buffer[8];
+
+  msg.id = get_message_id(MODULE_FUNC_SET_CROSSLIGHT_OFFSET);
+  if (msg.id == MODULE_MESSAGE_ID_INVALID) {
+    LOG_E("invalid message id for func: %u\n", MODULE_FUNC_SET_CROSSLIGHT_OFFSET);
+    return E_FAILURE;
+  }
+
+  if (fabs(x) > CROSSLIGHT_MAX_OFFSET || fabs(x) > CROSSLIGHT_MAX_OFFSET) {
+    LOG_E("set crosslight offset: invalid param, x_offset: %f, y_offset: %f\n", x, y);
+    return E_FAILURE;
+  }
+
+  msg.ch     = get_channel();
+  msg.length = 8;
+  msg.data   = buffer;
+
+  float *t;
+  t = (float *)(&buffer[0]);
+  *t = x;
+  t = (float *)(&buffer[4]);
+  *t = y;
+  ret = host_can_rou.send(&msg);
+  if (ret != E_SUCCESS) {
+    LOG_E("failed to set laser %u\n", ret);
+  }
+  else {
+    crosslight_offset_x = x;
+    crosslight_offset_y = y;
+  }
+
+  return ret;
+}
+
+err_code_t ToolHeadLaser::get_crosslight_offset(float &x, float &y) {
+  if (get_device_id() == MODULE_DEVICE_ID_LASER_1P6W_2019 || get_device_id() == MODULE_DEVICE_ID_LASER_10W_2021) {
+    LOG_E("Laser 1P6W or 10W do not have any crosslight\n");
+    return E_UNSUPPORTED_OPERATION;
+  }
+
+  err_code_t ret = E_SUCCESS;
+  smcan_message_t msg;
+  uint8_t buffer[2] = {0};
+  uint8_t recv_buffer[8];
+  float x_offset, y_offset;
+  uint8_t recv_len = 8;
+
+  msg.id     = get_message_id(MODULE_FUNC_GET_CROSSLIGHT_OFFSET);
+  if (msg.id == MODULE_MESSAGE_ID_INVALID) {
+    LOG_E("invalid message id for func: %u\n", MODULE_FUNC_GET_CROSSLIGHT_OFFSET);
+    return E_FAILURE;
+  }
+  msg.ch     = get_channel();
+  msg.length = 0;
+  msg.data   = buffer;
+
+  ret = host_can_rou.send_sync(&msg, recv_buffer, &recv_len, 2000);
+  if (ret != E_SUCCESS) {
+    LOG_E("failed to get crosslight offset! ret: %u\n", ret);
+    return E_FAILURE;
+  }
+
+  x_offset = x = *((float *)(&recv_buffer[0]));
+  y_offset = y = *((float *)(&recv_buffer[4]));
+
+  if (fabs(x) > CROSSLIGHT_MAX_OFFSET || fabs(x) > CROSSLIGHT_MAX_OFFSET) {
+    LOG_E("get crosslight offset: invalid param, x_offset: %f, y_offset: %f\n", x, y);
+    return E_FAILURE;
+  }
+
+  crosslight_offset_x = x_offset;
+  crosslight_offset_y = y_offset;
+  return ret;
+}
+

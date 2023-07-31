@@ -287,7 +287,7 @@ err_code_t LinkCAN::send_packet(LinkCANChannel ch, LinkCANType type, uint32_t id
   }
 
   if ((bus->TSR & tx_status_bits) != tx_status_bits) {
-    LOG_E("CAN[%u] failed to send id[%u], esr[0x%08x]\n!", ch, id, bus->ESR);
+    LOG_E("CAN[%u] failed to send id[%u], esr[0x%08x]!\n", ch, id, bus->ESR);
     if (lock_res)
       unlock(ch);
     return E_HARDWARE;

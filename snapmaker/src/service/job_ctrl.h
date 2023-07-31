@@ -70,6 +70,7 @@
 #define E_JOB_LASER_IMU_OVERTEMP                        SACP_RET_JOB_LASER_IMU_OVERTEMP
 #define E_JOB_LASER_FAN_EXCEPTION                       SACP_RET_JOB_LASER_FAN_EXCEPTION
 #define E_JOB_LASER_NO_INSERT_ENCLOSURE                 SACP_RET_JOB_LASER_NO_INSERT_ENCLOSURE
+#define E_JOB_LASER_LASER_FIRE_TRIGGER                  SACP_RET_JOB_LASER_FIRE_TRIGGER
 #define E_JOB_RECOVER_ENV_FAILED                        SACP_RET_JOB_RECOVER_ENV_FAILED
 #define E_JOB_STANDBY_FAILED                            SACP_RET_JOB_STANDBY_FAILED
 
@@ -85,7 +86,7 @@
 
 #define JOB_LOCK_WAIT_TICK                 (0xFFFFFFFF)
 #define MODULE_ENV_MAX_SIZE                128
-#define GCODE_RB_SIZE                      (1024*2)
+#define GCODE_RB_SIZE                      (1024*4)
 #define RESUME_XY_FEEDRATE                 60
 #define RESUME_Z_FEEDRATE                  30
 #define EXTRUSION_E_FEEDRATE               5

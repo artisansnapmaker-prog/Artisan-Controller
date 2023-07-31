@@ -60,7 +60,7 @@ void job_ctrl_thread_entry(void *p) {
 void job_request_gcode(void *p) {
   for(;;) {
     job_ctrl_svc.request_gcode_process(p);
-    vTaskDelay(pdMS_TO_TICKS(10));
+    vTaskDelay(pdMS_TO_TICKS(5));
   }
 }
 

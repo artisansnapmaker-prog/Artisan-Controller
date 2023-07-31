@@ -66,6 +66,8 @@ typedef uint8_t err_code_t;
 
 #define E_IS_ABNORMAL_MOVE_INDEX    (COMMON_ERR_BASE + 18)     /* input shaper: got invalid move index */
 
+#define E_UNSUPPORTED_OPERATION     (COMMON_ERR_BASE + 19)     /* unsupported operation */
+
 
 
 // for legacy use

@@ -2140,6 +2140,18 @@ err_code_t ToolHeadLaser::resume_env(uint8_t *env_buf, uint32_t &len) {
   feedrate_percentage = env->feedrate_percentage;
   motion_platform_svc.sync_feedrate_percentage_to_platform(feedrate_percentage);
 
+  // laser crosslight offset
+  if (get_device_id() == MODULE_DEVICE_ID_LASER_20W_2023 || get_device_id() == MODULE_DEVICE_ID_LASER_40W_2023) {
+    if (motion_platform_svc.check_cross_light_offset(crosslight_offset_x, crosslight_offset_y) == E_SUCCESS) {
+      motion_platform_svc.set_laser_crosslight_offset(crosslight_offset_x, crosslight_offset_y);
+      LOG_I("resume crosslight_offset successed, crosslight_offset: x: %f, y: %f\n", crosslight_offset_x, crosslight_offset_y);
+    }
+    else {
+      LOG_W("resume crosslight_offset failed, crosslight_offset is invalid: x: %f, y: %f\n", crosslight_offset_x, crosslight_offset_y);
+      motion_platform_svc.set_laser_crosslight_offset(INVALID_OFFSET, INVALID_OFFSET);
+    }
+  }
+
   len = sizeof(laser_env_t);
 
   return E_SUCCESS;
@@ -2222,8 +2234,22 @@ err_code_t ToolHeadLaser::prepare_start(void) {
     }
   }
 
-  if (ret != E_SUCCESS)
+  if (ret != E_SUCCESS) {
     LOG_E("Laser: cannot start work, safety sta[0x%x], excep sta[0x%x]\n", safety_state, exception_state);
+  }
+  else {
+    // laser crosslight offset
+    if (get_device_id() == MODULE_DEVICE_ID_LASER_20W_2023 || get_device_id() == MODULE_DEVICE_ID_LASER_40W_2023) {
+      if (motion_platform_svc.check_cross_light_offset(crosslight_offset_x, crosslight_offset_y) == E_SUCCESS) {
+        motion_platform_svc.set_laser_crosslight_offset(crosslight_offset_x, crosslight_offset_y);
+        LOG_I("prepare_start set crosslight_offset: x: %f, y: %f\n", crosslight_offset_x, crosslight_offset_y);
+      }
+      else {
+        LOG_W("prepare_start set crosslight_offset failed, crosslight_offset is invalid: x: %f, y: %f\n", crosslight_offset_x, crosslight_offset_y);
+        motion_platform_svc.set_laser_crosslight_offset(INVALID_OFFSET, INVALID_OFFSET);
+      }
+    }
+  }
 
   return ret;
 }

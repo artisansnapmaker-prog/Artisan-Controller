@@ -195,6 +195,9 @@ class MotionPlatformService {
     float get_home_offset(AxisEnum axis) { return home_offset[axis]; }
     void home_offset_init();
     void set_home_offset(float x, float y, float z, float i=0, float j=0);
+    void set_laser_crosslight_offset(float ox, float oy);
+    void get_laser_crosslight_offset(float &ox, float &oy);
+    err_code_t check_cross_light_offset(float x_offset, float y_offset);
 
     // speed control API
     float get_feedrate(void);

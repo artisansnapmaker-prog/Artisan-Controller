@@ -1927,6 +1927,14 @@ extruder_print_map_type SnapmakerPrinter::get_extruder_map_type(void) {
     return NORMAL_MODE;
 }
 
+bool SnapmakerPrinter::is_has_crosslight_offset(void) {
+  if (laser && (laser->get_device_id() == MODULE_DEVICE_ID_LASER_20W_2023 || \
+      laser->get_device_id() == MODULE_DEVICE_ID_LASER_40W_2023)) {
+    return true;
+  }
+  return false;
+}
+
 extern "C" {
   // hook for failing to apply memory in freeRTOS
   void vApplicationMallocFailedHook( void ) {

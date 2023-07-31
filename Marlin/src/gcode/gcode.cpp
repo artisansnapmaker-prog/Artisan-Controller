@@ -206,6 +206,17 @@ void GcodeSuite::get_destination_from_command() {
       #endif
           destination[i] = axis_is_relative(AxisEnum(i)) ? current_position[i] + v : LOGICAL_TO_NATIVE(v, i);
       }
+
+      // laser crosslight offset
+      if (smprinter.is_has_crosslight_offset()) {
+        extern bool job_printing_flag;
+        if (smprinter.on_working() || job_printing_flag) {
+          if (motion_platform_svc.check_cross_light_offset(laser_crosslight_offset.x, laser_crosslight_offset.y) == E_SUCCESS) {
+            if (i <= Y_AXIS)
+              destination[i] += laser_crosslight_offset[i];
+          }
+        }
+      }
     }
     else
       destination[i] = current_position[i];

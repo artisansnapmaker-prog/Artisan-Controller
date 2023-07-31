@@ -843,6 +843,24 @@ void MotionPlatformService::set_home_offset(float x, float y, float z, float i/*
   home_offset.j = j;
 }
 
+void MotionPlatformService::set_laser_crosslight_offset(float ox, float oy) {
+  laser_crosslight_offset.x = ox;
+  laser_crosslight_offset.y = oy;
+}
+
+void MotionPlatformService::get_laser_crosslight_offset(float &ox, float &oy) {
+  ox = laser_crosslight_offset.x;
+  oy = laser_crosslight_offset.y;
+}
+
+err_code_t MotionPlatformService::check_cross_light_offset(float x_offset, float y_offset) {
+  if (((x_offset == INVALID_OFFSET || y_offset == INVALID_OFFSET)) || \
+      ((fabs(x_offset) > CROSSLIGHT_MAX_OFFSET || fabs(y_offset) > CROSSLIGHT_MAX_OFFSET))) {
+    return E_FAILURE;
+  }
+  return E_SUCCESS;
+}
+
 float MotionPlatformService::get_feedrate(void) {
   return feedrate_mm_s;
 }

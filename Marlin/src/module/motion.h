@@ -489,6 +489,8 @@ void home_if_needed(const bool keeplev=false);
   #define RAW_K_POSITION(POS)     LOGICAL_TO_NATIVE(POS, K_AXIS)
 #endif
 
+extern xyz_pos_t laser_crosslight_offset;
+
 /**
  * position_is_reachable family of functions
  */

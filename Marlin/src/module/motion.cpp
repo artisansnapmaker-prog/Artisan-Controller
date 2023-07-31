@@ -184,6 +184,8 @@ xyz_pos_t cartes;
   xyz_pos_t workspace_offset{0};
 #endif
 
+xyz_pos_t laser_crosslight_offset{0, 0, 0};
+
 #if HAS_ABL_NOT_UBL
   feedRate_t xy_probe_feedrate_mm_s = MMM_TO_MMS(XY_PROBE_FEEDRATE);
 #endif

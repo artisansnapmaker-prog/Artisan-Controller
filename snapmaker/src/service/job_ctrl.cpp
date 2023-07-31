@@ -1364,6 +1364,8 @@ void JobCtrl::do_stop(struct JobCtrlReqInfo &jri) {
 exit_do_stop:
   req_stop_trigger = false;
   LOG_I("job_ctrl line: %d req_stop_trigger set: %d, job_print_seconds: %us\n", __LINE__, req_stop_trigger, job_print_seconds);
+  // reset laser crosslight offset
+  motion_platform_svc.set_laser_crosslight_offset(0, 0);
   motion_platform_svc.show_inputshaper_debug_info();
   motion_platform_svc.reset_inputshaper_debug_info();
 }

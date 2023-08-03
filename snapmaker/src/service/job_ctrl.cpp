@@ -417,6 +417,7 @@ err_code_t JobCtrl::save_env(bool from_isr/*=false*/, bool save_all_info/*=true*
 
   _env.device_id = cur_toolhead->get_device_id();
   _env.tool_changing = false;
+  _env.air_pump_switch = GcodeSuite::air_pump_switch_;
 
   // LOG_I("job_ctrl: save cur_line_num %d\r\n", _env.cur_line_num);
   // print_job_env(&_env);
@@ -516,6 +517,9 @@ __pos_resume:
       special_proc = true;
     }
   }
+
+  // restore air pump status
+  GcodeSuite::air_pump_switch_ = _env.air_pump_switch;
 
   relative_position = _env.destination;
   LOCK(_lock, JOB_LOCK_WAIT_TICK);
@@ -1360,6 +1364,8 @@ void JobCtrl::do_stop(struct JobCtrlReqInfo &jri) {
       notify_handle_stopped[i].cb(notify_handle_stopped[i].obj, jri.req_data.req_stop_data.type);
     }
   }
+
+  GcodeSuite::air_pump_switch_ = false;
 
 exit_do_stop:
   req_stop_trigger = false;

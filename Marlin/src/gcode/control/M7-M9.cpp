@@ -22,7 +22,7 @@
 
 #include "../../inc/MarlinConfigPre.h"
 
-#if ANY(COOLANT_MIST, COOLANT_FLOOD, AIR_ASSIST)
+#if ANY(COOLANT_MIST, COOLANT_FLOOD, AIR_ASSIST) && !MB_SNAPMAKER
 
 #include "../gcode.h"
 #include "../../module/planner.h"

@@ -462,6 +462,10 @@ public:
 
   static void dwell(millis_t time);
 
+  #if ENABLED(SNAPMAKER_DOUBLE_ZONE_BED)
+    static bool air_pump_switch_;
+  #endif
+
 private:
 
   friend class MarlinSettings;
@@ -604,15 +608,15 @@ private:
     static void M101();
   #endif
 
-  #if ENABLED(COOLANT_MIST)
+  #if ENABLED(COOLANT_MIST) || MB_SNAPMAKER
     static void M7();
   #endif
 
-  #if EITHER(AIR_ASSIST, COOLANT_FLOOD)
+  #if EITHER(AIR_ASSIST, COOLANT_FLOOD) || MB_SNAPMAKER
     static void M8();
   #endif
 
-  #if EITHER(AIR_ASSIST, COOLANT_CONTROL)
+  #if EITHER(AIR_ASSIST, COOLANT_CONTROL) || MB_SNAPMAKER
     static void M9();
   #endif
 

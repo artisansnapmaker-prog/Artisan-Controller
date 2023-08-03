@@ -975,7 +975,10 @@ err_code_t laser_routine(void *obj) {
       set_pwm_duty(laser.output_pin, 0, 255, true);
       set_pwm_frequency(laser.output_pin, 250);
       #else
-      laser.pwm_index = pwm_controller.init_pin(laser.output_pin, 0, 255, false, 250);
+      if (laser.get_device_id() == MODULE_DEVICE_ID_LASER_10W_2021 || laser.get_device_id() == MODULE_DEVICE_ID_LASER_1P6W_2019)
+        laser.pwm_index = pwm_controller.init_pin(laser.output_pin, 0, 255, false, 250);
+      else
+        laser.pwm_index = pwm_controller.init_pin(laser.output_pin, 0, 255, false, 5000);
       #endif
       laser.set_output(0);
       laser.set_status(MODULE_STATUS_NORMAL);
@@ -1518,7 +1521,10 @@ err_code_t ToolHeadLaser::post_init() {
       set_pwm_duty(output_pin, 0, 255, true);
       set_pwm_frequency(output_pin, 250);
     #else
-      pwm_index = pwm_controller.init_pin(output_pin, 0, 255, false, 250);
+      if (get_device_id() == MODULE_DEVICE_ID_LASER_10W_2021 || get_device_id() == MODULE_DEVICE_ID_LASER_1P6W_2019)
+        pwm_index = pwm_controller.init_pin(output_pin, 0, 255, false, 250);
+      else
+        pwm_index = pwm_controller.init_pin(output_pin, 0, 255, false, 5000);
     #endif
     // must set status to MODULE_STATUS_NORMAL before set output
     set_status(MODULE_STATUS_NORMAL);

@@ -78,7 +78,7 @@ UpgradeModuleInfo upgrade_module_info_tab[] = {
   {
     SM2_MODULE_FW,                                        /* packet type */
     MODULE_DEVICE_ID_FDM_1EXTRUDER_2019,                  /* start id    */
-    MODULE_DEVICE_ID_CALIBRATOR,                          /* end id      */
+    MODULE_DEVICE_ID_CAN_MODULES_MAX,                     /* end id      */
     sm2_module_upgrade_handle_init,
     sm2_module_upgrade_handle_deinit,
     {

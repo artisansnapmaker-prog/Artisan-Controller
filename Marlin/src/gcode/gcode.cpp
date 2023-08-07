@@ -271,6 +271,33 @@ void GcodeSuite::get_destination_from_command() {
     }
     else if (ENABLED(LASER_MOVE_G0_OFF) && parser.codenum == 0) // G0
       cutter.set_inline_enabled(false);
+  #elif MB_SNAPMAKER
+    float laser_power = NAN;
+    float laser_pwm = NAN;
+    if (TH_TYPE_LASER == smprinter.get_toolhead_type()) {
+      if (parser.seen('P')) {
+        laser_power = parser.value_float();
+      }
+      else if (parser.seen('S')) {
+        laser_pwm = parser.value_float();
+      }
+
+      if ((!isnan(laser_power) || !isnan(laser_pwm))) {
+        planner.laser_inline.status.isEnabled = true;
+        if (!isnan(laser_pwm)) {
+          LIMIT(laser_pwm, 0, 255);
+          smprinter.set_inline_laser_pwm((uint16_t)laser_pwm);
+        }
+        else {
+          LIMIT(laser_power, 0, 100);
+          smprinter.set_inline_laser_power(laser_power);
+        }
+        // LOG_I("laser_power: %f, laser_pwm: %f, power: %d, power_pwm: %f\n", laser_power, laser_pwm, planner.laser_inline.power, planner.laser_inline.power_pwm);
+      }
+      else if (parser.codenum == 0) {
+        smprinter.set_inline_laser_power(0);
+      }
+    }
   #endif
 }
 
@@ -528,15 +555,15 @@ void GcodeSuite::process_parsed_command(const bool no_ok/*=false*/, bool is_inte
         case 101: M101(); break;
       #endif
 
-      #if ENABLED(COOLANT_MIST)
+      #if ENABLED(COOLANT_MIST) || MB_SNAPMAKER
         case 7: M7(); break;                                      // M7: Coolant Mist ON
       #endif
 
-      #if EITHER(AIR_ASSIST, COOLANT_FLOOD)
+      #if EITHER(AIR_ASSIST, COOLANT_FLOOD) || MB_SNAPMAKER
         case 8: M8(); break;                                      // M8: Air Assist / Coolant Flood ON
       #endif
 
-      #if EITHER(AIR_ASSIST, COOLANT_CONTROL)
+      #if EITHER(AIR_ASSIST, COOLANT_CONTROL) || MB_SNAPMAKER
         case 9: M9(); break;                                      // M9: Air Assist / Coolant OFF
       #endif
 

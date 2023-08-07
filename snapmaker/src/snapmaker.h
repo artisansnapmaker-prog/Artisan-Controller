@@ -589,6 +589,9 @@ class SnapmakerPrinter
     void laser_enable_env_check(void) { if (laser) laser->check_insert_enclosure(); }
     void show_laser_info(void) { if (laser) laser->show_status(); }
     bool is_has_crosslight_offset(void);
+    void set_inline_laser_power(float power);
+    void set_inline_laser_pwm(uint16_t pwm);
+    void laser_turn_on_isr(uint16_t pwm, uint8_t sync_power);
 
     // DryBox
     void set_drybox_temp(int16_t heater_temp, int16_t chamber_temp) {

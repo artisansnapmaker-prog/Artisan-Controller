@@ -226,6 +226,10 @@ void GcodeSuite::G28() {
       SERIAL_ECHOLNPGM(STR_ERR_STOPPED);
       return;
     }
+
+    if (TH_TYPE_LASER == smprinter.get_toolhead_type()) {
+      smprinter.turn_off_laser();
+    }
   #endif
 
   TERN_(LASER_MOVE_G28_OFF, cutter.set_inline_enabled(false));  // turn off laser

@@ -6,13 +6,44 @@
 #if MB_SNAPMAKER
 
 void GcodeSuite::M3_M4(const bool is_M4) {
-  planner.synchronize();   // Wait for previous movement commands (G0/G0/G2/G3) to complete before changing power
-  if (parser.seenval('P')) {
-    float p = (float)parser.floatval('P', (float)0);
-    smprinter.set_laser_output(p);
+  float param_p = NAN;
+  float param_s = NAN;
+
+  if (TH_TYPE_LASER == smprinter.get_toolhead_type()) {
+    if (parser.seen('P'))
+      param_p = parser.value_float();
+    else if (parser.seen('S'))
+      param_s = parser.value_ushort();
+
+    if (parser.seen('I') && (!isnan(param_p) || !isnan(param_s))) {
+      planner.laser_inline.status.isEnabled = true;
+      if (!isnan(param_s)) {
+        LIMIT(param_s, 0, 255);
+        smprinter.set_inline_laser_pwm((uint16_t)param_s);
+      }
+      else {
+        LIMIT(param_p, 0, 100);
+        smprinter.set_inline_laser_power(param_p);
+      }
+      return;
+    }
   }
-  else {
-    smprinter.turn_on_laser();
+
+  planner.synchronize();   // Wait for previous movement commands (G0/G0/G2/G3) to complete before changing power
+
+  if (TH_TYPE_LASER == smprinter.get_toolhead_type()) {
+    if (!isnan(param_p)) {
+      LIMIT(param_p, 0, 100);
+      smprinter.set_laser_output(param_p);
+    }
+    else if (!isnan(param_s)) {
+      LIMIT(param_s, 0, 255);
+      param_p = param_s * 100 / 255;
+      smprinter.set_laser_output(param_p);
+    }
+    else {
+      smprinter.turn_on_laser();
+    }
   }
 
   if (smprinter.cnc_online_check()) {
@@ -32,6 +63,13 @@ void GcodeSuite::M3_M4(const bool is_M4) {
 }
 
 void GcodeSuite::M5() {
+  if (TH_TYPE_LASER == smprinter.get_toolhead_type()) {
+    planner.laser_inline.status.isEnabled = false;
+    if (parser.seen('I')) {
+      smprinter.set_inline_laser_power(0);
+      return;
+    }
+  }
   planner.synchronize();
   smprinter.turn_off_laser();
   if (smprinter.cnc_online_check()) {

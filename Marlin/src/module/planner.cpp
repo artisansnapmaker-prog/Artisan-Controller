@@ -134,7 +134,7 @@ uint8_t Planner::delay_before_delivering;       // This counter delays delivery 
 
 planner_settings_t Planner::settings;           // Initialized by settings.load()
 
-#if ENABLED(LASER_POWER_INLINE)
+#if ENABLED(LASER_POWER_INLINE) || MB_SNAPMAKER
   laser_state_t Planner::laser_inline;          // Current state for blocks
 #endif
 
@@ -2214,10 +2214,13 @@ bool Planner::_populate_block(block_t * const block, bool split_move,
   block->direction_bits = dm;
 
   // Update block laser power
-  #if ENABLED(LASER_POWER_INLINE)
+  #if ENABLED(LASER_POWER_INLINE) || MB_SNAPMAKER
     laser_inline.status.isPlanned = true;
     block->laser.status = laser_inline.status;
-    block->laser.power = laser_inline.power;
+    block->laser.power = laser_inline.status.isEnabled ? laser_inline.power : 0;
+    #if MB_SNAPMAKER
+      block->laser.power_pwm = laser_inline.status.isEnabled ? laser_inline.power_pwm : 0;
+    #endif
   #endif
 
   // Number of steps for each axis

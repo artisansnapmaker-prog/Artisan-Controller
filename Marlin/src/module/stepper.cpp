@@ -2413,6 +2413,14 @@ uint32_t Stepper::block_phase_isr() {
         cutter.apply_power(current_block->cutter_power);
       #endif
 
+      #if MB_SNAPMAKER
+        if (TH_TYPE_LASER == smprinter.get_toolhead_type()) {
+          if (current_block->laser.status.isEnabled) {
+            smprinter.laser_turn_on_isr(current_block->laser.power_pwm, current_block->laser.power);
+          }
+        }
+      #endif
+
       TERN_(POWER_LOSS_RECOVERY, recovery.info.sdpos = current_block->sdpos);
 
       #if ENABLED(DIRECT_STEPPING)

@@ -136,7 +136,7 @@ enum BlockFlag : char {
 
 #define BLOCK_MASK_SYNC ( BLOCK_FLAG_SYNC_POSITION | TERN0(LASER_SYNCHRONOUS_M106_M107, BLOCK_FLAG_SYNC_FANS) )
 
-#if ENABLED(LASER_POWER_INLINE)
+#if ENABLED(LASER_POWER_INLINE) || MB_SNAPMAKER
 
   typedef struct {
     bool isPlanned:1;
@@ -148,6 +148,9 @@ enum BlockFlag : char {
   typedef struct {
     power_status_t status;    // See planner settings for meaning
     uint8_t power;            // Ditto; When in trapezoid mode this is nominal power
+    #if MB_SNAPMAKER
+      uint16_t power_pwm;
+    #endif
     #if ENABLED(LASER_POWER_INLINE_TRAPEZOID)
       uint8_t   power_entry;  // Entry power for the laser
       #if DISABLED(LASER_POWER_INLINE_TRAPEZOID_CONT)
@@ -282,7 +285,7 @@ typedef struct block_t {
     uint32_t sdpos;
   #endif
 
-  #if ENABLED(LASER_POWER_INLINE)
+  #if ENABLED(LASER_POWER_INLINE) || MB_SNAPMAKER
     block_laser_t laser;
   #endif
   #if MB_SNAPMAKER
@@ -302,7 +305,7 @@ typedef struct block_t {
 
 #define BLOCK_MOD(n) ((n)&(BLOCK_BUFFER_SIZE-1))
 
-#if ENABLED(LASER_POWER_INLINE)
+#if ENABLED(LASER_POWER_INLINE) || MB_SNAPMAKER
   typedef struct {
     /**
      * Laser status flags
@@ -316,6 +319,9 @@ typedef struct block_t {
      * floating point operations during the move loop.
      */
     uint8_t power;
+    #if MB_SNAPMAKER
+      uint16_t power_pwm;
+    #endif
   } laser_state_t;
 #endif
 
@@ -419,7 +425,7 @@ class Planner {
 
     static planner_settings_t settings;
 
-    #if ENABLED(LASER_POWER_INLINE)
+    #if ENABLED(LASER_POWER_INLINE) || MB_SNAPMAKER
       static laser_state_t laser_inline;
     #endif
 

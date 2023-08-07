@@ -1582,6 +1582,9 @@ void Temperature::manage_heater() {
           }
           else {
             temp_bed.soft_pwm_amount = 0;
+            #if ENABLED(SNAPMAKER_DOUBLE_ZONE_BED)
+              if (Temperature::bed_inserted)
+            #endif
             WRITE_HEATER_BED(LOW);
           }
         #endif
@@ -1708,6 +1711,9 @@ void Temperature::manage_heater() {
         }
         else {
           temp_chamber.soft_pwm_amount = 0;
+          #if ENABLED(SNAPMAKER_DOUBLE_ZONE_BED)
+            if (Temperature::bed_inserted)
+          #endif
           WRITE_HEATER_CHAMBER(LOW);
         }
      }

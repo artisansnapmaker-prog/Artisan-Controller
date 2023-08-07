@@ -1222,6 +1222,8 @@ err_code_t ToolHeadLaser::turn_on() {
 err_code_t ToolHeadLaser::turn_off() {
   if (get_status() != MODULE_STATUS_NORMAL)
     return E_INVALID_STATE;
+
+  set_inline_laser_enabled(false);
   return update_output(0);
 }
 
@@ -1359,7 +1361,7 @@ void ToolHeadLaser::check_fan(uint16_t new_power_pwm) {
 
 
 void ToolHeadLaser::if_close_fan() {
-  if (fan_state == LASER_FAN_STATE_TO_BE_CLOSED) {
+  if (fan_state == LASER_FAN_STATE_TO_BE_CLOSED && tube_status == LASER_TUBE_STA_OFF) {
     if (fan_tick < FAN_TURN_OFF_DELAY) {
       fan_tick++;
     }
@@ -1367,6 +1369,9 @@ void ToolHeadLaser::if_close_fan() {
       fan_state = LASER_FAN_STATE_CLOSED;
       set_fan(0);
     }
+  }
+  else {
+    fan_tick = 0;
   }
 }
 
@@ -2014,7 +2019,7 @@ void ToolHeadLaser::if_disable_switch() {
   if (get_device_id() == MODULE_DEVICE_ID_LASER_1P6W_2019)
     return;
 
-  if (master_switch_state == LASER_SWITCH_STATE_TO_BE_CLOSED) {
+  if (master_switch_state == LASER_SWITCH_STATE_TO_BE_CLOSED && tube_status == LASER_TUBE_STA_OFF) {
     if (master_switch_tick < MASTER_SWITCH_TURN_OFF_DELAY) {
       master_switch_tick++;
     }
@@ -2022,6 +2027,9 @@ void ToolHeadLaser::if_disable_switch() {
       master_switch_state = LASER_SWITCH_STATE_CLOSED;
       set_master_switch(SWITCH_STATE_OFF);
     }
+  }
+  else {
+    master_switch_tick = 0;
   }
 }
 
@@ -2171,6 +2179,8 @@ err_code_t ToolHeadLaser::standby(void) {
 
   update_power(0);
   update_output(0);
+
+  set_inline_laser_enabled(false);
 
   return E_SUCCESS;
 }
@@ -2605,5 +2615,61 @@ err_code_t ToolHeadLaser::get_crosslight_offset(float &x, float &y) {
   crosslight_offset_x = x_offset;
   crosslight_offset_y = y_offset;
   return ret;
+}
+
+void ToolHeadLaser::set_inline_laser_enabled(bool enable) {
+  planner.laser_inline.status.isEnabled = enable;
+}
+
+void ToolHeadLaser::set_inline_output_with_pwm(uint16_t pwm, bool is_sync_power) {
+  if (get_status() != MODULE_STATUS_NORMAL)
+    return;
+
+  LIMIT(pwm, 0, 255);
+  check_fan(pwm);
+  check_master_switch(pwm);
+
+  planner.laser_inline.power_pwm = pwm;
+  if (is_sync_power)
+    planner.laser_inline.power = pwm * 100.0 / 255.0;
+}
+
+uint16_t ToolHeadLaser::laser_power_map_pwm(float power) {
+  int   integer;
+  float decimal;
+  uint16_t tmp_pwm = 0;
+  LIMIT(power, 0, 100);
+  integer = (int)power;
+  decimal = power - integer;
+  tmp_pwm = (uint16_t)(power_table[integer] + (power_table[integer + 1] - power_table[integer]) * decimal);
+  return tmp_pwm;
+}
+
+void ToolHeadLaser::set_inline_output_with_power(float power) {
+  if (get_status() != MODULE_STATUS_NORMAL)
+    return;
+
+  LIMIT(power, 0, 100);
+    planner.laser_inline.power = (uint8_t)power;
+  set_inline_output_with_pwm(laser_power_map_pwm(power));
+}
+
+void ToolHeadLaser::laser_turn_on_isr(uint16_t pwm, uint8_t sync_power) {
+  uint16_t limit_pwm = laser_power_map_pwm(power_limit);
+  pwm = pwm > limit_pwm ? limit_pwm : pwm;
+  power_pwm = pwm;
+  power_current = sync_power;
+  #if USE_MARLIN_PWM
+    set_pwm_duty(output_pin, pwm, 255, true);
+  #else
+    pwm_controller.set_duty(pwm_index, pwm);
+  #endif
+
+  if (pwm > 0) {
+    tube_status = LASER_TUBE_STA_ON;
+  }
+  else {
+    tube_status = LASER_TUBE_STA_OFF;
+  }
 }
 

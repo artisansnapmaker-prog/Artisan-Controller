@@ -993,7 +993,7 @@
 #endif
 
 // Limiting the maximum acceleration during Laser operation
-#define SNAPMAKER_LASER_ACCELERATION_LIMIT
+// #define SNAPMAKER_LASER_ACCELERATION_LIMIT
 #if ENABLED(SNAPMAKER_LASER_ACCELERATION_LIMIT)
   #define MAX_LASER_ACCELE_EDIT_VALUES  500
 #endif

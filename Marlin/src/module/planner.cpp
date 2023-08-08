@@ -2683,7 +2683,9 @@ bool Planner::_populate_block(block_t * const block, bool split_move,
     accel = CEIL((esteps ? settings.acceleration : settings.travel_acceleration) * steps_per_mm);
 
     #if MB_SNAPMAKER
-      extern SnapmakerPrinter smprinter;
+      #if EITHER(SNAPMAKER_CNC_ACCELERATION_LIMIT, SNAPMAKER_LASER_ACCELERATION_LIMIT)
+        extern SnapmakerPrinter smprinter;
+      #endif
       #if ENABLED(SNAPMAKER_CNC_ACCELERATION_LIMIT)
         // Limit the maximum acceleration of the machine once the cnc module has been identified
         if (smprinter.get_toolhead_type() == TH_TYPE_CNC) {

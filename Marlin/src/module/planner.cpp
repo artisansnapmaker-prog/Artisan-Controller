@@ -2524,15 +2524,21 @@ bool Planner::_populate_block(block_t * const block, bool split_move,
     #ifndef SLOWDOWN_DIVISOR
       #define SLOWDOWN_DIVISOR 2
     #endif
-    if (WITHIN(moves_queued, 2, (BLOCK_BUFFER_SIZE) / (SLOWDOWN_DIVISOR) - 1)) {
-      const int32_t time_diff = settings.min_segment_time_us - segment_time_us;
-      if (time_diff > 0) {
-        // Buffer is draining so add extra time. The amount of time added increases if the buffer is still emptied more.
-        const int32_t nst = segment_time_us + LROUND(2 * time_diff / moves_queued);
-        inverse_secs = 1000000.0f / nst;
-        #if defined(XY_FREQUENCY_LIMIT) || HAS_WIRED_LCD
-          segment_time_us = nst;
-        #endif
+
+    #if MB_SNAPMAKER
+      if (TH_TYPE_LASER == smprinter.get_toolhead_type())
+    #endif
+    {
+      if (WITHIN(moves_queued, 2, (BLOCK_BUFFER_SIZE) / (SLOWDOWN_DIVISOR) - 1)) {
+        const int32_t time_diff = settings.min_segment_time_us - segment_time_us;
+        if (time_diff > 0) {
+          // Buffer is draining so add extra time. The amount of time added increases if the buffer is still emptied more.
+          const int32_t nst = segment_time_us + LROUND(2 * time_diff / moves_queued);
+          inverse_secs = 1000000.0f / nst;
+          #if defined(XY_FREQUENCY_LIMIT) || HAS_WIRED_LCD
+            segment_time_us = nst;
+          #endif
+        }
       }
     }
   #endif

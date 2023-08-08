@@ -284,6 +284,18 @@ err_code_t AxisManager::generateAllAxisFuncParams(uint8_t block_index, block_t* 
     uint8_t move_start = block->shaper_data.move_start;
     uint8_t move_end = block->shaper_data.move_end;
 
+    for (int i = 0; i < NUM_AXIS; ++i) {
+        if (i < 2 && axis[i].func_manager.getFreeSize() < 15) {
+            // axisManager.counts[SHAPER_DBG_NOT_ENOUGH_FUNC_LIST_RESC]++;
+            // LOG_I("no function array, axis: %d getSize: %d, getFreeSize: %d\n", i, axis[i].func_manager.getSize(), axis[i].func_manager.getFreeSize());
+            return E_NO_RESRC;
+        } else if (i >= 2 && axis[i].func_manager.getFreeSize() < 4) {
+            // axisManager.counts[SHAPER_DBG_NOT_ENOUGH_FUNC_LIST_RESC]++;
+            // LOG_I("no function array, axis: %d getSize: %d, getFreeSize: %d\n", i, axis[i].func_manager.getSize(), axis[i].func_manager.getFreeSize());
+            return E_NO_RESRC;
+        }
+    }
+
     if (isShaped()) {
         if (move_start != moveQueue.move_tail && moveQueue.moves[moveQueue.prevMoveIndex(move_start)].flag == MOVE_FLAG_START) {
             move_start = moveQueue.prevMoveIndex(move_start);
@@ -305,11 +317,13 @@ err_code_t AxisManager::generateAllAxisFuncParams(uint8_t block_index, block_t* 
     // LOG_I("start %d, end %d\n", move_start, move_end);
 
     for (int i = 0; i < NUM_AXIS; ++i) {
-        if (i < 2 && axis[i].func_manager.getFreeSize() < 15) {
-            axisManager.counts[SHAPER_DBG_NOT_ENOUGH_FUNC_LIST_RESC]++;
-        } else if (i >= 2 && axis[i].func_manager.getFreeSize() < 4) {
-            axisManager.counts[SHAPER_DBG_NOT_ENOUGH_FUNC_LIST_RESC]++;
-        }
+        // if (i < 2 && axis[i].func_manager.getFreeSize() < 15) {
+        //     axisManager.counts[SHAPER_DBG_NOT_ENOUGH_FUNC_LIST_RESC]++;
+        //     return E_NO_RESRC;
+        // } else if (i >= 2 && axis[i].func_manager.getFreeSize() < 4) {
+        //     axisManager.counts[SHAPER_DBG_NOT_ENOUGH_FUNC_LIST_RESC]++;
+        //     return E_NO_RESRC;
+        // }
 
         res = axis[i].generateFuncParams(block_index, move_start, move_end);
         if (res != E_SUCCESS) {

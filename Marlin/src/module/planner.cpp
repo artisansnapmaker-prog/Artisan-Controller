@@ -1433,7 +1433,7 @@ void Planner::shaped_loop() {
 
     if (ret == E_SUCCESS)
       delay_before_delivering = 0;
-    else if (ret != PRIVATE_ERROR_BASE) {
+    else if (ret != PRIVATE_ERROR_BASE && ret != E_NO_RESRC) {
       quick_stop();
       smprinter.raise_exception(SM_EXCEP_OWNER_SYSTEM, CONTROLLER_EXCEP_STA_IS_GENERATE_FUNC, EXCEP_ACT_PAUSE_WORKING);
     }

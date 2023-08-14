@@ -12,8 +12,8 @@
 #include "../HAL/pwm.h"
 #include "Arduino.h"
 
-// 2s
-#define MASTER_SWITCH_TURN_OFF_DELAY  (2 * 10)
+// 5s
+#define MASTER_SWITCH_TURN_OFF_DELAY  (5 * 10)
 
 // 5 min
 #define FAN_TURN_OFF_DELAY            (5 * 600)
@@ -1236,8 +1236,7 @@ err_code_t ToolHeadLaser::set_output(float power) {
     return E_EXCEPTION;
   }
 
-  if (power > LASER_POWER_MAX)
-    power = LASER_POWER_MAX;
+  NOMORE(power, LASER_POWER_MAX);
   update_power(power);
   return update_output(power_pwm);
 }
@@ -1251,13 +1250,12 @@ void ToolHeadLaser::update_power(float new_power) {
   if (get_status() != MODULE_STATUS_NORMAL)
     return;
 
-  if (new_power > LASER_POWER_MAX)
-    new_power = LASER_POWER_MAX;
+  NOMORE(new_power, LASER_POWER_MAX);
 
   power_current = tmp_power = new_power;
 
-  if (tmp_power > power_limit)
-    tmp_power = power_limit;
+  // if (tmp_power > power_limit)
+  //   tmp_power = power_limit;
 
   integer = (int)tmp_power;
   decimal = tmp_power - integer;
@@ -1267,7 +1265,7 @@ void ToolHeadLaser::update_power(float new_power) {
 
 
 void ToolHeadLaser::set_power_limit(float limit) {
-  float tmp_power = power_current;
+  // float tmp_power = power_current;
 
   if (limit > LASER_POWER_NORMA_LIMIT) {
     power_limit = LASER_POWER_NORMA_LIMIT;
@@ -1278,13 +1276,15 @@ void ToolHeadLaser::set_power_limit(float limit) {
 
   // update the power, it will change power_current and power_pwm
   // check if we need to limit power_current
-  update_power(power_current);
+  // update_power(power_current);
 
   // recover power_current
-  power_current = tmp_power;
+  // power_current = tmp_power;
 
-  // if (tube_status == LASER_TUBE_STA_ON)
-  if (power_current > 0)
+  power_pwm_limit = laser_power_convert_pwm(power_limit);
+
+  if (tube_status == LASER_TUBE_STA_ON)
+  // if (power_current > 0)
     turn_on();
 }
 
@@ -1292,13 +1292,7 @@ void ToolHeadLaser::set_power_limit(float limit) {
 err_code_t ToolHeadLaser::update_output(uint16_t new_power_pwm) {
   if (get_status() != MODULE_STATUS_NORMAL)
     return E_INVALID_STATE;
-  check_fan(new_power_pwm);
-  check_master_switch(new_power_pwm);
-#if USE_MARLIN_PWM
-  set_pwm_duty(output_pin, new_power_pwm, 255, true);
-#else
-  pwm_controller.set_duty(pwm_index, new_power_pwm);
-#endif
+
   if (new_power_pwm > 0) {
     tube_status = LASER_TUBE_STA_ON;
   }
@@ -1306,6 +1300,15 @@ err_code_t ToolHeadLaser::update_output(uint16_t new_power_pwm) {
     tube_status = LASER_TUBE_STA_OFF;
   }
 
+  NOMORE(new_power_pwm, power_pwm_limit);
+
+  check_fan(new_power_pwm);
+  check_master_switch(new_power_pwm);
+#if USE_MARLIN_PWM
+  set_pwm_duty(output_pin, new_power_pwm, 255, true);
+#else
+  pwm_controller.set_duty(pwm_index, new_power_pwm);
+#endif
   return E_SUCCESS;
 }
 
@@ -1457,6 +1460,7 @@ err_code_t ToolHeadLaser::post_init() {
   power_limit   = LASER_POWER_NORMA_LIMIT;
   power_current = 0;
   power_pwm     = 0;
+  power_pwm_limit = LASER_POWER_PWM_MAX;
 
   fan_tick  = 0;
   fan_state = LASER_FAN_STATE_CLOSED;
@@ -2014,7 +2018,7 @@ void ToolHeadLaser::check_master_switch(uint16_t new_power_pwm) {
   }
 }
 
-// 2s
+// 5s
 void ToolHeadLaser::if_disable_switch() {
   if (get_device_id() == MODULE_DEVICE_ID_LASER_1P6W_2019)
     return;
@@ -2026,6 +2030,7 @@ void ToolHeadLaser::if_disable_switch() {
     else {
       master_switch_state = LASER_SWITCH_STATE_CLOSED;
       set_master_switch(SWITCH_STATE_OFF);
+      LOG_I("delay 5s disable laser switch\n");
     }
   }
   else {
@@ -2090,6 +2095,7 @@ void ToolHeadLaser::show_status() {
   LOG_I("current power: %.2f\n", power_current);
   LOG_I("power pwm: %u\n", power_pwm);
   LOG_I("power limit: %.2f\n", power_limit);
+  LOG_I("power pwm limit: %d\n", power_pwm_limit);
   LOG_I("fan state: %u\n", fan_state);
   LOG_I("focal length: %u\n", focal_length);
   LOG_I("safety state: %u\n", safety_state);
@@ -2119,6 +2125,7 @@ typedef struct __packed LaserEnv {
   uint16_t power_pwm;
   ToolHeadLaserTubeStatus tube_status;
   int16_t  feedrate_percentage;
+  bool is_half_power;
 } laser_env_t;
 
 err_code_t ToolHeadLaser::save_env(uint8_t *env_buf, uint32_t &len) {
@@ -2132,6 +2139,7 @@ err_code_t ToolHeadLaser::save_env(uint8_t *env_buf, uint32_t &len) {
   env->power_pwm = power_pwm;
   env->tube_status = tube_status;
   env->feedrate_percentage = feedrate_percentage;
+  env->is_half_power = half_power_mode;
 
   len = sizeof(laser_env_t);
 
@@ -2166,6 +2174,12 @@ err_code_t ToolHeadLaser::resume_env(uint8_t *env_buf, uint32_t &len) {
     }
   }
 
+  if (get_device_id() == MODULE_DEVICE_ID_LASER_40W_2023) {
+    if (env->is_half_power != half_power_mode) {
+      set_branch_switch(!env->is_half_power);
+    }
+  }
+
   len = sizeof(laser_env_t);
 
   return E_SUCCESS;
@@ -2186,7 +2200,13 @@ err_code_t ToolHeadLaser::standby(void) {
 }
 
 err_code_t ToolHeadLaser::resume_finish(void) {
-  LOG_I("Laser: resume finish, tube[%u]\n", tube_status);
+  LOG_I("Laser: resume finish, tube[%u], laser inline state: %s\n", \
+        tube_status, planner.laser_inline.status.isEnabled ? "enable" : "disable");
+
+  if (planner.laser_inline.status.isEnabled) {
+    smprinter.set_inline_laser_power(power_pwm);
+  }
+
   if (LASER_TUBE_STA_ON == tube_status) {
     // here will update power_pwm, so if resuming work with door open,
     // the power will go beyond power limit
@@ -2634,7 +2654,7 @@ void ToolHeadLaser::set_inline_output_with_pwm(uint16_t pwm, bool is_sync_power)
     planner.laser_inline.power = pwm * 100.0 / 255.0;
 }
 
-uint16_t ToolHeadLaser::laser_power_map_pwm(float power) {
+uint16_t ToolHeadLaser::laser_power_convert_pwm(float power) {
   int   integer;
   float decimal;
   uint16_t tmp_pwm = 0;
@@ -2650,26 +2670,26 @@ void ToolHeadLaser::set_inline_output_with_power(float power) {
     return;
 
   LIMIT(power, 0, 100);
-    planner.laser_inline.power = (uint8_t)power;
-  set_inline_output_with_pwm(laser_power_map_pwm(power));
+  planner.laser_inline.power = (uint8_t)power;
+  set_inline_output_with_pwm(laser_power_convert_pwm(power));
 }
 
 void ToolHeadLaser::laser_turn_on_isr(uint16_t pwm, uint8_t sync_power) {
-  uint16_t limit_pwm = laser_power_map_pwm(power_limit);
-  pwm = pwm > limit_pwm ? limit_pwm : pwm;
-  power_pwm = pwm;
-  power_current = sync_power;
-  #if USE_MARLIN_PWM
-    set_pwm_duty(output_pin, pwm, 255, true);
-  #else
-    pwm_controller.set_duty(pwm_index, pwm);
-  #endif
-
   if (pwm > 0) {
     tube_status = LASER_TUBE_STA_ON;
   }
   else {
     tube_status = LASER_TUBE_STA_OFF;
   }
+
+  power_pwm = pwm;
+  power_current = sync_power;
+
+  NOMORE(pwm, power_pwm_limit);
+  #if USE_MARLIN_PWM
+    set_pwm_duty(output_pin, pwm, 255, true);
+  #else
+    pwm_controller.set_duty(pwm_index, pwm);
+  #endif
 }
 

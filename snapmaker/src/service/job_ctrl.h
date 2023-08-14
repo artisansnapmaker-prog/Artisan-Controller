@@ -170,6 +170,7 @@ struct JobEnv {
   xyze_pos_t destination;
   bool tool_changing;
   bool air_pump_switch;
+	bool laser_inline_enable;
 };
 
 enum JobReqAction {

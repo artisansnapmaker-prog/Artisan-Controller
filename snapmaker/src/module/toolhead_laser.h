@@ -25,6 +25,7 @@
 
 #define LASER_POWER_MAX                    (100)
 #define LASER_POWER_NORMA_LIMIT            (LASER_POWER_MAX)
+#define LASER_POWER_PWM_MAX                (255)
 #define LASER_POWER_SAFE_LIMIT             (0)
 #define LASER_CAMERA_FOCUS_MAX             (65000) // 65mm
 #define LASER_POWER_SAFE_LOCK_LIMIT        (0)
@@ -194,7 +195,7 @@ class ToolHeadLaser: public ModuleBase {
     void set_inline_output_with_power(float power);
     void set_inline_output_with_pwm(uint16_t pwm, bool is_sync_power=true);
     void laser_turn_on_isr(uint16_t pwm, uint8_t sync_power);
-    uint16_t laser_power_map_pwm(float power);
+    uint16_t laser_power_convert_pwm(float power);
 
     // speed level: 0 - 255
     err_code_t set_fan(uint8_t speed);
@@ -296,6 +297,7 @@ class ToolHeadLaser: public ModuleBase {
     float    power_current;
     float    power_limit;
     uint16_t power_pwm;
+    uint16_t power_pwm_limit = LASER_POWER_PWM_MAX;
     uint8_t  *power_table;
 
     uint32_t next_ms;
@@ -321,7 +323,7 @@ class ToolHeadLaser: public ModuleBase {
     int8_t  imu_temp;
     bool pwm_normal;
     bool fire_trigger_state = false;
-    bool half_power_mode;
+    bool half_power_mode = false;
     // uint16_t fire_sensor_sensitivity = 0xFFFF;
     uint16_t fire_sensor_rawdata = 0xFFFF;
     float crosslight_offset_x = INVALID_OFFSET;

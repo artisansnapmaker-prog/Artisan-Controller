@@ -347,6 +347,7 @@ class SnapmakerPrinter
     xyze_pos_t destination;
     axis_bits_t axis_relative;
     bool position_invalid;
+    bool laser_inline_enable;
     void update_gcode_file_pass_line_number(uint32_t l, uint8_t mark);
 
   public:

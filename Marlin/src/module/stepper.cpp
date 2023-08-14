@@ -2574,6 +2574,7 @@ uint32_t Stepper::block_phase_isr() {
           smprinter.destination = current_block->destination;
           smprinter.axis_relative = current_block->axis_relative;
           smprinter.position_invalid = current_block->position_invalid;
+          smprinter.laser_inline_enable = current_block->laser.status.isEnabled;
         }
       #endif
 

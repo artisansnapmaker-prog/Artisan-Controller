@@ -498,7 +498,7 @@ static void system_thread(void *p) {
 
   LinearVirtual::check_initialization();
 
-  // smprinter.laser_enable_env_check();
+  smprinter.laser_enable_env_check();
   if (smprinter.get_toolhead_type() == TH_TYPE_UNKNOW) {
     LOG_E("No toolhead plugged!\n");
     system_svc.raise_exception(MODULE_DEVICE_ID_A400_CONTROLLER, CONTROLLER_EXCEP_STA_NO_TOOLHEAD,
@@ -516,7 +516,7 @@ static void system_thread(void *p) {
     module_svc.background_thread();
     system_svc.background_thread();
     emergency_hdl.background();
-    // smprinter.security_check();
+    smprinter.security_check();
     upgrade_svc.loop();
     debug.send_sacp_log_routine();
 

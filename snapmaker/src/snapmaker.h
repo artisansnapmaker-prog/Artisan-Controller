@@ -405,6 +405,8 @@ class SnapmakerPrinter
         laser->turn_off();
     }
 
+    uint8_t get_laser_safety_state(void);
+
     // FDM
     void show_fdm_info(void) { if (fdm) fdm->show_fdm_info(); }
     void homing_active_extruder_clean(void);

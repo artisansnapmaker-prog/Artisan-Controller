@@ -1951,6 +1951,13 @@ void SnapmakerPrinter::laser_turn_on_isr(uint16_t pwm, uint8_t sync_power) {
     laser->laser_turn_on_isr(pwm, sync_power);
 }
 
+uint8_t SnapmakerPrinter::get_laser_safety_state(void) {
+  uint8_t status = 0;
+  if (laser)
+    status = laser->get_safety_state();
+  return status;
+}
+
 extern "C" {
   // hook for failing to apply memory in freeRTOS
   void vApplicationMallocFailedHook( void ) {

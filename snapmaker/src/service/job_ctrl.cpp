@@ -648,7 +648,7 @@ err_code_t JobCtrl::machine_standby(void) {
   }
 
   if (TH_TYPE_3DP == _env.type || TH_TYPE_CNC == _env.type || \
-      (TH_TYPE_LASER == _env.type && smprinter.get_sys_status() == SYSTEM_STATUS_STOPING)) {
+      (TH_TYPE_LASER == _env.type && (smprinter.get_sys_status() == SYSTEM_STATUS_STOPING || smprinter.get_laser_safety_state()))) {
     LOG_I("job_ctrl: Z raise to highest\r\n");
     bool leveling_active = planner.leveling_active;
     constexpr xyz_float_t endstop_backoff = HOMING_BACKOFF_POST_MM;

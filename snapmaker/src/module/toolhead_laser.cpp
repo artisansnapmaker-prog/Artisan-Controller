@@ -2671,11 +2671,11 @@ void ToolHeadLaser::set_inline_output_with_power(float power) {
     return;
 
   LIMIT(power, 0, 100);
-  planner.laser_inline.power = (uint8_t)power;
-  set_inline_output_with_pwm(laser_power_convert_pwm(power));
+  planner.laser_inline.power = power;
+  set_inline_output_with_pwm(laser_power_convert_pwm(power), false);
 }
 
-void ToolHeadLaser::laser_turn_on_isr(uint16_t pwm, uint8_t sync_power) {
+void ToolHeadLaser::laser_turn_on_isr(uint16_t pwm, float sync_power) {
   if (pwm > 0) {
     tube_status = LASER_TUBE_STA_ON;
   }

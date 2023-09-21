@@ -2215,7 +2215,6 @@ bool Planner::_populate_block(block_t * const block, bool split_move,
 
   // Update block laser power
   #if ENABLED(LASER_POWER_INLINE) || MB_SNAPMAKER
-    laser_inline.status.isPlanned = true;
     block->laser.status = laser_inline.status;
     block->laser.power = laser_inline.status.isEnabled ? laser_inline.power : 0;
     #if MB_SNAPMAKER
@@ -2394,6 +2393,15 @@ bool Planner::_populate_block(block_t * const block, bool split_move,
 
   // Bail if this is a zero-length block
   if (block->step_event_count < MIN_STEPS_PER_SEGMENT) return false;
+
+  // need to known which axis has the max steps, and will calc
+  block->major_axis = E_AXIS;
+  LOOP_LINEAR_AXES(i) {
+    if (block->steps[i] == block->step_event_count) {
+      block->major_axis = i;
+      break;
+    }
+  }
 
   TERN_(MIXING_EXTRUDER, mixer.populate_block(block->b_color));
 
@@ -3604,3 +3612,47 @@ void Planner::set_max_feedrate(const uint8_t axis, float inMaxFeedrateMMS) {
   }
 
 #endif
+
+void Planner::calculate_major_axis(block_t *block, uint32_t &accelerate_steps, uint32_t &decelerate_steps) {
+  const int32_t accel = block->acceleration_steps_per_s2;
+
+  // Steps for acceleration, plateau and deceleration
+  int32_t plateau_steps = block->step_event_count;
+  accelerate_steps = 0;
+  decelerate_steps = 0;
+
+  // Limit minimal step rate (Otherwise the timer will overflow.)
+  NOLESS(block->initial_rate, uint32_t(MINIMAL_STEP_RATE));
+  NOLESS(block->final_rate, uint32_t(MINIMAL_STEP_RATE));
+
+  if (accel != 0) {
+    // Steps required for acceleration, deceleration to/from nominal rate
+    const float nominal_rate_sq = sq(float(block->nominal_rate));
+    float accelerate_steps_float = (nominal_rate_sq - sq(float(block->initial_rate))) * (0.5f / accel);
+    accelerate_steps = CEIL(accelerate_steps_float);
+    const float decelerate_steps_float = (nominal_rate_sq - sq(float(block->final_rate))) * (0.5f / accel);
+    decelerate_steps = FLOOR(decelerate_steps_float);
+
+    // Steps between acceleration and deceleration, if any
+    plateau_steps -= accelerate_steps + decelerate_steps;
+
+    // Does accelerate_steps + decelerate_steps exceed step_event_count?
+    // Then we can't possibly reach the nominal rate, there will be no cruising.
+    // Calculate accel / braking time in order to reach the final_rate exactly
+    // at the end of this block.
+    if (plateau_steps < 0) {
+      accelerate_steps_float = CEIL((block->step_event_count + accelerate_steps_float - decelerate_steps_float) * 0.5f);
+      accelerate_steps = _MIN(uint32_t(_MAX(accelerate_steps_float, 0)), block->step_event_count);
+      decelerate_steps = block->step_event_count - accelerate_steps;
+
+      #if ENABLED(S_CURVE_ACCELERATION)
+        // We won't reach the cruising rate. Let's calculate the speed we will reach
+        cruise_rate = final_speed(initial_rate, accel, accelerate_steps);
+      #endif
+    }
+  }
+
+  // Store new block parameters
+  block->accelerate_until = accelerate_steps;
+  block->decelerate_after = block->step_event_count - decelerate_steps;
+}

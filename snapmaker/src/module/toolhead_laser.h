@@ -195,7 +195,7 @@ class ToolHeadLaser: public ModuleBase {
     void set_inline_laser_enabled(bool enable);
     void set_inline_output_with_power(float power);
     void set_inline_output_with_pwm(uint16_t pwm, bool is_sync_power=true);
-    void laser_turn_on_isr(uint16_t pwm, uint8_t sync_power);
+    void laser_turn_on_isr(uint16_t pwm, float sync_power);
     uint16_t laser_power_convert_pwm(float power);
 
     // speed level: 0 - 255

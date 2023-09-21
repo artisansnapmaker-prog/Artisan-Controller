@@ -93,6 +93,73 @@ void MoveQueue::calculateMoves(block_t* block) {
         }
     }
 
+#if ENABLED(LASER_POWER_INLINE_TRAPEZOID)
+    if (smprinter.get_toolhead_type() == TH_TYPE_LASER) {
+        auto &laser = block->laser;
+        if (laser.power_pwm > 0) { // No need to care if power == 0
+            uint32_t accelerate_steps , decelerate_steps;
+
+            block->initial_rate = CEIL(block->nominal_rate * block->initial_speed / block->nominal_speed),
+            block->final_rate = CEIL(block->nominal_rate * block->final_speed / block->nominal_speed); // (steps per second)
+
+            planner.calculate_major_axis(block, accelerate_steps, decelerate_steps);
+
+            laser.power_pwm *= block->cruise_speed / block->nominal_speed;
+            if (accelerate_steps > 0) {
+                const uint16_t entry_power = laser.power_pwm * block->initial_speed / block->cruise_speed; // Power on block entry
+                // Speedup power
+                const uint16_t entry_power_diff = laser.power_pwm - entry_power;
+                if (entry_power_diff) {
+                    // increase power per [entry_per] steps
+                    laser.entry_per = (uint16_t)(accelerate_steps / entry_power_diff + 0.5);
+                    laser.power_entry = entry_power;
+                    // LOG_I("la: ts: %u, as: %u, ep: %u, pen: %u, tp: %u\r\n", block->step_event_count, accelerate_steps, laser.entry_per, laser.power_entry, laser.power_pwm);
+                }
+                else {
+                    laser.entry_per = 0;
+                    laser.power_entry = laser.power_pwm;
+                }
+            }
+            else {
+                // no acceleration phase
+                laser.entry_per = 0;
+                laser.power_entry = laser.power_pwm;
+            }
+
+            if (decelerate_steps > 0) {
+                // Slowdown power
+                // decrease power per [exit_per] steps
+                const uint16_t exit_power = laser.power_pwm * block->final_speed / block->cruise_speed, // Power on block entry
+                            exit_power_diff = laser.power_pwm - exit_power;
+                if (exit_power_diff) {
+                    laser.exit_per = (uint16_t)(decelerate_steps / exit_power_diff + 0.5);
+                    laser.power_exit = exit_power;
+                    // LOG_I("la: ts: %u, da: %u, ep: %u, pex: %u, tp: %u\r\n", block->step_event_count, block->decelerate_after, laser.exit_per, laser.power_exit, laser.power_pwm);
+                }
+                else {
+                    laser.exit_per = 0;
+                    laser.power_exit = laser.power_pwm;
+                }
+            }
+            else {
+                // // no deceleration phase
+                laser.exit_per = 0;
+                laser.power_exit = laser.power_pwm;
+            }
+        }
+        else {
+            laser.power_entry = laser.power_pwm;
+            laser.power_exit = laser.power_pwm;
+            laser.exit_per = 0;
+            laser.entry_per = 0;
+            block->accelerate_until = 0;
+            block->decelerate_after = block->step_event_count;
+            laser.status.isEnabled = false;
+        }
+        block->laser.status.isPlanned = true;
+    }
+#endif
+
     block->shaper_data.block_time = accelClocks + plateauClocks + decelClocks;
 
     block->shaper_data.move_end = prevMoveIndex(move_head);

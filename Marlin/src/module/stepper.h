@@ -356,7 +356,7 @@ class Stepper {
                   ;
     #endif
 
-    static uint32_t acceleration_time, deceleration_time; // time measured in Stepper Timer ticks
+    // static uint32_t acceleration_time, deceleration_time; // time measured in Stepper Timer ticks
     static uint8_t steps_per_isr;         // Count of steps to perform per Stepper ISR call
 
     #if ENABLED(ADAPTIVE_STEP_SMOOTHING)
@@ -432,7 +432,7 @@ class Stepper {
 
       typedef struct {
         bool enabled;       // Trapezoid needed flag (i.e., laser on, planner in control)
-        uint8_t cur_power;  // Current laser power
+        uint16_t cur_power;  // Current laser power
         bool cruise_set;    // Power set up for cruising?
 
         #if ENABLED(LASER_POWER_INLINE_TRAPEZOID_CONT)

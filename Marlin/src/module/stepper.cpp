@@ -212,7 +212,7 @@ bool Stepper::busy = false;
   ;
 #endif
 
-uint32_t Stepper::acceleration_time, Stepper::deceleration_time;
+// uint32_t Stepper::acceleration_time, Stepper::deceleration_time;
 uint8_t Stepper::steps_per_isr;
 
 #if HAS_FREEZE_PIN
@@ -1789,10 +1789,73 @@ void Stepper::pulse_phase_isr() {
         break;
     }
 
+    if (axis_stepper.axis == current_block->major_axis)
+      step_events_completed++;
+
     axis_stepper.axis = -1;
   } while (i-- > 0 && axisManager.getNextZeroAxisStepper(&axis_stepper));
 
+  if (!laser_trap.enabled)
+    return;
 
+  if (step_events_completed <= accelerate_until) { // Calculate new timer value
+    // Update laser - Accelerating
+    #if ENABLED(LASER_POWER_INLINE_TRAPEZOID)
+      #if DISABLED(LASER_POWER_INLINE_TRAPEZOID_CONT)
+        if (current_block->laser.entry_per) {
+          laser_trap.acc_step_count -= step_events_completed - laser_trap.last_step_count;
+          laser_trap.last_step_count = step_events_completed;
+
+          // Should be faster than a divide, since this should trip just once
+          if (laser_trap.acc_step_count < 0) {
+            while (laser_trap.acc_step_count < 0) {
+              laser_trap.acc_step_count += current_block->laser.entry_per;
+              if (laser_trap.cur_power < current_block->laser.power_pwm) laser_trap.cur_power++;
+            }
+            // cutter.ocr_set_power(laser_trap.cur_power);
+            smprinter.laser_turn_on_isr(laser_trap.cur_power, current_block->laser.power);
+          }
+        }
+      #endif
+    #endif
+  }
+  // Are we in Deceleration phase ?
+  else if (step_events_completed > decelerate_after) {
+    // Update laser - Decelerating
+    #if ENABLED(LASER_POWER_INLINE_TRAPEZOID)
+      #if DISABLED(LASER_POWER_INLINE_TRAPEZOID_CONT)
+        if (current_block->laser.exit_per) {
+          laser_trap.acc_step_count -= step_events_completed - laser_trap.last_step_count;
+          laser_trap.last_step_count = step_events_completed;
+          // Should be faster than a divide, since this should trip just once
+          if (laser_trap.acc_step_count < 0) {
+            while (laser_trap.acc_step_count < 0) {
+              laser_trap.acc_step_count += current_block->laser.exit_per;
+              if (laser_trap.cur_power > current_block->laser.power_exit) laser_trap.cur_power--;
+            }
+            // cutter.ocr_set_power(laser_trap.cur_power);
+            smprinter.laser_turn_on_isr(laser_trap.cur_power, current_block->laser.power);
+          }
+        }
+      #endif
+    #endif
+  }
+  else {
+    // Update laser - Cruising
+    #if ENABLED(LASER_POWER_INLINE_TRAPEZOID)
+      if (!laser_trap.cruise_set) {
+        laser_trap.cur_power = current_block->laser.power_pwm;
+        // cutter.ocr_set_power(laser_trap.cur_power);
+        smprinter.laser_turn_on_isr(laser_trap.cur_power, current_block->laser.power);
+        laser_trap.cruise_set = true;
+      }
+      #if ENABLED(LASER_POWER_INLINE_TRAPEZOID_CONT)
+        laser_trap.till_update = LASER_POWER_INLINE_TRAPEZOID_CONT_PER;
+      #else
+        laser_trap.last_step_count = step_events_completed;
+      #endif
+    #endif
+  }
   // #if ISR_MULTI_STEPS
   //     START_HIGH_PULSE();
   //     AWAIT_HIGH_PULSE();
@@ -2413,13 +2476,13 @@ uint32_t Stepper::block_phase_isr() {
         cutter.apply_power(current_block->cutter_power);
       #endif
 
-      #if MB_SNAPMAKER
-        if (TH_TYPE_LASER == smprinter.get_toolhead_type()) {
-          if (current_block->laser.status.isEnabled) {
-            smprinter.laser_turn_on_isr(current_block->laser.power_pwm, current_block->laser.power);
-          }
-        }
-      #endif
+      // #if MB_SNAPMAKER
+      //   if (TH_TYPE_LASER == smprinter.get_toolhead_type()) {
+      //     if (current_block->laser.status.isEnabled) {
+      //       smprinter.laser_turn_on_isr(current_block->laser.power_entry, current_block->laser.power);
+      //     }
+      //   }
+      // #endif
 
       TERN_(POWER_LOSS_RECOVERY, recovery.info.sdpos = current_block->sdpos);
 
@@ -2522,7 +2585,7 @@ uint32_t Stepper::block_phase_isr() {
       axis_did_move = axis_bits;
 
       // No acceleration / deceleration time elapsed so far
-      acceleration_time = deceleration_time = 0;
+      // acceleration_time = deceleration_time = 0;
 
       // #if ENABLED(ADAPTIVE_STEP_SMOOTHING)
       //   uint8_t oversampling = 0;                           // Assume no axis smoothing (via oversampling)
@@ -2556,12 +2619,12 @@ uint32_t Stepper::block_phase_isr() {
       // advance_dividend = current_block->steps << 1;
       // advance_divisor = step_event_count << 1;
 
-      // // No step events completed so far
-      // step_events_completed = 0;
+      // No step events completed so far
+      step_events_completed = 0;
 
-      // // Compute the acceleration and deceleration points
-      // accelerate_until = current_block->accelerate_until << oversampling;
-      // decelerate_after = current_block->decelerate_after << oversampling;
+      // Compute the acceleration and deceleration points
+      accelerate_until = current_block->accelerate_until;
+      decelerate_after = current_block->decelerate_after;
       #if MB_SNAPMAKER
         extern JobSaveLineStep job_save_line_step;
         if (current_block->mark == job_ctrl_svc.get_job_print_mark()) {
@@ -2634,34 +2697,35 @@ uint32_t Stepper::block_phase_isr() {
       }
 
       #if ENABLED(LASER_POWER_INLINE)
-        const power_status_t stat = current_block->laser.status;
-        #if ENABLED(LASER_POWER_INLINE_TRAPEZOID)
-          laser_trap.enabled = stat.isPlanned && stat.isEnabled;
-          laser_trap.cur_power = current_block->laser.power_entry; // RESET STATE
-          laser_trap.cruise_set = false;
-          #if DISABLED(LASER_POWER_INLINE_TRAPEZOID_CONT)
-            laser_trap.last_step_count = 0;
-            laser_trap.acc_step_count = current_block->laser.entry_per / 2;
-          #else
-            laser_trap.till_update = 0;
-          #endif
-          // Always have PWM in this case
-          if (stat.isPlanned) {                        // Planner controls the laser
-            cutter.ocr_set_power(
-              stat.isEnabled ? laser_trap.cur_power : 0 // ON with power or OFF
-            );
-          }
-        #else
-          if (stat.isPlanned) {                        // Planner controls the laser
-            #if ENABLED(SPINDLE_LASER_USE_PWM)
-              cutter.ocr_set_power(
-                stat.isEnabled ? current_block->laser.power : 0 // ON with power or OFF
-              );
+        if (smprinter.get_toolhead_type() == TH_TYPE_LASER) {
+          const power_status_t stat = current_block->laser.status;
+          #if ENABLED(LASER_POWER_INLINE_TRAPEZOID)
+            laser_trap.enabled = stat.isPlanned && stat.isEnabled;
+            laser_trap.cur_power = current_block->laser.power_entry; // RESET STATE
+            laser_trap.cruise_set = false;
+            #if DISABLED(LASER_POWER_INLINE_TRAPEZOID_CONT)
+              laser_trap.last_step_count = 0;
+              laser_trap.acc_step_count = current_block->laser.entry_per / 2;
             #else
-              cutter.set_enabled(stat.isEnabled);
+              laser_trap.till_update = 0;
             #endif
-          }
-        #endif
+            // Always have PWM in this case
+            smprinter.laser_turn_on_isr(laser_trap.cur_power, current_block->laser.power);
+          #else
+            if (stat.isPlanned) {                        // Planner controls the laser
+              #if ENABLED(SPINDLE_LASER_USE_PWM)
+                cutter.ocr_set_power(
+                  stat.isEnabled ? current_block->laser.power : 0 // ON with power or OFF
+                );
+              #else
+                cutter.set_enabled(stat.isEnabled);
+              #endif
+            }
+          #endif
+        }
+        else {
+          laser_trap.enabled = false;
+        }
       #endif // LASER_POWER_INLINE
 
       #if ENABLED(Z_LATE_ENABLE)

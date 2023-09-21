@@ -147,14 +147,14 @@ enum BlockFlag : char {
 
   typedef struct {
     power_status_t status;    // See planner settings for meaning
-    uint8_t power;            // Ditto; When in trapezoid mode this is nominal power
+    float power;            // Ditto; When in trapezoid mode this is nominal power
     #if MB_SNAPMAKER
       uint16_t power_pwm;
     #endif
     #if ENABLED(LASER_POWER_INLINE_TRAPEZOID)
-      uint8_t   power_entry;  // Entry power for the laser
+      uint16_t   power_entry;  // Entry power for the laser
       #if DISABLED(LASER_POWER_INLINE_TRAPEZOID_CONT)
-        uint8_t   power_exit; // Exit power for the laser
+        uint16_t   power_exit; // Exit power for the laser
         uint32_t  entry_per,  // Steps per power increment (to avoid floats in stepper calcs)
                   exit_per;   // Steps per power decrement
       #endif
@@ -296,6 +296,7 @@ typedef struct block_t {
   bool position_invalid;
   xyze_pos_t destination;
   axis_bits_t axis_relative;
+  uint8_t major_axis;
   #endif
 } block_t;
 
@@ -318,7 +319,7 @@ typedef struct block_t {
      * Using OCR instead of raw power, because it avoids
      * floating point operations during the move loop.
      */
-    uint8_t power;
+    float power;
     #if MB_SNAPMAKER
       uint16_t power_pwm;
     #endif
@@ -1007,6 +1008,8 @@ class Planner {
       if (accel == 0) return 0; // accel was 0, set intersection distance to 0
       return (accel * 2 * distance - sq(initial_rate) + sq(final_rate)) / (accel * 4);
     }
+
+    static void calculate_major_axis(block_t *block, uint32_t &accelerate_steps, uint32_t &decelerate_steps);
 
   private:
 

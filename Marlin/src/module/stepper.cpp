@@ -1789,29 +1789,28 @@ void Stepper::pulse_phase_isr() {
         break;
     }
 
-    if (axis_stepper.axis == current_block->major_axis)
+    if (axis_stepper.axis == current_block->major_axis) {
       step_events_completed++;
+    }
 
     axis_stepper.axis = -1;
   } while (i-- > 0 && axisManager.getNextZeroAxisStepper(&axis_stepper));
 
-  if (!laser_trap.enabled)
+  if (!laser_trap.enabled && (step_events_completed != laser_trap.last_step_count))
     return;
+
+  laser_trap.last_step_count = step_events_completed;
 
   if (step_events_completed <= accelerate_until) { // Calculate new timer value
     // Update laser - Accelerating
     #if ENABLED(LASER_POWER_INLINE_TRAPEZOID)
       #if DISABLED(LASER_POWER_INLINE_TRAPEZOID_CONT)
         if (current_block->laser.entry_per) {
-          laser_trap.acc_step_count -= step_events_completed - laser_trap.last_step_count;
-          laser_trap.last_step_count = step_events_completed;
-
+          laser_trap.acc_step_count--;
           // Should be faster than a divide, since this should trip just once
-          if (laser_trap.acc_step_count < 0) {
-            while (laser_trap.acc_step_count < 0) {
-              laser_trap.acc_step_count += current_block->laser.entry_per;
-              if (laser_trap.cur_power < current_block->laser.power_pwm) laser_trap.cur_power++;
-            }
+          if ((int)laser_trap.acc_step_count <= 0) {
+            laser_trap.acc_step_count = current_block->laser.entry_per;
+            if (laser_trap.cur_power < current_block->laser.power_pwm) laser_trap.cur_power++;
             // cutter.ocr_set_power(laser_trap.cur_power);
             smprinter.laser_turn_on_isr(laser_trap.cur_power, current_block->laser.power);
           }
@@ -1825,14 +1824,10 @@ void Stepper::pulse_phase_isr() {
     #if ENABLED(LASER_POWER_INLINE_TRAPEZOID)
       #if DISABLED(LASER_POWER_INLINE_TRAPEZOID_CONT)
         if (current_block->laser.exit_per) {
-          laser_trap.acc_step_count -= step_events_completed - laser_trap.last_step_count;
-          laser_trap.last_step_count = step_events_completed;
+          laser_trap.acc_step_count--;
           // Should be faster than a divide, since this should trip just once
-          if (laser_trap.acc_step_count < 0) {
-            while (laser_trap.acc_step_count < 0) {
-              laser_trap.acc_step_count += current_block->laser.exit_per;
-              if (laser_trap.cur_power > current_block->laser.power_exit) laser_trap.cur_power--;
-            }
+          if ((int)laser_trap.acc_step_count <= 0) {
+            if (laser_trap.cur_power > current_block->laser.power_exit) laser_trap.cur_power--;
             // cutter.ocr_set_power(laser_trap.cur_power);
             smprinter.laser_turn_on_isr(laser_trap.cur_power, current_block->laser.power);
           }
@@ -1849,11 +1844,6 @@ void Stepper::pulse_phase_isr() {
         smprinter.laser_turn_on_isr(laser_trap.cur_power, current_block->laser.power);
         laser_trap.cruise_set = true;
       }
-      #if ENABLED(LASER_POWER_INLINE_TRAPEZOID_CONT)
-        laser_trap.till_update = LASER_POWER_INLINE_TRAPEZOID_CONT_PER;
-      #else
-        laser_trap.last_step_count = step_events_completed;
-      #endif
     #endif
   }
   // #if ISR_MULTI_STEPS

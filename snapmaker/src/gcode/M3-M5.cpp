@@ -13,7 +13,7 @@ void GcodeSuite::M3_M4(const bool is_M4) {
     if (parser.seen('P'))
       param_p = parser.value_float();
     else if (parser.seen('S'))
-      param_s = parser.value_ushort();
+      param_s = parser.value_float();
 
     if (parser.seen('I') && (!isnan(param_p) || !isnan(param_s))) {
       planner.laser_inline.status.isEnabled = true;
@@ -47,7 +47,7 @@ void GcodeSuite::M3_M4(const bool is_M4) {
   }
 
   if (smprinter.cnc_online_check()) {
-    // Parameter 'P' and parameter 'S' exist at the same time, and the value identification parameter 'P' 
+    // Parameter 'P' and parameter 'S' exist at the same time, and the value identification parameter 'P'
     if (parser.seenval('P')) {
       uint8_t power = parser.value_byte();
       smprinter.set_spindle_power(power);

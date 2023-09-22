@@ -280,10 +280,10 @@ void GcodeSuite::M2000() {
     laser = (ToolHeadLaser *)module_svc.get_module(MODULE_DEVICE_ID_LASER_10W_2021, 0);
     if (!laser) laser = (ToolHeadLaser *)module_svc.get_module(MODULE_DEVICE_ID_LASER_20W_2023, 0);
     if (!laser) laser = (ToolHeadLaser *)module_svc.get_module(MODULE_DEVICE_ID_LASER_40W_2023, 0);
-    if (!laser) {
-      LOG_E("No laser module found!\n");
-      return;
-    }
+    // if (!laser) {
+    //   LOG_E("No laser module found!\n");
+    //   return;
+    // }
     if (l < 0xff) {
       laser_msg.ch = SACP_HMI_CH_SCREEN;
       laser_msg.attr = 0;

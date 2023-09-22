@@ -298,6 +298,10 @@ void GcodeSuite::get_destination_from_command() {
         smprinter.set_inline_laser_power(0);
       }
     }
+    else {
+      // disable inline power by default if plugged other toolhead
+      planner.laser_inline.status.isEnabled = false;
+    }
   #endif
 }
 

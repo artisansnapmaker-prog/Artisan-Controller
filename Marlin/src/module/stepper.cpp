@@ -2695,12 +2695,14 @@ uint32_t Stepper::block_phase_isr() {
             laser_trap.cruise_set = false;
             #if DISABLED(LASER_POWER_INLINE_TRAPEZOID_CONT)
               laser_trap.last_step_count = 0;
-              laser_trap.acc_step_count = current_block->laser.entry_per / 2;
+              laser_trap.acc_step_count = current_block->laser.entry_per;
             #else
               laser_trap.till_update = 0;
             #endif
             // Always have PWM in this case
-            smprinter.laser_turn_on_isr(laser_trap.cur_power, current_block->laser.power);
+            if (stat.isPlanned) {                        // Planner controls the laser
+              smprinter.laser_turn_on_isr(stat.isEnabled ? laser_trap.cur_power : 0, current_block->laser.power);
+            }
           #else
             if (stat.isPlanned) {                        // Planner controls the laser
               #if ENABLED(SPINDLE_LASER_USE_PWM)

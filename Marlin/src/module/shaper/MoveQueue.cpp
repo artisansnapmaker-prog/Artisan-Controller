@@ -97,7 +97,8 @@ void MoveQueue::calculateMoves(block_t* block) {
     }
 
 #if ENABLED(LASER_POWER_INLINE_TRAPEZOID)
-    if (smprinter.get_toolhead_type() == TH_TYPE_LASER) {
+    // laser_inline.status.isEnabled is false if toolhead is not laser, so won't check toolhead type here
+    if (block->laser.status.isEnabled) {
         auto &laser = block->laser;
         if (laser.power_pwm > 0) { // No need to care if power == 0
             uint32_t accelerate_steps , decelerate_steps;
@@ -168,9 +169,8 @@ void MoveQueue::calculateMoves(block_t* block) {
             laser.entry_per = 0;
             block->accelerate_until = 0;
             block->decelerate_after = block->step_event_count;
-            laser.status.isEnabled = false;
         }
-        block->laser.status.isPlanned = true;
+        laser.status.isPlanned = true;
     }
 #endif
 

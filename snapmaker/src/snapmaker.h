@@ -594,7 +594,11 @@ class SnapmakerPrinter
     bool is_has_crosslight_offset(void);
     void set_inline_laser_power(float power);
     void set_inline_laser_pwm(uint16_t pwm);
-    void laser_turn_on_isr(uint16_t pwm, uint8_t sync_power);
+    void laser_turn_on_isr(uint16_t pwm, float sync_power);
+    uint16_t laser_inline_pwm_power_floor() {
+      if (laser) return laser->get_inline_pwm_power_floor();
+      else return 0;
+    }
 
     // DryBox
     void set_drybox_temp(int16_t heater_temp, int16_t chamber_temp) {

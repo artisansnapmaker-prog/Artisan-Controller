@@ -533,6 +533,14 @@ void GcodeSuite::M2000() {
       }
       break;
 
+    case 24:
+      { // set the minimum PWM in trapeziod power mode
+        LOG_I("Set inline pwm power floor %u\n", p);
+        if (laser)
+          laser->set_inline_pwm_power_floor((uint16_t)p);
+      }
+      break;
+
     default:
       break;
     }

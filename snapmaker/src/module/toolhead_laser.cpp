@@ -1208,6 +1208,7 @@ err_code_t ToolHeadLaser::pre_init() {
   }
 
   output_pin = E0_STEP_PIN;
+  inline_pwm_power_floor = 0;
 
   return E_SUCCESS;
 }
@@ -2126,6 +2127,7 @@ typedef struct __packed LaserEnv {
   ToolHeadLaserTubeStatus tube_status;
   int16_t  feedrate_percentage;
   bool is_half_power;
+  uint16_t inline_pwm_power_floor;
 } laser_env_t;
 
 err_code_t ToolHeadLaser::save_env(uint8_t *env_buf, uint32_t &len) {
@@ -2140,6 +2142,7 @@ err_code_t ToolHeadLaser::save_env(uint8_t *env_buf, uint32_t &len) {
   env->tube_status = tube_status;
   env->feedrate_percentage = feedrate_percentage;
   env->is_half_power = half_power_mode;
+  env->inline_pwm_power_floor = inline_pwm_power_floor;
 
   len = sizeof(laser_env_t);
 
@@ -2161,6 +2164,8 @@ err_code_t ToolHeadLaser::resume_env(uint8_t *env_buf, uint32_t &len) {
   tube_status = env->tube_status;
   feedrate_percentage = env->feedrate_percentage;
   motion_platform_svc.sync_feedrate_percentage_to_platform(feedrate_percentage);
+  // user shoud not change inline_pwm_power_floor while print is paused
+  inline_pwm_power_floor = env->inline_pwm_power_floor;
 
   // laser crosslight offset
   if (get_device_id() == MODULE_DEVICE_ID_LASER_20W_2023 || get_device_id() == MODULE_DEVICE_ID_LASER_40W_2023) {

@@ -1946,7 +1946,7 @@ void SnapmakerPrinter::set_inline_laser_pwm(uint16_t pwm) {
     laser->set_inline_output_with_pwm(pwm);
 }
 
-void SnapmakerPrinter::laser_turn_on_isr(uint16_t pwm, uint8_t sync_power) {
+void SnapmakerPrinter::laser_turn_on_isr(uint16_t pwm, float sync_power) {
   if (laser)
     laser->laser_turn_on_isr(pwm, sync_power);
 }

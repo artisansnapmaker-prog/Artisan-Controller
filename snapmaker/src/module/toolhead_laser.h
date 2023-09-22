@@ -233,6 +233,8 @@ class ToolHeadLaser: public ModuleBase {
     err_code_t prepare_start(void);
 
     err_code_t register_esp32_upgrade_callbake(void);
+    void set_inline_pwm_power_floor(uint16_t v) { inline_pwm_power_floor = v; }
+    uint16_t get_inline_pwm_power_floor() { return inline_pwm_power_floor; }
 
     // callback for HMI
     static err_code_t hmi_cb_get_info(void *obj, sacp_hmi_message_t *message);
@@ -336,6 +338,7 @@ class ToolHeadLaser: public ModuleBase {
     int16_t feedrate_percentage;
 
     ToolHeadLaserCalibrationStatus cali_status = LASER_CALI_STATUS_INVALID;
+    uint16_t inline_pwm_power_floor {0};
 };
 
 #endif

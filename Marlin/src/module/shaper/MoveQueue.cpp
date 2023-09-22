@@ -101,6 +101,7 @@ void MoveQueue::calculateMoves(block_t* block) {
         auto &laser = block->laser;
         if (laser.power_pwm > 0) { // No need to care if power == 0
             uint32_t accelerate_steps , decelerate_steps;
+            uint16_t trap_power, power_diff;
 
             // cruise_speed maybe less than nominal_speed, so need to convert nominal_rate
             block->nominal_rate *= block->cruise_speed / block->nominal_speed;
@@ -114,13 +115,16 @@ void MoveQueue::calculateMoves(block_t* block) {
             planner.calculate_major_axis(block, accelerate_steps, decelerate_steps);
 
             if (accelerate_steps > 0) {
-                const uint16_t entry_power = laser.power_pwm * block->initial_speed / block->cruise_speed; // Power on block entry
+                uint16_t trap_power = laser.power_pwm * block->initial_speed / block->cruise_speed; // Power on block entry
+                // limit the minimum pwm
+                if (trap_power < smprinter.laser_inline_pwm_power_floor())
+                    trap_power = smprinter.laser_inline_pwm_power_floor();
                 // Speedup power
-                const uint16_t entry_power_diff = laser.power_pwm - entry_power;
-                if (entry_power_diff) {
+                power_diff = laser.power_pwm - trap_power;
+                if (power_diff > 0) {
                     // increase power per [entry_per] steps
-                    laser.entry_per = (uint16_t)(accelerate_steps / entry_power_diff + 0.5);
-                    laser.power_entry = entry_power;
+                    laser.entry_per = (uint16_t)(accelerate_steps / power_diff + 0.5);
+                    laser.power_entry = trap_power;
                     // LOG_I("la: ts: %u, as: %u, ep: %u, pen: %u, tp: %u\r\n", block->step_event_count, accelerate_steps, laser.entry_per, laser.power_entry, laser.power_pwm);
                 }
                 else {
@@ -137,11 +141,13 @@ void MoveQueue::calculateMoves(block_t* block) {
             if (decelerate_steps > 0) {
                 // Slowdown power
                 // decrease power per [exit_per] steps
-                const uint16_t exit_power = laser.power_pwm * block->final_speed / block->cruise_speed, // Power on block entry
-                            exit_power_diff = laser.power_pwm - exit_power;
-                if (exit_power_diff) {
-                    laser.exit_per = (uint16_t)(decelerate_steps / exit_power_diff + 0.5);
-                    laser.power_exit = exit_power;
+                trap_power = laser.power_pwm * block->final_speed / block->cruise_speed; // Power on block entry
+                if (trap_power < smprinter.laser_inline_pwm_power_floor())
+                    trap_power = smprinter.laser_inline_pwm_power_floor();
+                power_diff = laser.power_pwm - trap_power;
+                if (power_diff > 0) {
+                    laser.exit_per = (uint16_t)(decelerate_steps / power_diff + 0.5);
+                    laser.power_exit = trap_power;
                     // LOG_I("la: ts: %u, da: %u, ep: %u, pex: %u, tp: %u\r\n", block->step_event_count, block->decelerate_after, laser.exit_per, laser.power_exit, laser.power_pwm);
                 }
                 else {

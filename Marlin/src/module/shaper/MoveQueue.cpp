@@ -8,6 +8,7 @@ static xyze_float_t ZERO_AXIS_R = {0};
 void MoveQueue::calculateMoves(block_t* block) {
     float millimeters = block->millimeters;
 
+    // 1mm/s -> 0.001mm/ms
     float entry_speed = block->initial_speed / 1000.0f;
     float leave_speed = block->final_speed / 1000.0f;
     float cruise_speed = block->cruise_speed / 1000.0f;
@@ -19,6 +20,7 @@ void MoveQueue::calculateMoves(block_t* block) {
     }
 
     float i_cruise_speed = 1000.0f / block->cruise_speed;
+    // mm/s^2 -> mm/ms^2
     float acceleration = LROUND(block->acceleration) / 1000000.0f;
     float i_acceleration = 1000000.0f / LROUND(block->acceleration);
 
@@ -29,6 +31,7 @@ void MoveQueue::calculateMoves(block_t* block) {
     if (accelDistance < EPSILON) {
         accelDistance = 0;
     }
+    // unit: ms
     float accelClocks = (cruise_speed - entry_speed) * i_acceleration;
 
     float deceleration = acceleration;
@@ -99,12 +102,17 @@ void MoveQueue::calculateMoves(block_t* block) {
         if (laser.power_pwm > 0) { // No need to care if power == 0
             uint32_t accelerate_steps , decelerate_steps;
 
-            block->initial_rate = CEIL(block->nominal_rate * block->initial_speed / block->nominal_speed),
-            block->final_rate = CEIL(block->nominal_rate * block->final_speed / block->nominal_speed); // (steps per second)
+            // cruise_speed maybe less than nominal_speed, so need to convert nominal_rate
+            block->nominal_rate *= block->cruise_speed / block->nominal_speed;
+            laser.power_pwm *= block->cruise_speed / block->nominal_speed;
 
+            // nominal_rate is converted, so use cruise_speed to calculate initial_rate & final_rate
+            block->initial_rate = CEIL(block->nominal_rate * block->initial_speed / block->cruise_speed),
+            block->final_rate = CEIL(block->nominal_rate * block->final_speed / block->cruise_speed); // (steps per second)
+
+            // calculate the acceleration steps and deceleration steps of major axis
             planner.calculate_major_axis(block, accelerate_steps, decelerate_steps);
 
-            laser.power_pwm *= block->cruise_speed / block->nominal_speed;
             if (accelerate_steps > 0) {
                 const uint16_t entry_power = laser.power_pwm * block->initial_speed / block->cruise_speed; // Power on block entry
                 // Speedup power

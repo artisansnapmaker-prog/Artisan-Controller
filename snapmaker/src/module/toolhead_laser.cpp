@@ -2647,7 +2647,8 @@ void ToolHeadLaser::set_inline_output_with_pwm(uint16_t pwm, bool is_sync_power)
 
   LIMIT(pwm, 0, 255);
   check_fan(pwm);
-  check_master_switch(pwm);
+  if (pwm > 0)
+    check_master_switch(pwm);
 
   planner.laser_inline.power_pwm = pwm;
   if (is_sync_power)

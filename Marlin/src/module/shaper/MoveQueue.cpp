@@ -6,7 +6,7 @@ MoveQueue moveQueue;
 static xyze_float_t ZERO_AXIS_R = {0};
 
 void MoveQueue::calculateMoves(block_t* block) {
-    float millimeters = block->millimeters;
+    const float millimeters = block->millimeters;
 
     // 1mm/s -> 0.001mm/ms
     float entry_speed = block->initial_speed / 1000.0f;
@@ -75,17 +75,21 @@ void MoveQueue::calculateMoves(block_t* block) {
     block->shaper_data.move_start = move_head;
 
     float plateauClocks = plateau * i_cruise_speed;
+    uint32_t accelerate_steps = 0, decelerate_steps = 0;
 
     if (plateau == 0) {
         if (accelDistance > 0) {
             addMove(entry_speed, cruise_speed, acceleration, accelDistance, block->axis_r, accelClocks);
+            accelerate_steps = abs(LROUND(accelDistance * block->axis_r[block->major_axis]));
         }
         if (decelDistance > 0) {
             addMove(cruise_speed, leave_speed, -deceleration, decelDistance, block->axis_r, decelClocks);
+            decelerate_steps = abs(LROUND(decelDistance * block->axis_r[block->major_axis]));
         }
     } else {
         if (accelDistance > 0) {
             addMove(entry_speed, cruise_speed, acceleration, accelDistance, block->axis_r, accelClocks);
+            accelerate_steps = abs(LROUND(accelDistance * block->axis_r[block->major_axis]));
         }
 
         // LOG_I("p: %lf, s: %lf, t: %lf\n", plateau, cruise_speed, plateau / cruise_speed);
@@ -93,38 +97,39 @@ void MoveQueue::calculateMoves(block_t* block) {
 
         if (decelDistance > 0) {
             addMove(cruise_speed, leave_speed, -deceleration, decelDistance, block->axis_r, decelClocks);
+            decelerate_steps = abs(LROUND(decelDistance * block->axis_r[block->major_axis]));
         }
     }
 
+    block->shaper_data.block_time = accelClocks + plateauClocks + decelClocks;
+
+    block->shaper_data.move_end = prevMoveIndex(move_head);
+
+    block->cruise_speed = cruise_speed * 1000;
+
 #if ENABLED(LASER_POWER_INLINE_TRAPEZOID)
     // laser_inline.status.isEnabled is false if toolhead is not laser, so won't check toolhead type here
-    if (block->laser.status.isEnabled) {
+    if (block->laser.status.isEnabled && block->major_axis != E_AXIS) {
         auto &laser = block->laser;
         if (laser.power_pwm > 0) { // No need to care if power == 0
-            uint32_t accelerate_steps , decelerate_steps;
-            uint16_t trap_power, power_diff;
+            uint16_t trap_power, power_diff, power_floor;
 
-            // cruise_speed maybe less than nominal_speed, so need to convert nominal_rate
-            block->nominal_rate *= block->cruise_speed / block->nominal_speed;
             laser.power_pwm *= block->cruise_speed / block->nominal_speed;
-
-            // nominal_rate is converted, so use cruise_speed to calculate initial_rate & final_rate
-            block->initial_rate = CEIL(block->nominal_rate * block->initial_speed / block->cruise_speed),
-            block->final_rate = CEIL(block->nominal_rate * block->final_speed / block->cruise_speed); // (steps per second)
-
-            // calculate the acceleration steps and deceleration steps of major axis
-            planner.calculate_major_axis(block, accelerate_steps, decelerate_steps);
+            if (laser.power_pwm < smprinter.laser_inline_pwm_power_floor())
+                power_floor = laser.power_pwm;
+            else
+                power_floor = smprinter.laser_inline_pwm_power_floor();
 
             if (accelerate_steps > 0) {
-                uint16_t trap_power = laser.power_pwm * block->initial_speed / block->cruise_speed; // Power on block entry
+                trap_power = laser.power_pwm * block->initial_speed / block->cruise_speed; // Power on block entry
                 // limit the minimum pwm
-                if (trap_power < smprinter.laser_inline_pwm_power_floor())
-                    trap_power = smprinter.laser_inline_pwm_power_floor();
+                if (trap_power < power_floor)
+                    trap_power = power_floor;
                 // Speedup power
                 power_diff = laser.power_pwm - trap_power;
                 if (power_diff > 0) {
                     // increase power per [entry_per] steps
-                    laser.entry_per = (uint16_t)(accelerate_steps / power_diff + 0.5);
+                    laser.entry_per = (uint16_t)LROUND(accelerate_steps / power_diff);
                     laser.power_entry = trap_power;
                     // LOG_I("la: ts: %u, as: %u, ep: %u, pen: %u, tp: %u\r\n", block->step_event_count, accelerate_steps, laser.entry_per, laser.power_entry, laser.power_pwm);
                 }
@@ -132,34 +137,43 @@ void MoveQueue::calculateMoves(block_t* block) {
                     laser.entry_per = 0;
                     laser.power_entry = laser.power_pwm;
                 }
+                block->accelerate_until = accelerate_steps;
             }
             else {
                 // no acceleration phase
                 laser.entry_per = 0;
                 laser.power_entry = laser.power_pwm;
+                block->accelerate_until = 0;
             }
 
             if (decelerate_steps > 0) {
                 // Slowdown power
                 // decrease power per [exit_per] steps
                 trap_power = laser.power_pwm * block->final_speed / block->cruise_speed; // Power on block entry
-                if (trap_power < smprinter.laser_inline_pwm_power_floor())
-                    trap_power = smprinter.laser_inline_pwm_power_floor();
+                if (trap_power < power_floor)
+                    trap_power = power_floor;
                 power_diff = laser.power_pwm - trap_power;
                 if (power_diff > 0) {
-                    laser.exit_per = (uint16_t)(decelerate_steps / power_diff + 0.5);
+                    laser.exit_per = (uint16_t)LROUND(decelerate_steps / power_diff);
                     laser.power_exit = trap_power;
-                    // LOG_I("la: ts: %u, da: %u, ep: %u, pex: %u, tp: %u\r\n", block->step_event_count, block->decelerate_after, laser.exit_per, laser.power_exit, laser.power_pwm);
+                    // LOG_I("la: ts: %u, ds: %u, ep: %u, pex: %u, tp: %u\r\n", block->step_event_count, decelerate_steps, laser.exit_per, laser.power_exit, laser.power_pwm);
                 }
                 else {
                     laser.exit_per = 0;
                     laser.power_exit = laser.power_pwm;
+                }
+                if (decelerate_steps < block->step_event_count) {
+                    block->decelerate_after = block->step_event_count - decelerate_steps;
+                }
+                else {
+                    block->decelerate_after = accelerate_steps;
                 }
             }
             else {
                 // // no deceleration phase
                 laser.exit_per = 0;
                 laser.power_exit = laser.power_pwm;
+                block->decelerate_after = block->step_event_count;
             }
         }
         else {
@@ -172,13 +186,11 @@ void MoveQueue::calculateMoves(block_t* block) {
         }
         laser.status.isPlanned = true;
     }
+    // if (accelDistance > 0 || decelDistance > 0) {
+    //     LOG_I("q ts: %d, as: %d, ds: %d, lp: %u\r\n\r\n", (int)(millimeters * block->axis_r[block->major_axis]), LROUND(accelDistance * block->axis_r[block->major_axis]),
+    //         LROUND(decelDistance * block->axis_r[block->major_axis]), laser.power_pwm);
+    // }
 #endif
-
-    block->shaper_data.block_time = accelClocks + plateauClocks + decelClocks;
-
-    block->shaper_data.move_end = prevMoveIndex(move_head);
-
-    block->cruise_speed = cruise_speed * 1000;
 
     Move& end_move = moves[block->shaper_data.move_end];
     for (int i = 0; i < LINEAR_AXES - 1; ++i) {

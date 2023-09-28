@@ -1827,6 +1827,7 @@ void Stepper::pulse_phase_isr() {
           laser_trap.acc_step_count--;
           // Should be faster than a divide, since this should trip just once
           if ((int)laser_trap.acc_step_count <= 0) {
+            laser_trap.acc_step_count = current_block->laser.exit_per;
             if (laser_trap.cur_power > current_block->laser.power_exit) laser_trap.cur_power--;
             // cutter.ocr_set_power(laser_trap.cur_power);
             smprinter.laser_turn_on_isr(laser_trap.cur_power, current_block->laser.power);
@@ -1842,6 +1843,7 @@ void Stepper::pulse_phase_isr() {
         laser_trap.cur_power = current_block->laser.power_pwm;
         // cutter.ocr_set_power(laser_trap.cur_power);
         smprinter.laser_turn_on_isr(laser_trap.cur_power, current_block->laser.power);
+        laser_trap.acc_step_count = current_block->laser.exit_per;
         laser_trap.cruise_set = true;
       }
     #endif

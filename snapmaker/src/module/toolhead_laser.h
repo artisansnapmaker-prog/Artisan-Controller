@@ -338,7 +338,7 @@ class ToolHeadLaser: public ModuleBase {
     int16_t feedrate_percentage;
 
     ToolHeadLaserCalibrationStatus cali_status = LASER_CALI_STATUS_INVALID;
-    uint16_t inline_pwm_power_floor {0};
+    uint16_t inline_pwm_power_floor {8};
 };
 
 #endif

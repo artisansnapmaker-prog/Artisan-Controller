@@ -117,8 +117,11 @@ void MoveQueue::calculateMoves(block_t* block) {
             laser.power_pwm *= block->cruise_speed / block->nominal_speed;
             if (laser.power_pwm < smprinter.laser_inline_pwm_power_floor())
                 power_floor = laser.power_pwm;
-            else
+            else {
                 power_floor = smprinter.laser_inline_pwm_power_floor();
+                if (power_floor < (laser.power_pwm * 0.16))
+                    power_floor = (uint16_t)(laser.power_pwm * 0.16);
+            }
 
             if (accelerate_steps > 0) {
                 trap_power = laser.power_pwm * block->initial_speed / block->cruise_speed; // Power on block entry

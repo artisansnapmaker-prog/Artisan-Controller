@@ -1208,7 +1208,7 @@ err_code_t ToolHeadLaser::pre_init() {
   }
 
   output_pin = E0_STEP_PIN;
-  inline_pwm_power_floor = 0;
+  inline_pwm_power_floor = 8;
 
   return E_SUCCESS;
 }

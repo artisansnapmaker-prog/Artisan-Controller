@@ -347,7 +347,6 @@ class SnapmakerPrinter
     xyze_pos_t destination;
     axis_bits_t axis_relative;
     bool position_invalid;
-    bool laser_inline_enable;
     void update_gcode_file_pass_line_number(uint32_t l, uint8_t mark);
 
   public:
@@ -599,6 +598,7 @@ class SnapmakerPrinter
       if (laser) return laser->get_inline_pwm_power_floor();
       else return 0;
     }
+    float laser_get_power() { if (laser) return laser->get_power_current(); else return 0; }
 
     // DryBox
     void set_drybox_temp(int16_t heater_temp, int16_t chamber_temp) {

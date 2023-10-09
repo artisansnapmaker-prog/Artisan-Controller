@@ -98,8 +98,9 @@ uint8_t E_ENABLE_ON = 1;
 #include "../MarlinCore.h"
 #include "../HAL/shared/Delay.h"
 #if MB_SNAPMAKER
-#include "../../snapmaker/src/snapmaker.h"
-#include "../../snapmaker/src/service/job_ctrl.h"
+#include "../snapmaker/src/snapmaker.h"
+#include "../snapmaker/src/service/module.h"
+#include "../snapmaker/src/service/job_ctrl.h"
 #endif
 
 #if ENABLED(INTEGRATED_BABYSTEPPING)
@@ -2629,7 +2630,7 @@ uint32_t Stepper::block_phase_isr() {
           smprinter.destination = current_block->destination;
           smprinter.axis_relative = current_block->axis_relative;
           smprinter.position_invalid = current_block->position_invalid;
-          smprinter.laser_inline_enable = current_block->laser.status.isEnabled;
+          motion_platform_svc.set_laser_inline_status(current_block->laser.status);
         }
       #endif
 
@@ -2691,31 +2692,27 @@ uint32_t Stepper::block_phase_isr() {
       #if ENABLED(LASER_POWER_INLINE)
         if (smprinter.get_toolhead_type() == TH_TYPE_LASER) {
           const power_status_t stat = current_block->laser.status;
-          #if ENABLED(LASER_POWER_INLINE_TRAPEZOID)
-            laser_trap.enabled = stat.isPlanned && stat.isEnabled;
-            laser_trap.cur_power = current_block->laser.power_entry; // RESET STATE
-            laser_trap.cruise_set = false;
-            #if DISABLED(LASER_POWER_INLINE_TRAPEZOID_CONT)
+          // clear old status
+          current_block->laser.status = 0;
+          laser_trap.enabled = stat.isPlanned && stat.isEnabled;
+          if (laser_trap.enabled) {
+            if (stat.trapezoid_power) {
+              laser_trap.cur_power = current_block->laser.power_entry; // RESET STATE
+              laser_trap.cruise_set = false;
               laser_trap.last_step_count = 0;
               laser_trap.acc_step_count = current_block->laser.entry_per;
-            #else
-              laser_trap.till_update = 0;
-            #endif
-            // Always have PWM in this case
-            if (stat.isPlanned) {                        // Planner controls the laser
-              smprinter.laser_turn_on_isr(stat.isEnabled ? laser_trap.cur_power : 0, current_block->laser.power);
             }
-          #else
-            if (stat.isPlanned) {                        // Planner controls the laser
-              #if ENABLED(SPINDLE_LASER_USE_PWM)
-                cutter.ocr_set_power(
-                  stat.isEnabled ? current_block->laser.power : 0 // ON with power or OFF
-                );
-              #else
-                cutter.set_enabled(stat.isEnabled);
-              #endif
+            else {
+              laser_trap.cur_power = current_block->laser.power_pwm;
+              // for non-trapezoid power, just set power one time, make below false
+              laser_trap.enabled = false;
             }
-          #endif
+          }
+
+          // Always have PWM in this case
+          if (stat.isPlanned) {                        // Planner controls the laser
+            smprinter.laser_turn_on_isr(stat.isEnabled ? laser_trap.cur_power : 0, current_block->laser.power);
+          }
         }
         else {
           laser_trap.enabled = false;

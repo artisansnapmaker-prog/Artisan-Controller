@@ -381,11 +381,11 @@ err_code_t JobCtrl::save_env(bool from_isr/*=false*/, bool save_all_info/*=true*
   // if (save_all_info) {
     if (job_save_line_step != JOB_SAVE_LINE_STEP_MOVE) {
       _env.cur_line_num = smprinter.gcode_file_pass_line_number;
-      _env.laser_inline_enable = planner.laser_inline.status.isEnabled;
+      _env.laser_inline_status = planner.laser_inline.status;
     }
     else {
       _env.cur_line_num = smprinter.gcode_file_position;
-      _env.laser_inline_enable = smprinter.laser_inline_enable;
+      _env.laser_inline_status = motion_platform_svc.get_laser_inline_status();
     }
   // }
   if (!from_isr)
@@ -583,7 +583,7 @@ __pos_resume:
 
 
   // need to restore it after the move is complete
-  planner.laser_inline.status.isEnabled = _env.laser_inline_enable;
+  planner.laser_inline.status = _env.laser_inline_status;
 
   // motion_platform_svc.set_stepper_count(E_AXIS, _env.E_stepper_count);
   // LOG_I("job_ctrl: resume cur_line_num %d\r\n", _env.cur_line_num);

@@ -111,7 +111,8 @@ void MoveQueue::calculateMoves(block_t* block) {
     // laser_inline.status.isEnabled is false if toolhead is not laser, so won't check toolhead type here
     if (block->laser.status.isEnabled && block->major_axis != E_AXIS) {
         auto &laser = block->laser;
-        if (laser.power_pwm > 0) { // No need to care if power == 0
+        if (laser.status.trapezoid_power && laser.power_pwm > 0) {
+            // No need to care if power == 0 or we are not in tranpezoid mode
             uint16_t trap_power, power_diff, power_floor;
 
             laser.power_pwm *= block->cruise_speed / block->nominal_speed;

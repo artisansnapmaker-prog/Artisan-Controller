@@ -131,7 +131,7 @@ class MotionPlatformService {
     bool is_running_m600;
     uint32_t gcode_m600_line;
 
-    MotionPlatformService() {}
+    MotionPlatformService() = default;
     void init();
     void pins_post_init();
 
@@ -321,6 +321,9 @@ class MotionPlatformService {
     err_code_t submit_motion_request(motion_request_t *mq, MotionRequestState sta = MQ_STATE_END);
     void wait_for_motion_request(motion_request_t *mq);
 
+    power_status_t get_laser_inline_status() { return laser_inline_status; }
+    void set_laser_inline_status(const power_status_t &sta) { laser_inline_status = sta; }
+
   private:
     void init_motion_request();
     void reset_motion_request();
@@ -333,6 +336,8 @@ class MotionPlatformService {
     SemaphoreHandle_t motion_request_lock;
     QueueHandle_t mq_list;
     bool quick_stop_mq;
+
+    power_status_t laser_inline_status {0};
 };
 
 

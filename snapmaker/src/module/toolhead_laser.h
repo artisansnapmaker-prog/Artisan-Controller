@@ -180,6 +180,7 @@ class ToolHeadLaser: public ModuleBase {
 
     void set_power_limit(float limit);
     float get_power_limit(void) { return power_limit; }
+    float get_power_current() { return power_current; }
     uint8_t get_safety_state(void) { return safety_state; }
 
     void update_power(float power);

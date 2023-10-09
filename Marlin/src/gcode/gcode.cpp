@@ -283,7 +283,8 @@ void GcodeSuite::get_destination_from_command() {
       }
 
       if ((!isnan(laser_power) || !isnan(laser_pwm))) {
-        planner.laser_inline.status.isEnabled = true;
+        // here we won't change planner.laser_inline.status.isEnabled
+        // it should only be set with M3/M4
         if (!isnan(laser_pwm)) {
           LIMIT(laser_pwm, 0, 255);
           smprinter.set_inline_laser_pwm((uint16_t)laser_pwm);

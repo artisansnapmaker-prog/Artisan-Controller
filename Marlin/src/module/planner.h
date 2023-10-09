@@ -142,7 +142,16 @@ enum BlockFlag : char {
     bool isPlanned:1;
     bool isEnabled:1;
     bool dir:1;
-    bool Reserved:6;
+    bool trapezoid_power:1;
+    bool Reserved:4;
+
+    void operator=(uint8_t v) {
+      isPlanned = v&0x1;
+      isEnabled = (v>>1) & 0x1;
+      dir = (v>>2) & 0x1;
+      trapezoid_power = (v>>3) & 0x1;
+      Reserved = (v>>4) &0xF;
+    }
   } power_status_t;
 
   typedef struct {
@@ -1008,8 +1017,6 @@ class Planner {
       if (accel == 0) return 0; // accel was 0, set intersection distance to 0
       return (accel * 2 * distance - sq(initial_rate) + sq(final_rate)) / (accel * 4);
     }
-
-    static void calculate_major_axis(block_t *block, uint32_t &accelerate_steps, uint32_t &decelerate_steps);
 
   private:
 

@@ -303,6 +303,9 @@ void ModuleService::init() {
     list_init(&function_list[i]);
 
   // initialize virtual modules
+  // make sure the virtual modules is inited before init CAN bus!!!
+  // will init TMC driver with software serial in virtual linear modules
+  // CAN interrupt make impact TMC driver's intialization!!! by scotthsl
   init_virtual_modules();
 
   // stop scheduler, waiting for CAN Host initalization done

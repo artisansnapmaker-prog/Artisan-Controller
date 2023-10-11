@@ -3,6 +3,7 @@
 #include "../service/motion_platform.h"
 #include "../service/system.h"
 #include "../common/utility.h"
+#include "../config.h"
 
 #define ROUTINE_TIMEOUT   (200)
 #define OFFLINE_DEBOUNCE  (5)
@@ -126,6 +127,9 @@ err_code_t LinearVirtual::pre_init() {
   taskEXIT_CRITICAL();
 
   LOG_I("axis[%s] exits the standby state\n", axis_name);
+
+  extern void restore_stepper_drivers();
+  restore_stepper_drivers();
 
   return E_SUCCESS;
 }

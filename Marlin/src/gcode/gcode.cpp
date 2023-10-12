@@ -282,7 +282,14 @@ void GcodeSuite::get_destination_from_command() {
         laser_pwm = parser.value_float();
       }
 
-      if ((!isnan(laser_power) || !isnan(laser_pwm))) {
+      if (parser.codenum == 1 && parser.seen('I')) {
+        planner.laser_inline.status.isEnabled = true;
+      }
+
+      if (parser.codenum == 0) {
+        smprinter.set_inline_laser_power(0);
+      }
+      else if ((!isnan(laser_power) || !isnan(laser_pwm))) {
         // here we won't change planner.laser_inline.status.isEnabled
         // it should only be set with M3/M4
         if (!isnan(laser_pwm)) {
@@ -294,9 +301,6 @@ void GcodeSuite::get_destination_from_command() {
           smprinter.set_inline_laser_power(laser_power);
         }
         // LOG_I("laser_power: %f, laser_pwm: %f, power: %d, power_pwm: %f\n", laser_power, laser_pwm, planner.laser_inline.power, planner.laser_inline.power_pwm);
-      }
-      else if (parser.codenum == 0) {
-        smprinter.set_inline_laser_power(0);
       }
     }
     else {

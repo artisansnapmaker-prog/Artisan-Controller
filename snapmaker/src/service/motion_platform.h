@@ -321,8 +321,8 @@ class MotionPlatformService {
     err_code_t submit_motion_request(motion_request_t *mq, MotionRequestState sta = MQ_STATE_END);
     void wait_for_motion_request(motion_request_t *mq);
 
-    power_status_t get_laser_inline_status() { return laser_inline_status; }
-    void set_laser_inline_status(const power_status_t &sta) { laser_inline_status = sta; }
+    block_laser_t get_laser_inline_status() { return laser_inline_status; }
+    void set_laser_inline_status(const block_laser_t &sta) { laser_inline_status = sta; }
 
   private:
     void init_motion_request();
@@ -337,7 +337,7 @@ class MotionPlatformService {
     QueueHandle_t mq_list;
     bool quick_stop_mq;
 
-    power_status_t laser_inline_status {0};
+    block_laser_t laser_inline_status {0};
 };
 
 

@@ -389,9 +389,14 @@ class SnapmakerPrinter
     void spindle_hmi_self_test_interface(uint8_t test_type, uint32_t param);
 
     // Laser APIs for marlin
-    void set_laser_output(float power) {
+    void set_laser_output(float power, bool is_map=true) {
       if (laser)
-        laser->set_output(power);
+        laser->set_output(power, is_map);
+    }
+
+    void set_laser_update_power(float power, bool is_map=true) {
+      if (laser)
+        laser->update_power(power, is_map);
     }
 
     void turn_on_laser() {
@@ -593,12 +598,13 @@ class SnapmakerPrinter
     bool is_has_crosslight_offset(void);
     void set_inline_laser_power(float power);
     void set_inline_laser_pwm(uint16_t pwm);
-    void laser_turn_on_isr(uint16_t pwm, float sync_power);
+    void laser_turn_on_isr(uint16_t pwm, bool is_sync_power, float sync_power);
     uint16_t laser_inline_pwm_power_floor() {
       if (laser) return laser->get_inline_pwm_power_floor();
       else return 0;
     }
     float laser_get_power() { if (laser) return laser->get_power_current(); else return 0; }
+    uint16_t laser_get_power_pwm() { if (laser) return laser->get_power_pwm(); else return 0; }
 
     // DryBox
     void set_drybox_temp(int16_t heater_temp, int16_t chamber_temp) {

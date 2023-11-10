@@ -432,6 +432,7 @@ class Stepper {
 
       typedef struct {
         bool enabled;       // Trapezoid needed flag (i.e., laser on, planner in control)
+        bool is_trapezoid;
         uint16_t cur_power;  // Current laser power
         bool cruise_set;    // Power set up for cruising?
 

@@ -347,6 +347,9 @@ err_code_t ToolHeadLaser::hmi_cb_set_output(void *obj, sacp_hmi_message_t *messa
   }
 
   laser.set_output((float)(*power / 1000.0));
+  planner.laser_inline.power = (float)(*power / 1000.0);
+  planner.laser_inline.power_pwm = smprinter.laser_get_power_pwm();
+  planner.laser_inline.status.power_is_map = true;
 
   return host_hmi.send_ack(message, E_SUCCESS);
 }
@@ -1228,7 +1231,7 @@ err_code_t ToolHeadLaser::turn_off() {
   return update_output(0);
 }
 
-err_code_t ToolHeadLaser::set_output(float power) {
+err_code_t ToolHeadLaser::set_output(float power, bool is_map) {
   if (get_status() != MODULE_STATUS_NORMAL)
     return E_INVALID_STATE;
 
@@ -1238,12 +1241,12 @@ err_code_t ToolHeadLaser::set_output(float power) {
   }
 
   NOMORE(power, LASER_POWER_MAX);
-  update_power(power);
+  update_power(power, is_map);
   return update_output(power_pwm);
 }
 
 
-void ToolHeadLaser::update_power(float new_power) {
+void ToolHeadLaser::update_power(float new_power, bool is_map) {
   int   integer;
   float decimal;
   float tmp_power;
@@ -1261,7 +1264,10 @@ void ToolHeadLaser::update_power(float new_power) {
   integer = (int)tmp_power;
   decimal = tmp_power - integer;
 
-  power_pwm = (uint16_t)(power_table[integer] + (power_table[integer + 1] - power_table[integer]) * decimal);
+  if (is_map)
+    power_pwm = (uint16_t)(power_table[integer] + (power_table[integer + 1] - power_table[integer]) * decimal);
+  else
+    power_pwm = new_power * 255.0 / 100.0;
 }
 
 
@@ -2109,6 +2115,9 @@ void ToolHeadLaser::show_status() {
   LOG_I("safety_lock: %s\n", safety_lock ? "LOCK" : "UNLOCK");
   LOG_I("exception_state: 0x%x\n", exception_state);
   LOG_I("half power mode: %s\n", half_power_mode ? "open" : "close");
+  LOG_I("laser_inline: %d, inline_power: %f, inline_pwm: %d, is_sync : %d, is_map: %d\n", planner.laser_inline.status.isEnabled,
+                          planner.laser_inline.power, planner.laser_inline.power_pwm, planner.laser_inline.status.is_sync_power,
+                          planner.laser_inline.status.power_is_map);
   if (bt_mac[0] == 0) {
     LOG_I("BT MAC: ");
     for (int i = 1; i < 7; i++) {
@@ -2205,15 +2214,19 @@ err_code_t ToolHeadLaser::standby(void) {
 }
 
 err_code_t ToolHeadLaser::resume_finish(void) {
-  LOG_I("Laser: resume finish, tube[%u], laser inline state: %s\n", \
-        tube_status, planner.laser_inline.status.isEnabled ? "enable" : "disable");
+  // if (planner.laser_inline.status.isEnabled) {
+  //   smprinter.set_inline_laser_power(power_pwm);
+  // }
+  update_power(power_current, planner.laser_inline.status.power_is_map);
+  planner.laser_inline.power = power_current;
+  planner.laser_inline.power_pwm = power_pwm;
 
-  if (planner.laser_inline.status.isEnabled) {
-    smprinter.set_inline_laser_power(power_pwm);
-  }
+  LOG_I("Laser: resume finish, tube[%u], laser inline state: %s, power: %f inline_pwm: :%d, sync_power: %f, trapezoid_power: %d is_map: %d\n", \
+        tube_status, planner.laser_inline.status.isEnabled ? "enable" : "disable", power_current, planner.laser_inline.power_pwm,
+         planner.laser_inline.power, planner.laser_inline.status.trapezoid_power, planner.laser_inline.status.power_is_map);
 
   if (LASER_TUBE_STA_ON == tube_status) {
-    // here will update power_pwm, so if resuming work with door open,
+  // here will update power_pwm, so if resuming work with door open,
     // the power will go beyond power limit
     // update_power(power_current);
     update_output(power_pwm);
@@ -2680,7 +2693,7 @@ void ToolHeadLaser::set_inline_output_with_power(float power) {
   set_inline_output_with_pwm(laser_power_convert_pwm(power), false);
 }
 
-void ToolHeadLaser::laser_turn_on_isr(uint16_t pwm, float sync_power) {
+void ToolHeadLaser::laser_turn_on_isr(uint16_t pwm,  bool is_sync_power, float sync_power) {
   if (pwm > 0) {
     tube_status = LASER_TUBE_STA_ON;
   }
@@ -2689,7 +2702,10 @@ void ToolHeadLaser::laser_turn_on_isr(uint16_t pwm, float sync_power) {
   }
 
   power_pwm = pwm;
-  power_current = sync_power;
+
+  if (is_sync_power) {
+    power_current = sync_power;
+  }
 
   NOMORE(pwm, power_pwm_limit);
   #if USE_MARLIN_PWM

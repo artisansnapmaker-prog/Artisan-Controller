@@ -27,20 +27,34 @@ void GcodeSuite::M3_M4(const bool is_M4) {
       LIMIT(param_p, 0, 100);
       smprinter.set_laser_output(param_p);
       // record power, then G1 without S will use the power
-      smprinter.set_inline_laser_power(param_p);
+      // smprinter.set_inline_laser_power(param_p);
+      planner.laser_inline.power = param_p;
+      planner.laser_inline.power_pwm = smprinter.laser_get_power_pwm();
+      planner.laser_inline.status.power_is_map = true;
+      planner.laser_inline.status.is_sync_power = false;
     }
     else if (!isnan(param_s)) {
       LIMIT(param_s, 0, 255);
       // turn on laser with PWM and relative float power
-      smprinter.laser_turn_on_isr(param_s, planner.laser_inline.power);
+      // smprinter.laser_turn_on_isr(param_s, true, planner.laser_inline.power);
       // record power, then G1 without S will use the power
-      smprinter.set_inline_laser_pwm((uint16_t)param_s);
+      // smprinter.set_inline_laser_pwm((uint16_t)param_s);
+      smprinter.set_laser_output(param_s * 100 / 255, false);
+      planner.laser_inline.power = param_s * 100 / 255;
+      planner.laser_inline.power_pwm = smprinter.laser_get_power_pwm();
+      planner.laser_inline.status.power_is_map = false;
+      planner.laser_inline.status.is_sync_power = false;
     }
     else {
+      if (planner.laser_inline.status.trapezoid_power)
+        smprinter.set_laser_update_power(smprinter.laser_get_power(), planner.laser_inline.status.power_is_map);
+
       // turn on laser with last power
       smprinter.turn_on_laser();
       // save last power in inline status
-      smprinter.set_inline_laser_power(smprinter.laser_get_power());
+      // smprinter.set_inline_laser_power(smprinter.laser_get_power());
+      planner.laser_inline.power = smprinter.laser_get_power();
+      planner.laser_inline.power_pwm = smprinter.laser_get_power_pwm();
     }
   }
 
@@ -61,12 +75,12 @@ void GcodeSuite::M3_M4(const bool is_M4) {
 }
 
 void GcodeSuite::M5() {
+  planner.synchronize();
   if (TH_TYPE_LASER == smprinter.get_toolhead_type()) {
     planner.laser_inline.status.isEnabled = false;
     planner.laser_inline.status.trapezoid_power = false;
     smprinter.set_inline_laser_power(0);
   }
-  planner.synchronize();
   smprinter.turn_off_laser();
   if (smprinter.cnc_online_check()) {
     smprinter.set_spindle_power(0,false);

@@ -282,12 +282,12 @@ void GcodeSuite::get_destination_from_command() {
         laser_pwm = parser.value_float();
       }
 
-      if (parser.codenum == 1 && parser.seen('I')) {
+      if (parser.codenum != 0 && parser.seen('I')) {
         planner.laser_inline.status.isEnabled = true;
       }
 
       if (parser.codenum == 0) {
-        smprinter.set_inline_laser_power(0);
+        smprinter.set_inline_laser_pwm((uint16_t)0);
       }
       else if ((!isnan(laser_power) || !isnan(laser_pwm))) {
         // here we won't change planner.laser_inline.status.isEnabled
@@ -295,10 +295,14 @@ void GcodeSuite::get_destination_from_command() {
         if (!isnan(laser_pwm)) {
           LIMIT(laser_pwm, 0, 255);
           smprinter.set_inline_laser_pwm((uint16_t)laser_pwm);
+          planner.laser_inline.status.is_sync_power = true;
+          planner.laser_inline.status.power_is_map = false;
         }
         else {
           LIMIT(laser_power, 0, 100);
           smprinter.set_inline_laser_power(laser_power);
+          planner.laser_inline.status.is_sync_power = true;
+          planner.laser_inline.status.power_is_map = true;
         }
         // LOG_I("laser_power: %f, laser_pwm: %f, power: %d, power_pwm: %f\n", laser_power, laser_pwm, planner.laser_inline.power, planner.laser_inline.power_pwm);
       }

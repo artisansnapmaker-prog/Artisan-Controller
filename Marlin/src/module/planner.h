@@ -143,15 +143,9 @@ enum BlockFlag : char {
     bool isEnabled:1;
     bool dir:1;
     bool trapezoid_power:1;
-    bool Reserved:4;
-
-    void operator=(uint8_t v) {
-      isPlanned = v&0x1;
-      isEnabled = (v>>1) & 0x1;
-      dir = (v>>2) & 0x1;
-      trapezoid_power = (v>>3) & 0x1;
-      Reserved = (v>>4) &0xF;
-    }
+    bool is_sync_power:1;
+    bool power_is_map:1;            // Whether the power is mapped by the laser power table
+    bool Reserved:2;
   } power_status_t;
 
   typedef struct {

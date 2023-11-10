@@ -1797,7 +1797,7 @@ void Stepper::pulse_phase_isr() {
     axis_stepper.axis = -1;
   } while (i-- > 0 && axisManager.getNextZeroAxisStepper(&axis_stepper));
 
-  if (!laser_trap.enabled && (step_events_completed != laser_trap.last_step_count))
+  if (!laser_trap.enabled || (step_events_completed == laser_trap.last_step_count))
     return;
 
   laser_trap.last_step_count = step_events_completed;
@@ -1813,7 +1813,7 @@ void Stepper::pulse_phase_isr() {
             laser_trap.acc_step_count = current_block->laser.entry_per;
             if (laser_trap.cur_power < current_block->laser.power_pwm) laser_trap.cur_power++;
             // cutter.ocr_set_power(laser_trap.cur_power);
-            smprinter.laser_turn_on_isr(laser_trap.cur_power, current_block->laser.power);
+            smprinter.laser_turn_on_isr(laser_trap.cur_power, current_block->laser.status.is_sync_power, current_block->laser.power);
           }
         }
       #endif
@@ -1831,7 +1831,7 @@ void Stepper::pulse_phase_isr() {
             laser_trap.acc_step_count = current_block->laser.exit_per;
             if (laser_trap.cur_power > current_block->laser.power_exit) laser_trap.cur_power--;
             // cutter.ocr_set_power(laser_trap.cur_power);
-            smprinter.laser_turn_on_isr(laser_trap.cur_power, current_block->laser.power);
+            smprinter.laser_turn_on_isr(laser_trap.cur_power, current_block->laser.status.is_sync_power, current_block->laser.power);
           }
         }
       #endif
@@ -1843,7 +1843,7 @@ void Stepper::pulse_phase_isr() {
       if (!laser_trap.cruise_set) {
         laser_trap.cur_power = current_block->laser.power_pwm;
         // cutter.ocr_set_power(laser_trap.cur_power);
-        smprinter.laser_turn_on_isr(laser_trap.cur_power, current_block->laser.power);
+        smprinter.laser_turn_on_isr(laser_trap.cur_power, current_block->laser.status.is_sync_power, current_block->laser.power);
         laser_trap.acc_step_count = current_block->laser.exit_per;
         laser_trap.cruise_set = true;
       }
@@ -2630,7 +2630,7 @@ uint32_t Stepper::block_phase_isr() {
           smprinter.destination = current_block->destination;
           smprinter.axis_relative = current_block->axis_relative;
           smprinter.position_invalid = current_block->position_invalid;
-          motion_platform_svc.set_laser_inline_status(current_block->laser.status);
+          motion_platform_svc.set_laser_inline_status(current_block->laser);
         }
       #endif
 
@@ -2693,7 +2693,7 @@ uint32_t Stepper::block_phase_isr() {
         if (smprinter.get_toolhead_type() == TH_TYPE_LASER) {
           const power_status_t stat = current_block->laser.status;
           // clear old status
-          current_block->laser.status = 0;
+          // current_block->laser.status = 0;
           laser_trap.enabled = stat.isPlanned && stat.isEnabled;
           if (laser_trap.enabled) {
             if (stat.trapezoid_power) {
@@ -2710,8 +2710,8 @@ uint32_t Stepper::block_phase_isr() {
           }
 
           // Always have PWM in this case
-          if (stat.isPlanned) {                        // Planner controls the laser
-            smprinter.laser_turn_on_isr(stat.isEnabled ? laser_trap.cur_power : 0, current_block->laser.power);
+          if (stat.isEnabled) {                        // Planner controls the laser
+            smprinter.laser_turn_on_isr(stat.isEnabled ? laser_trap.cur_power : 0, current_block->laser.status.is_sync_power, current_block->laser.power);
           }
         }
         else {

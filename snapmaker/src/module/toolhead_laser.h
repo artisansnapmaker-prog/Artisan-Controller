@@ -176,14 +176,15 @@ class ToolHeadLaser: public ModuleBase {
     err_code_t turn_on();
     err_code_t turn_off();
 
-    err_code_t set_output(float power);
+    err_code_t set_output(float power, bool is_map=true);
 
     void set_power_limit(float limit);
     float get_power_limit(void) { return power_limit; }
     float get_power_current() { return power_current; }
+    uint16_t get_power_pwm(void) { return power_pwm; }
     uint8_t get_safety_state(void) { return safety_state; }
 
-    void update_power(float power);
+    void update_power(float power, bool is_map=true);
 
     err_code_t report_bt_mac(uint32_t peer, uint8_t ch);
 
@@ -196,7 +197,7 @@ class ToolHeadLaser: public ModuleBase {
     void set_inline_laser_enabled(bool enable);
     void set_inline_output_with_power(float power);
     void set_inline_output_with_pwm(uint16_t pwm, bool is_sync_power=true);
-    void laser_turn_on_isr(uint16_t pwm, float sync_power);
+    void laser_turn_on_isr(uint16_t pwm, bool is_sync_power, float sync_power);
     uint16_t laser_power_convert_pwm(float power);
 
     // speed level: 0 - 255

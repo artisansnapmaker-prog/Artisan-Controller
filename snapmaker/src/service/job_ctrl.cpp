@@ -381,7 +381,10 @@ err_code_t JobCtrl::save_env(bool from_isr/*=false*/, bool save_all_info/*=true*
   // if (save_all_info) {
     if (job_save_line_step != JOB_SAVE_LINE_STEP_MOVE) {
       _env.cur_line_num = smprinter.gcode_file_pass_line_number;
-      _env.laser_inline_status = planner.laser_inline.status;
+      // _env.laser_inline_status = planner.laser_inline.status;
+      _env.laser_inline_status.status = planner.laser_inline.status;
+      _env.laser_inline_status.power = planner.laser_inline.power;
+      _env.laser_inline_status.power_pwm = planner.laser_inline.power_pwm;
     }
     else {
       _env.cur_line_num = smprinter.gcode_file_position;
@@ -583,7 +586,13 @@ __pos_resume:
 
 
   // need to restore it after the move is complete
-  planner.laser_inline.status = _env.laser_inline_status;
+  planner.laser_inline.status    = _env.laser_inline_status.status;
+  planner.laser_inline.power     = _env.laser_inline_status.power;
+  planner.laser_inline.power_pwm = _env.laser_inline_status.power_pwm;
+
+  LOG_I("resume laser inline state: %s, inline_pwm: :%d, sync_power: %f, trapezoid_power: %d is_map: %d\n", \
+         planner.laser_inline.status.isEnabled ? "enable" : "disable", planner.laser_inline.power_pwm,
+         planner.laser_inline.power, planner.laser_inline.status.trapezoid_power, planner.laser_inline.status.power_is_map);
 
   // motion_platform_svc.set_stepper_count(E_AXIS, _env.E_stepper_count);
   // LOG_I("job_ctrl: resume cur_line_num %d\r\n", _env.cur_line_num);

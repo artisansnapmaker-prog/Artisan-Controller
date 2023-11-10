@@ -2217,7 +2217,7 @@ bool Planner::_populate_block(block_t * const block, bool split_move,
   #if ENABLED(LASER_POWER_INLINE) || MB_SNAPMAKER
     // laser_inline.status.isEnabled is false if toolhead is not laser
     block->laser.status = laser_inline.status;
-    block->laser.power = laser_inline.status.isEnabled ? laser_inline.power : 0;
+    block->laser.power = laser_inline.power;
     #if MB_SNAPMAKER
       block->laser.power_pwm = laser_inline.status.isEnabled ? laser_inline.power_pwm : 0;
     #endif

@@ -636,8 +636,9 @@ err_code_t EmergencyHandler::hmi_cb_req_recovery_job(void *obj, sacp_hmi_message
   // resume job
   job_ctrl_svc.req_resume(client->id, job_cb_notify_recovery, &msg_notify_recovery, RESUME_TYPE_RECOVERY);
 
-  msg->data[0] = E_SUCCESS;
-  return host_hmi.send_sync(msg, recv_buff, &recv_length);;
+  // msg->data[0] = E_SUCCESS;
+  // return host_hmi.send_sync(msg, recv_buff, &recv_length);;
+  return E_SUCCESS;
 }
 
 err_code_t EmergencyHandler::hmi_cb_clear_record(void *obj, sacp_hmi_message_t *msg) {
@@ -655,6 +656,10 @@ void EmergencyHandler::job_cb_notify_recovery(void *p, uint8_t result) {
   sacp_hmi_message_t *msg = (sacp_hmi_message_t *)p;
   uint8_t recv_buff[4];
   uint16_t recv_len = 4;
+
+  msg->data[0] = result;
+  msg->length  = 1;
+  msg->attr   = 0;
 
   host_hmi.send_sync(msg, recv_buff, &recv_len);
 }

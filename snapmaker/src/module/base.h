@@ -118,6 +118,8 @@ enum ModuleDeviceID {
   MODULE_DEVICE_ID_LASER_20W_2023       ,   // 19
   MODULE_DEVICE_ID_LASER_40W_2023       ,   // 20
 
+  MODULE_DEVICE_ID_LASER_RED_2W_2023 = 23,  // 23
+
   MODULE_DEVICE_ID_CAN_MODULES_MAX = 511,
 
   // below is virtual module

@@ -102,6 +102,7 @@ ModuleBase *module_factory(uint32_t mac, uint8_t key, uint8_t sub_index) {
   case MODULE_DEVICE_ID_LASER_10W_2021:
   case MODULE_DEVICE_ID_LASER_20W_2023:
   case MODULE_DEVICE_ID_LASER_40W_2023:
+  case MODULE_DEVICE_ID_LASER_RED_2W_2023:
     return new ToolHeadLaser(mac, key, sub_index);
     break;
 

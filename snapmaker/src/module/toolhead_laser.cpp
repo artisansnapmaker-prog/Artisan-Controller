@@ -1650,6 +1650,8 @@ err_code_t ToolHeadLaser::post_init() {
     host_hmi.register_callback(SACP_CMD_SET_LASER, SACP_CMD_ID_LASER_SET_TEMP_THRESHOLD, (void *)this, hmi_cb_set_temp_threshold);
     host_hmi.register_callback(SACP_CMD_SET_LASER, SACP_CMD_ID_LASER_SET_CROSSLIGHT, (void *)this, hmi_cb_set_crosslight);
     host_hmi.register_callback(SACP_CMD_SET_LASER, SACP_CMD_ID_LASER_GET_CROSSLIGHT, (void *)this, hmi_cb_get_crosslight);
+    host_hmi.register_callback(SACP_CMD_SET_LASER, SACP_CMD_ID_LASER_SET_CROSSLIGHT_OFFSET, (void *)this, hmi_cb_set_crosslight_offset);
+    host_hmi.register_callback(SACP_CMD_SET_LASER, SACP_CMD_ID_LASER_GET_CROSSLIGHT_OFFSET, (void *)this, hmi_cb_get_crosslight_offset);
   }
   else {
     LOG_I("Got 1.6W laser!\n");

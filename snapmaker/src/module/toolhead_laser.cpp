@@ -2840,6 +2840,13 @@ err_code_t ToolHeadLaser::set_crosslight_offset(float x, float y) {
     return E_UNSUPPORTED_OPERATION;
   }
 
+  /* 检测对应模组的十字光偏移量是否不可修改 */
+  if (is_cross_light_offset_fixed())
+  {
+    LOG_E("the cross light offset is fixed!\n");
+    return E_UNSUPPORTED_OPERATION;
+  }
+
   err_code_t ret;
   smcan_message_t msg;
   uint8_t buffer[8];
@@ -3100,4 +3107,32 @@ bool ToolHeadLaser::is_there_cross_light(void)
   return ret;
 }
 
+
+/**
+ * @brief 检测是否十字光偏移量是固定的，不可修改的，且一般固定为 0
+ * 
+ * @return true   是
+ * @return false  否
+ */
+bool ToolHeadLaser::is_cross_light_offset_fixed(void)
+{
+  bool ret = false;
+
+  switch (get_device_id())
+  {
+    case MODULE_DEVICE_ID_LASER_RED_2W_2023:
+    {
+      ret = true;
+    }
+    break;
+    
+    default:
+    {
+      ret = false;
+    }
+    break;
+  };
+
+  return ret;
+}
 

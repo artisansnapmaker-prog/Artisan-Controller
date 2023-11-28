@@ -255,12 +255,8 @@ uint16_t ToolHeadLaser::hmi_cb_publish_fire_sensor_rawdata(void *obj, uint8_t *b
   if (!obj || !buffer)
     return 0;
 
-  if (MODULE_DEVICE_ID_LASER_1P6W_2019 == laser.get_device_id() || MODULE_DEVICE_ID_LASER_10W_2021 == laser.get_device_id()) {
-    return 0;
-  }
-
-  /* 2W 红光激光模组不支持 */
-  if (MODULE_DEVICE_ID_LASER_RED_2W_2023 == laser.get_device_id())
+  /* 检测是否支持火焰传感器 */
+  if (!laser.is_there_fire_sensor())
   {
     return 0;
   }
@@ -583,15 +579,10 @@ err_code_t ToolHeadLaser::hmi_cb_do_manual_focusing(void *obj, sacp_hmi_message_
 err_code_t ToolHeadLaser::hmi_cb_do_auto_focusing(void *obj, sacp_hmi_message_t *message) {
   ToolHeadLaser &laser = *(ToolHeadLaser *)obj;
 
-  if (laser.get_device_id() == MODULE_DEVICE_ID_LASER_20W_2023 || laser.get_device_id() == MODULE_DEVICE_ID_LASER_40W_2023) {
-    LOG_E("20W or 40W laser do not support auto focusing\n");
-    return host_hmi.send_ack(message, E_UNSUPPORTED_OPERATION);
-  }
-
-  /* 2W 红光激光模组不支持自动对焦 */
-  if (laser.get_device_id() == MODULE_DEVICE_ID_LASER_RED_2W_2023)
+  /* 无摄像头，也就无自动对焦辅助灯 */
+  if (!laser.is_there_camera())
   {
-    LOG_E("2W red laser do not support auto focusing\n");
+    LOG_E("this laser do not support auto focusing\n");
     return host_hmi.send_ack(message, E_UNSUPPORTED_OPERATION);
   }
 
@@ -713,21 +704,13 @@ err_code_t ToolHeadLaser::hmi_cb_set_cali_mode(void *obj, sacp_hmi_message_t *me
 
   LOG_I("hmi_cb_set_cali_mode [%u]\n", message->data[0]);
 
-  if (laser.get_device_id() == MODULE_DEVICE_ID_LASER_20W_2023 || laser.get_device_id() == MODULE_DEVICE_ID_LASER_40W_2023) {
+  if (laser.get_device_id() == MODULE_DEVICE_ID_LASER_20W_2023 ||
+      laser.get_device_id() == MODULE_DEVICE_ID_LASER_40W_2023 ||
+      laser.get_device_id() == MODULE_DEVICE_ID_LASER_RED_2W_2023)
+    {
     if (message->data[0] + SYSTEM_STATUS_LASER_CALI_START != SYSTEM_STATUS_LASER_DETECT_PLATFORM_POSITION &&  \
         message->data[0] + SYSTEM_STATUS_LASER_CALI_START != SYSTEM_STATUS_LASER_DETECT_4AXIS_CENTER_POSITION) {
-      LOG_E("20W or 40W laser do not support current calibration mode: %d\n", message->data[0]);
-      return host_hmi.send_ack(message, E_UNSUPPORTED_OPERATION);
-    }
-  }
-
-  /* 2W 红光激光模组不支持下述校准模式 */
-  if (laser.get_device_id() == MODULE_DEVICE_ID_LASER_RED_2W_2023) 
-  {
-    if (message->data[0] + SYSTEM_STATUS_LASER_CALI_START != SYSTEM_STATUS_LASER_DETECT_PLATFORM_POSITION &&  \
-        message->data[0] + SYSTEM_STATUS_LASER_CALI_START != SYSTEM_STATUS_LASER_DETECT_4AXIS_CENTER_POSITION)
-    {
-      LOG_E("2W red laser do not support current calibration mode: %d\n", message->data[0]);
+      LOG_E("this laser do not support current calibration mode: %d\n", message->data[0]);
       return host_hmi.send_ack(message, E_UNSUPPORTED_OPERATION);
     }
   }
@@ -1113,7 +1096,9 @@ err_code_t laser_routine(void *obj) {
   if (laser.get_status() != MODULE_STATUS_NORMAL)
     return E_INVALID_STATE;
 
-  if ((laser.get_device_id() == MODULE_DEVICE_ID_LASER_1P6W_2019 || laser.get_device_id() == MODULE_DEVICE_ID_LASER_10W_2021)) {
+  /* 检测是否存在 摄像头 */
+  if ((laser.is_there_camera()))
+  {
     if (laser.bt_mac[0] != 0) {
       laser.get_bt_mac();
     }
@@ -1227,8 +1212,8 @@ void ToolHeadLaser::can_cb_handle_security_status(void *obj, uint8_t *data, uint
   laser.tube_temp = (int8_t)data[5];
   laser.imu_temp   = (int8_t)data[6];
 
-  if ((laser.get_device_id() == MODULE_DEVICE_ID_LASER_20W_2023 || laser.get_device_id() == MODULE_DEVICE_ID_LASER_40W_2023) && \
-      length >= 8) {
+  /* 火焰传感器 */
+  if (laser.is_there_fire_sensor() && length >= 8) {
     laser.fire_trigger_state = !!data[7];
   }
 
@@ -1292,15 +1277,10 @@ void ToolHeadLaser::client_cb_report_bt_mac(void *obj, uint8_t id, SACPRouteStat
   ClientNode *node = NULL;
   int i = 5;
 
-  if (laser.get_device_id() == MODULE_DEVICE_ID_LASER_20W_2023 || laser.get_device_id() == MODULE_DEVICE_ID_LASER_40W_2023) {
-    LOG_I("20W or 40W laser do not support reporting BT mac\n");
-    return;
-  }
-
-  /* 2W 红光激光模组不支持 */
-  if (laser.get_device_id() == MODULE_DEVICE_ID_LASER_RED_2W_2023) 
+  /* 无摄像头也就无 BT */
+  if (!laser.is_there_camera())
   {
-    LOG_I("2W red laser do not support reporting BT mac\n");
+    LOG_I("this laser do not support reporting BT mac\n");
     return;
   }
 
@@ -1755,15 +1735,10 @@ void ToolHeadLaser::setup_camera_port(uint8_t port) {
   sacp_channel_t *ch = host_hmi.get_channel(SACP_HMI_CH_CAMERA);
   MSerialT *serial = NULL;
 
-  if (get_device_id() == MODULE_DEVICE_ID_LASER_20W_2023 || get_device_id() == MODULE_DEVICE_ID_LASER_40W_2023) {
-    LOG_E("20W or 40W laser do not have any camera\n");
-    return;
-  }
-
-  /* 2W 红光激光模组无摄像头 */
-  if (get_device_id() == MODULE_DEVICE_ID_LASER_RED_2W_2023)
+  /* 检测是否支持摄像头 */
+  if (!is_there_camera())
   {
-    LOG_E("2W red laser do not have any camera\n");
+    LOG_E("this laser do not have any camera\n");
     return;
   }
 
@@ -1818,15 +1793,10 @@ err_code_t ToolHeadLaser::get_bt_mac(uint32_t delay_ms, uint8_t retry, bool log_
   uint16_t recv_len = 12;
   uint8_t cmd = 0;
 
-  if (get_device_id() == MODULE_DEVICE_ID_LASER_20W_2023 || get_device_id() == MODULE_DEVICE_ID_LASER_40W_2023) {
-    LOG_E("20W or 40W laser do not have a Bluetooth\n");
-    return E_UNSUPPORTED_OPERATION;
-  }
-
-  /* 2W 红光激光模组不支持 */
-  if (get_device_id() == MODULE_DEVICE_ID_LASER_RED_2W_2023)
+  /* 检测是否支持摄像头，无摄像头也就无对应 BT */
+  if (!is_there_camera())
   {
-    LOG_E("2W red laser do not have a Bluetooth\n");
+    LOG_E("this laser do not have any Bluetooth\n");
     return E_UNSUPPORTED_OPERATION;
   }
 
@@ -2109,15 +2079,10 @@ err_code_t ToolHeadLaser::set_focus_assist_light(uint8_t state) {
   uint8_t recv_buffer[4];
   uint8_t recv_len = 4;
 
-  if (get_device_id() == MODULE_DEVICE_ID_LASER_20W_2023 || get_device_id() == MODULE_DEVICE_ID_LASER_40W_2023) {
-    LOG_E("20W or 40W laser do not have any focus assist light\n");
-    return E_UNSUPPORTED_OPERATION;
-  }
-
-  /* 2W 红光激光模组无自动对焦辅助灯 */
-  if (get_device_id() == MODULE_DEVICE_ID_LASER_RED_2W_2023)
+  /* 检测是否支持摄像头，无摄像头也就无对应的自动对焦辅助灯 */
+  if (!is_there_camera())
   {
-    LOG_E("2W red laser do not have any focus assist light\n");
+    LOG_E("this laser do not have any focus assist light\n");
     return E_UNSUPPORTED_OPERATION;
   }
 
@@ -2326,15 +2291,10 @@ err_code_t ToolHeadLaser::report_bt_mac(uint32_t peer, uint8_t ch) {
   uint8_t buffer[12];
   int len = 0;
 
-  if (get_device_id() == MODULE_DEVICE_ID_LASER_20W_2023 || get_device_id() == MODULE_DEVICE_ID_LASER_40W_2023) {
-    LOG_E("20W or 40W laser do not have any Bluetooth\n");
-    return E_UNSUPPORTED_OPERATION;
-  }
-
-  /* 2W 红光激光模组不支持 */
-  if (get_device_id() == MODULE_DEVICE_ID_LASER_RED_2W_2023)
+  /* 检测是否支持摄像头，无摄像头也就无对应的 BT */
+  if (!is_there_camera())
   {
-    LOG_E("2W red laser do not have any Bluetooth\n");
+    LOG_E("this laser do not have any Bluetooth\n");
     return E_UNSUPPORTED_OPERATION;
   }
 
@@ -2459,8 +2419,7 @@ err_code_t ToolHeadLaser::resume_env(uint8_t *env_buf, uint32_t &len) {
   inline_pwm_power_floor = env->inline_pwm_power_floor;
 
   // laser crosslight offset
-  // TODO：后续确认要给 0 还是给 无效值
-  if (get_device_id() == MODULE_DEVICE_ID_LASER_20W_2023 || get_device_id() == MODULE_DEVICE_ID_LASER_40W_2023) {
+  if (is_there_cross_light()) {
     if (motion_platform_svc.check_cross_light_offset(crosslight_offset_x, crosslight_offset_y) == E_SUCCESS) {
       motion_platform_svc.set_laser_crosslight_offset(crosslight_offset_x, crosslight_offset_y);
       LOG_I("resume crosslight_offset successed, crosslight_offset: x: %f, y: %f\n", crosslight_offset_x, crosslight_offset_y);
@@ -2576,7 +2535,7 @@ err_code_t ToolHeadLaser::prepare_start(void) {
   }
   else {
     // laser crosslight offset
-    if (get_device_id() == MODULE_DEVICE_ID_LASER_20W_2023 || get_device_id() == MODULE_DEVICE_ID_LASER_40W_2023) {
+    if (is_there_cross_light()) {
       if (motion_platform_svc.check_cross_light_offset(crosslight_offset_x, crosslight_offset_y) == E_SUCCESS) {
         motion_platform_svc.set_laser_crosslight_offset(crosslight_offset_x, crosslight_offset_y);
         LOG_I("prepare_start set crosslight_offset: x: %f, y: %f\n", crosslight_offset_x, crosslight_offset_y);
@@ -2591,17 +2550,12 @@ err_code_t ToolHeadLaser::prepare_start(void) {
   return ret;
 }
 
-err_code_t ToolHeadLaser::register_esp32_upgrade_callbake(void) {
-
-  if (get_device_id() == MODULE_DEVICE_ID_LASER_20W_2023 || get_device_id() == MODULE_DEVICE_ID_LASER_40W_2023) {
-    LOG_E("20W or 40W laser do not have any Bluetooth\n");
-    return E_UNSUPPORTED_OPERATION;
-  }
-
-  /* 2W 红光激光模组不支持 */
-  if (get_device_id() == MODULE_DEVICE_ID_LASER_RED_2W_2023 )
+err_code_t ToolHeadLaser::register_esp32_upgrade_callbake(void)
+{
+  /* 检测是否支持摄像头，无摄像头也就无对应的 BT */
+  if (!is_there_camera())
   {
-    LOG_E("2w red laser do not have any Bluetooth\n");
+    LOG_E("this laser do not have any Bluetooth\n");
     return E_UNSUPPORTED_OPERATION;
   }
 
@@ -2716,8 +2670,9 @@ void ToolHeadLaser::check_insert_enclosure() {
 }
 
 err_code_t ToolHeadLaser::set_crosslight(bool onoff) {
-  if (get_device_id() == MODULE_DEVICE_ID_LASER_1P6W_2019 || get_device_id() == MODULE_DEVICE_ID_LASER_10W_2021) {
-    LOG_E("Laser 1P6W or 10W do not have crosslight\n");
+  if (!is_there_cross_light())
+  {
+    LOG_E("this laser do not have crosslight\n");
     return E_UNSUPPORTED_OPERATION;
   }
 
@@ -2743,8 +2698,9 @@ err_code_t ToolHeadLaser::set_crosslight(bool onoff) {
 }
 
 err_code_t ToolHeadLaser::get_crosslight_state(bool &on_off) {
-  if (get_device_id() == MODULE_DEVICE_ID_LASER_1P6W_2019 || get_device_id() == MODULE_DEVICE_ID_LASER_10W_2021) {
-    LOG_E("Laser 1P6W or 10W do not have crosslight\n");
+  if (!is_there_cross_light())
+  {
+    LOG_E("this laser do not have crosslight\n");
     return E_UNSUPPORTED_OPERATION;
   }
 
@@ -2778,16 +2734,12 @@ uint16_t ToolHeadLaser::get_fire_sensor_rawdata(void) {
   return fire_sensor_rawdata;
 }
 
-err_code_t ToolHeadLaser::set_fire_sensor_sensitivity(uint16_t sen, bool is_save) {
-  if (get_device_id() == MODULE_DEVICE_ID_LASER_1P6W_2019 || get_device_id() == MODULE_DEVICE_ID_LASER_10W_2021) {
-    LOG_E("Laser 1P6W or 10W do not have fire sensor sensor\n");
-    return E_UNSUPPORTED_OPERATION;
-  }
-
-  /* 2w 红光激光模组不支持 */
-  if (get_device_id() == MODULE_DEVICE_ID_LASER_RED_2W_2023)
+err_code_t ToolHeadLaser::set_fire_sensor_sensitivity(uint16_t sen, bool is_save)
+{
+  /* 检测是否支持火焰传感器 */
+  if (!is_there_fire_sensor())
   {
-    LOG_E("2w red laser do not have fire sensor sensor\n");
+    LOG_E("this laser do not have any fire sensor\n");
     return E_UNSUPPORTED_OPERATION;
   }
 
@@ -2817,13 +2769,10 @@ err_code_t ToolHeadLaser::set_fire_sensor_sensitivity(uint16_t sen, bool is_save
 }
 
 err_code_t ToolHeadLaser::get_fire_sensor_sensitivity(uint16_t &sen) {
-  if (get_device_id() == MODULE_DEVICE_ID_LASER_1P6W_2019 || get_device_id() == MODULE_DEVICE_ID_LASER_10W_2021) {
-    LOG_E("Laser 1P6W or 10W do not have fire sensor sensor\n");
-    return E_UNSUPPORTED_OPERATION;
-  }
-
-  if (get_device_id() == MODULE_DEVICE_ID_LASER_RED_2W_2023) {
-    LOG_E("2w red laser do not have fire sensor sensor\n");
+  /* 检测是否支持火焰传感器 */
+  if (!is_there_fire_sensor())
+  {
+    LOG_E("this laser do not have any fire sensor\n");
     return E_UNSUPPORTED_OPERATION;
   }
 
@@ -2854,15 +2803,10 @@ err_code_t ToolHeadLaser::get_fire_sensor_sensitivity(uint16_t &sen) {
 }
 
 err_code_t ToolHeadLaser::set_fire_sensor_report_time(uint16_t itv) {
-  if (get_device_id() == MODULE_DEVICE_ID_LASER_1P6W_2019 || get_device_id() == MODULE_DEVICE_ID_LASER_10W_2021) {
-    LOG_E("Laser 1P6W or 10W do not have fire sensor\n");
-    return E_UNSUPPORTED_OPERATION;
-  }
-
-  /* 2W 红光激光模组不支持 */
-  if (get_device_id() == MODULE_DEVICE_ID_LASER_RED_2W_2023)
+  /* 检测是否支持火焰传感器 */
+  if (!is_there_fire_sensor())
   {
-    LOG_E("2W red laser do not have fire sensor\n");
+    LOG_E("this laser do not have any fire sensor\n");
     return E_UNSUPPORTED_OPERATION;
   }
 
@@ -2889,15 +2833,8 @@ err_code_t ToolHeadLaser::set_fire_sensor_report_time(uint16_t itv) {
 }
 
 err_code_t ToolHeadLaser::set_crosslight_offset(float x, float y) {
-  if (get_device_id() == MODULE_DEVICE_ID_LASER_1P6W_2019 || get_device_id() == MODULE_DEVICE_ID_LASER_10W_2021) {
-    LOG_E("Laser 1P6W or 10W do not have any crosslight\n");
-    return E_UNSUPPORTED_OPERATION;
-  }
-
-  /* 2W 红光激光模组不支持 */
-  if (get_device_id() == MODULE_DEVICE_ID_LASER_RED_2W_2023)
-  {
-    LOG_E("2w red laser do not have any crosslight\n");
+  if (!is_there_cross_light()) {
+    LOG_E("this laser do not have any crosslight\n");
     return E_UNSUPPORTED_OPERATION;
   }
 
@@ -2938,15 +2875,9 @@ err_code_t ToolHeadLaser::set_crosslight_offset(float x, float y) {
 }
 
 err_code_t ToolHeadLaser::get_crosslight_offset(float &x, float &y) {
-  if (get_device_id() == MODULE_DEVICE_ID_LASER_1P6W_2019 || get_device_id() == MODULE_DEVICE_ID_LASER_10W_2021) {
-    LOG_E("Laser 1P6W or 10W do not have any crosslight\n");
-    return E_UNSUPPORTED_OPERATION;
-  }
-
-  /* 2W 红光模组不支持 */
-  if (get_device_id() == MODULE_DEVICE_ID_LASER_RED_2W_2023)
+  if (!is_there_cross_light())
   {
-    LOG_E("2w red laser do not have any crosslight\n");
+    LOG_E("this laser do not have any crosslight\n");
     return E_UNSUPPORTED_OPERATION;
   }
 
@@ -3077,4 +3008,94 @@ bool ToolHeadLaser::get_hw_version(uint8_t &version)
 
   return ret;
 }
+
+
+/**
+ * @brief 检测是否存在火焰传感器
+ * 
+ * @return true   存在
+ * @return false  不存在
+ */
+bool ToolHeadLaser::is_there_fire_sensor(void)
+{
+  bool ret = false;
+
+  switch (get_device_id())
+  {
+    case MODULE_DEVICE_ID_LASER_20W_2023:
+    case MODULE_DEVICE_ID_LASER_40W_2023:
+    {
+      ret = true;
+    }
+    break;
+    
+    default:
+    {
+      ret = false;
+    }
+    break;
+  };
+
+  return ret;
+}
+
+/**
+ * @brief 检测是否存在摄像头
+ * 
+ * @return true   存在
+ * @return false  不存在
+ */
+bool ToolHeadLaser::is_there_camera(void)
+{
+  bool ret = false;
+
+  switch (get_device_id())
+  {
+    case MODULE_DEVICE_ID_LASER_1P6W_2019:
+    case MODULE_DEVICE_ID_LASER_10W_2021:
+    {
+      ret = true;
+    }
+    break;
+    
+    default:
+    {
+      ret = false;
+    }
+    break;
+  };
+
+  return ret;
+}
+
+/**
+ * @brief 检测是否存在十字光
+ * 
+ * @return true   存在
+ * @return false  不存在
+ */
+bool ToolHeadLaser::is_there_cross_light(void)
+{
+  bool ret = false;
+
+  switch (get_device_id())
+  {
+    case MODULE_DEVICE_ID_LASER_20W_2023:
+    case MODULE_DEVICE_ID_LASER_40W_2023:
+    case MODULE_DEVICE_ID_LASER_RED_2W_2023:
+    {
+      ret = true;
+    }
+    break;
+    
+    default:
+    {
+      ret = false;
+    }
+    break;
+  };
+
+  return ret;
+}
+
 

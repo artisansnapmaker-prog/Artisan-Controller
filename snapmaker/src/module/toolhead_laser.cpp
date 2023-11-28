@@ -47,6 +47,10 @@
 #define LASER_RED_2W_TEMP_THRESHOLD_PROTECTED   (55)
 #define LASER_RED_2W_TEMP_THRESHOLD_RECOVER     (45)
 
+/* 2W 红光激光模组各供应商相关的硬件版本号 */
+#define LASER_RED_2W_HW_VER_BASE_GUANGYUAN      (0)       /**< 光缘 */
+#define LASER_RED_2W_HW_VER_BASE_LIANPIN        (10)      /**< 联品 */
+
 static module_func_prio_t prio_map[] = {
   { MODULE_FUNC_SET_FAN1,              MODULE_FUNC_PRIORITY_MEDIUM },
   { MODULE_FUNC_SET_CAMERA_POWER,      MODULE_FUNC_PRIORITY_MEDIUM },
@@ -138,10 +142,28 @@ static __attribute__((section(".data"))) uint8_t power_table_40w[]= {
 };
 
 /**
- * @brief 2W 红光激光头的激光功率表
+ * @brief 光缘版 2W 红光激光头的激光功率表
  * 
  */
-static __attribute__((section(".data"))) uint8_t power_table_red_2w[]= {
+static __attribute__((section(".data"))) uint8_t power_table_red_2w_guangyuan[]= {
+  0, 15, 27, 29, 32, 35, 37, 40, 42, 45,
+  47, 49, 51, 54, 56, 59, 61, 63, 65, 68,
+  70, 72, 75, 77, 79, 82, 84, 87, 90, 92,
+  94, 97, 99, 101, 103, 106, 108, 110, 112, 115,
+  117, 120, 122, 124, 126, 128, 131, 133, 135, 138,
+  140, 142, 144, 147, 149, 151, 153, 156, 158, 161,
+  163, 166, 168, 171, 173, 176, 178, 180, 182, 185,
+  188, 190, 192, 193, 195, 198, 200, 202, 204, 207,
+  209, 212, 214, 216, 218, 221, 224, 226, 228, 230,
+  233, 235, 239, 241, 242, 245, 247, 250, 252, 254,
+  255
+};
+
+/**
+ * @brief 联品版 2W 红光激光头的激光功率表
+ * 
+ */
+static __attribute__((section(".data"))) uint8_t power_table_red_2w_lianpin[]= {
   0, 15, 27, 29, 32, 35, 37, 40, 42, 45,
   47, 49, 51, 54, 56, 59, 61, 63, 65, 68,
   70, 72, 75, 77, 79, 82, 84, 87, 90, 92,
@@ -1557,12 +1579,25 @@ err_code_t ToolHeadLaser::post_init() {
   }
   else if (get_device_id() == MODULE_DEVICE_ID_LASER_RED_2W_2023)
   {
+    uint8_t hw_version = 0xff;
     msg_id_ctrl_switch = get_message_id(MODULE_FUNC_SET_LASER_SWITCH);
     if (msg_id_ctrl_switch == MODULE_MESSAGE_ID_INVALID) {
       LOG_E("invalid message id for func: %u\n", MODULE_FUNC_SET_LASER_SWITCH);
     }
 
-    power_table = power_table_red_2w;
+    // 获取硬件版本号，根据硬件版本号区分不同激光功率表
+    get_hw_version(hw_version);
+    LOG_I("2w red laser hw_version =  %d\n", hw_version);
+    /* 光缘 */
+    if (hw_version >= LASER_RED_2W_HW_VER_BASE_GUANGYUAN && hw_version < LASER_RED_2W_HW_VER_BASE_LIANPIN)
+    {
+      power_table = power_table_red_2w_guangyuan;
+    }
+    else
+    {
+      power_table = power_table_red_2w_lianpin;
+    }
+    
     host_can_rou.register_callback(get_message_id(MODULE_FUNC_REPORT_SECURITY_STATUS), (void *)this, can_cb_handle_security_status);
 
     LOG_I("msg_id_ctrl_switch %d\n", msg_id_ctrl_switch);
@@ -3008,5 +3043,38 @@ void ToolHeadLaser::laser_turn_on_isr(uint16_t pwm,  bool is_sync_power, float s
   #else
     pwm_controller.set_duty(pwm_index, pwm);
   #endif
+}
+
+/**
+ * @brief 获取模组硬件版本号
+ * 
+ * @param[out]  version 硬件版本号
+ * @return    true  成功
+ * @return    false 失败
+ */
+bool ToolHeadLaser::get_hw_version(uint8_t &version)
+{
+  smcan_message_t msg;
+  bool ret = false;
+  err_code_t result = E_FAILURE;
+  uint8_t out_buf[2] = {0};
+  uint8_t out_len = sizeof(out_buf);
+
+  msg.id = get_message_id(MODULE_FUNC_GET_HW_VERSION);
+  if (msg.id != MODULE_MESSAGE_ID_INVALID)
+  {
+    msg.ch     = get_channel();
+    msg.data   = NULL;
+    msg.length = 0;
+    result = host_can_rou.send_sync(&msg, out_buf, &out_len, 200);
+  }
+
+  if (result == E_SUCCESS)
+  {
+    version = out_buf[0];
+    ret = true;
+  }
+
+  return ret;
 }
 

@@ -302,6 +302,7 @@ class ToolHeadLaser: public ModuleBase {
 
     err_code_t set_feedrate_percentage(uint8_t *data, uint16_t length);
     uint16_t get_feedrate_percentage(uint8_t *buffer);
+    bool get_hw_version(uint8_t &version);
 
   public:
     static bool safety_lock;

@@ -67,6 +67,8 @@ static module_func_prio_t prio_map[] = {
   { MODULE_FUNC_SET_CROSSLIGHT_OFFSET,              MODULE_FUNC_PRIORITY_MEDIUM },
   { MODULE_FUNC_GET_CROSSLIGHT_OFFSET,              MODULE_FUNC_PRIORITY_MEDIUM },
   { MODULE_FUNC_LASER_BRANCH_CTRL,                  MODULE_FUNC_PRIORITY_MEDIUM },
+  { MODULE_FUNC_REPORT_LASER_WEAK_POWER,            MODULE_FUNC_PRIORITY_MEDIUM },
+  { MODULE_FUNC_SET_LASER_WEAK_POWER,               MODULE_FUNC_PRIORITY_MEDIUM },
 
   // must set the last element as below !!!!
   { MODULE_FUNCTION_ID_INVALID, MODULE_FUNCTION_PRIORITY_INVALID }
@@ -955,6 +957,56 @@ err_code_t ToolHeadLaser::hmi_cb_get_crosslight_offset(void *obj, sacp_hmi_messa
 }
 
 
+err_code_t ToolHeadLaser::hmi_cb_get_laser_weak_power(void *obj, sacp_hmi_message_t *message) {
+  ToolHeadLaser &laser = *(ToolHeadLaser *)obj;
+  uint16_t data_len = 0;
+  float tmp_power = 0;
+
+  if (!obj || !message || message->length < 1) {
+    LOG_E("get laser weak power: invalid param\n");
+    return host_hmi.send_ack(message, E_PARAM);
+  }
+
+  if (message->data[0] != laser.get_key()) {
+    LOG_E("invalid module key[%u] in cmd[%x:%x]\n", message->data[0], message->cmd_set, message->cmd_id);
+    return host_hmi.send_ack(message, E_INVALID_MODULE_KEY);
+  }
+
+  message->data[data_len++] = laser.get_weak_power(tmp_power);
+  LOG_I("HMI get laser weak power, power: %f, ret: %d\n", laser.weak_power, message->data[0]);
+  *((int32_t*)(message->data + data_len)) = laser.weak_power * 1000;
+  data_len += 4;
+  message->length = data_len;
+  return host_hmi.send_ack(message, message->data, data_len);
+}
+
+err_code_t ToolHeadLaser::hmi_cb_set_laser_weak_power(void *obj, sacp_hmi_message_t *message) {
+  ToolHeadLaser &laser = *(ToolHeadLaser *)obj;
+  float tmp_weak_power;
+
+  if (!obj || !message || message->length < 5) {
+    LOG_E("set crosslight offset: invalid param\n");
+    return host_hmi.send_ack(message, E_PARAM);
+  }
+
+  if (message->data[0] != laser.get_key()) {
+    LOG_E("invalid module key[%u] in cmd[%x:%x]\n", message->data[0], message->cmd_set, message->cmd_id);
+    return host_hmi.send_ack(message, E_INVALID_MODULE_KEY);
+  }
+
+  tmp_weak_power = ((message->data[4]<<24) | (message->data[3]<<16) | (message->data[2]<<8) | message->data[1]) / 1000.0;
+  LOG_I("HMI set laser weak power, %f.\n", tmp_weak_power);
+
+  NOMORE(tmp_weak_power, LASER_WEAK_POWER_MAX_LIMIT);
+  NOLESS(tmp_weak_power, LASER_WEAK_POWER_MIN_LIMIT);
+
+  message->data[0] = laser.set_weak_power(tmp_weak_power);
+  message->length = 1;
+
+  return host_hmi.send_ack(message);
+}
+
+
 void ToolHeadLaser::set_safety_lock(bool lock_state) {
   safety_lock = lock_state;
   LOG_I("laser: set safety_lock: %s\n", safety_lock ? "LOCK" : "UNLOCK");
@@ -1412,7 +1464,7 @@ err_code_t ToolHeadLaser::post_init() {
     else {
       pwm_normal = true;
     }
-
+    weak_power = LASER_10W_DEFAULT_WEAK_POWER;
     smprinter.register_module(MODULE_DEVICE_ID_LASER_10W_2021, this);
   }
   else if (get_device_id() == MODULE_DEVICE_ID_LASER_20W_2023 || get_device_id() == MODULE_DEVICE_ID_LASER_40W_2023) {
@@ -1449,13 +1501,14 @@ err_code_t ToolHeadLaser::post_init() {
     if (try_cnt < 0) {
       LOG_E("Can not get crosslight offset\n");
     }
-
+    weak_power = LASER_20W_40W_DEFAULT_WEAK_POWER;
     smprinter.register_module(get_device_id(), this);
   }
   else {
     power_table = power_table_1p6w;
     smprinter.register_module(MODULE_DEVICE_ID_LASER_1P6W_2019, this);
     // for old laser, couldn't check PWM
+    weak_power = LASER_1_6W_DEFAULT_WEAK_POWER;
     pwm_normal = true;
   }
 
@@ -1506,6 +1559,15 @@ err_code_t ToolHeadLaser::post_init() {
     // calibration Callback for MODULE_DEVICE_ID_LASER_1P6W_2019 only
     host_hmi.register_callback(SACP_CMD_SET_CALIBRATE_LASER, SACP_CMD_ID_LASER_CALI_MANUAL, (void *)this, hmi_cb_do_manual_focusing, SACP_CB_ATTR_BLOCKED_WITH_MOTION);
     host_hmi.register_callback(SACP_CMD_SET_CALIBRATE_LASER, SACP_CMD_ID_LASER_CALI_AUTO, (void *)this, hmi_cb_do_auto_focusing, SACP_CB_ATTR_BLOCKED_WITH_MOTION);
+  }
+
+  // laser weak power
+  if (get_message_id(MODULE_FUNC_REPORT_LASER_WEAK_POWER) != MODULE_MESSAGE_ID_INVALID) {
+    host_hmi.register_callback(SACP_CMD_SET_LASER, SACP_CMD_ID_LASER_GET_WEAK_POWER, (void *)this, hmi_cb_get_laser_weak_power);
+  }
+
+  if (get_message_id(MODULE_FUNC_SET_LASER_WEAK_POWER) != MODULE_MESSAGE_ID_INVALID) {
+    host_hmi.register_callback(SACP_CMD_SET_LASER, SACP_CMD_ID_LASER_SET_WEAK_POWER, (void *)this, hmi_cb_set_laser_weak_power);
   }
 
   // common API
@@ -1994,6 +2056,79 @@ err_code_t ToolHeadLaser::set_branch_switch(bool state) {
 }
 
 
+err_code_t ToolHeadLaser::get_weak_power(float &power) {
+  err_code_t ret;
+  smcan_message_t msg;
+  uint8_t buffer[2] = {};
+  uint8_t recv_buffer[4];
+  uint8_t recv_len = 4;
+  float tmp_weak_power;
+
+  msg.id     = get_message_id(MODULE_FUNC_REPORT_LASER_WEAK_POWER);
+  msg.ch     = get_channel();
+  msg.length = 0;
+  msg.data   = buffer;
+
+  if (msg.id == MODULE_MESSAGE_ID_INVALID) {
+    LOG_E("invalid message id for func: %u\n", MODULE_FUNC_REPORT_LASER_WEAK_POWER);
+    return E_FAILURE;
+  }
+
+  ret = host_can_rou.send_sync(&msg, recv_buffer, &recv_len);
+  if (ret != E_SUCCESS) {
+    LOG_E("failed to get weak power! ret: %u\n", ret);
+    return ret;
+  }
+  tmp_weak_power = *((float *)(&recv_buffer[0]));
+  LOG_I("get laser weak power: %f\n", tmp_weak_power);
+  NOMORE(tmp_weak_power, LASER_WEAK_POWER_MAX_LIMIT);
+  NOLESS(tmp_weak_power, LASER_WEAK_POWER_MIN_LIMIT);
+  weak_power = power = tmp_weak_power;
+  return ret;
+}
+
+err_code_t ToolHeadLaser::set_weak_power(float power) {
+  err_code_t ret;
+  smcan_message_t msg;
+  uint8_t buffer[8];
+  uint8_t recv_buffer[8];
+  uint8_t recv_len = 5;
+
+  msg.id = get_message_id(MODULE_FUNC_SET_LASER_WEAK_POWER);
+  msg.ch     = get_channel();
+  msg.length = 4;
+  msg.data   = buffer;
+
+  if (msg.id == MODULE_MESSAGE_ID_INVALID) {
+    LOG_E("invalid message id for func: %u\n", MODULE_FUNC_SET_LASER_WEAK_POWER);
+    return E_FAILURE;
+  }
+
+  NOMORE(power, LASER_WEAK_POWER_MAX_LIMIT);
+  NOLESS(power, LASER_WEAK_POWER_MIN_LIMIT);
+
+  float *t;
+  t = (float *)(&buffer[0]);
+  *t = power;
+
+  ret = host_can_rou.send_sync(&msg, recv_buffer, &recv_len);
+  if (ret != E_SUCCESS) {
+    LOG_E("failed to set weak power! ret: %u\n", ret);
+    return ret;
+  }
+  else {
+    ret = recv_buffer[0];
+    weak_power = *((float *)(&recv_buffer[1]));
+    LOG_I("set weak power ret: %d, get weak_power: %f\n", ret, *((float *)(&recv_buffer[1])));
+  }
+
+  if (ret != E_SUCCESS) {
+    LOG_E("failed to set laser weak power %u\n", ret);
+  }
+  return ret;
+}
+
+
 void ToolHeadLaser::check_master_switch(uint16_t new_power_pwm) {
   if (get_device_id() == MODULE_DEVICE_ID_LASER_1P6W_2019)
     return;
@@ -2118,6 +2253,7 @@ void ToolHeadLaser::show_status() {
   LOG_I("laser_inline: %d, inline_power: %f, inline_pwm: %d, is_sync : %d, is_map: %d\n", planner.laser_inline.status.isEnabled,
                           planner.laser_inline.power, planner.laser_inline.power_pwm, planner.laser_inline.status.is_sync_power,
                           planner.laser_inline.status.power_is_map);
+  LOG_I("laser weak power: %f\n", weak_power);
   if (bt_mac[0] == 0) {
     LOG_I("BT MAC: ");
     for (int i = 1; i < 7; i++) {

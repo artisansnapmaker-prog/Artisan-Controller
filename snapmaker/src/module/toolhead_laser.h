@@ -30,6 +30,12 @@
 #define LASER_CAMERA_FOCUS_MAX             (65000) // 65mm
 #define LASER_POWER_SAFE_LOCK_LIMIT        (0)
 
+#define LASER_1_6W_DEFAULT_WEAK_POWER      (0.5)
+#define LASER_10W_DEFAULT_WEAK_POWER       (1.0)
+#define LASER_20W_40W_DEFAULT_WEAK_POWER   (0.2)
+#define LASER_WEAK_POWER_MAX_LIMIT         (3.0)
+#define LASER_WEAK_POWER_MIN_LIMIT         (0.0)
+
 
 #define LASER_PLATFORM_HIGHT_DEFAULT      (50 * 1000)   // 50mm
 #define LASER_4AXIS_CENTER_HIGHT_DEFAULT  (150 * 1000)  // 150mm
@@ -61,6 +67,8 @@ enum LaserSACPCommandId {
   SACP_CMD_ID_LASER_SET_FIRE_SENSOR_REPORT_TIME, // 15
   SACP_CMD_ID_LASER_SET_CROSSLIGHT_OFFSET, // 16
   SACP_CMD_ID_LASER_GET_CROSSLIGHT_OFFSET, // 17
+  SACP_CMD_ID_LASER_GET_WEAK_POWER = 0x13, // 19
+  SACP_CMD_ID_LASER_SET_WEAK_POWER,        // 20
 
   SACP_CMD_ID_LASER_MAX
 };
@@ -207,6 +215,8 @@ class ToolHeadLaser: public ModuleBase {
 
     err_code_t set_master_switch(bool state);
     err_code_t set_branch_switch(bool state);
+    err_code_t set_weak_power(float power);
+    err_code_t get_weak_power(float &power);
     void check_master_switch(uint16_t new_power_pwm);
     void if_disable_switch();
     void check_insert_enclosure(void);
@@ -261,6 +271,8 @@ class ToolHeadLaser: public ModuleBase {
     static err_code_t hmi_cb_set_fire_sensor_report_time(void *obj, sacp_hmi_message_t *message);
     static err_code_t hmi_cb_set_crosslight_offset(void *obj, sacp_hmi_message_t *message);
     static err_code_t hmi_cb_get_crosslight_offset(void *obj, sacp_hmi_message_t *message);
+    static err_code_t hmi_cb_set_laser_weak_power(void *obj, sacp_hmi_message_t *message);
+    static err_code_t hmi_cb_get_laser_weak_power(void *obj, sacp_hmi_message_t *message);
 
     // callback for HMI publish
     static uint16_t hmi_cb_publish_safety_state(void *obj, uint8_t *buffer);
@@ -333,6 +345,7 @@ class ToolHeadLaser: public ModuleBase {
     uint16_t fire_sensor_rawdata = 0xFFFF;
     float crosslight_offset_x = INVALID_OFFSET;
     float crosslight_offset_y = INVALID_OFFSET;
+    float weak_power = LASER_10W_DEFAULT_WEAK_POWER;
 
     uint8_t bt_mac[8] {0xff};
     uint8_t tell_mac = 0;

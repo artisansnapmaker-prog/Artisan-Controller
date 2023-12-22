@@ -541,6 +541,26 @@ void GcodeSuite::M2000() {
       }
       break;
 
+    case 25:
+      {
+        LOG_I("Get laser weak power\n");
+        if (laser) {
+          float tmp_weak;
+          laser->get_weak_power(tmp_weak);
+        }
+      }
+      break;
+
+    case 26:
+      { // set the minimum PWM in trapeziod power mode
+        g = parser.floatval('P', .1);
+        LOG_I("Set laser weak power %f\n", g);
+        if (laser) {
+          laser->set_weak_power(g);
+        }
+      }
+      break;
+
     default:
       break;
     }

@@ -34,7 +34,7 @@
 #define LASER_10W_DEFAULT_WEAK_POWER       (1.0)
 #define LASER_20W_40W_DEFAULT_WEAK_POWER   (0.2)
 #define LASER_WEAK_POWER_MAX_LIMIT         (3.0)
-#define LASER_WEAK_POWER_MIN_LIMIT         (0.0)
+#define LASER_WEAK_POWER_MIN_LIMIT         (0.2)
 
 
 #define LASER_PLATFORM_HIGHT_DEFAULT      (50 * 1000)   // 50mm

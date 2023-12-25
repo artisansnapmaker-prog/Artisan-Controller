@@ -553,7 +553,7 @@ void GcodeSuite::M2000() {
 
     case 26:
       { // set the minimum PWM in trapeziod power mode
-        g = parser.floatval('P', .1);
+        g = parser.floatval('P', 0.2);
         LOG_I("Set laser weak power %f\n", g);
         if (laser) {
           laser->set_weak_power(g);

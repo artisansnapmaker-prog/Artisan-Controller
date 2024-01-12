@@ -490,6 +490,7 @@ void home_if_needed(const bool keeplev=false);
 #endif
 
 extern xyz_pos_t laser_crosslight_offset;
+extern volatile uint8_t xy_offset_application;
 
 /**
  * position_is_reachable family of functions

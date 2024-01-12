@@ -45,6 +45,12 @@
 
 #define MOTION_PLATFORM_QUEUE_SIZE  (512)
 
+#define X_OFFSET_INDEX                            (0)
+#define Y_OFFSET_INDEX                            (1)
+#define X_OFFSET_IS_APPLICATION_MASK              (0x1 << X_OFFSET_INDEX)
+#define Y_OFFSET_IS_APPLICATION_MASK              (0x1 << Y_OFFSET_INDEX)
+#define XY_OFFSET_APPLICATION_FALG                (X_OFFSET_IS_APPLICATION_MASK | Y_OFFSET_IS_APPLICATION_MASK)
+
 enum AxisKey {
   AXIS_KEY_X1,
   AXIS_KEY_Y1,
@@ -323,6 +329,10 @@ class MotionPlatformService {
 
     block_laser_t get_laser_inline_status() { return laser_inline_status; }
     void set_laser_inline_status(const block_laser_t &sta) { laser_inline_status = sta; }
+
+    void reset_xy_offset_application(void) { xy_offset_application = XY_OFFSET_APPLICATION_FALG; }
+    void clear_xy_offset_application_by_index(uint8_t index) { xy_offset_application &= ~(1 << index); }
+    uint8_t get_xy_offset_application(void) { return xy_offset_application; }
 
   private:
     void init_motion_request();

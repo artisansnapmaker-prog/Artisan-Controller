@@ -145,7 +145,8 @@ enum BlockFlag : char {
     bool trapezoid_power:1;
     bool is_sync_power:1;
     bool power_is_map:1;            // Whether the power is mapped by the laser power table
-    bool Reserved:2;
+    bool x_offset_application:1;
+    bool y_offset_application:1;
   } power_status_t;
 
   typedef struct {

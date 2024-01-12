@@ -385,6 +385,8 @@ err_code_t JobCtrl::save_env(bool from_isr/*=false*/, bool save_all_info/*=true*
       _env.laser_inline_status.status = planner.laser_inline.status;
       _env.laser_inline_status.power = planner.laser_inline.power;
       _env.laser_inline_status.power_pwm = planner.laser_inline.power_pwm;
+      _env.laser_inline_status.status.x_offset_application = true;
+      _env.laser_inline_status.status.y_offset_application = true;
     }
     else {
       _env.cur_line_num = smprinter.gcode_file_position;
@@ -589,10 +591,18 @@ __pos_resume:
   planner.laser_inline.status    = _env.laser_inline_status.status;
   planner.laser_inline.power     = _env.laser_inline_status.power;
   planner.laser_inline.power_pwm = _env.laser_inline_status.power_pwm;
+  planner.laser_inline.status.x_offset_application = _env.laser_inline_status.status.x_offset_application;
+  planner.laser_inline.status.y_offset_application = _env.laser_inline_status.status.y_offset_application;
+  motion_platform_svc.reset_xy_offset_application();
+  if (!planner.laser_inline.status.x_offset_application) motion_platform_svc.clear_xy_offset_application_by_index(X_OFFSET_INDEX);
+  if (!planner.laser_inline.status.y_offset_application) motion_platform_svc.clear_xy_offset_application_by_index(Y_OFFSET_INDEX);
 
-  LOG_I("resume laser inline state: %s, inline_pwm: :%d, sync_power: %f, trapezoid_power: %d is_map: %d\n", \
-         planner.laser_inline.status.isEnabled ? "enable" : "disable", planner.laser_inline.power_pwm,
-         planner.laser_inline.power, planner.laser_inline.status.trapezoid_power, planner.laser_inline.status.power_is_map);
+  if (smprinter.get_toolhead_type() == TH_TYPE_LASER) {
+    LOG_I("resume laser inline state: %s, inline_pwm: :%d, sync_power: %f, trapezoid_power: %d is_map: %d, xy_offset_application: 0x%x\n", \
+          planner.laser_inline.status.isEnabled ? "enable" : "disable", planner.laser_inline.power_pwm,
+          planner.laser_inline.power, planner.laser_inline.status.trapezoid_power, planner.laser_inline.status.power_is_map,
+          motion_platform_svc.get_xy_offset_application());
+  }
 
   // motion_platform_svc.set_stepper_count(E_AXIS, _env.E_stepper_count);
   // LOG_I("job_ctrl: resume cur_line_num %d\r\n", _env.cur_line_num);
@@ -923,6 +933,7 @@ void JobCtrl::do_start(struct JobCtrlReqInfo &jri) {
   // _get_gcode_buffer_req_min = 0;
   _paused = false;
   need_pre_extrusion = true;
+  motion_platform_svc.reset_xy_offset_application();
 
   // get next status we should enter
   switch (status_before_start) {
@@ -1383,6 +1394,7 @@ void JobCtrl::do_stop(struct JobCtrlReqInfo &jri) {
   }
 
   GcodeSuite::air_pump_switch_ = false;
+  motion_platform_svc.reset_xy_offset_application();
 
 exit_do_stop:
   req_stop_trigger = false;

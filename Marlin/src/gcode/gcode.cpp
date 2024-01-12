@@ -183,6 +183,7 @@ void GcodeSuite::get_destination_from_command() {
     extern uint32_t resume_file_line;
     extern xyze_pos_t relative_position;
     bool relative_spec_proc = false;
+    bool add_laser_xy_offset = true;
   #endif
 
   // Get new XYZ position, whether absolute or relative
@@ -212,8 +213,22 @@ void GcodeSuite::get_destination_from_command() {
         extern bool job_printing_flag;
         if (smprinter.on_working() || job_printing_flag) {
           if (motion_platform_svc.check_cross_light_offset(laser_crosslight_offset.x, laser_crosslight_offset.y) == E_SUCCESS) {
-            if (i <= Y_AXIS)
-              destination[i] += laser_crosslight_offset[i];
+            if (i <= Y_AXIS) {
+              if (axis_is_relative(AxisEnum(i))) {
+                if (i == X_AXIS && (motion_platform_svc.get_xy_offset_application() & X_OFFSET_IS_APPLICATION_MASK)) {
+                  motion_platform_svc.clear_xy_offset_application_by_index(X_OFFSET_INDEX);
+                }
+                else if (i == Y_AXIS && (motion_platform_svc.get_xy_offset_application() & Y_OFFSET_IS_APPLICATION_MASK)) {
+                  motion_platform_svc.clear_xy_offset_application_by_index(Y_OFFSET_INDEX);
+                }
+                else {
+                  add_laser_xy_offset = false;
+                }
+              }
+
+              if (add_laser_xy_offset)
+                destination[i] += laser_crosslight_offset[i];
+            }
           }
         }
       }
@@ -221,6 +236,9 @@ void GcodeSuite::get_destination_from_command() {
     else
       destination[i] = current_position[i];
   }
+
+  planner.laser_inline.status.x_offset_application = !!(motion_platform_svc.get_xy_offset_application() & X_OFFSET_IS_APPLICATION_MASK);
+  planner.laser_inline.status.y_offset_application = !!(motion_platform_svc.get_xy_offset_application() & Y_OFFSET_IS_APPLICATION_MASK);
 
   #if HAS_EXTRUDERS
     // Get new E position, whether absolute or relative

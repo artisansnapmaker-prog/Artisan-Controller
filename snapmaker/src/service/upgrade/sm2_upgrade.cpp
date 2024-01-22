@@ -121,7 +121,7 @@ err_code_t sm2_module_upgrade_start_req(pack_info_t *p, module_info_t *m) {
   msg.data[0] = p->upgrade_ctrl_flag;
   uint32_t len = 0;
   while(len < BOOT_PACK_FW_VER_STR_LEN) {
-    msg.data[2 + len] = p->fw_ver_str[len];
+    msg.data[1 + len] = p->fw_ver_str[len];
     len++;
     if('\0' == p->fw_ver_str[len])
       break;

@@ -75,6 +75,7 @@ static module_func_prio_t prio_map[] = {
   { MODULE_FUNC_LASER_BRANCH_CTRL,                  MODULE_FUNC_PRIORITY_MEDIUM },
   { MODULE_FUNC_REPORT_LASER_WEAK_POWER,            MODULE_FUNC_PRIORITY_MEDIUM },
   { MODULE_FUNC_SET_LASER_WEAK_POWER,               MODULE_FUNC_PRIORITY_MEDIUM },
+  { MODULE_FUNC_GET_LASER_HOUSING_TEMP,             MODULE_FUNC_PRIORITY_MEDIUM },
 
   // must set the last element as below !!!!
   { MODULE_FUNCTION_ID_INVALID, MODULE_FUNCTION_PRIORITY_INVALID }
@@ -2840,13 +2841,6 @@ err_code_t ToolHeadLaser::set_crosslight_offset(float x, float y) {
     return E_UNSUPPORTED_OPERATION;
   }
 
-  /* 检测对应模组的十字光偏移量是否不可修改 */
-  if (is_cross_light_offset_fixed())
-  {
-    LOG_E("the cross light offset is fixed!\n");
-    return E_UNSUPPORTED_OPERATION;
-  }
-
   err_code_t ret;
   smcan_message_t msg;
   uint8_t buffer[8];
@@ -3109,30 +3103,39 @@ bool ToolHeadLaser::is_there_cross_light(void)
 
 
 /**
- * @brief 检测是否十字光偏移量是固定的，不可修改的，且一般固定为 0
+ * @brief Get the laser housing(casing) temperature.
  * 
- * @return true   是
- * @return false  否
+ * @param ld_temp the laser ld temperature.
+ * @param housing_temp  the laser housing(casing) temperature.
+ * @return true   success
+ * @return false  failure
  */
-bool ToolHeadLaser::is_cross_light_offset_fixed(void)
+bool ToolHeadLaser::get_laser_temperature(int16_t &ld_temp, int16_t &housing_temp)
 {
+  smcan_message_t msg;
   bool ret = false;
+  err_code_t result = E_FAILURE;
+  uint8_t out_buf[5] = {0};
+  uint8_t out_len = sizeof(out_buf);
 
-  switch (get_device_id())
+  msg.id = get_message_id(MODULE_FUNC_GET_LASER_HOUSING_TEMP);
+  if (msg.id != MODULE_MESSAGE_ID_INVALID)
   {
-    case MODULE_DEVICE_ID_LASER_RED_2W_2023:
-    {
-      ret = true;
-    }
-    break;
-    
-    default:
-    {
-      ret = false;
-    }
-    break;
-  };
+    msg.ch     = get_channel();
+    msg.data   = NULL;
+    msg.length = 0;
+    result = host_can_rou.send_sync(&msg, out_buf, &out_len, 200);
+  }
+
+  if (result == E_SUCCESS)
+  {
+    ld_temp = (out_buf[0] << 8) | out_buf[1];
+    housing_temp = (out_buf[2] << 8) | out_buf[3];
+    ret = true;
+  }
 
   return ret;
 }
+
+
 

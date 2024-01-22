@@ -228,6 +228,7 @@ class ToolHeadLaser: public ModuleBase {
     err_code_t set_fire_sensor_report_time(uint16_t itv);
     err_code_t set_crosslight_offset(float x, float y);
     err_code_t get_crosslight_offset(float &x, float &y);
+    bool get_laser_temperature(int16_t &ld_temp, int16_t &housing_temp);
 
     static void can_cb_handle_security_status(void *obj, uint8_t *data, uint8_t length);
     static void can_cb_handle_fire_sensor_rawdata(void *obj, uint8_t *data, uint8_t length);
@@ -306,7 +307,6 @@ class ToolHeadLaser: public ModuleBase {
     bool is_there_fire_sensor(void);
     bool is_there_camera(void);
     bool is_there_cross_light(void);
-    bool is_cross_light_offset_fixed(void);
 
   public:
     static bool safety_lock;

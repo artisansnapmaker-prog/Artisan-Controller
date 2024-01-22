@@ -47,9 +47,9 @@
 #define LASER_RED_2W_TEMP_THRESHOLD_PROTECTED   (55)
 #define LASER_RED_2W_TEMP_THRESHOLD_RECOVER     (45)
 
-/* 2W 红光激光模组各供应商相关的硬件版本号 */
-#define LASER_RED_2W_HW_VER_BASE_GUANGYUAN      (0)       /**< 光缘 */
-#define LASER_RED_2W_HW_VER_BASE_LIANPIN        (10)      /**< 联品 */
+/* The mapping relationship between hardware version number and module type */
+#define LASER_RED_2W_HW_VER_BASE_GUANGYUAN      (0)       /**< guangyuan */
+#define LASER_RED_2W_HW_VER_BASE_LIANPIN        (10)      /**< lianpin */
 
 static module_func_prio_t prio_map[] = {
   { MODULE_FUNC_SET_FAN1,              MODULE_FUNC_PRIORITY_MEDIUM },
@@ -580,7 +580,6 @@ err_code_t ToolHeadLaser::hmi_cb_do_manual_focusing(void *obj, sacp_hmi_message_
 err_code_t ToolHeadLaser::hmi_cb_do_auto_focusing(void *obj, sacp_hmi_message_t *message) {
   ToolHeadLaser &laser = *(ToolHeadLaser *)obj;
 
-  /* 无摄像头，也就无自动对焦辅助灯 */
   if (!laser.is_there_camera())
   {
     LOG_E("this laser do not support auto focusing\n");
@@ -1097,7 +1096,6 @@ err_code_t laser_routine(void *obj) {
   if (laser.get_status() != MODULE_STATUS_NORMAL)
     return E_INVALID_STATE;
 
-  /* 检测是否存在 摄像头 */
   if ((laser.is_there_camera()))
   {
     if (laser.bt_mac[0] != 0) {
@@ -1213,7 +1211,6 @@ void ToolHeadLaser::can_cb_handle_security_status(void *obj, uint8_t *data, uint
   laser.tube_temp = (int8_t)data[5];
   laser.imu_temp   = (int8_t)data[6];
 
-  /* 火焰传感器 */
   if (laser.is_there_fire_sensor() && length >= 8) {
     laser.fire_trigger_state = !!data[7];
   }
@@ -1278,7 +1275,6 @@ void ToolHeadLaser::client_cb_report_bt_mac(void *obj, uint8_t id, SACPRouteStat
   ClientNode *node = NULL;
   int i = 5;
 
-  /* 无摄像头也就无 BT */
   if (!laser.is_there_camera())
   {
     LOG_I("this laser do not support reporting BT mac\n");
@@ -1566,16 +1562,14 @@ err_code_t ToolHeadLaser::post_init() {
       LOG_E("invalid message id for func: %u\n", MODULE_FUNC_SET_LASER_SWITCH);
     }
 
-    // 获取硬件版本号，根据硬件版本号区分不同激光功率表
     get_hw_version(hw_version);
     LOG_I("2w red laser hw_version =  %d\n", hw_version);
-    /* 光缘 */
-    if (hw_version >= LASER_RED_2W_HW_VER_BASE_GUANGYUAN && hw_version < LASER_RED_2W_HW_VER_BASE_LIANPIN)
-    {
+    /* guangyuan */
+    if (hw_version >= LASER_RED_2W_HW_VER_BASE_GUANGYUAN && hw_version < LASER_RED_2W_HW_VER_BASE_LIANPIN) {
       power_table = power_table_red_2w_guangyuan;
     }
-    else
-    {
+    /* lianpin */
+    else {
       power_table = power_table_red_2w_lianpin;
     }
     
@@ -1738,7 +1732,6 @@ void ToolHeadLaser::setup_camera_port(uint8_t port) {
   sacp_channel_t *ch = host_hmi.get_channel(SACP_HMI_CH_CAMERA);
   MSerialT *serial = NULL;
 
-  /* 检测是否支持摄像头 */
   if (!is_there_camera())
   {
     LOG_E("this laser do not have any camera\n");
@@ -1796,7 +1789,6 @@ err_code_t ToolHeadLaser::get_bt_mac(uint32_t delay_ms, uint8_t retry, bool log_
   uint16_t recv_len = 12;
   uint8_t cmd = 0;
 
-  /* 检测是否支持摄像头，无摄像头也就无对应 BT */
   if (!is_there_camera())
   {
     LOG_E("this laser do not have any Bluetooth\n");
@@ -2082,7 +2074,6 @@ err_code_t ToolHeadLaser::set_focus_assist_light(uint8_t state) {
   uint8_t recv_buffer[4];
   uint8_t recv_len = 4;
 
-  /* 检测是否支持摄像头，无摄像头也就无对应的自动对焦辅助灯 */
   if (!is_there_camera())
   {
     LOG_E("this laser do not have any focus assist light\n");
@@ -2294,7 +2285,6 @@ err_code_t ToolHeadLaser::report_bt_mac(uint32_t peer, uint8_t ch) {
   uint8_t buffer[12];
   int len = 0;
 
-  /* 检测是否支持摄像头，无摄像头也就无对应的 BT */
   if (!is_there_camera())
   {
     LOG_E("this laser do not have any Bluetooth\n");
@@ -2555,7 +2545,6 @@ err_code_t ToolHeadLaser::prepare_start(void) {
 
 err_code_t ToolHeadLaser::register_esp32_upgrade_callbake(void)
 {
-  /* 检测是否支持摄像头，无摄像头也就无对应的 BT */
   if (!is_there_camera())
   {
     LOG_E("this laser do not have any Bluetooth\n");
@@ -2739,7 +2728,6 @@ uint16_t ToolHeadLaser::get_fire_sensor_rawdata(void) {
 
 err_code_t ToolHeadLaser::set_fire_sensor_sensitivity(uint16_t sen, bool is_save)
 {
-  /* 检测是否支持火焰传感器 */
   if (!is_there_fire_sensor())
   {
     LOG_E("this laser do not have any fire sensor\n");
@@ -2772,7 +2760,6 @@ err_code_t ToolHeadLaser::set_fire_sensor_sensitivity(uint16_t sen, bool is_save
 }
 
 err_code_t ToolHeadLaser::get_fire_sensor_sensitivity(uint16_t &sen) {
-  /* 检测是否支持火焰传感器 */
   if (!is_there_fire_sensor())
   {
     LOG_E("this laser do not have any fire sensor\n");
@@ -2806,7 +2793,6 @@ err_code_t ToolHeadLaser::get_fire_sensor_sensitivity(uint16_t &sen) {
 }
 
 err_code_t ToolHeadLaser::set_fire_sensor_report_time(uint16_t itv) {
-  /* 检测是否支持火焰传感器 */
   if (!is_there_fire_sensor())
   {
     LOG_E("this laser do not have any fire sensor\n");
@@ -2980,11 +2966,11 @@ void ToolHeadLaser::laser_turn_on_isr(uint16_t pwm,  bool is_sync_power, float s
 }
 
 /**
- * @brief 获取模组硬件版本号
+ * @brief get hardware version
  * 
- * @param[out]  version 硬件版本号
- * @return    true  成功
- * @return    false 失败
+ * @param[out]  version hardware version
+ * @return    true 
+ * @return    false 
  */
 bool ToolHeadLaser::get_hw_version(uint8_t &version)
 {
@@ -3014,10 +3000,10 @@ bool ToolHeadLaser::get_hw_version(uint8_t &version)
 
 
 /**
- * @brief 检测是否存在火焰传感器
+ * @brief Check for the presence of flame sensor
  * 
- * @return true   存在
- * @return false  不存在
+ * @return true
+ * @return false
  */
 bool ToolHeadLaser::is_there_fire_sensor(void)
 {
@@ -3043,10 +3029,10 @@ bool ToolHeadLaser::is_there_fire_sensor(void)
 }
 
 /**
- * @brief 检测是否存在摄像头
+ * @brief check for the presence of camera
  * 
- * @return true   存在
- * @return false  不存在
+ * @return true
+ * @return false
  */
 bool ToolHeadLaser::is_there_camera(void)
 {
@@ -3072,10 +3058,10 @@ bool ToolHeadLaser::is_there_camera(void)
 }
 
 /**
- * @brief 检测是否存在十字光
+ * @brief check for the presence of cross-light
  * 
- * @return true   存在
- * @return false  不存在
+ * @return true
+ * @return false
  */
 bool ToolHeadLaser::is_there_cross_light(void)
 {

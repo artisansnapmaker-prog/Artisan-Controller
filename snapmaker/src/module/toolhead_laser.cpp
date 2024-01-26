@@ -28,6 +28,7 @@
 #define SAFETY_STATE_BIT_PWM_PIN              (1<<3)
 #define SAFETY_STATE_BIT_FAN_RUN              (1<<4)
 #define SAFETY_STATE_BIT_FIRE_DECT            (1<<5)
+#define SAFETY_STATE_BIT_TUBE_TEMP_TOO_LOW    (1<<6)
 
 #define MODULE_EXCEP_BIT_TUBE_TEMP_TOO_LOW    (1<<0)
 #define MODULE_EXCEP_BIT_IMU_OVERTEMP         (1<<1)
@@ -1163,6 +1164,7 @@ void ToolHeadLaser::can_cb_handle_security_status(void *obj, uint8_t *data, uint
 
     if (new_state & SAFETY_STATE_BIT_TUBE_OVERTEMP) {
       system_svc.raise_exception_async(laser.get_device_id(), LASER_EXCEP_STA_TUBE_TEMP_TOO_HIGH, EXCEP_ACT_PAUSE_WORKING);
+      LOG_I("The temp of LD is too high : %d\r\n", laser.tube_temp);
     }
 
     if (new_state & SAFETY_STATE_BIT_ATTITUDE) {
@@ -1185,12 +1187,19 @@ void ToolHeadLaser::can_cb_handle_security_status(void *obj, uint8_t *data, uint
                                         EXCEP_BAN_TURN_ON_LASER | EXCEP_BAN_WORKING);
     }
 
+    if (new_state & SAFETY_STATE_BIT_TUBE_TEMP_TOO_LOW) {
+      system_svc.raise_exception_async(laser.get_device_id(), LASER_EXCEP_STA_TUBE_TEMP_TOO_LOW, EXCEP_ACT_PAUSE_WORKING,
+                                        EXCEP_BAN_TURN_ON_LASER | EXCEP_BAN_WORKING);
+      LOG_I("The temp of LD is too low : %d\r\n", laser.tube_temp);
+    }
+
     if (clear_state & SAFETY_STATE_BIT_IMU_CONNECTION) {
       system_svc.clear_exception_async(laser.get_device_id(), LASER_EXCEP_STA_IMU_EXCEPTION);
     }
 
     if (clear_state & SAFETY_STATE_BIT_TUBE_OVERTEMP) {
       system_svc.clear_exception_async(laser.get_device_id(), LASER_EXCEP_STA_TUBE_TEMP_TOO_HIGH);
+      LOG_I("The temp of LD has returned to normal : %d\r\n", laser.tube_temp);
     }
 
     if (clear_state & SAFETY_STATE_BIT_ATTITUDE) {
@@ -1204,6 +1213,11 @@ void ToolHeadLaser::can_cb_handle_security_status(void *obj, uint8_t *data, uint
     if (clear_state & SAFETY_STATE_BIT_FAN_RUN) {
       system_svc.clear_exception_async(laser.get_device_id(), LASER_EXCEP_STA_FAN_RUN);
     }
+
+    if (clear_state & SAFETY_STATE_BIT_TUBE_TEMP_TOO_LOW) {
+      system_svc.clear_exception_async(laser.get_device_id(), LASER_EXCEP_STA_TUBE_TEMP_TOO_LOW);
+      LOG_I("The temp of LD has returned to normal : %d\r\n", laser.tube_temp);
+    }
   }
 
   pre_state = laser.safety_state;
@@ -1216,17 +1230,19 @@ void ToolHeadLaser::can_cb_handle_security_status(void *obj, uint8_t *data, uint
     laser.fire_trigger_state = !!data[7];
   }
 
-  if (laser.tube_temp < 0) {
-    if (!(laser.exception_state & MODULE_EXCEP_BIT_TUBE_TEMP_TOO_LOW)) {
-      laser.exception_state |= MODULE_EXCEP_BIT_TUBE_TEMP_TOO_LOW;
-      system_svc.raise_exception_async(laser.get_device_id(), LASER_EXCEP_STA_TUBE_TEMP_TOO_LOW, EXCEP_ACT_PAUSE_WORKING,
-                                        EXCEP_BAN_TURN_ON_LASER | EXCEP_BAN_WORKING);
+  if (!laser.is_there_custom_low_temp_protect_value()) {
+    if (laser.tube_temp < 0) {
+      if (!(laser.exception_state & MODULE_EXCEP_BIT_TUBE_TEMP_TOO_LOW)) {
+        laser.exception_state |= MODULE_EXCEP_BIT_TUBE_TEMP_TOO_LOW;
+        system_svc.raise_exception_async(laser.get_device_id(), LASER_EXCEP_STA_TUBE_TEMP_TOO_LOW, EXCEP_ACT_PAUSE_WORKING,
+                                          EXCEP_BAN_TURN_ON_LASER | EXCEP_BAN_WORKING);
+      }
     }
-  }
-  else {
-    if (laser.exception_state & MODULE_EXCEP_BIT_TUBE_TEMP_TOO_LOW) {
-      laser.exception_state &= (~MODULE_EXCEP_BIT_TUBE_TEMP_TOO_LOW);
-      system_svc.clear_exception_async(laser.get_device_id(), LASER_EXCEP_STA_TUBE_TEMP_TOO_LOW);
+    else {
+      if (laser.exception_state & MODULE_EXCEP_BIT_TUBE_TEMP_TOO_LOW) {
+        laser.exception_state &= (~MODULE_EXCEP_BIT_TUBE_TEMP_TOO_LOW);
+        system_svc.clear_exception_async(laser.get_device_id(), LASER_EXCEP_STA_TUBE_TEMP_TOO_LOW);
+      }
     }
   }
 
@@ -3072,6 +3088,33 @@ bool ToolHeadLaser::is_there_cross_light(void)
   {
     case MODULE_DEVICE_ID_LASER_20W_2023:
     case MODULE_DEVICE_ID_LASER_40W_2023:
+    case MODULE_DEVICE_ID_LASER_RED_2W_2023:
+    {
+      ret = true;
+    }
+    break;
+    
+    default:
+    {
+      ret = false;
+    }
+    break;
+  };
+
+  return ret;
+}
+
+/**
+ * @brief check for the presence of the low-temperature protection value.
+ * 
+ * @return true
+ * @return false
+ */
+bool ToolHeadLaser::is_there_custom_low_temp_protect_value(void) {
+  bool ret = false;
+
+  switch (get_device_id())
+  {
     case MODULE_DEVICE_ID_LASER_RED_2W_2023:
     {
       ret = true;

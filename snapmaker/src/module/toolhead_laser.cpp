@@ -75,6 +75,7 @@ static module_func_prio_t prio_map[] = {
   { MODULE_FUNC_LASER_BRANCH_CTRL,                  MODULE_FUNC_PRIORITY_MEDIUM },
   { MODULE_FUNC_REPORT_LASER_WEAK_POWER,            MODULE_FUNC_PRIORITY_MEDIUM },
   { MODULE_FUNC_SET_LASER_WEAK_POWER,               MODULE_FUNC_PRIORITY_MEDIUM },
+  { MODULE_FUNC_SET_GET_PROTECT_TEMP,               MODULE_FUNC_PRIORITY_MEDIUM },
   { MODULE_FUNC_GET_LASER_HOUSING_TEMP,             MODULE_FUNC_PRIORITY_MEDIUM },
 
   // must set the last element as below !!!!
@@ -3123,5 +3124,33 @@ bool ToolHeadLaser::get_laser_temperature(int16_t &ld_temp, int16_t &housing_tem
   return ret;
 }
 
+err_code_t ToolHeadLaser::set_get_protect_temp(int8_t &protect_upper, int8_t &recovery_upper, int8_t &protect_lower, int8_t &recovery_lower) {
+  err_code_t ret = E_FAILURE;
+  smcan_message_t msg;
+  int8_t in_buf[4] = {protect_upper, recovery_upper, protect_lower, recovery_lower};
+  int8_t out_buf[4] = {0};
+  uint8_t out_len = sizeof(out_buf);
+
+  msg.id = get_message_id(MODULE_FUNC_SET_GET_PROTECT_TEMP);
+  if (msg.id != MODULE_MESSAGE_ID_INVALID)
+  {
+    msg.ch     = get_channel();
+    msg.data   = (uint8_t *)in_buf;
+    msg.length = sizeof(in_buf);
+    ret = host_can_rou.send_sync(&msg, (uint8_t *)out_buf, &out_len);
+  }
+
+  if (E_SUCCESS != ret) {
+    LOG_E("failed to set_get_protect_temp! ret: %u\n", ret);
+  }
+  else {
+    protect_upper = out_buf[0];
+    recovery_upper = out_buf[1];
+    protect_lower = out_buf[2];
+    recovery_lower = out_buf[3];
+  }
+
+  return ret;
+}
 
 

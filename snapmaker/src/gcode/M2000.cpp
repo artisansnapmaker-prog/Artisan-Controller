@@ -542,6 +542,7 @@ void GcodeSuite::M2000() {
       }
       break;
 
+    // test, need to be removed
     case 25:
       {
         LOG_I("Get laser weak power\n");
@@ -558,6 +559,46 @@ void GcodeSuite::M2000() {
         LOG_I("Set laser weak power %f\n", g);
         if (laser) {
           laser->set_weak_power(g);
+        }
+      }
+      break;
+
+    // test, need to be removed
+    case 26:
+      { // Set and get protection temperature
+        int8_t protect_upper = (int8_t)(g + 0.001);
+        int8_t recovery_upper = (int8_t)(h + 0.001);
+        int8_t protect_lower = 0xFF;
+        int8_t recovery_lower = 0xFF;
+        
+        if (laser) {
+          if (E_SUCCESS != laser->set_get_protect_temp(protect_upper, recovery_upper, protect_lower, recovery_lower)) {
+            LOG_E("err\n");
+          }
+          else {
+            LOG_I("now, protect_upper = %d, recovery_upper = %d, protect_lower = %d, recovery_lower = %d\r\n", 
+              protect_upper, recovery_upper, protect_lower, recovery_lower);
+          }
+        }
+      }
+      break;
+
+    // test, need to be removed
+    case 27:
+      { // Set and get protection temperature
+        int8_t protect_upper = 0xFF; 
+        int8_t recovery_upper = 0xFF; 
+        int8_t protect_lower = (int8_t)(g + 0.001);
+        int8_t recovery_lower = (int8_t)(h + 0.001);
+        
+        if (laser) {
+          if (E_SUCCESS != laser->set_get_protect_temp(protect_upper, recovery_upper, protect_lower, recovery_lower)) {
+            LOG_E("err\n");
+          }
+          else {
+            LOG_I("now, protect_upper = %d, recovery_upper = %d, protect_lower = %d, recovery_lower = %d\r\n", 
+              protect_upper, recovery_upper, protect_lower, recovery_lower);
+          }
         }
       }
       break;

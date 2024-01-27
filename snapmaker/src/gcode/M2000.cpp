@@ -605,7 +605,7 @@ void GcodeSuite::M2000() {
 
     // test, need to be removed
     case 28:
-      { // Set and get protection temperature
+      {
         int16_t tmp = (int16_t)q;
         
         if (laser) {

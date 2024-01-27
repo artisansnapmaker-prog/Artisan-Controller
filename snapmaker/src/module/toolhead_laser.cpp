@@ -3202,7 +3202,7 @@ err_code_t ToolHeadLaser::set_tec_temp(int16_t &temp) {
   err_code_t ret = E_FAILURE;
   smcan_message_t msg;
   int8_t in_buf[2] = {0};
-  int8_t out_buf[2] = {0};
+  uint8_t out_buf[2] = {0};
   uint8_t out_len = sizeof(out_buf);
 
   msg.id = get_message_id(MODULE_FUNC_SET_TEC_TEMP);
@@ -3213,7 +3213,7 @@ err_code_t ToolHeadLaser::set_tec_temp(int16_t &temp) {
     msg.ch     = get_channel();
     msg.data   = (uint8_t *)in_buf;
     msg.length = sizeof(in_buf);
-    ret = host_can_rou.send_sync(&msg, (uint8_t *)out_buf, &out_len);
+    ret = host_can_rou.send_sync(&msg, out_buf, &out_len);
   }
 
   if (E_SUCCESS != ret) {

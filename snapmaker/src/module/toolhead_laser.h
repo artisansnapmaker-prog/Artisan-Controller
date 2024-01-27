@@ -230,6 +230,7 @@ class ToolHeadLaser: public ModuleBase {
     err_code_t get_crosslight_offset(float &x, float &y);
     err_code_t set_get_protect_temp(int8_t &protect_upper, int8_t &recovery_upper, int8_t &protect_lower, int8_t &recovery_lower);
     bool get_laser_temperature(int16_t &ld_temp, int16_t &housing_temp);
+    err_code_t set_tec_temp(int16_t &temp);
 
     static void can_cb_handle_security_status(void *obj, uint8_t *data, uint8_t length);
     static void can_cb_handle_fire_sensor_rawdata(void *obj, uint8_t *data, uint8_t length);

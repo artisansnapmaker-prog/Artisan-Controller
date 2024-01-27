@@ -603,6 +603,22 @@ void GcodeSuite::M2000() {
       }
       break;
 
+    // test, need to be removed
+    case 28:
+      { // Set and get protection temperature
+        int16_t tmp = (int16_t)q;
+        
+        if (laser) {
+          if (E_SUCCESS != laser->set_tec_temp(tmp)) {
+            LOG_E("err\n");
+          }
+          else {
+            LOG_I("now, TEC dest Temp = %d\r\n", tmp);
+          }
+        }
+      }
+      break;
+
     default:
       break;
     }

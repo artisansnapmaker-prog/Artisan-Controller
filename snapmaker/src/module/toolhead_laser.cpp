@@ -78,6 +78,7 @@ static module_func_prio_t prio_map[] = {
   { MODULE_FUNC_SET_LASER_WEAK_POWER,               MODULE_FUNC_PRIORITY_MEDIUM },
   { MODULE_FUNC_SET_GET_PROTECT_TEMP,               MODULE_FUNC_PRIORITY_MEDIUM },
   { MODULE_FUNC_GET_LASER_HOUSING_TEMP,             MODULE_FUNC_PRIORITY_MEDIUM },
+  { MODULE_FUNC_SET_TEC_TEMP,                       MODULE_FUNC_PRIORITY_MEDIUM },
 
   // must set the last element as below !!!!
   { MODULE_FUNCTION_ID_INVALID, MODULE_FUNCTION_PRIORITY_INVALID }
@@ -3191,6 +3192,35 @@ err_code_t ToolHeadLaser::set_get_protect_temp(int8_t &protect_upper, int8_t &re
     recovery_upper = out_buf[1];
     protect_lower = out_buf[2];
     recovery_lower = out_buf[3];
+  }
+
+  return ret;
+}
+
+
+err_code_t ToolHeadLaser::set_tec_temp(int16_t &temp) {
+  err_code_t ret = E_FAILURE;
+  smcan_message_t msg;
+  int8_t in_buf[2] = {0};
+  int8_t out_buf[2] = {0};
+  uint8_t out_len = sizeof(out_buf);
+
+  msg.id = get_message_id(MODULE_FUNC_SET_TEC_TEMP);
+  if (msg.id != MODULE_MESSAGE_ID_INVALID)
+  {
+    in_buf[0] = (temp >> 8) & 0xFF;
+    in_buf[1] = (temp) & 0xFF;
+    msg.ch     = get_channel();
+    msg.data   = (uint8_t *)in_buf;
+    msg.length = sizeof(in_buf);
+    ret = host_can_rou.send_sync(&msg, (uint8_t *)out_buf, &out_len);
+  }
+
+  if (E_SUCCESS != ret) {
+    LOG_E("failed to set_tec_temp! ret: %u\n", ret);
+  }
+  else {
+    temp = (out_buf[0] << 8) | out_buf[1];
   }
 
   return ret;

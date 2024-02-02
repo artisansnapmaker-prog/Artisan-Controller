@@ -305,6 +305,8 @@ class ToolHeadLaser: public ModuleBase {
 
     err_code_t set_feedrate_percentage(uint8_t *data, uint16_t length);
     uint16_t get_feedrate_percentage(uint8_t *buffer);
+
+    void show_important_info_1(void);
     bool get_hw_version(uint8_t &version);
     bool is_there_fire_sensor(void);
     bool is_there_camera(void);
@@ -362,6 +364,8 @@ class ToolHeadLaser: public ModuleBase {
 
     ToolHeadLaserCalibrationStatus cali_status = LASER_CALI_STATUS_INVALID;
     uint16_t inline_pwm_power_floor {8};
+
+    uint8_t hw_version_ = 0xFF;
 };
 
 #endif

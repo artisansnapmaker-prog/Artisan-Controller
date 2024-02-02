@@ -77,6 +77,7 @@ static module_func_prio_t prio_map[] = {
   { MODULE_FUNC_REPORT_LASER_WEAK_POWER,            MODULE_FUNC_PRIORITY_MEDIUM },
   { MODULE_FUNC_SET_LASER_WEAK_POWER,               MODULE_FUNC_PRIORITY_MEDIUM },
   { MODULE_FUNC_SET_GET_PROTECT_TEMP,               MODULE_FUNC_PRIORITY_MEDIUM },
+  { MODULE_FUNC_GET_IMPORTANT_INFO_1_FOR_DBG,       MODULE_FUNC_PRIORITY_MEDIUM },
   { MODULE_FUNC_GET_LASER_HOUSING_TEMP,             MODULE_FUNC_PRIORITY_MEDIUM },
   { MODULE_FUNC_SET_TEC_TEMP,                       MODULE_FUNC_PRIORITY_MEDIUM },
 
@@ -1574,16 +1575,15 @@ err_code_t ToolHeadLaser::post_init() {
   }
   else if (get_device_id() == MODULE_DEVICE_ID_LASER_RED_2W_2023)
   {
-    uint8_t hw_version = 0xff;
     msg_id_ctrl_switch = get_message_id(MODULE_FUNC_SET_LASER_SWITCH);
     if (msg_id_ctrl_switch == MODULE_MESSAGE_ID_INVALID) {
       LOG_E("invalid message id for func: %u\n", MODULE_FUNC_SET_LASER_SWITCH);
     }
 
-    get_hw_version(hw_version);
-    LOG_I("2w red laser hw_version =  %d\n", hw_version);
+    get_hw_version(hw_version_);
+    LOG_I("2w red laser hw_version =  %d\n", hw_version_);
     /* guangyuan */
-    if (hw_version >= LASER_RED_2W_HW_VER_BASE_GUANGYUAN && hw_version < LASER_RED_2W_HW_VER_BASE_LIANPIN) {
+    if (hw_version_ >= LASER_RED_2W_HW_VER_BASE_GUANGYUAN && hw_version_ < LASER_RED_2W_HW_VER_BASE_LIANPIN) {
       power_table = power_table_red_2w_guangyuan;
     }
     /* lianpin */
@@ -2381,6 +2381,7 @@ void ToolHeadLaser::show_status() {
   else {
     LOG_I("BT MAC: ineffective\n");
   }
+  show_important_info_1();
 }
 
 typedef struct __packed LaserEnv {
@@ -2522,6 +2523,9 @@ err_code_t ToolHeadLaser::prepare_start(void) {
     else if (safety_state & SAFETY_STATE_BIT_FIRE_DECT) {
       ret = E_JOB_LASER_LASER_FIRE_TRIGGER;
     }
+    else if (safety_state & SAFETY_STATE_BIT_TUBE_TEMP_TOO_LOW) {
+      ret = E_JOB_LASER_TUBE_TEMP_TOO_LOW;
+    }
     else {
       ret = E_JOB_FAILURE;
     }
@@ -2601,9 +2605,9 @@ err_code_t ToolHeadLaser::factory_reset() {
   else if (get_device_id() == MODULE_DEVICE_ID_LASER_40W_2023) {
     ret += set_temp_threshold(LASER_40W_TEMP_THRESHOLD_PROTECTED, LASER_40W_TEMP_THRESHOLD_RECOVER);
   }
-  else if (get_device_id() == MODULE_DEVICE_ID_LASER_40W_2023) {
-    ret += set_temp_threshold(LASER_RED_2W_TEMP_THRESHOLD_PROTECTED, LASER_RED_2W_TEMP_THRESHOLD_RECOVER);
-  }
+  // else if (get_device_id() == MODULE_DEVICE_ID_LASER_RED_2W_2023) {
+  //   ret += set_temp_threshold(LASER_RED_2W_TEMP_THRESHOLD_PROTECTED, LASER_RED_2W_TEMP_THRESHOLD_RECOVER);
+  // }
   else
   {
     ;
@@ -3224,6 +3228,41 @@ err_code_t ToolHeadLaser::set_tec_temp(int16_t &temp) {
   }
 
   return ret;
+}
+
+void ToolHeadLaser::show_important_info_1(void) {
+  err_code_t ret = E_FAILURE;
+  smcan_message_t msg;
+  uint8_t recv_buffer[8] = {0};
+  uint8_t recv_len = sizeof(recv_buffer);
+
+  msg.id = get_message_id(MODULE_FUNC_GET_IMPORTANT_INFO_1_FOR_DBG);
+  if (MODULE_MESSAGE_ID_INVALID == msg.id) {
+    return;
+  }
+
+  msg.ch     = get_channel();
+  msg.length = 0;
+  msg.data   = NULL;
+  ret = host_can_rou.send_sync(&msg, recv_buffer, &recv_len);
+  if (E_SUCCESS != ret) {
+    return;
+  }
+
+  uint16_t tmp_id = get_device_id();
+  if (MODULE_DEVICE_ID_LASER_RED_2W_2023 == tmp_id) {
+    /* lianpin 2W */
+    if (hw_version_ >= LASER_RED_2W_HW_VER_BASE_LIANPIN && hw_version_ <= LASER_RED_2W_HW_VER_BASE_LIANPIN + 9) {
+      int32_t tmp = 0;
+      LOG_I("all_param_normal_flag: %u\n", recv_buffer[0]);
+      tmp = recv_buffer[1];
+      LOG_I("TEC normal temp: %d\n", tmp);
+      tmp = recv_buffer[2] << 8 | recv_buffer[3];
+      LOG_I("active current: %d\n", tmp);
+      tmp = recv_buffer[4] << 8 | recv_buffer[5];
+      LOG_I("inactive current: %d\n", tmp);
+    }
+  }
 }
 
 

@@ -328,6 +328,7 @@ class ToolHeadFDM: public ModuleBase {
     int8_t extruder_map_convert(int8_t extruder_index);
     err_code_t set_extruder_map_type(extruder_print_map_type map_type);
     extruder_print_map_type get_extruder_map_type(void);
+    bool get_hw_version_module(uint8_t &version);
   // private methods
   private:
 

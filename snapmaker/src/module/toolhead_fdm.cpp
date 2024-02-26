@@ -59,6 +59,7 @@ static module_func_prio_t prio_map_dual_extruder[] = {
   {MODULE_FUNC_SET_RIGHT_EXTRUDER_POS, MODULE_FUNC_PRIORITY_LOW},
   {MODULE_FUNC_REPORT_RIGHT_EXTRUDER_POS, MODULE_FUNC_PRIORITY_LOW},
   {MODULE_FUNC_PROXIMITY_SWITCH_POWER_CTRL, MODULE_FUNC_PRIORITY_LOW},
+  {MODULE_FUNC_GET_HW_VERSION, MODULE_FUNC_PRIORITY_MEDIUM},
 
   // must set the last element as below !!!!
   {MODULE_FUNCTION_ID_INVALID, MODULE_FUNCTION_PRIORITY_INVALID}
@@ -257,6 +258,17 @@ err_code_t ToolHeadFDM::dual_extruder_post_init() {
   host_hmi.register_callback(SACP_CMD_SET_FDM, FDM_REQ_CMD_ID_EXTRUDER_MOTION, this, hmi_req_callback_extruder_motion, SACP_CB_ATTR_BLOCKED_WITH_MOTION);
   host_hmi.register_callback(SACP_CMD_SET_FDM, FDM_REQ_CMD_ID_GET_EXTRUDER_MAP_TYPE, this, hmi_req_callback_get_extruder_map_type);
   host_hmi.register_callback(SACP_CMD_SET_FDM, FDM_REQ_CMD_ID_SET_EXTRUDER_MAP_TYPE, this, hmi_req_callback_set_extruder_map_type);
+
+  uint8_t hw_version = 0xff;
+  if (!get_hw_version_module(hw_version)) {
+    LOG_E("FDM GET_HW_VERSION fail\n");
+    // ret = E_FAILURE;
+    // goto EXIT;
+  }
+  else {
+    LOG_I("FDM hw version = %d\r\n", hw_version);
+    set_hw_version(hw_version);
+  }
 
   // register some callback for info report
   uint16_t msg_id;
@@ -3004,3 +3016,30 @@ END:
 extruder_print_map_type ToolHeadFDM::get_extruder_map_type(void) {
   return extruder_map_type;
 }
+
+bool ToolHeadFDM::get_hw_version_module(uint8_t &version) {
+  err_code_t result = E_FAILURE;
+  uint8_t out_buf[8] = {0};
+  uint8_t out_len = sizeof(out_buf);
+  smcan_message_t msg;
+
+  msg.id = get_message_id(MODULE_FUNC_GET_HW_VERSION);
+  if (MODULE_MESSAGE_ID_INVALID == msg.id)  {
+    return false;
+  }
+
+  msg.ch     = get_channel();
+  msg.data   = NULL;
+  msg.length = 0;
+  result = host_can_rou.send_sync(&msg, out_buf, &out_len, 500);
+  if ((result != E_SUCCESS)) {
+    return false;
+  }
+
+  version = out_buf[0];
+  LOG_I("hw version = %d, check = %d\r\n", out_buf[0], out_buf[1]);
+
+  return true;
+}
+
+

@@ -282,6 +282,8 @@ class ToolHeadLaser: public ModuleBase {
     static uint16_t hmi_cb_publish_power(void *obj, uint8_t *buffer);
     static uint16_t hmi_cb_publish_fire_sensor_rawdata(void *obj, uint8_t *buffer);
 
+    bool is_there_cross_light(void);
+
   private:
     err_code_t confirm_pwm_pin_state(uint32_t pin);
     uint8_t get_pwm_pin_state();
@@ -310,7 +312,6 @@ class ToolHeadLaser: public ModuleBase {
     bool get_hw_version(uint8_t &version);
     bool is_there_fire_sensor(void);
     bool is_there_camera(void);
-    bool is_there_cross_light(void);
     bool is_there_custom_low_temp_protect_value(void);
 
   public:

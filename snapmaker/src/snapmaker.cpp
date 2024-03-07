@@ -1930,8 +1930,7 @@ extruder_print_map_type SnapmakerPrinter::get_extruder_map_type(void) {
 }
 
 bool SnapmakerPrinter::is_has_crosslight_offset(void) {
-  if (laser && (laser->get_device_id() == MODULE_DEVICE_ID_LASER_20W_2023 || \
-      laser->get_device_id() == MODULE_DEVICE_ID_LASER_40W_2023)) {
+  if (laser && laser->is_there_cross_light()) {
     return true;
   }
   return false;

@@ -144,10 +144,6 @@ static __attribute__((section(".data"))) uint8_t power_table_40w[]= {
   255
 };
 
-/**
- * @brief 光缘版 2W 红光激光头的激光功率表
- * 
- */
 static __attribute__((section(".data"))) uint8_t power_table_red_2w_guangyuan[]= {
   0, 15, 27, 29, 32, 35, 37, 40, 42, 45,
   47, 49, 51, 54, 56, 59, 61, 63, 65, 68,
@@ -162,10 +158,6 @@ static __attribute__((section(".data"))) uint8_t power_table_red_2w_guangyuan[]=
   255
 };
 
-/**
- * @brief 联品版 2W 红光激光头的激光功率表
- * 
- */
 static __attribute__((section(".data"))) uint8_t power_table_red_2w_lianpin[]= {
   0, 15, 27, 29, 32, 35, 37, 40, 42, 45,
   47, 49, 51, 54, 56, 59, 61, 63, 65, 68,
@@ -258,7 +250,6 @@ uint16_t ToolHeadLaser::hmi_cb_publish_fire_sensor_rawdata(void *obj, uint8_t *b
   if (!obj || !buffer)
     return 0;
 
-  /* 检测是否支持火焰传感器 */
   if (!laser.is_there_fire_sensor())
   {
     return 0;

@@ -45,8 +45,14 @@
 #define LASER_20W_TEMP_THRESHOLD_RECOVER    (45)
 #define LASER_40W_TEMP_THRESHOLD_PROTECTED  (55)
 #define LASER_40W_TEMP_THRESHOLD_RECOVER    (45)
-#define LASER_RED_2W_TEMP_THRESHOLD_PROTECTED   (55)
-#define LASER_RED_2W_TEMP_THRESHOLD_RECOVER     (45)
+#define LASER_RED_2W_LIANPIN_TEMP_LIMIT_UPPER_DEFAULT       (39)
+#define LASER_RED_2W_LIANPIN_TEMP_RECOVERY_UPPER_DEFAULT    (37)
+#define LASER_RED_2W_LIANPIN_TEMP_LIMIT_LOWER_DEFAULT       (20)
+#define LASER_RED_2W_LIANPIN_TEMP_RECOVERY_LOWER_DEFAULT    (22)
+#define LASER_RED_2W_GUANGYUAN_TEMP_LIMIT_UPPER_DEFAULT     (40)
+#define LASER_RED_2W_GUANGYUAN_TEMP_RECOVERY_UPPER_DEFAULT  (38)
+#define LASER_RED_2W_GUANGYUAN_TEMP_LIMIT_LOWER_DEFAULT     (20)
+#define LASER_RED_2W_GUANGYUAN_TEMP_RECOVERY_LOWER_DEFAULT  (22)
 
 /* The mapping relationship between hardware version number and module type */
 #define LASER_RED_2W_HW_VER_BASE_GUANGYUAN      (0)       /**< guangyuan */
@@ -2594,9 +2600,27 @@ err_code_t ToolHeadLaser::factory_reset() {
   else if (get_device_id() == MODULE_DEVICE_ID_LASER_40W_2023) {
     ret += set_temp_threshold(LASER_40W_TEMP_THRESHOLD_PROTECTED, LASER_40W_TEMP_THRESHOLD_RECOVER);
   }
-  // else if (get_device_id() == MODULE_DEVICE_ID_LASER_RED_2W_2023) {
-  //   ret += set_temp_threshold(LASER_RED_2W_TEMP_THRESHOLD_PROTECTED, LASER_RED_2W_TEMP_THRESHOLD_RECOVER);
-  // }
+  else if (get_device_id() == MODULE_DEVICE_ID_LASER_RED_2W_2023) {
+    int8_t protect_upper = 0;
+    int8_t recovery_upper = 0;
+    int8_t protect_lower = 0;
+    int8_t recovery_lower = 0;
+    /* lianpin */
+    if (hw_version_ >= LASER_RED_2W_HW_VER_BASE_LIANPIN && hw_version_ <= LASER_RED_2W_HW_VER_BASE_LIANPIN + 9) {
+      protect_upper = LASER_RED_2W_LIANPIN_TEMP_LIMIT_UPPER_DEFAULT;
+      recovery_upper = LASER_RED_2W_LIANPIN_TEMP_RECOVERY_UPPER_DEFAULT;
+      protect_lower = LASER_RED_2W_LIANPIN_TEMP_LIMIT_LOWER_DEFAULT;
+      recovery_lower = LASER_RED_2W_LIANPIN_TEMP_RECOVERY_LOWER_DEFAULT;
+    }
+    /* guangyuan */
+    else {
+      protect_upper = LASER_RED_2W_GUANGYUAN_TEMP_LIMIT_UPPER_DEFAULT;
+      recovery_upper = LASER_RED_2W_GUANGYUAN_TEMP_RECOVERY_UPPER_DEFAULT;
+      protect_lower = LASER_RED_2W_GUANGYUAN_TEMP_LIMIT_LOWER_DEFAULT;
+      recovery_lower = LASER_RED_2W_GUANGYUAN_TEMP_RECOVERY_LOWER_DEFAULT;
+    }
+    ret += set_get_protect_temp(protect_upper, recovery_upper, protect_lower, recovery_lower);
+  }
   else
   {
     ;

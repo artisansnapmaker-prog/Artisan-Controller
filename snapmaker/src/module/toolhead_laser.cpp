@@ -1576,6 +1576,7 @@ err_code_t ToolHeadLaser::post_init() {
     }
 
     get_hw_version(hw_version_);
+    set_hw_version(hw_version_);
     LOG_I("2w red laser hw_version =  %d\n", hw_version_);
     /* guangyuan */
     if (hw_version_ >= LASER_RED_2W_HW_VER_BASE_GUANGYUAN && hw_version_ < LASER_RED_2W_HW_VER_BASE_LIANPIN) {

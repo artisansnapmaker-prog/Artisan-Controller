@@ -1175,8 +1175,19 @@ void ToolHeadLaser::can_cb_handle_security_status(void *obj, uint8_t *data, uint
     }
 
     if (new_state & SAFETY_STATE_BIT_FAN_RUN) {
-      system_svc.raise_exception_async(laser.get_device_id(), LASER_EXCEP_STA_FAN_RUN, EXCEP_ACT_PAUSE_WORKING,
-                                        EXCEP_BAN_TURN_ON_LASER | EXCEP_BAN_WORKING);
+      /* Due to the presence of the TEC on the module, we need to ensure that the fan on the module is working properly, 
+         otherwise there is a risk of damage due to excessive temperature rise on the module.
+         Therefore, when an abnormality is detected in the fan, we need to power off the module.
+       */
+      if (MODULE_DEVICE_ID_LASER_RED_2W_2023 == laser.get_device_id()) {
+        system_svc.raise_exception_async(laser.get_device_id(), LASER_EXCEP_STA_FAN_RUN, EXCEP_ACT_PAUSE_WORKING | EXCEP_ACT_DISABLE_POWER_8P_TOOLHEAD,
+                                          EXCEP_BAN_ENABLE_POWER_8P_TOOLHEAD | EXCEP_BAN_TURN_ON_LASER | EXCEP_BAN_WORKING);
+      }
+      else {
+        system_svc.raise_exception_async(laser.get_device_id(), LASER_EXCEP_STA_FAN_RUN, EXCEP_ACT_PAUSE_WORKING,
+                                          EXCEP_BAN_TURN_ON_LASER | EXCEP_BAN_WORKING);
+      }
+
     }
 
     if (new_state & SAFETY_STATE_BIT_FIRE_DECT) {

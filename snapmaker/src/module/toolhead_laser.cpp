@@ -1609,7 +1609,21 @@ err_code_t ToolHeadLaser::post_init() {
       pwm_normal = true;
     }
 
+    uint8_t try_cnt = 3;
+    float x_offset, y_offset;
     crosslight_offset_x = crosslight_offset_y = INVALID_OFFSET;
+    while(try_cnt--) {
+      if (E_SUCCESS == get_crosslight_offset(x_offset, y_offset)) {
+        crosslight_offset_x = x_offset;
+        crosslight_offset_y = y_offset;
+        break;
+      }
+      vTaskDelay(pdMS_TO_TICKS(100));
+    }
+
+    if (try_cnt < 0) {
+      LOG_E("Can not get crosslight offset\n");
+    }
 
     smprinter.register_module(MODULE_DEVICE_ID_LASER_RED_2W_2023, this);
   }

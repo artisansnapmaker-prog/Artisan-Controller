@@ -58,6 +58,9 @@
 #define LASER_RED_2W_HW_VER_BASE_GUANGYUAN      (0)       /**< guangyuan */
 #define LASER_RED_2W_HW_VER_BASE_LIANPIN        (10)      /**< lianpin */
 
+#define LASER_RED_2W_FLOOR_DEFAULT              (30)
+#define LASER_OTHER_FLOOR_DEFAULT               (8)
+
 static module_func_prio_t prio_map[] = {
   { MODULE_FUNC_SET_FAN1,              MODULE_FUNC_PRIORITY_MEDIUM },
   { MODULE_FUNC_SET_CAMERA_POWER,      MODULE_FUNC_PRIORITY_MEDIUM },
@@ -1338,7 +1341,7 @@ err_code_t ToolHeadLaser::pre_init() {
   }
 
   output_pin = E0_STEP_PIN;
-  inline_pwm_power_floor = 8;
+  inline_pwm_power_floor = LASER_OTHER_FLOOR_DEFAULT;
 
   return E_SUCCESS;
 }
@@ -1625,6 +1628,7 @@ err_code_t ToolHeadLaser::post_init() {
       LOG_E("Can not get crosslight offset\n");
     }
 
+    inline_pwm_power_floor = LASER_RED_2W_FLOOR_DEFAULT;
     smprinter.register_module(MODULE_DEVICE_ID_LASER_RED_2W_2023, this);
   }
   else {

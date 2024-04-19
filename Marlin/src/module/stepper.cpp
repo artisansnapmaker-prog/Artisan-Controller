@@ -1806,14 +1806,25 @@ void Stepper::pulse_phase_isr() {
     // Update laser - Accelerating
     #if ENABLED(LASER_POWER_INLINE_TRAPEZOID)
       #if DISABLED(LASER_POWER_INLINE_TRAPEZOID_CONT)
-        if (current_block->laser.entry_per) {
-          laser_trap.acc_step_count--;
-          // Should be faster than a divide, since this should trip just once
-          if ((int)laser_trap.acc_step_count <= 0) {
-            laser_trap.acc_step_count = current_block->laser.entry_per;
-            if (laser_trap.cur_power < current_block->laser.power_pwm) laser_trap.cur_power++;
-            // cutter.ocr_set_power(laser_trap.cur_power);
-            smprinter.laser_turn_on_isr(laser_trap.cur_power, current_block->laser.status.is_sync_power, current_block->laser.power);
+        if (smprinter.laser->get_device_id() == MODULE_DEVICE_ID_LASER_RED_2W_2023) {
+          if (laser_trap.cur_power < current_block->laser.power_pwm) {
+            laser_trap.cur_power = current_block->laser.power_pwm - current_block->laser.accel_power_k * (accelerate_until - step_events_completed);
+            if (laser_trap.cur_power > current_block->laser.power_pwm) {
+              laser_trap.cur_power = current_block->laser.power_pwm;
+            }
+            smprinter.laser_turn_on_isr(laser_trap.cur_power, current_block->laser.status.is_sync_power, current_block->laser.power); 
+          }
+        }
+        else {
+          if (current_block->laser.entry_per) {
+            laser_trap.acc_step_count--;
+            // Should be faster than a divide, since this should trip just once
+            if ((int)laser_trap.acc_step_count <= 0) {
+              laser_trap.acc_step_count = current_block->laser.entry_per;
+              if (laser_trap.cur_power < current_block->laser.power_pwm) laser_trap.cur_power++;
+              // cutter.ocr_set_power(laser_trap.cur_power);
+              smprinter.laser_turn_on_isr(laser_trap.cur_power, current_block->laser.status.is_sync_power, current_block->laser.power);
+            }
           }
         }
       #endif
@@ -1824,14 +1835,25 @@ void Stepper::pulse_phase_isr() {
     // Update laser - Decelerating
     #if ENABLED(LASER_POWER_INLINE_TRAPEZOID)
       #if DISABLED(LASER_POWER_INLINE_TRAPEZOID_CONT)
-        if (current_block->laser.exit_per) {
-          laser_trap.acc_step_count--;
-          // Should be faster than a divide, since this should trip just once
-          if ((int)laser_trap.acc_step_count <= 0) {
-            laser_trap.acc_step_count = current_block->laser.exit_per;
-            if (laser_trap.cur_power > current_block->laser.power_exit) laser_trap.cur_power--;
-            // cutter.ocr_set_power(laser_trap.cur_power);
-            smprinter.laser_turn_on_isr(laser_trap.cur_power, current_block->laser.status.is_sync_power, current_block->laser.power);
+        if (smprinter.laser->get_device_id() == MODULE_DEVICE_ID_LASER_RED_2W_2023) {
+          if (laser_trap.cur_power > current_block->laser.power_exit) {
+            laser_trap.cur_power = current_block->laser.power_pwm - current_block->laser.decel_power_k * (step_events_completed - decelerate_after);
+            if (laser_trap.cur_power < current_block->laser.power_exit) {
+              laser_trap.cur_power = current_block->laser.power_exit;
+            }
+            smprinter.laser_turn_on_isr(laser_trap.cur_power, current_block->laser.status.is_sync_power, current_block->laser.power); 
+          }
+        }
+        else {
+          if (current_block->laser.exit_per) {
+            laser_trap.acc_step_count--;
+            // Should be faster than a divide, since this should trip just once
+            if ((int)laser_trap.acc_step_count <= 0) {
+              laser_trap.acc_step_count = current_block->laser.exit_per;
+              if (laser_trap.cur_power > current_block->laser.power_exit) laser_trap.cur_power--;
+              // cutter.ocr_set_power(laser_trap.cur_power);
+              smprinter.laser_turn_on_isr(laser_trap.cur_power, current_block->laser.status.is_sync_power, current_block->laser.power);
+            }
           }
         }
       #endif

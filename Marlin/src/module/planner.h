@@ -161,6 +161,8 @@ enum BlockFlag : char {
         uint16_t   power_exit; // Exit power for the laser
         uint32_t  entry_per,  // Steps per power increment (to avoid floats in stepper calcs)
                   exit_per;   // Steps per power decrement
+        float accel_power_k;
+        float decel_power_k;
       #endif
     #endif
   } block_laser_t;

@@ -12,6 +12,14 @@ void GcodeSuite::M3_M4(const bool is_M4) {
   planner.synchronize();   // Wait for previous movement commands (G0/G0/G2/G3) to complete before changing power
 
   if (TH_TYPE_LASER == smprinter.get_toolhead_type()) {
+    /* exit laser standby mode */
+    ModuleBase *cur_toolhead = smprinter.get_cur_toolhead();
+    if (MODULE_DEVICE_ID_LASER_RED_2W_2023 == cur_toolhead->get_device_id()) {
+      if (E_SUCCESS != smprinter.laser_set_module_standby_mode(false)) {
+        LOG_E("M3M4: Can not exit laser standby mode\r\n");
+      }
+    }
+
     if (parser.seen('P'))
       param_p = parser.value_float();
     else if (parser.seen('S'))
@@ -80,6 +88,14 @@ void GcodeSuite::M5() {
     planner.laser_inline.status.isEnabled = false;
     planner.laser_inline.status.trapezoid_power = false;
     smprinter.set_inline_laser_power(0);
+
+    /* enter laser standby mode */
+    ModuleBase *cur_toolhead = smprinter.get_cur_toolhead();
+    if (MODULE_DEVICE_ID_LASER_RED_2W_2023 == cur_toolhead->get_device_id()) {
+      if (E_SUCCESS != smprinter.laser_set_module_standby_mode(true)) {
+        LOG_E("M5: Can not enter laser standby mode\r\n");
+      }
+    }
   }
   smprinter.turn_off_laser();
   if (smprinter.cnc_online_check()) {

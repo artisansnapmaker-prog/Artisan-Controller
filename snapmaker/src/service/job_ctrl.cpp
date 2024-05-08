@@ -909,6 +909,20 @@ void JobCtrl::do_start(struct JobCtrlReqInfo &jri) {
     }
   }
 
+  /* exit laser standby mode */
+  ModuleBase *cur_toolhead = smprinter.get_cur_toolhead();
+  if (MODULE_DEVICE_ID_LASER_RED_2W_2023 == cur_toolhead->get_device_id()) {
+    ret = smprinter.laser_set_module_standby_mode(false);
+    if (E_SUCCESS != ret) {
+      LOG_E("job_ctrl: Can not exit laser standby mode: %u\r\n", ret);
+      DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, ret);
+    }
+    else {
+      LOG_I("exit laser standby mode, Wait for the temperature to stabilize \r\n");
+      motion_platform_svc.run_gcode((char*)"G4S2");
+    }
+  }
+
   // prepare flash to record emergency data
   emergency_hdl.prepare_flash();
 
@@ -1252,6 +1266,7 @@ void JobCtrl::do_resume(struct JobCtrlReqInfo &jri) {
 void JobCtrl::do_stop(struct JobCtrlReqInfo &jri) {
   enum SystemStatus ret_sys_status;
   uint32_t tmp = 0;
+  ModuleBase *cur_toolhead = smprinter.get_cur_toolhead();
 
   if (SYSTEM_STATUS_PRINTING == smprinter.get_sys_status()) {
     if (E_SUCCESS != smprinter.set_sys_status(SYSTEM_STATUS_STOPING, &ret_sys_status)) {
@@ -1263,6 +1278,15 @@ void JobCtrl::do_stop(struct JobCtrlReqInfo &jri) {
   }
   else {
     // TODO: do nothing
+  }
+
+  /* enter laser standby mode */
+  if (MODULE_DEVICE_ID_LASER_RED_2W_2023 == cur_toolhead->get_device_id()) {
+    if (E_SUCCESS != smprinter.laser_set_module_standby_mode(true)) {
+      LOG_E("job_ctrl: Can not enter laser standby mode\r\n");
+      DO_JOB_REQ_NOTIFY_CB(jri.cb, jri.param, E_FAILURE);
+      goto exit_do_stop;
+    }
   }
 
   while(motion_platform_svc.tool_changing == true) {

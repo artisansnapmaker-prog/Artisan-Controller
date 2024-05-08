@@ -244,6 +244,7 @@ class ToolHeadLaser: public ModuleBase {
     err_code_t resume_finish(void);
     err_code_t quickstop(void);
     err_code_t prepare_start(void);
+    err_code_t set_module_standby_mode(bool standby);
 
     err_code_t register_esp32_upgrade_callbake(void);
     void set_inline_pwm_power_floor(uint16_t v) { inline_pwm_power_floor = v; }

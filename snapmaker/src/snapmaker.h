@@ -605,6 +605,14 @@ class SnapmakerPrinter
     }
     float laser_get_power() { if (laser) return laser->get_power_current(); else return 0; }
     uint16_t laser_get_power_pwm() { if (laser) return laser->get_power_pwm(); else return 0; }
+    err_code_t laser_set_module_standby_mode(bool standby) {
+      if (laser) {
+        return laser->set_module_standby_mode(standby);
+      }
+      else {
+        return E_FAILURE;
+      }
+    }
 
     // DryBox
     void set_drybox_temp(int16_t heater_temp, int16_t chamber_temp) {

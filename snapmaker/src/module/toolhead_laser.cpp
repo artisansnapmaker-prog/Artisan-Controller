@@ -87,6 +87,7 @@ static module_func_prio_t prio_map[] = {
   { MODULE_FUNC_SET_LASER_WEAK_POWER,               MODULE_FUNC_PRIORITY_MEDIUM },
   { MODULE_FUNC_SET_GET_PROTECT_TEMP,               MODULE_FUNC_PRIORITY_MEDIUM },
   { MODULE_FUNC_GET_IMPORTANT_INFO_1_FOR_DBG,       MODULE_FUNC_PRIORITY_MEDIUM },
+  { MODULE_FUNC_SET_STANDBY,                        MODULE_FUNC_PRIORITY_MEDIUM },
 
   // must set the last element as below !!!!
   { MODULE_FUNCTION_ID_INVALID, MODULE_FUNCTION_PRIORITY_INVALID }
@@ -3250,4 +3251,28 @@ void ToolHeadLaser::show_important_info_1(void) {
   }
 }
 
+err_code_t ToolHeadLaser::set_module_standby_mode(bool standby) {
+  err_code_t ret;
+  smcan_message_t msg;
+  uint8_t buffer[1];
+
+  msg.id  = get_message_id(MODULE_FUNC_SET_STANDBY);
+  if (msg.id == MODULE_MESSAGE_ID_INVALID) {
+    LOG_E("invalid message id for func: %u\n", MODULE_FUNC_SET_STANDBY);
+    return E_FAILURE;
+  }
+  msg.ch     = get_channel();
+  msg.length = 1;
+  msg.data   = buffer;
+
+  buffer[0] = standby;
+  ret = host_can_rou.send(&msg);
+  if (ret != E_SUCCESS) {
+    LOG_E("failed to set laser standby mode! ret: %u\n", ret);
+  }
+
+  LOG_I("Set standby mode %s\n", standby ? "true" : "false");
+
+  return ret;
+}
 

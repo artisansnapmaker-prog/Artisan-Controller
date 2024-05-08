@@ -600,6 +600,15 @@ void GcodeSuite::M2000() {
       }
       break;
 
+    case 30:
+      {
+        LOG_I("Set standby mode %s\n", p ? "true" : "false");
+        if (laser) {
+          laser->set_module_standby_mode(!!p);
+        }
+      }
+      break;
+
     default:
       break;
     }

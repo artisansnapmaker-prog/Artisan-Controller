@@ -1509,6 +1509,7 @@ void ToolHeadLaser::if_close_fan() {
     else {
       fan_state = LASER_FAN_STATE_CLOSED;
       set_fan(0);
+      set_module_standby_mode(true);
     }
   }
   else {
@@ -3251,10 +3252,33 @@ void ToolHeadLaser::show_important_info_1(void) {
   }
 }
 
+bool ToolHeadLaser::is_there_standby_mode(void) {
+  bool ret = false;
+
+  switch (get_device_id()) {
+    case MODULE_DEVICE_ID_LASER_RED_2W_2023: {
+      ret = true;
+    }
+    break;
+    
+    default: {
+      ret = false;
+    }
+    break;
+  };
+
+  return ret;
+}
+
 err_code_t ToolHeadLaser::set_module_standby_mode(bool standby) {
   err_code_t ret;
   smcan_message_t msg;
   uint8_t buffer[1];
+
+  if (!is_there_standby_mode()) {
+    LOG_E("not supports standby-mode\n");
+    return E_FAILURE;
+  }
 
   msg.id  = get_message_id(MODULE_FUNC_SET_STANDBY);
   if (msg.id == MODULE_MESSAGE_ID_INVALID) {

@@ -604,7 +604,9 @@ void GcodeSuite::M2000() {
       {
         LOG_I("Set standby mode %s\n", p ? "true" : "false");
         if (laser) {
-          laser->set_module_standby_mode(!!p);
+          if (E_SUCCESS != laser->set_module_standby_mode(!!p)) {
+            LOG_E("err\n");
+          }
         }
       }
       break;

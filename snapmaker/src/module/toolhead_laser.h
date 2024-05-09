@@ -312,6 +312,7 @@ class ToolHeadLaser: public ModuleBase {
     bool is_there_fire_sensor(void);
     bool is_there_camera(void);
     bool is_there_custom_low_temp_protect_value(void);
+    bool is_there_standby_mode(void);
 
   public:
     static bool safety_lock;

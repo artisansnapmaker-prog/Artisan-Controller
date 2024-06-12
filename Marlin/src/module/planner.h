@@ -161,8 +161,6 @@ enum BlockFlag : char {
         uint16_t   power_exit; // Exit power for the laser
         uint32_t  entry_per,  // Steps per power increment (to avoid floats in stepper calcs)
                   exit_per;   // Steps per power decrement
-        float accel_power_k;
-        float decel_power_k;
       #endif
     #endif
   } block_laser_t;
@@ -171,6 +169,9 @@ enum BlockFlag : char {
 
 typedef struct shaper_data_t {
     float block_time;
+    float block_accel_time;
+    float block_decel_time;
+    float block_plateau_time;
     bool is_create_move;
     bool is_start;
     bool is_end;

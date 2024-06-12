@@ -102,6 +102,9 @@ void MoveQueue::calculateMoves(block_t* block) {
     }
 
     block->shaper_data.block_time = accelClocks + plateauClocks + decelClocks;
+    block->shaper_data.block_accel_time = accelClocks;
+    block->shaper_data.block_decel_time = decelClocks;
+    block->shaper_data.block_plateau_time = plateauClocks;
 
     block->shaper_data.move_end = prevMoveIndex(move_head);
 
@@ -114,24 +117,44 @@ void MoveQueue::calculateMoves(block_t* block) {
         if (laser.status.trapezoid_power && laser.power_pwm > 0) {
             // No need to care if power == 0 or we are not in tranpezoid mode
             uint16_t trap_power, power_diff, power_floor;
+            uint16_t device_id;
 
-            laser.power_pwm *= block->cruise_speed / block->nominal_speed;
-            if (laser.power_pwm < smprinter.laser_inline_pwm_power_floor()) {
-                if (smprinter.laser->get_device_id() == MODULE_DEVICE_ID_LASER_RED_2W_2023) {
-                    power_floor = smprinter.laser_inline_pwm_power_floor();
+            device_id = smprinter.laser->get_device_id();
+            power_floor = smprinter.laser_inline_pwm_power_floor();
+
+            if (device_id == MODULE_DEVICE_ID_LASER_RED_2W_2023) {
+                if (laser.power_pwm > power_floor) {
+                    laser.power_pwm = (laser.power_pwm - power_floor) * block->cruise_speed / block->nominal_speed + power_floor;
                 }
                 else {
-                    power_floor = laser.power_pwm;
+                    laser.power_pwm = power_floor;
                 }
             }
             else {
-                power_floor = smprinter.laser_inline_pwm_power_floor();
-                if (power_floor < (laser.power_pwm * 0.16))
-                    power_floor = (uint16_t)(laser.power_pwm * 0.16);
+                laser.power_pwm *= block->cruise_speed / block->nominal_speed;
+                if (laser.power_pwm < smprinter.laser_inline_pwm_power_floor()) {
+                    power_floor = laser.power_pwm;
+                }
+                else {
+                    power_floor = smprinter.laser_inline_pwm_power_floor();
+                    if (power_floor < (laser.power_pwm * 0.16))
+                        power_floor = (uint16_t)(laser.power_pwm * 0.16);
+                }
             }
 
             if (accelerate_steps > 0) {
-                trap_power = laser.power_pwm * block->initial_speed / block->cruise_speed; // Power on block entry
+                if (device_id == MODULE_DEVICE_ID_LASER_RED_2W_2023) {
+                    if (laser.power_pwm > power_floor) {
+                        trap_power = (laser.power_pwm - power_floor) * block->initial_speed / block->cruise_speed + power_floor;
+                    }
+                    else {
+                        trap_power = power_floor;
+                    }
+                }
+                else {
+                    trap_power = laser.power_pwm * block->initial_speed / block->cruise_speed; // Power on block entry
+                }
+                
                 // limit the minimum pwm
                 if (trap_power < power_floor)
                     trap_power = power_floor;
@@ -140,13 +163,11 @@ void MoveQueue::calculateMoves(block_t* block) {
                 if (power_diff > 0) {
                     // increase power per [entry_per] steps
                     laser.entry_per = (uint16_t)LROUND(accelerate_steps / power_diff);
-                    laser.accel_power_k = (float)power_diff / (float)accelerate_steps;
                     laser.power_entry = trap_power;
                     // LOG_I("la: ts: %u, as: %u, ep: %u, pen: %u, tp: %u\r\n", block->step_event_count, accelerate_steps, laser.entry_per, laser.power_entry, laser.power_pwm);
                 }
                 else {
                     laser.entry_per = 0;
-                    laser.accel_power_k = 0;
                     laser.power_entry = laser.power_pwm;
                 }
                 block->accelerate_until = accelerate_steps;
@@ -161,19 +182,28 @@ void MoveQueue::calculateMoves(block_t* block) {
             if (decelerate_steps > 0) {
                 // Slowdown power
                 // decrease power per [exit_per] steps
-                trap_power = laser.power_pwm * block->final_speed / block->cruise_speed; // Power on block entry
+                if (device_id == MODULE_DEVICE_ID_LASER_RED_2W_2023) {
+                    if (laser.power_pwm > power_floor) {
+                        trap_power = (laser.power_pwm - power_floor) * block->final_speed / block->cruise_speed + power_floor;
+                    }
+                    else {
+                        trap_power = power_floor;
+                    }
+                }
+                else {
+                    trap_power = laser.power_pwm * block->final_speed / block->cruise_speed; // Power on block exit
+                }
+                
                 if (trap_power < power_floor)
                     trap_power = power_floor;
                 power_diff = laser.power_pwm - trap_power;
                 if (power_diff > 0) {
                     laser.exit_per = (uint16_t)LROUND(decelerate_steps / power_diff);
-                    laser.decel_power_k = (float)power_diff / (float)decelerate_steps;
                     laser.power_exit = trap_power;
                     // LOG_I("la: ts: %u, ds: %u, ep: %u, pex: %u, tp: %u\r\n", block->step_event_count, decelerate_steps, laser.exit_per, laser.power_exit, laser.power_pwm);
                 }
                 else {
                     laser.exit_per = 0;
-                    laser.decel_power_k = 0;
                     laser.power_exit = laser.power_pwm;
                 }
                 if (decelerate_steps < block->step_event_count) {

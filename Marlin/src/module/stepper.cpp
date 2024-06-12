@@ -231,6 +231,8 @@ uint32_t Stepper::advance_divisor = 0,
          Stepper::decelerate_after,          // The count at which to start decelerating
          Stepper::step_event_count;          // The total event count for the current block
 
+time_double_t Stepper::block_start_acc_dec_time = 0.0;
+
 AxisStepper Stepper::axis_stepper;
 int Stepper::block_move_target_steps[NUM_AXIS];
 bool Stepper::is_start = true;
@@ -1791,6 +1793,9 @@ void Stepper::pulse_phase_isr() {
     }
 
     if (axis_stepper.axis == current_block->major_axis) {
+      if (0 == step_events_completed) {
+        block_start_acc_dec_time = axisManager.print_time;
+      }
       step_events_completed++;
     }
 
@@ -1807,13 +1812,23 @@ void Stepper::pulse_phase_isr() {
     #if ENABLED(LASER_POWER_INLINE_TRAPEZOID)
       #if DISABLED(LASER_POWER_INLINE_TRAPEZOID_CONT)
         if (smprinter.laser->get_device_id() == MODULE_DEVICE_ID_LASER_RED_2W_2023) {
-          if (laser_trap.cur_power < current_block->laser.power_pwm) {
-            laser_trap.cur_power = current_block->laser.power_pwm - current_block->laser.accel_power_k * (accelerate_until - step_events_completed);
+          if (current_block->laser.power_pwm > current_block->laser.power_entry) {
+            laser_trap.cur_power = (current_block->laser.power_pwm - current_block->laser.power_entry) * 
+              (axisManager.print_time - block_start_acc_dec_time) / current_block->shaper_data.block_accel_time  + current_block->laser.power_entry;
+
             if (laser_trap.cur_power > current_block->laser.power_pwm) {
               laser_trap.cur_power = current_block->laser.power_pwm;
             }
-            smprinter.laser_turn_on_isr(laser_trap.cur_power, current_block->laser.status.is_sync_power, current_block->laser.power); 
           }
+          else {
+            laser_trap.cur_power = current_block->laser.power_pwm;
+          }
+
+          if (laser_trap.cur_power != 0 && laser_trap.cur_power < smprinter.laser_inline_pwm_power_floor()) {
+            laser_trap.cur_power = smprinter.laser_inline_pwm_power_floor();
+          }
+
+          smprinter.laser_turn_on_isr(laser_trap.cur_power, current_block->laser.status.is_sync_power, current_block->laser.power); 
         }
         else {
           if (current_block->laser.entry_per) {
@@ -1836,13 +1851,20 @@ void Stepper::pulse_phase_isr() {
     #if ENABLED(LASER_POWER_INLINE_TRAPEZOID)
       #if DISABLED(LASER_POWER_INLINE_TRAPEZOID_CONT)
         if (smprinter.laser->get_device_id() == MODULE_DEVICE_ID_LASER_RED_2W_2023) {
-          if (laser_trap.cur_power > current_block->laser.power_exit) {
-            laser_trap.cur_power = current_block->laser.power_pwm - current_block->laser.decel_power_k * (step_events_completed - decelerate_after);
-            if (laser_trap.cur_power < current_block->laser.power_exit) {
-              laser_trap.cur_power = current_block->laser.power_exit;
-            }
-            smprinter.laser_turn_on_isr(laser_trap.cur_power, current_block->laser.status.is_sync_power, current_block->laser.power); 
+          if (current_block->laser.power_pwm > current_block->laser.power_exit) {
+            laser_trap.cur_power = current_block->laser.power_pwm - (current_block->laser.power_pwm - current_block->laser.power_exit) * 
+              (axisManager.print_time - current_block->shaper_data.block_accel_time - current_block->shaper_data.block_plateau_time - block_start_acc_dec_time) / 
+              current_block->shaper_data.block_decel_time;
           }
+          else {
+            laser_trap.cur_power = current_block->laser.power_pwm;
+          }
+
+          if (laser_trap.cur_power != 0 && laser_trap.cur_power < smprinter.laser_inline_pwm_power_floor()) {
+            laser_trap.cur_power = smprinter.laser_inline_pwm_power_floor();
+          }
+          
+          smprinter.laser_turn_on_isr(laser_trap.cur_power, current_block->laser.status.is_sync_power, current_block->laser.power); 
         }
         else {
           if (current_block->laser.exit_per) {

@@ -58,7 +58,7 @@
 #define LASER_RED_2W_HW_VER_BASE_GUANGYUAN      (0)       /**< guangyuan */
 #define LASER_RED_2W_HW_VER_BASE_LIANPIN        (10)      /**< lianpin */
 
-#define LASER_RED_2W_FLOOR_DEFAULT              (30)
+#define LASER_RED_2W_FLOOR_DEFAULT              (40)
 #define LASER_OTHER_FLOOR_DEFAULT               (8)
 
 static module_func_prio_t prio_map[] = {

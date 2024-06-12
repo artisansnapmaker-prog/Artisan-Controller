@@ -2565,8 +2565,17 @@ bool Planner::_populate_block(block_t * const block, bool split_move,
   block->nominal_speed = block->millimeters * inverse_secs;
   block->nominal_speed_sqr = sq(block->nominal_speed);   // (mm/sec)^2 Always > 0
   block->nominal_rate = CEIL(block->step_event_count * inverse_secs); // (step/sec) Always > 0
-  if (block->laser.status.trapezoid_power && block->laser.power_pwm != 0) {
-    block->laser.power_pwm *= block->nominal_speed / fr_mm_s;
+  if (smprinter.laser->get_device_id() == MODULE_DEVICE_ID_LASER_RED_2W_2023) {
+    if (block->laser.status.trapezoid_power && block->laser.power_pwm != 0) {
+      uint16_t floor = smprinter.laser_inline_pwm_power_floor();
+      if (planner.laser_inline.power_pwm > floor) {
+        block->laser.power_pwm = (planner.laser_inline.power_pwm - floor) 
+          * block->nominal_speed / fr_mm_s + floor;
+      }
+      else {
+        block->laser.power_pwm = floor;
+      }
+    }
   }
 
   #if ENABLED(FILAMENT_WIDTH_SENSOR)

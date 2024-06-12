@@ -374,6 +374,8 @@ class Stepper {
                     decelerate_after,       // The point from where we need to start decelerating
                     step_event_count;       // The total event count for the current block
 
+    static time_double_t block_start_acc_dec_time;
+
     static AxisStepper axis_stepper;
     static int block_move_target_steps[NUM_AXIS];
     static bool is_start;

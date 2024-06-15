@@ -506,7 +506,7 @@ static void system_thread(void *p) {
   }
 
   // forced update of speed parameters
-  motion_platform_svc.run_gcode((char*)"M203 X200 Y200 Z40 B25");
+  motion_platform_svc.run_gcode((char*)"M203 X200 Y200 Z40 B45");
   motion_platform_svc.run_gcode((char*)"M201 X2000 Y2000 Z500");
   motion_platform_svc.run_gcode((char*)"M205 V5");
   motion_platform_svc.run_gcode((char*)"M204 S1000");

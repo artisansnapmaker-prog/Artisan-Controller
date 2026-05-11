@@ -1786,6 +1786,7 @@ void Stepper::pulse_phase_isr() {
       case 5:
         PULSE_START(E);
         PULSE_PREP(E);
+        DELAY_NS(500);
         PULSE_STOP(E);
         break;
       default:

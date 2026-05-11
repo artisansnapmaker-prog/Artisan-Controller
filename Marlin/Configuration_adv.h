@@ -1043,7 +1043,7 @@
 #define INVERT_I_STEP_PIN false
 #define INVERT_J_STEP_PIN false
 #define INVERT_K_STEP_PIN false
-#define INVERT_E_STEP_PIN false
+#define INVERT_E_STEP_PIN true
 
 /**
  * Idle Stepper Shutdown

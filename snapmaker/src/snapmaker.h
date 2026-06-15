@@ -626,11 +626,13 @@ class SnapmakerPrinter
     bool enclosure_online_check(void) { return (enclosure && enclosure->check_online()); }
     // the enclosure is considered to be inserted if enclosure pointer is not NULL
     bool enclosure_is_insert(void) { return !!enclosure; }
+    bool is_enclosure_door_check_enabled(void);
     void set_enclosure_light_bar(uint8_t new_level);
     void set_enclosure_fan_speed(uint8_t new_speed);
     void report_enclosure_status(void);
     void enclosure_hmi_self_test_interface(uint8_t test_type, uint32_t param);
     uint8_t get_enclosure_door_status(void);
+    err_code_t set_enclosure_door_check(uint8_t work_type, bool enable);
 
     void register_module(uint16_t type, ModuleBase *new_module);
     void security_check(void);

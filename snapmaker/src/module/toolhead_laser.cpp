@@ -1592,7 +1592,7 @@ err_code_t ToolHeadLaser::post_init() {
     else {
       power_table = power_table_red_2w_lianpin;
     }
-    
+
     host_can_rou.register_callback(get_message_id(MODULE_FUNC_REPORT_SECURITY_STATUS), (void *)this, can_cb_handle_security_status);
 
     LOG_I("msg_id_ctrl_switch %d\n", msg_id_ctrl_switch);
@@ -2702,6 +2702,16 @@ void ToolHeadLaser::stop_work_reset_feedrate() {
 }
 
 void ToolHeadLaser::check_insert_enclosure() {
+  // If door check is disabled for laser, skip enclosure insert check entirely
+  if (!smprinter.is_enclosure_door_check_enabled()) {
+    LOG_I("door check is disabled for laser\r\n");
+    if (exception_state & MODULE_EXCEP_BIT_NO_INSERT_ENCLOSURE) {
+      exception_state &= (~MODULE_EXCEP_BIT_NO_INSERT_ENCLOSURE);
+      system_svc.clear_exception(get_device_id(), LASER_EXCEP_STA_NO_INSERT_ENCLOSURE);
+    }
+    return;
+  }
+
   bool insert_enclosure = smprinter.enclosure_is_insert();
   if (insert_enclosure) {
     if (exception_state & MODULE_EXCEP_BIT_NO_INSERT_ENCLOSURE) {
@@ -3024,10 +3034,10 @@ void ToolHeadLaser::laser_turn_on_isr(uint16_t pwm,  bool is_sync_power, float s
 
 /**
  * @brief get hardware version
- * 
+ *
  * @param[out]  version hardware version
- * @return    true 
- * @return    false 
+ * @return    true
+ * @return    false
  */
 bool ToolHeadLaser::get_hw_version(uint8_t &version)
 {
@@ -3058,7 +3068,7 @@ bool ToolHeadLaser::get_hw_version(uint8_t &version)
 
 /**
  * @brief Check for the presence of flame sensor
- * 
+ *
  * @return true
  * @return false
  */
@@ -3074,7 +3084,7 @@ bool ToolHeadLaser::is_there_fire_sensor(void)
       ret = true;
     }
     break;
-    
+
     default:
     {
       ret = false;
@@ -3087,7 +3097,7 @@ bool ToolHeadLaser::is_there_fire_sensor(void)
 
 /**
  * @brief check for the presence of camera
- * 
+ *
  * @return true
  * @return false
  */
@@ -3103,7 +3113,7 @@ bool ToolHeadLaser::is_there_camera(void)
       ret = true;
     }
     break;
-    
+
     default:
     {
       ret = false;
@@ -3116,7 +3126,7 @@ bool ToolHeadLaser::is_there_camera(void)
 
 /**
  * @brief check for the presence of cross-light
- * 
+ *
  * @return true
  * @return false
  */
@@ -3133,7 +3143,7 @@ bool ToolHeadLaser::is_there_cross_light(void)
       ret = true;
     }
     break;
-    
+
     default:
     {
       ret = false;
@@ -3146,7 +3156,7 @@ bool ToolHeadLaser::is_there_cross_light(void)
 
 /**
  * @brief check for the presence of the low-temperature protection value.
- * 
+ *
  * @return true
  * @return false
  */
@@ -3160,7 +3170,7 @@ bool ToolHeadLaser::is_there_custom_low_temp_protect_value(void) {
       ret = true;
     }
     break;
-    
+
     default:
     {
       ret = false;
@@ -3250,7 +3260,7 @@ bool ToolHeadLaser::is_there_standby_mode(void) {
       ret = true;
     }
     break;
-    
+
     default: {
       ret = false;
     }

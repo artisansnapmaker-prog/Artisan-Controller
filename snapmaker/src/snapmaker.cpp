@@ -870,6 +870,48 @@ uint8_t SnapmakerPrinter::get_enclosure_door_status(void) {
   return door_sta;
 }
 
+err_code_t SnapmakerPrinter::set_enclosure_door_check(uint8_t work_type, bool enable) {
+  if (work_type >= 3) { // ENCLOSURE_WORK_TYPE_LIMIT == 3
+    LOG_E("[%s] Invalid work type: %d\n", __FUNCTION__, work_type);
+    return E_PARAM;
+  }
+
+  SnapmakerSettings *sm_settings = get_settings();
+  if (!sm_settings) {
+    LOG_E("[%s] Failed to get settings\n", __FUNCTION__);
+    return E_INVALID_STATE;
+  }
+
+  taskENTER_CRITICAL();
+  if (enable)
+    sm_settings->enclosure_settings.enclosure_check_enable_mask |= (1 << work_type);
+  else
+    sm_settings->enclosure_settings.enclosure_check_enable_mask &= (~(1 << work_type));
+  taskEXIT_CRITICAL();
+
+  motion_platform_svc.save_settings();
+
+  LOG_I("[%s] Enclosure door check for work type %d: %s\n", __FUNCTION__, work_type, enable ? "enabled" : "disabled");
+  return E_SUCCESS;
+}
+
+bool SnapmakerPrinter::is_enclosure_door_check_enabled(void) {
+  // Check settings mask directly — works even when enclosure hardware is absent
+  uint32_t mask = get_settings()->enclosure_settings.enclosure_check_enable_mask;
+  toolHeadType toolhead = get_toolhead_type();
+
+  switch (toolhead) {
+    case TH_TYPE_3DP:
+      return !!(mask & (1 << ENCLOSURE_WORK_TYPE_FDM));
+    case TH_TYPE_LASER:
+      return !!(mask & (1 << ENCLOSURE_WORK_TYPE_LASER));
+    case TH_TYPE_CNC:
+      return !!(mask & (1 << ENCLOSURE_WORK_TYPE_CNC));
+    default:
+      return false;
+  }
+}
+
 void SnapmakerPrinter::security_check() {
   uint8_t door_sta = 0;
 
@@ -883,7 +925,9 @@ void SnapmakerPrinter::security_check() {
     if (door_sta)
       limit_power = LASER_POWER_SAFE_LIMIT;
 
-    if (laser->get_safety_lock() || !smprinter.enclosure_is_insert())
+    // Only enforce safety_lock and enclosure-insert check when door check is enabled
+    if (smprinter.is_enclosure_door_check_enabled() &&
+        (laser->get_safety_lock() || !smprinter.enclosure_is_insert()))
       limit_power = LASER_POWER_SAFE_LOCK_LIMIT;
 
     if (laser->get_power_limit() !=  limit_power)

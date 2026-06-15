@@ -49,9 +49,9 @@ bool Enclosure::create_public_mutex_lock() {
     else
       LOG_I("enclosure mutex lock creat success\n");
   }
-  else 
+  else
     LOG_I("enclosure mutex lock already\n");
-  return ret;    
+  return ret;
 }
 
 bool Enclosure::public_mutex_lock(uint8_t retry, uint32_t timeout) {
@@ -62,7 +62,7 @@ bool Enclosure::public_mutex_lock(uint8_t retry, uint32_t timeout) {
         ret = true;
         break;
       }
-      else 
+      else
         LOG_E("take enclosure mutex lock fail, retry: %d\n", retry);
     }
   }
@@ -70,7 +70,7 @@ bool Enclosure::public_mutex_lock(uint8_t retry, uint32_t timeout) {
 }
 
 void Enclosure::public_mutex_unlock() {
-  if (public_mutex) 
+  if (public_mutex)
     xSemaphoreGive(public_mutex);
 }
 
@@ -141,7 +141,7 @@ void enclosure_callback_update_status(void *obj, uint8_t *data, uint8_t length) 
   if (!obj || !enclosure.online)
     return;
   uint8_t cur_sta = 0;
-  bool door_change = false;  
+  bool door_change = false;
   if (enclosure.public_mutex_lock()) {
     if (!enclosure.online) {
       enclosure.public_mutex_unlock();
@@ -152,7 +152,7 @@ void enclosure_callback_update_status(void *obj, uint8_t *data, uint8_t length) 
       cur_sta &= (~ENCLOSURE_DOOR_STATUS_MASK);
     else
       cur_sta |= ENCLOSURE_DOOR_STATUS_MASK;
-    
+
     if (enclosure.enclosure_sta != cur_sta) {
       if (enclosure.status_is_change(cur_sta, enclosure.enclosure_sta, \
         ENCLOSURE_DOOR_STATUS_MASK)) {
@@ -161,7 +161,7 @@ void enclosure_callback_update_status(void *obj, uint8_t *data, uint8_t length) 
       }
     }
     enclosure.tick = xTaskGetTickCount();
-    // TODO: Modified state better after the event has been successfully 
+    // TODO: Modified state better after the event has been successfully
     // processed, subsequent optimisation.
     enclosure.enclosure_sta = cur_sta;
     enclosure.public_mutex_unlock();
@@ -245,7 +245,7 @@ err_code_t enclosure_callback_routine(void *obj) {
           enclosure.public_mutex_unlock();
         }
       }
-    } 
+    }
     // Check if the device is online
     enclosure.enclosure_offline_check();
 
@@ -259,9 +259,9 @@ err_code_t Enclosure::set_enclosure_dev_func(uint8_t dev_type, uint8_t value, bo
   uint8_t out[8];
   uint8_t i = 0;
   uint8_t recv_len = 8;
-  uint8_t real_level = 0; 
+  uint8_t real_level = 0;
   smcan_message_t msg;
-  err_code_t ret = E_FAILURE;   
+  err_code_t ret = E_FAILURE;
   value = value >= 100 ? 100 : value;
   real_level = (uint8_t)(value >= 100 ? 255 : value * 255 / 100);
   switch (dev_type) {
@@ -316,7 +316,7 @@ err_code_t Enclosure::set_enclosure_dev_func(uint8_t dev_type, uint8_t value, bo
 
   if (ret == E_SUCCESS) {
     if (public_mutex_lock()) {
-      if (dev_type == 0) 
+      if (dev_type == 0)
         light_level = value;
       else if (dev_type == 1) {
         fan_speed = value;
@@ -413,7 +413,7 @@ err_code_t Enclosure::post_init() {
     LOG_E("Enclosure mode invalid message id\n");
     return E_FAILURE;
   }
-    
+
   if (host_can_rou.register_callback(msg_id, (void *)this, enclosure_callback_update_status) != E_SUCCESS) {
     LOG_E("enclosure_callback_update_status func register fail\n");
     return E_FAILURE;
@@ -428,7 +428,7 @@ err_code_t Enclosure::post_init() {
     LOG_E("[%s] Enclosure register hmi command func fail\n", __FUNCTION__);
     return E_FAILURE;
   }
-  
+
   get_enclosure_status();
 
   if (public_mutex_lock()) {
@@ -473,13 +473,13 @@ err_code_t send_enclosure_info_to_hmi(void *obj, sacp_hmi_message_t *msg) {
     return host_hmi.send_ack(msg, E_INVALID_STATE);
   }
 
-  mask = enclosure.get_enclosure_check_mask(); 
+  mask = enclosure.get_enclosure_check_mask();
 
   msg->data[i++] = E_SUCCESS;   // default success
   msg->data[i++] = enclosure.get_key();
-  msg->data[i++] = enclosure.get_status();;    
+  msg->data[i++] = enclosure.get_status();;
   msg->data[i++] = enclosure.light_level;
-  
+
   msg->data[i++] =  ENCLOSURE_WORK_TYPE_LIMIT;
   for (uint8_t k = 0; k < ENCLOSURE_WORK_TYPE_LIMIT; k++) {
     msg->data[i++] = k;
@@ -488,11 +488,11 @@ err_code_t send_enclosure_info_to_hmi(void *obj, sacp_hmi_message_t *msg) {
   msg->data[i++] = !!(enclosure.enclosure_sta & ENCLOSURE_DOOR_STATUS_MASK);
   msg->data[i++] = enclosure.fan_speed;
 
-  result = host_hmi.send_ack(msg, msg->data, i); 
+  result = host_hmi.send_ack(msg, msg->data, i);
   if (result != E_SUCCESS) {
     LOG_E("[%s] send msg fail\n",__FUNCTION__);
   }
-  return result;  
+  return result;
 }
 
 // 0x15  0x02
@@ -516,7 +516,7 @@ err_code_t hmi_set_enclosure_light(void *obj, sacp_hmi_message_t *msg) {
   }
   LOG_I("[%s]  light level %d\n", __FUNCTION__, msg->data[1]);
   result = enclosure.set_light_bar(msg->data[1]);
-  
+
   if (result != E_SUCCESS) {
     LOG_E("[%s] set enclosure light fail\n",__FUNCTION__);
   }
@@ -560,17 +560,17 @@ err_code_t hmi_set_enclosure_check(void *obj, sacp_hmi_message_t *msg) {
     return host_hmi.send_ack(msg, E_INVALID_STATE);
   }
 
-  taskENTER_CRITICAL();    
+  taskENTER_CRITICAL();
   if (msg->data[2])  {
     sm_settings->enclosure_settings.enclosure_check_enable_mask |= (1 << msg->data[1]);
   }
-  else 
+  else
     sm_settings->enclosure_settings.enclosure_check_enable_mask &= (~(1 << msg->data[1]));
-  taskEXIT_CRITICAL();  
+  taskEXIT_CRITICAL();
 
   motion_platform_svc.save_settings();
-  
-  msg->data[0] = E_SUCCESS;   
+
+  msg->data[0] = E_SUCCESS;
   result = host_hmi.send_ack(msg, msg->data[0]);
 
   if (result != E_SUCCESS) {
@@ -716,7 +716,7 @@ err_code_t Enclosure::register_hmi_command_func(void *obj) {
     LOG_E("[%s] apply_cmd_set_handle fail\n",__FUNCTION__);
     return E_FAILURE;
   }
-  
+
   if (host_hmi.register_callback(SACP_CMD_SET_ENCLOSURE, \
       SACP_CMD_ID_ENCLOSURE_GET_HEAD_INFO, obj, send_enclosure_info_to_hmi))
     return E_FAILURE;

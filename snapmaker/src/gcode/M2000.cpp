@@ -568,13 +568,13 @@ void GcodeSuite::M2000() {
         int8_t recovery_upper = (int8_t)(h + 0.001);
         int8_t protect_lower = 0xFF;
         int8_t recovery_lower = 0xFF;
-        
+
         if (laser) {
           if (E_SUCCESS != laser->set_get_protect_temp(protect_upper, recovery_upper, protect_lower, recovery_lower)) {
             LOG_E("err\n");
           }
           else {
-            LOG_I("now, protect_upper = %d, recovery_upper = %d, protect_lower = %d, recovery_lower = %d\r\n", 
+            LOG_I("now, protect_upper = %d, recovery_upper = %d, protect_lower = %d, recovery_lower = %d\r\n",
               protect_upper, recovery_upper, protect_lower, recovery_lower);
           }
         }
@@ -583,17 +583,17 @@ void GcodeSuite::M2000() {
 
     case 28:
       { // Set and get protection temperature
-        int8_t protect_upper = 0xFF; 
-        int8_t recovery_upper = 0xFF; 
+        int8_t protect_upper = 0xFF;
+        int8_t recovery_upper = 0xFF;
         int8_t protect_lower = (int8_t)(g + 0.001);
         int8_t recovery_lower = (int8_t)(h + 0.001);
-        
+
         if (laser) {
           if (E_SUCCESS != laser->set_get_protect_temp(protect_upper, recovery_upper, protect_lower, recovery_lower)) {
             LOG_E("err\n");
           }
           else {
-            LOG_I("now, protect_upper = %d, recovery_upper = %d, protect_lower = %d, recovery_lower = %d\r\n", 
+            LOG_I("now, protect_upper = %d, recovery_upper = %d, protect_lower = %d, recovery_lower = %d\r\n",
               protect_upper, recovery_upper, protect_lower, recovery_lower);
           }
         }
@@ -973,6 +973,26 @@ void GcodeSuite::M2000() {
   switch (w)
   {
   case 0:
+    if (parser.seen('P')) {
+      uint8_t work_type = parser.byteval('P', 0xFF);
+      if (work_type >= 3) {
+        LOG_E("Invalid work type P%d. Valid: 0=FDM, 1=Laser, 2=CNC\n", work_type);
+      }
+
+      if (parser.seen('S')) {
+        err_code_t ret = 0;
+        bool enable = !!parser.byteval('S', 0);
+        LOG_I("Set enclosure door check P%d S%d\n", work_type, enable);
+        ret = smprinter.set_enclosure_door_check(work_type, enable);
+        if (ret != E_SUCCESS) {
+          LOG_E("Failed to set enclosure door check, ret=%d\n", ret);
+        }
+        smprinter.laser_enable_env_check();
+      }
+      else {
+        LOG_E("Missing S parameter (0=disable, 1=enable)\n");
+      }
+    }
     // get enclosure status
     smprinter.report_enclosure_status();
     break;

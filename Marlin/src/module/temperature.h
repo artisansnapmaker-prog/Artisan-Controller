@@ -832,8 +832,12 @@ class Temperature {
         #if ENABLED(SNAPMAKER_DOUBLE_ZONE_BED)
           if (celsius > DOUBLE_ZONE_BED_MAX_TEMP_LIMIT)
             celsius = DOUBLE_ZONE_BED_MAX_TEMP_LIMIT;
+          if (!global_mode && celsius > DOUBLE_ZONE_BED_TOGETHER_ALLOW_MAX_TEMP) {
+            temp_chamber.target = DOUBLE_ZONE_BED_TOGETHER_ALLOW_MAX_TEMP;
+            start_watching_chamber();
+          }
           // add maximum temperature limit for simultaneous heating of dual zone bed
-          if (celsius > 0 && temp_chamber.target > 0) {
+          else if (celsius > 0 && temp_chamber.target > 0) {
             celsius = _MIN(celsius, DOUBLE_ZONE_BED_TOGETHER_ALLOW_MAX_TEMP);
 
             if (temp_chamber.target > DOUBLE_ZONE_BED_TOGETHER_ALLOW_MAX_TEMP) {

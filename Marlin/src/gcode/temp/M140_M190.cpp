@@ -108,9 +108,8 @@ void GcodeSuite::M140_M190(const bool isM190) {
       return;
     }
 
-    if (heat_mode == BED_GLOBAL_HEAT_MODE)
-      thermalManager.setTargetChamber(temp);
-
+    // if (heat_mode == BED_GLOBAL_HEAT_MODE)
+    thermalManager.setTargetChamber(temp);
     thermalManager.setTargetBed(temp);
   #else
     thermalManager.setTargetBed(temp);

@@ -113,15 +113,19 @@ err_code_t hmi_set_bed_target_temp(void *obj, sacp_hmi_message_t *msg) {
   }
   else {
     taskENTER_CRITICAL();
-    if (bed_index == 0)
-      thermalManager.setTargetBed(target_temp);
+//     if (bed_index == 0)
+//       thermalManager.setTargetBed(target_temp);
+// #if ENABLED(SNAPMAKER_DOUBLE_ZONE_BED)
+//     else if (bed_index == 1)
+//       thermalManager.setTargetChamber(target_temp);
+//     else {
+//       thermalManager.setTargetBed(target_temp);
+//       thermalManager.setTargetChamber(target_temp);
+//     }
+// #endif
+    thermalManager.setTargetBed(target_temp);
 #if ENABLED(SNAPMAKER_DOUBLE_ZONE_BED)
-    else if (bed_index == 1)
-      thermalManager.setTargetChamber(target_temp);
-    else {
-      thermalManager.setTargetBed(target_temp);
-      thermalManager.setTargetChamber(target_temp);
-    }
+    thermalManager.setTargetChamber(target_temp);
 #endif
     taskEXIT_CRITICAL();
     result = E_SUCCESS;
@@ -170,14 +174,15 @@ err_code_t hmi_set_bed_target_temp_with_heat_mode(void *obj, sacp_hmi_message_t 
   if (heat_mode == BED_GLOBAL_HEAT_MODE || heat_mode == BED_CENTER_HEAT_MODE)
     thermalManager.set_bed_heat_mode(!!heat_mode);
 
-  heat_mode = thermalManager.get_bed_heat_mode();
-  if (heat_mode == BED_GLOBAL_HEAT_MODE) {
-    thermalManager.setTargetChamber(target_temp);
-  }
-  else {
-    if (thermalManager.degTargetChamber() != 0)
-      thermalManager.setTargetChamber(0);
-  }
+  // heat_mode = thermalManager.get_bed_heat_mode();
+  // if (heat_mode == BED_GLOBAL_HEAT_MODE) {
+  //   thermalManager.setTargetChamber(target_temp);
+  // }
+  // else {
+  //   if (thermalManager.degTargetChamber() != 0)
+  //     thermalManager.setTargetChamber(0);
+  // }
+  thermalManager.setTargetChamber(target_temp);
   thermalManager.setTargetBed(target_temp);
   taskEXIT_CRITICAL();
   return host_hmi.send_ack(msg, E_SUCCESS);

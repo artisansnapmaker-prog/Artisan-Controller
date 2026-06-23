@@ -2889,7 +2889,7 @@ void ToolHeadFDM::filament_state_check(void) {
   if (ELAPSED(xTaskGetTickCount(), filament_check_tick + FILAMENT_STATUS_CHECK_INTERVAL)) {
     if ((filament_state & 0x01) != (filament_real_state & 0x01)) {
       if (filament0_sta_stable_cnt == FILAMENT_INVALID_STATUS_STABLE_CNT || filament0_sta_stable_cnt == 0)
-        filament0_sta_stable_cnt = EXTRUDER_STATUS_STABLE_CNT;
+        filament0_sta_stable_cnt = FILAMENT_STABLE_CNT;
 
       if (filament0_sta_stable_cnt != FILAMENT_INVALID_STATUS_STABLE_CNT && filament0_sta_stable_cnt > 0) {
         _NOMORE(filament0_sta_stable_cnt, FILAMENT_STABLE_CNT);
@@ -2911,7 +2911,7 @@ void ToolHeadFDM::filament_state_check(void) {
     if (get_device_id() == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
       if ((filament_state & 0x02) != (filament_real_state & 0x02))  {
         if (filament1_sta_stable_cnt == FILAMENT_INVALID_STATUS_STABLE_CNT || filament1_sta_stable_cnt == 0)
-          filament1_sta_stable_cnt = EXTRUDER_STATUS_STABLE_CNT;
+          filament1_sta_stable_cnt = FILAMENT_STABLE_CNT;
 
         if (filament1_sta_stable_cnt != FILAMENT_INVALID_STATUS_STABLE_CNT && filament1_sta_stable_cnt > 0) {
           _NOMORE(filament1_sta_stable_cnt, FILAMENT_STABLE_CNT);

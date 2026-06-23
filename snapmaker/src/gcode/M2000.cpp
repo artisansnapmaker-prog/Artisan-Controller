@@ -977,6 +977,7 @@ void GcodeSuite::M2000() {
       uint8_t work_type = parser.byteval('P', 0xFF);
       if (work_type >= 3) {
         LOG_E("Invalid work type P%d. Valid: 0=FDM, 1=Laser, 2=CNC\n", work_type);
+        break;
       }
 
       if (parser.seen('S')) {

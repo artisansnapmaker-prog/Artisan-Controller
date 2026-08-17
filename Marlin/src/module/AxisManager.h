@@ -1,0 +1,397 @@
+#pragma once
+
+#include "planner.h"
+#include "shaper/AxisInputShaper.h"
+#include "shaper/FuncManager.h"
+#include "shaper/MoveQueue.h"
+#include "../../../snapmaker/src/common/debug.h"
+
+#define T0_T1_AXIS_INDEX  (4)
+
+#define AXIS_STEPPER_SIZE 4
+#define AXIS_STEPPER_MOD(n) ((n)&(AXIS_STEPPER_SIZE-1))
+
+
+class AxisStepper {
+  public:
+    int8_t axis = -1;
+    int8_t last_axis = -1;
+    int8_t dir = 0;
+    time_double_t print_time = 0;
+    time_double_t delta_time = 0;
+};
+
+class Axis {
+  public:
+    float mm_to_step;
+    float half_step_mm;
+
+    // AxisInputShaper
+    AxisInputShaper* axis_input_shaper = nullptr;
+    bool is_shaped = false;
+
+    // FuncManager
+    FuncManager func_manager;
+
+    // Consume
+    bool is_consumed = true;
+    time_double_t print_time = 0;
+    int8_t dir = 0;
+    bool is_get_next_step_null = false;
+
+    double delta_e = 0;
+
+  private:
+    int8_t axis;
+
+    // Generate
+    int generated_block_index = -1;
+    int generated_move_index = -1;
+
+
+  public:
+    Axis() {};
+
+    void init(int8_t axis, float mm_to_step) {
+        this->axis = axis;
+        this->func_manager.init(axis);
+        this->mm_to_step = mm_to_step;
+        this->half_step_mm = 0.5 / mm_to_step;
+    }
+
+    void initShaper() {
+        if (axis != X_AXIS && axis != Y_AXIS) {
+            is_shaped = false;
+            axis_input_shaper = nullptr;
+            return;
+        }
+        if (axis_input_shaper == nullptr && axis == X_AXIS) {
+            axis_input_shaper = &AxisInputShaper::axis_input_shaper_x;
+            axis_input_shaper->setAxis(axis);
+        }
+        if (axis_input_shaper == nullptr && axis == Y_AXIS) {
+            axis_input_shaper = &AxisInputShaper::axis_input_shaper_y;
+            axis_input_shaper->setAxis(axis);
+        }
+        axis_input_shaper->init();
+        is_shaped = axis_input_shaper->isShaped();
+    }
+
+    FORCE_INLINE err_code_t generateFuncParams(uint8_t block_index, uint8_t move_start, uint8_t move_end);
+
+    void reset() {
+        generated_block_index = -1;
+        generated_move_index = -1;
+
+        is_consumed = true;
+        print_time = 0;
+        dir = 0;
+        is_get_next_step_null = false;
+
+        delta_e = 0;
+
+        if (axis_input_shaper != nullptr) {
+            axis_input_shaper->reset();
+        }
+
+        func_manager.reset();
+    }
+
+    bool getNextStep();
+
+    FORCE_INLINE void generateLineFuncParams(Move* move) {
+        float y2 = move->end_pos[axis];
+        float dy = move->end_pos[axis] - move->start_pos[axis];
+        float x2 = move->t;
+        float dx = move->t;
+
+        float a = 0.5f * move->accelerate * move->axis_r[axis];
+        float c = move->start_pos[axis];
+        float b = dy / dx - a * x2;
+
+        // LOG_I("a %f b %f c %f\r\n", a, b, c);
+
+        int type;
+        if (IS_ZERO(dy)) {
+            type = 0;
+        } else {
+            type = dy > 0 ? 1 : -1;
+        }
+        time_double_t end_t = move->end_t;
+        func_manager.addFuncParams(a, b, c, type, end_t, y2);
+    }
+
+    FORCE_INLINE void generateLineFuncParamsExtend(Move* move) {
+        if (axis != J_AXIS)
+            return;
+
+        double y2 = move->end_pos_j;
+        double dy = move->end_pos_j - move->start_pos_j;
+        double x2 = move->t;
+        double dx = move->t;
+
+        double a = 0.5f * move->accelerate * move->axis_r[axis];
+        double c = move->start_pos_j;
+        double b = dy / dx - a * x2;
+
+        // LOG_I("a %f b %f c %f\r\n", a, b, c);
+
+        int type;
+        if (IS_ZERO(dy)) {
+            type = 0;
+        } else {
+            type = dy > 0 ? 1 : -1;
+        }
+        time_double_t end_t = move->end_t;
+        func_manager.addFuncParamsExtend(a, b, c, type, end_t, y2);
+    }
+
+  private:
+    FORCE_INLINE err_code_t generateAxisFuncParams(uint8_t move_start, uint8_t move_end);
+
+    #if ENABLED(LIN_ADVANCE)
+    FORCE_INLINE err_code_t generateEAxisFuncParams(uint8_t block_index, uint8_t move_start, uint8_t move_end);
+    #endif
+
+};
+
+enum InputShaperDebugInfoType {
+  SHAPER_DBG_EMPTY_MOVES_COUNT = 0,
+  SHAPER_DBG_NO_STEPS,
+  SHAPER_DBG_NOT_ENOUGH_MOVES_RESC,
+  SHAPER_DBG_NOT_ENOUGH_FUNC_LIST_RESC,
+  SHAPER_DBG_CALC_STEP_TIMEOUT_COUNT,
+  SHAPER_DBG_CALC_STEP_TIME,
+  SHAPER_DBG_ABORT_END_BLOCK,
+
+  SHAPER_DBG_MAX
+};
+
+class AxisManager {
+  public:
+    int counts[20] = {0};
+    bool T0_T1_simultaneously_move = false;
+    float T0_T1_target_pos;
+    uint8_t T0_T1_axis = 0;
+    time_double_t T0_T1_last_print_time = 0;
+
+    Axis axis[NUM_AXIS];
+    Axis axis_t0_t1;
+
+    // make req_abort be true by default, it will be set to false after initializing.
+    // then cannot moving or setup input shaper before initializing axis manager
+    volatile bool req_abort = true;
+
+    // MoveQueue
+    bool need_add_move_start = true;
+
+    // AxisInputShaper
+    bool is_shaped = false;
+    float shaped_left_delta = 0;
+    float shaped_right_delta = 0;
+    float shaped_delta_window = 0;
+
+    // FuncManager Generate
+    time_double_t min_last_time = 0;
+
+    // FuncManager Consume
+    // bool is_consumed = true;
+    time_double_t print_time = 0;
+    int8_t print_axis = -1;
+    int8_t print_dir = 0;
+    int current_steps[NUM_AXIS];
+
+    AxisStepper axis_steppers[AXIS_STEPPER_SIZE];
+    uint8_t axis_steppper_tail;
+    uint8_t axis_steppper_head;
+
+    FORCE_INLINE uint8_t getAxisStepperSize() {
+        return AXIS_STEPPER_MOD(axis_steppper_head - axis_steppper_tail);
+    }
+
+    FORCE_INLINE uint8_t getAxisStepperFreeSize() { return AXIS_STEPPER_SIZE - 1 - getAxisStepperSize(); }
+
+    FORCE_INLINE uint8_t nextAxisStepper(uint8_t index) {
+        return AXIS_STEPPER_MOD(index + 1);
+    }
+
+    FORCE_INLINE uint8_t prevAxisStepper(uint8_t index) {
+        return AXIS_STEPPER_MOD(index - 1);
+    }
+
+  public:
+    void input_shaper_reset();
+    err_code_t input_shaper_set(int axis, int type, float freq, float dampe);
+    err_code_t input_shaper_get(int axis, int &type, float &freq, float &dampe);
+    void show_debug_info();
+    void reset_debug_info();
+
+    AxisManager() {};
+
+    void init() {
+        req_abort = false;
+
+        for (int i = 0; i < NUM_AXIS; ++i) {
+            axis[i].init(i, planner.settings.axis_steps_per_mm[i]);
+        }
+
+        axis_t0_t1.init(T0_T1_AXIS_INDEX, planner.settings.axis_steps_per_mm[X_AXIS]);
+
+        initAxisShaper();
+
+        addEmptyMove();
+    };
+
+    void initAxisShaper() {
+        is_shaped = false;
+        for (int i = 0; i < NUM_AXIS; ++i) {
+            axis[i].initShaper();
+
+            if (axis[i].is_shaped) {
+                is_shaped = true;
+            }
+        }
+
+        shaped_left_delta = 0;
+        shaped_right_delta = 0;
+        shaped_delta_window = 0;
+
+        if (is_shaped) {
+            for (int i = 0; i < NUM_AXIS; ++i) {
+                if (axis[i].axis_input_shaper != nullptr && axis[i].axis_input_shaper->left_delta > shaped_left_delta) {
+                    shaped_left_delta = axis[i].axis_input_shaper->left_delta;
+                }
+                if (axis[i].axis_input_shaper != nullptr && axis[i].axis_input_shaper->right_delta > shaped_right_delta) {
+                    shaped_right_delta = axis[i].axis_input_shaper->right_delta;
+                }
+                if (axis[i].axis_input_shaper != nullptr && axis[i].axis_input_shaper->delta_window > shaped_delta_window) {
+                    shaped_delta_window = axis[i].axis_input_shaper->delta_window;
+                }
+            }
+        }
+    }
+
+    void reset() {
+        for (size_t i = 0; i < NUM_AXIS; i++) {
+            axis[i].reset();
+            current_steps[i] = 0;
+        }
+
+        axis_t0_t1.reset();
+
+        need_add_move_start = true;
+
+        min_last_time = 0;
+
+        print_time = 0;
+        print_axis = -1;
+        print_dir = 0;
+
+        axis_steppper_tail = 0;
+        axis_steppper_head = 0;
+    }
+
+    void abort() {
+        req_abort = true;
+        moveQueue.reset();
+        reset();
+        addEmptyMove();
+        req_abort = false;
+    }
+
+    bool isShaped() {
+        return is_shaped;
+    }
+
+    err_code_t generateAllAxisFuncParams(uint8_t block_index, block_t* block);
+
+    float getRemainingConsumeTime();
+
+    bool tryAddMoveStart() {
+        if (!isShaped() || !need_add_move_start) {
+            return false;
+        }
+        moveQueue.addMoveStart();
+        need_add_move_start = false;
+        return true;
+    }
+
+    void updateMinLastTime() {
+        time_double_t new_min_last_time = axis[0].func_manager.last_time;
+        for (int i = 1; i < NUM_AXIS; ++i) {
+            if (axis[i].func_manager.last_time < new_min_last_time) {
+                new_min_last_time = axis[i].func_manager.last_time;
+            }
+        }
+        min_last_time = new_min_last_time;
+    }
+
+    bool tryAddMoveEnd() {
+        if (!isShaped() || need_add_move_start) {
+            return false;
+        }
+        moveQueue.addMoveEnd();
+        need_add_move_start = true;
+        return true;
+    }
+
+    int addEmptyMove() {
+        if (!isShaped()) {
+            return -1;
+        }
+        // LOG_I("shaped_delta_window: %lf\n", shaped_delta_window);
+        return moveQueue.addEmptyMove(shaped_delta_window + 0.001f);
+    }
+
+    bool getCurrentAxisStepper(AxisStepper* axis_stepper);
+
+    FORCE_INLINE bool getNextZeroAxisStepper(AxisStepper* axis_stepper) {
+        if (getAxisStepperSize() == 0) {
+            return false;
+        }
+
+        AxisStepper* current_stepper = &axis_steppers[axis_steppper_tail];
+
+        if (current_stepper->delta_time > 0.005) {
+            return false;
+        }
+
+        axis_stepper->axis = current_stepper->axis;
+        axis_stepper->dir = current_stepper->dir;
+        axis_stepper->delta_time = current_stepper->delta_time;
+        axis_stepper->print_time = current_stepper->print_time;
+
+        if (axis_stepper->axis != T0_T1_AXIS_INDEX) {
+            current_steps[axis_stepper->axis] += axis_stepper->dir;
+        }
+
+        axis_steppper_tail = nextAxisStepper(axis_steppper_tail);
+        return true;
+    };
+
+    FORCE_INLINE bool getNextAxisStepper(AxisStepper* axis_stepper) {
+        if (getAxisStepperSize() == 0 && !calcNextAxisStepper()) {
+            return false;
+        }
+
+        AxisStepper* current_stepper = &axis_steppers[axis_steppper_tail];
+        axis_stepper->axis = current_stepper->axis;
+        axis_stepper->dir = current_stepper->dir;
+        axis_stepper->delta_time = current_stepper->delta_time;
+        axis_stepper->print_time = current_stepper->print_time;
+
+        if (axis_stepper->axis != T0_T1_AXIS_INDEX) {
+            current_steps[axis_stepper->axis] += axis_stepper->dir;
+        }
+
+        axis_steppper_tail = nextAxisStepper(axis_steppper_tail);
+        return true;
+    };
+
+    bool calcNextAxisStepper();
+};
+
+
+extern AxisManager axisManager;
+
+

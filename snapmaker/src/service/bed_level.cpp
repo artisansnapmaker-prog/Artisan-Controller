@@ -1,0 +1,1576 @@
+
+#include "bed_level.h"
+#include "Arduino.h"
+#include "../snapmaker.h"
+#include "job_ctrl.h"
+#include "../service/system.h"
+#include "motion_platform.h"
+#include "../config.h"
+#include "../../../Marlin/src/feature/babystep.h"
+
+#define _BEDLEVEL_ENV_GET_MESH_X(I) (float(bedlevel_svc.env_info.bilinear_start.x + (I) * bedlevel_svc.env_info.bilinear_grid_spacing.x))
+#define _BEDLEVEL_ENV_GET_MESH_Y(J) (float(bedlevel_svc.env_info.bilinear_start.y + (J) * bedlevel_svc.env_info.bilinear_grid_spacing.y))
+
+BedLevelService AT_CCMRAM bedlevel_svc;
+static sacp_hmi_message_t AT_CCMRAM abort_auto_bedlevel_msg;
+
+// hmi request callback
+static err_code_t hmi_req_callback_set_level_mode(void *obj, sacp_hmi_message_t *msg);
+static err_code_t hmi_req_callback_start_level(void *obj, sacp_hmi_message_t *msg);
+static err_code_t hmi_req_callback_goto_probe_point(void *obj, sacp_hmi_message_t *msg);
+static err_code_t hmi_req_callback_abort_auto_bedlevel(void *obj, sacp_hmi_message_t *msg);
+static err_code_t hmi_req_callback_exit_level(void *obj, sacp_hmi_message_t *msg);
+static err_code_t hmi_req_callback_get_level_state(void *obj, sacp_hmi_message_t *msg);
+static err_code_t hmi_req_callback_bed_position_detection(void *obj, sacp_hmi_message_t *msg);
+static err_code_t hmi_req_callback_probe_sensor_calibration(void *obj, sacp_hmi_message_t *msg);
+static err_code_t hmi_req_callback_set_live_z_offset(void *obj, sacp_hmi_message_t *msg);
+static err_code_t hmi_req_callback_get_live_z_offset(void *obj, sacp_hmi_message_t *msg);
+
+void BedLevelService::init() {
+  SnapmakerSettings * smsettings = smprinter.get_settings();
+  live_z_offset[0] = smsettings->bedlevel_settings.live_z_offset[0];
+  live_z_offset[1] = smsettings->bedlevel_settings.live_z_offset[1];
+  LOG_I("live_z_offset: %f, %f\n", live_z_offset[0], live_z_offset[1]);
+
+  // apply fdm cmd ids handle and register hmi request callback
+  host_hmi.apply_cmd_set_handle(SACP_CMD_SET_CALIBRATE_FDM, BEDLEVEL_REQ_CMD_ID_SUM);
+  host_hmi.register_callback(SACP_CMD_SET_CALIBRATE_FDM, BEDLEVEL_REQ_CMD_ID_SET_LEVEL_MODE, this, hmi_req_callback_set_level_mode, SACP_CB_ATTR_BLOCKED_WITH_MOTION);
+  host_hmi.register_callback(SACP_CMD_SET_CALIBRATE_FDM, BEDLEVEL_REQ_CMD_ID_START_LEVEL, this, hmi_req_callback_start_level, SACP_CB_ATTR_BLOCKED_WITH_MOTION);
+  host_hmi.register_callback(SACP_CMD_SET_CALIBRATE_FDM, BEDLEVEL_REQ_CMD_ID_GOTO_PROBE_POINT, this, hmi_req_callback_goto_probe_point, SACP_CB_ATTR_BLOCKED_WITH_MOTION);
+  host_hmi.register_callback(SACP_CMD_SET_CALIBRATE_FDM, BEDLEVEL_REQ_CMD_ID_ABORT_AUTO_BEDLEVEL, this, hmi_req_callback_abort_auto_bedlevel);
+  host_hmi.register_callback(SACP_CMD_SET_CALIBRATE_FDM, BEDLEVEL_REQ_CMD_ID_EXIT_LEVEL, this, hmi_req_callback_exit_level, SACP_CB_ATTR_BLOCKED_WITH_MOTION);
+  host_hmi.register_callback(SACP_CMD_SET_CALIBRATE_FDM, BEDLEVEL_REQ_CMD_ID_GET_LEVEL_STATE, this, hmi_req_callback_get_level_state);
+  host_hmi.register_callback(SACP_CMD_SET_CALIBRATE_FDM, BEDLEVEL_REQ_CMD_ID_BED_POSITION_DETECTION, this, hmi_req_callback_bed_position_detection, SACP_CB_ATTR_BLOCKED_WITH_MOTION);
+  host_hmi.register_callback(SACP_CMD_SET_CALIBRATE_FDM, BEDLEVEL_REQ_CMD_ID_PROBE_SENSOR_CALIBRATION, this, hmi_req_callback_probe_sensor_calibration, SACP_CB_ATTR_BLOCKED_WITH_MOTION);
+  host_hmi.register_callback(SACP_CMD_SET_CALIBRATE_FDM, BEDLEVEL_REQ_CMD_ID_SET_LIVE_Z_OFFSET, this, hmi_req_callback_set_live_z_offset, SACP_CB_ATTR_BLOCKED_WITHOUT_MOTION);
+  host_hmi.register_callback(SACP_CMD_SET_CALIBRATE_FDM, BEDLEVEL_REQ_CMD_ID_GET_LIVE_Z_OFFSET, this, hmi_req_callback_get_live_z_offset);
+}
+
+// hmi request callback
+static err_code_t hmi_req_callback_set_level_mode(void *obj, sacp_hmi_message_t *msg) {
+  BedLevelService &bedlevel = *(BedLevelService *)obj;
+  err_code_t ret;
+  enum SystemStatus req_status, ret_status;
+
+  LOG_I("hmi request set bedlevel mode: %d\n", msg->data[0]);
+
+  // initial acceleration
+  motion_platform_svc.run_gcode((char*)"M204 S1000");
+
+  if (smprinter.get_sys_status() != SYSTEM_STATUS_IDLE) {
+    ret = E_BUSY;
+    LOG_I("system is busy now!\n");
+    goto EXIT;
+  }
+
+  if (!smprinter.allow_leveling()) {
+    ret = E_EXCEPTION;
+    LOG_E("bans: 0x%x, abnormal machine status cannot start leveling!!!!!!!!\n", system_svc.get_bans());
+    goto EXIT;
+  }
+
+  switch (msg->data[0]) {
+    case BEDLEVEL_MODE_AUTO:
+      req_status = SYSTEM_STATUS_AUTO_BEDLEVEL;
+      break;
+    case BEDLEVEL_MODE_MANUAL:
+      req_status = SYSTEM_STATUS_MANUAL_BEDLEVEL;
+      break;
+    case BEDLEVEL_MODE_AUTO_BED_DETECTION:
+      req_status = SYSTEM_STATUS_AUTO_BED_DETECTION;
+      break;
+    case BEDLEVEL_MODE_MANUAL_BED_DETECTION:
+      req_status = SYSTEM_STATUS_MANUAL_BED_DETECTION;
+      break;
+    case BEDLEVEL_MODE_PROBE_SENSOR_CALIBRATE:
+      req_status = SYSTEM_STATUS_PROBE_SENSOR_CALIBRATION;
+      break;
+    case BEDLEVEL_MODE_XY_CALIBRATION:
+      req_status = SYSTEM_STATUS_XY_CALIBRATING;
+      break;
+    default:
+      ret = E_PARAM;
+      goto EXIT;
+      break;
+  }
+
+  ret = smprinter.set_sys_status(req_status, &ret_status);
+  if ((ret != E_SUCCESS) || (req_status != ret_status)) {
+    LOG_I("failed to set system status!\n");
+    goto EXIT;
+  }
+
+  ret = bedlevel.set_bedlevel_mode(msg->data[0]);
+  switch (msg->data[0]) {
+    case BEDLEVEL_MODE_AUTO:
+      req_status = SYSTEM_STATUS_AUTO_BEDLEVEL;
+      break;
+    case BEDLEVEL_MODE_MANUAL:
+      req_status = SYSTEM_STATUS_MANUAL_BEDLEVEL;
+      break;
+    case BEDLEVEL_MODE_AUTO_BED_DETECTION:
+      req_status = SYSTEM_STATUS_AUTO_BED_DETECTION;
+      break;
+    case BEDLEVEL_MODE_MANUAL_BED_DETECTION:
+      req_status = SYSTEM_STATUS_MANUAL_BED_DETECTION;
+      break;
+    case BEDLEVEL_MODE_PROBE_SENSOR_CALIBRATE:
+      req_status = SYSTEM_STATUS_PROBE_SENSOR_CALIBRATION;
+      break;
+    case BEDLEVEL_MODE_XY_CALIBRATION:
+      req_status = SYSTEM_STATUS_XY_CALIBRATING;
+      break;
+    default:
+      ret = E_PARAM;
+      goto EXIT;
+      break;
+  }
+
+  if (ret == E_SUCCESS)
+    bedlevel.set_z_drop_limit_check(false);
+
+  bedlevel.set_bedlevel_env_info(GRID_MAX_POINTS_X);
+
+EXIT:
+  msg->data[0] = ret;
+  msg->length  = 1;
+  host_hmi.send_ack(msg);
+  return ret;
+}
+
+static err_code_t hmi_req_callback_start_level(void *obj, sacp_hmi_message_t *msg) {
+  BedLevelService &bedlevel = *(BedLevelService *)obj;
+  err_code_t ret = E_SUCCESS;
+  uint8_t grid;
+
+  LOG_I("hmi request start bedlevel\n");
+
+  // get the data first
+  grid = msg->data[0];
+
+  uint8_t mode = bedlevel.get_bedlevel_mode();
+  if ((mode != BEDLEVEL_MODE_AUTO) && (mode != BEDLEVEL_MODE_MANUAL)) {
+    // send request as the result of execution
+    LOG_E("the mode does not correspond, and leveling cannot be started\n");
+    return host_hmi.send_ack(msg, E_BUSY);
+  }
+
+  if (grid < 2 || grid > 11) {
+    // send request as the result of execution
+    LOG_E("error grid: %d\n", grid);
+    return host_hmi.send_ack(msg, E_PARAM);
+  }
+
+  if (!motion_platform_svc.is_all_axes_homed()) {
+    // send request as the result of execution
+    return host_hmi.send_ack(msg, E_FAILURE);
+  }
+
+  if (!smprinter.allow_leveling()) {
+    LOG_E("bans: 0x%x, abnormal machine status cannot start leveling!!!!\n", system_svc.get_bans());
+    return host_hmi.send_ack(msg, E_EXCEPTION);
+  }
+
+  // send request as the result of execution
+  host_hmi.send_ack(msg, E_SUCCESS);
+
+  if (mode == BEDLEVEL_MODE_AUTO) {
+    bedlevel_svc.auto_bedlevel_enable = true;
+    ret = bedlevel.start_auto_bed_leveling(grid, msg);
+    if (ret != E_SUCCESS) {
+      smprinter.raise_exception(SM_EXCEP_OWNER_TOOLHEAD, FDM_EXCEP_STA_PROBE_ERROR, EXCEP_ACT_STOP_WORKING);
+    }
+    bedlevel_svc.auto_bedlevel_enable = false;
+    if (bedlevel_svc.need_to_abort_auto_bedlevel) {
+      err_code_t result = E_SUCCESS;
+      abort_auto_bedlevel_msg.cmd_set = SACP_CMD_SET_CALIBRATE_FDM;
+      abort_auto_bedlevel_msg.cmd_id = BEDLEVEL_REQ_CMD_ID_EXIT_AUTO_BEDLEVEL_RESULT;
+      abort_auto_bedlevel_msg.attr = 0;
+      abort_auto_bedlevel_msg.length = 1;
+      abort_auto_bedlevel_msg.data = &result;
+      host_hmi.send(&abort_auto_bedlevel_msg);
+      bedlevel.set_end_leveling_process_status(false);  // leveling process was interrupted
+      LOG_I("send abort auto bedlevel finish to hmi\n");
+    }
+    else {
+      bedlevel.set_end_leveling_process_status(true);
+    }
+    bedlevel_svc.need_to_abort_auto_bedlevel = false;
+  } else if (mode == BEDLEVEL_MODE_MANUAL) {
+    ret = bedlevel.start_manual_bed_leveling(grid);
+  }
+
+  return ret;
+}
+
+static err_code_t hmi_req_callback_goto_probe_point(void *obj, sacp_hmi_message_t *msg) {
+  BedLevelService &bedlevel = *(BedLevelService *)obj;
+  err_code_t ret;
+  uint8_t point_index;
+  uint16_t index = 0;
+  uint8_t  recv_buffer[4];
+  uint16_t recv_len = 4;
+
+  LOG_I("hmi request goto bedlevel point: %d\n", msg->data[0]);
+
+  // get the data first
+  point_index = msg->data[0];
+
+  // response to hmi first
+  index = 0;
+  msg->data[index++] = E_SUCCESS;
+  msg->length = index;
+  host_hmi.send_ack(msg);
+
+  uint8_t mode = bedlevel.get_bedlevel_mode();
+  if (mode != BEDLEVEL_MODE_MANUAL) {
+    ret = E_BUSY;
+    LOG_E("error: the current mode is not BEDLEVEL_MODE_MANUAL\n");
+    goto EXIT;
+  }
+
+  ret = bedlevel.goto_leveling_point(point_index);
+
+EXIT:
+  // send request as the result of execution
+  index              = 0;
+  msg->data[index++] = ret;
+  msg->length        = index;
+  msg->cmd_set       = SACP_CMD_SET_CALIBRATE_FDM;
+  msg->cmd_id        = BEDLEVEL_REQ_CMD_ID_GOTO_PROBE_POINT_RESULT;
+  msg->attr          = 0;
+  host_hmi.send_sync(msg, recv_buffer, &recv_len, 2000, 3);
+  return ret;
+}
+
+static err_code_t hmi_req_callback_abort_auto_bedlevel(void *obj, sacp_hmi_message_t *msg) {
+  BedLevelService &bedlevel = *(BedLevelService *)obj;
+  err_code_t ret = E_FAILURE;
+
+  LOG_I("hmi request abort auto bedlevel, bedlevel_mode: %d abort_flag: %d auto_bedlevel:%d\n",  \
+          bedlevel.get_bedlevel_mode(), bedlevel.need_to_abort_auto_bedlevel, bedlevel.auto_bedlevel_enable);
+
+  if (bedlevel.get_bedlevel_mode() != BEDLEVEL_MODE_AUTO) {
+    ret = E_INVALID_STATE;
+    goto EXIT;
+  }
+
+  if (bedlevel.need_to_abort_auto_bedlevel == true) {
+    ret = E_BUSY;
+    goto EXIT;
+  }
+
+  if (bedlevel.auto_bedlevel_enable) {
+    bedlevel.need_to_abort_auto_bedlevel = true;
+    abort_auto_bedlevel_msg.ver = msg->ver;
+    abort_auto_bedlevel_msg.peer = msg->peer;
+    abort_auto_bedlevel_msg.ch = msg->ch;
+    ret = E_SUCCESS;
+  }
+  else {
+    LOG_W("not currently in auto-leveling mode");
+  }
+
+  // bedlevel.need_to_abort_auto_bedlevel = true;
+
+  // for (uint32_t i = 0; i < 30; i++) {
+  //   vTaskDelay(pdMS_TO_TICKS(1000));
+  //   if (bedlevel.need_to_abort_auto_bedlevel == false) {
+  //     ret = E_SUCCESS;
+  //     break;
+  //   }
+  // }
+
+EXIT:
+  uint8_t index = 0;
+  msg->data[index++] = ret;
+  msg->length = index;
+  host_hmi.send_ack(msg);
+  return ret;
+}
+
+static err_code_t hmi_req_callback_exit_level(void *obj, sacp_hmi_message_t *msg) {
+  BedLevelService &bedlevel = *(BedLevelService *)obj;
+  err_code_t ret = E_SUCCESS;
+  enum SystemStatus ret_status;
+  uint8_t x_index, y_index;
+  x_index = GRID_MAX_POINTS_X / 2;
+  y_index = GRID_MAX_POINTS_Y / 2;
+  uint16_t index = 0;
+  uint8_t  recv_buffer[4];
+  uint16_t recv_len = 4;
+  float pos_to_raise;
+  bool need_save = false;
+  enum SystemStatus sys_status;
+  bool exception_trigger = false;
+
+  need_save = !!msg->data[0];
+  LOG_I("hmi request exit bedlevel mode, cur system status: %d, need save: %d, x_index: %d, y_index: %d\n", \
+        smprinter.get_sys_status(), need_save, x_index, y_index);
+
+  if (need_save) {
+    if (!smprinter.allow_leveling()) {
+      LOG_E("bans: 0x%x, system status abnormal, leveling data is not allowed to save!!!\n", system_svc.get_bans());
+      need_save = false;
+      exception_trigger = true;
+    }
+  }
+
+  // response to hmi first
+  index = 0;
+  msg->data[index++] = E_SUCCESS;
+  msg->length = index;
+  host_hmi.send_ack(msg);
+
+  if (smprinter.get_sys_status() == SYSTEM_STATUS_IDLE) {
+    ret = E_SUCCESS;
+    goto EXIT;
+  }
+
+  sys_status = smprinter.get_sys_status();
+  if (!((sys_status >= SYSTEM_STATUS_XY_CALIBRATING && \
+       sys_status <= SYSTEM_STATUS_PROBE_SENSOR_CALIBRATION) || \
+       (job_ctrl_svc.get_status_before_start() == SYSTEM_STATUS_XY_CALIBRATING && smprinter.on_working()))) {
+    LOG_E("The current mode is not in bedlevel mode, exit fail");
+    ret = E_INVALID_STATE;
+    goto EXIT;
+  }
+
+  if (sys_status == SYSTEM_STATUS_PAUSING || sys_status == SYSTEM_STATUS_RESUMING || \
+      sys_status == SYSTEM_STATUS_XY_CALIBRATING_PRINTING) {
+    ret = E_FAILURE;
+    LOG_E("need to stop the current print job to exit the bedlevel mode");
+    goto EXIT;
+  }
+
+  bedlevel.set_z_drop_limit_check(false);
+
+  if (bedlevel.get_bedlevel_mode() == BEDLEVEL_MODE_MANUAL) {
+    LOG_I("finish bedlevel\n");
+    if (need_save) {
+      ret = bedlevel.finish_manual_bed_leveling();
+      if (ret == E_SUCCESS) {
+        if (bedlevel.env_info.grid_max_points_x > 11 || bedlevel.env_info.grid_max_points_x < 2) {
+          ret = E_FAILURE;
+          LOG_I("error: invalid grid_max_points, grid_max_x:%d\n", bedlevel.env_info.grid_max_points_x);
+        }
+      }
+      if (ret == E_SUCCESS && bedlevel.get_end_leveling_process_status() == true) {
+        ModuleBase *toolhead = smprinter.get_cur_toolhead();
+        float compensation_ = 0;
+        motion_platform_svc.set_leveling_grids(bedlevel.env_info.grid_max_points_x);
+        // motion_platform_svc.sync_z_values_to_platform(0);
+        if (toolhead && toolhead->get_device_id() == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
+          compensation_ = bedlevel.z_compensation_[0];
+        }
+        motion_platform_svc.sync_manual_z_values_to_platform(compensation_);
+        motion_platform_svc.extrapolate_unprobed_points();
+        motion_platform_svc.interpolate_virt_points();
+        motion_platform_svc.print_leveling_grid();
+        motion_platform_svc.print_leveling_grid_virt();
+        motion_platform_svc.save_settings();
+      }
+    }
+
+    motion_platform_svc.disable_z_probe();
+    motion_platform_svc.enable_leveling();
+    pos_to_raise = motion_platform_svc.get_current_position(Z_AXIS) + 100;
+    if (pos_to_raise > 400)
+      pos_to_raise = 400;
+    motion_platform_svc.moveto_z(pos_to_raise, 30);
+  }
+
+  if (bedlevel.get_bedlevel_mode() == BEDLEVEL_MODE_AUTO_BED_DETECTION) {
+    LOG_I("auto detect \n");
+    if (need_save) {
+      // prevents interruption of automatic leveling resulting in data desynchronization
+      motion_platform_svc.sync_z_values_from_platform();
+      smprinter.fdm->set_hotend_offset((bedlevel.detected_bed_z_values[0] + bedlevel.z_compensation_[0]) - (bedlevel.detected_bed_z_values[1] + bedlevel.z_compensation_[1]), Z_AXIS);
+      float compensation = bedlevel.detected_bed_z_values[0] + bedlevel.z_compensation_[0] - bedlevel.z_values_[x_index][y_index];
+      motion_platform_svc.sync_z_values_to_platform(compensation);
+      motion_platform_svc.extrapolate_unprobed_points();
+      motion_platform_svc.interpolate_virt_points();
+      motion_platform_svc.print_leveling_grid();
+      motion_platform_svc.print_leveling_grid_virt();
+      motion_platform_svc.save_settings();
+    }
+
+    motion_platform_svc.disable_z_probe();
+    motion_platform_svc.enable_leveling();
+    pos_to_raise = motion_platform_svc.get_current_position(Z_AXIS) + 100;
+    if (pos_to_raise > 400)
+      pos_to_raise = 400;
+    motion_platform_svc.moveto_z(pos_to_raise, 30);
+    smprinter.fdm->tool_change(0, false);
+  }
+
+  if (bedlevel.get_bedlevel_mode() == BEDLEVEL_MODE_MANUAL_BED_DETECTION) {
+    set_current_from_steppers_for_axis(Z_AXIS);
+    sync_plan_position();
+    if (need_save) {
+      bedlevel.hotend_touch_bed_z_[1] = motion_platform_svc.get_current_position(Z_AXIS);
+      smprinter.fdm->set_hotend_offset(bedlevel.hotend_touch_bed_z_[0] - bedlevel.hotend_touch_bed_z_[1], Z_AXIS);
+      motion_platform_svc.sync_z_values_from_platform();
+      float compensation = bedlevel.hotend_touch_bed_z_[0] - bedlevel.z_values_[x_index][y_index];
+      motion_platform_svc.sync_z_values_to_platform(compensation);
+      motion_platform_svc.extrapolate_unprobed_points();
+      motion_platform_svc.interpolate_virt_points();
+      motion_platform_svc.print_leveling_grid();
+      motion_platform_svc.print_leveling_grid_virt();
+      motion_platform_svc.save_settings();
+    }
+
+    motion_platform_svc.disable_z_probe();
+    motion_platform_svc.enable_leveling();
+    pos_to_raise = motion_platform_svc.get_current_position(Z_AXIS) + 100;
+    if (pos_to_raise > 400)
+      pos_to_raise = 400;
+    motion_platform_svc.moveto_z(pos_to_raise, 30);
+    smprinter.fdm->tool_change(0, false);
+  }
+
+  if (bedlevel.get_bedlevel_mode() == BEDLEVEL_MODE_PROBE_SENSOR_CALIBRATE) {
+    set_current_from_steppers_for_axis(Z_AXIS);
+    sync_plan_position();
+    if (need_save) {
+      bedlevel.hotend_touch_bed_z_[0] = motion_platform_svc.get_current_position(Z_AXIS);
+      LOG_I("hotend_touch_bed_z%d: %f\n", 0, bedlevel.hotend_touch_bed_z_[0]);
+      LOG_I("hotend_offset_z: %f\n", bedlevel.hotend_touch_bed_z_[0] - bedlevel.hotend_touch_bed_z_[1]);
+
+      float offset = bedlevel.hotend_touch_bed_z_[0] - bedlevel.hotend_touch_bed_z_[1];
+      if ((offset < DEFAULT_HOTEND_OFFSET_Z - BIAS_HOTEND_OFFSET_Z) || (offset > DEFAULT_HOTEND_OFFSET_Z + BIAS_HOTEND_OFFSET_Z)) {
+        LOG_E("z hotend offset error: %f\n", offset);
+        ret = E_PARAM;
+      }
+      else {
+        bedlevel.z_compensation_[0] = bedlevel.hotend_touch_bed_z_[0] - CALIBRATION_PAPER_THICKNESS - bedlevel.hotend_triggered_z_[0];
+        bedlevel.z_compensation_[1] = bedlevel.hotend_touch_bed_z_[1] - CALIBRATION_PAPER_THICKNESS - bedlevel.hotend_triggered_z_[1];
+        LOG_I("z_compensation[%d]: %f, z_compensation[%d]: %f\n", 0, bedlevel.z_compensation_[0], 1, bedlevel.z_compensation_[1]);
+        smprinter.fdm->set_hotend_offset(offset, Z_AXIS);
+        // motion_platform_svc.save_settings();
+
+        // save to module
+        float x_offset, y_offset, z_offset;
+        smprinter.fdm->get_hotend_offset(x_offset, y_offset, z_offset);
+        smprinter.fdm->save_hotend_offset_to_module(z_offset, Z_AXIS);
+        smprinter.fdm->save_z_compensation_to_module(bedlevel.z_compensation_);
+        // pos_to_raise = motion_platform_svc.get_current_position(Z_AXIS) + 100;
+
+        // compensate bed oposition
+        motion_platform_svc.sync_z_values_from_platform();
+        float compensation = bedlevel.hotend_touch_bed_z_[0] - CALIBRATION_PAPER_THICKNESS - bedlevel.z_values_[x_index][y_index];
+        LOG_I("compensation: %f\n", compensation);
+        motion_platform_svc.sync_z_values_to_platform(compensation);
+        motion_platform_svc.extrapolate_unprobed_points();
+        motion_platform_svc.interpolate_virt_points();
+        motion_platform_svc.print_leveling_grid();
+        motion_platform_svc.print_leveling_grid_virt();
+        motion_platform_svc.save_settings();
+      }
+    }
+
+    motion_platform_svc.disable_z_probe();
+    motion_platform_svc.enable_leveling();
+    pos_to_raise = motion_platform_svc.get_current_position(Z_AXIS) + 100;
+    if (pos_to_raise > 400)
+      pos_to_raise = 400;
+    motion_platform_svc.moveto_z(pos_to_raise, 30);
+    smprinter.fdm->tool_change(0, false);
+  }
+
+  if (bedlevel.get_bedlevel_mode() == BEDLEVEL_MODE_AUTO) {
+    if (need_save) {
+      if (bedlevel.env_info.grid_max_points_x > 11 || bedlevel.env_info.grid_max_points_x < 2) {
+        ret = E_FAILURE;
+        LOG_I("error: invalid grid_max_points, grid_max_x:%d\n", bedlevel.env_info.grid_max_points_x);
+      }
+
+      if (ret == E_SUCCESS && bedlevel.get_end_leveling_process_status() == true) {
+        // compensated trigger travel
+        LOG_I("z_compensation: %f\n", bedlevel.z_compensation_[0]);
+        motion_platform_svc.set_leveling_grids(bedlevel.env_info.grid_max_points_x);
+        motion_platform_svc.sync_z_values_to_platform(bedlevel.z_compensation_[0]);
+        motion_platform_svc.extrapolate_unprobed_points();
+        motion_platform_svc.interpolate_virt_points();
+        motion_platform_svc.print_leveling_grid();
+        motion_platform_svc.print_leveling_grid_virt();
+
+        // save z_values
+        motion_platform_svc.save_settings();
+      }
+    }
+
+    motion_platform_svc.disable_z_probe();
+    motion_platform_svc.enable_leveling();
+    motion_platform_svc.update_position_from_platform();
+    pos_to_raise = motion_platform_svc.get_current_position(Z_AXIS) + 100;
+    if (pos_to_raise > 400)
+      pos_to_raise = 400;
+    motion_platform_svc.moveto_z(pos_to_raise, 50);
+    motion_platform_svc.synchronize_planner();
+  }
+
+  motion_platform_svc.sync_z_values_from_platform();
+  bedlevel.set_end_leveling_process_status(false);
+  smprinter.set_sys_status(SYSTEM_STATUS_IDLE, &ret_status);
+
+  bedlevel.set_bedlevel_mode(BEDLEVEL_MODE_IDLE);
+  smprinter.fdm->extruder_status_check_ctrl(EXTRUDER_STATUS_CHECK);
+
+  if (exception_trigger)
+    ret = E_HARDWARE;
+
+EXIT:
+  // send request as the result of execution
+  index              = 0;
+  msg->data[index++] = ret;
+  msg->length        = index;
+  msg->cmd_set       = SACP_CMD_SET_CALIBRATE_FDM;
+  msg->cmd_id        = BEDLEVEL_REQ_CMD_ID_EXIT_LEVEL_RESULT;
+  msg->attr          = 0;
+  host_hmi.send_sync(msg, recv_buffer, &recv_len, 2000, 3);
+  return ret;
+}
+
+static err_code_t hmi_req_callback_get_level_state(void *obj, sacp_hmi_message_t *msg) {
+  BedLevelService &bedlevel = *(BedLevelService *)obj;
+
+  LOG_I("hmi request get level state\n");
+
+  msg->data[0] = bedlevel.is_bedleveled();
+  msg->length = 1;
+  host_hmi.send_ack(msg);
+  return E_SUCCESS;
+}
+
+static err_code_t hmi_req_callback_bed_position_detection(void *obj, sacp_hmi_message_t *msg) {
+  BedLevelService &bedlevel = *(BedLevelService *)obj;
+  err_code_t ret = E_SUCCESS;
+  uint8_t extruder_index = msg->data[0];
+  float x, y;
+  uint8_t x_index, y_index;
+  x_index = GRID_MAX_POINTS_X / 2;
+  y_index = GRID_MAX_POINTS_Y / 2;
+  uint16_t index = 0;
+  uint8_t  recv_buffer[4];
+  uint16_t recv_len = 4;
+
+  LOG_I("hmi request bed position detection\n");
+
+  // response to hmi first
+  index = 0;
+  msg->data[index++] = E_SUCCESS;
+  msg->length = index;
+  host_hmi.send_ack(msg);
+
+  // It is currently not supported to call this function with a single nozzle
+  // Only dual nozzles will use this function
+  // If the number of leveling points is even, you cannot assign this value directly here
+  x = RAW_X_POSITION(DOUBLE_EXTRUDER_X_BILINEAR_START_POINT + (DOUBLE_EXTRUDER_X_BILINEAR_END_POINT - DOUBLE_EXTRUDER_X_BILINEAR_START_POINT)/2);
+  y = RAW_Y_POSITION(DOUBLE_EXTRUDER_Y_BILINEAR_START_POINT + (DOUBLE_EXTRUDER_Y_BILINEAR_END_POINT - DOUBLE_EXTRUDER_Y_BILINEAR_START_POINT)/2);
+
+  LOG_I("x_index: %d, y_index: %d, x: %f, y: %f, start.x: %f, start.y: %f, spacing.x: %f, spacing.y: %f\n", \
+      x_index, y_index, x, y, bilinear_start.x, bilinear_start.y, bilinear_grid_spacing.x, bilinear_grid_spacing.y);
+
+  if ((bedlevel.get_bedlevel_mode() != BEDLEVEL_MODE_AUTO_BED_DETECTION) && (bedlevel.get_bedlevel_mode() != BEDLEVEL_MODE_MANUAL_BED_DETECTION)) {
+    ret = E_FAILURE;
+    goto EXIT;
+  }
+
+  if (bedlevel.get_bedlevel_mode() == BEDLEVEL_MODE_AUTO_BED_DETECTION) {
+    if (extruder_index == 0) {
+      // clear live_z_offset
+      bedlevel.pre_bedlevel_clear_live_z_offset();
+
+      if (!motion_platform_svc.is_all_axes_homed()) {
+        ret = E_FAILURE;
+        goto EXIT;
+      }
+
+      smprinter.fdm->tool_change(0);
+
+      motion_platform_svc.disable_leveling();
+      motion_platform_svc.moveto_xy(x, y, 180);
+      motion_platform_svc.moveto_z(20, 30);
+    } else if (extruder_index == 1) {
+      if (!motion_platform_svc.is_all_axes_homed()) {
+        ret = E_FAILURE;
+        goto EXIT;
+      }
+      motion_platform_svc.disable_leveling();
+      motion_platform_svc.moveto_z(motion_platform_svc.get_current_position(Z_AXIS) + 5, 30);
+      smprinter.fdm->tool_change(1, false);
+      bedlevel.set_end_leveling_process_status(true);
+    }
+
+    motion_platform_svc.enable_z_probe();
+    if (extruder_index == 0) {
+      smprinter.fdm->set_probe_sensor(PROBE_SENSOR_LEFT_OPTOCOUPLER);
+    } else if (extruder_index == 1) {
+      smprinter.fdm->set_probe_sensor(PROBE_SENSOR_RIGHT_OPTOCOUPLER);
+    }
+    smprinter.fdm->extruder_status_check_ctrl(EXTRUDER_STATUS_IDLE);
+    bedlevel.detected_bed_z_values[extruder_index] = motion_platform_svc.probe_at_point(x, y, PROBE_PT_RAISE);
+    smprinter.fdm->extruder_status_check_ctrl(EXTRUDER_STATUS_CHECK);
+    LOG_I("auto bed detction%d: %f\n", extruder_index, bedlevel.detected_bed_z_values[extruder_index]);
+  } else if (bedlevel.get_bedlevel_mode() == BEDLEVEL_MODE_MANUAL_BED_DETECTION) {
+    bedlevel.set_z_drop_limit_check(true);
+    if (extruder_index == 0) {
+      // need go home
+      // clear live_z_offset
+      bedlevel.pre_bedlevel_clear_live_z_offset();
+
+      if (!motion_platform_svc.is_all_axes_homed()) {
+        ret = E_FAILURE;
+        goto EXIT;
+      }
+
+      smprinter.fdm->set_probe_sensor(PROBE_SENSOR_LEFT_OPTOCOUPLER);
+      smprinter.fdm->tool_change(0);
+
+      motion_platform_svc.disable_leveling();
+      motion_platform_svc.enable_z_probe();
+      motion_platform_svc.moveto_xy(x, y, 180);
+      motion_platform_svc.moveto_z(20, 30);
+    }
+    else if (extruder_index == 1) {
+      motion_platform_svc.disable_leveling();
+      motion_platform_svc.enable_z_probe();
+      set_current_from_steppers_for_axis(Z_AXIS);
+      sync_plan_position();
+      bedlevel.hotend_touch_bed_z_[0] = motion_platform_svc.get_current_position(Z_AXIS);
+      LOG_I("manual bed detection: %f\n", bedlevel.hotend_touch_bed_z_[0]);
+      motion_platform_svc.moveto_z(motion_platform_svc.get_current_position(Z_AXIS) + 5, 30);
+      smprinter.fdm->tool_change(1, false);
+      bedlevel.set_end_leveling_process_status(true);
+    }
+  }
+
+EXIT:
+  // send request as the result of execution
+  index              = 0;
+  msg->data[index++] = ret;
+  msg->length        = index;
+  msg->cmd_set       = SACP_CMD_SET_CALIBRATE_FDM;
+  msg->cmd_id        = BEDLEVEL_REQ_CMD_ID_BED_POSITION_DETECTION_RESULT;
+  msg->attr          = 0;
+  host_hmi.send_sync(msg, recv_buffer, &recv_len, 2000, 3);
+  return ret;
+}
+
+static err_code_t hmi_req_callback_probe_sensor_calibration(void *obj, sacp_hmi_message_t *msg) {
+  BedLevelService &bedlevel = *(BedLevelService *)obj;
+  err_code_t ret = E_SUCCESS;
+  uint8_t action = msg->data[0];
+  float x, y;
+  uint8_t x_index, y_index;
+  uint16_t index = 0;
+  uint8_t  recv_buffer[4];
+  uint16_t recv_len = 4;
+
+  // response to hmi first
+  index = 0;
+  msg->data[index++] = E_SUCCESS;
+  msg->length = index;
+  host_hmi.send_ack(msg);
+
+  if (GRID_MAX_POINTS_X == 0 || GRID_MAX_POINTS_Y == 0 || bilinear_grid_spacing.x == 0 || bilinear_grid_spacing.y == 0) {
+    motion_platform_svc.set_leveling_grids(3);
+  }
+  x_index = GRID_MAX_POINTS_X / 2;
+  y_index = GRID_MAX_POINTS_Y / 2;
+
+  LOG_I("hmi request probe sensor calibration\n");
+
+  // It is currently not supported to call this function with a single nozzle
+  // Only dual nozzles will use this function
+  // If the number of leveling points is even, you cannot assign this value directly here
+  x = RAW_X_POSITION(DOUBLE_EXTRUDER_X_BILINEAR_START_POINT + (DOUBLE_EXTRUDER_X_BILINEAR_END_POINT - DOUBLE_EXTRUDER_X_BILINEAR_START_POINT)/2);
+  y = RAW_Y_POSITION(DOUBLE_EXTRUDER_Y_BILINEAR_START_POINT + (DOUBLE_EXTRUDER_Y_BILINEAR_END_POINT - DOUBLE_EXTRUDER_Y_BILINEAR_START_POINT)/2);
+  LOG_I("x_index: %d, y_index: %d, x: %f, y: %f, start.x: %f, start.y: %f, spacing.x: %f, spacing.y: %f\n", \
+        x_index, y_index, x, y, bilinear_start.x, bilinear_start.y, bilinear_grid_spacing.x, bilinear_grid_spacing.y);
+
+  if (bedlevel.get_bedlevel_mode() != BEDLEVEL_MODE_PROBE_SENSOR_CALIBRATE) {
+    ret = E_FAILURE;
+    goto EXIT;
+  }
+
+  if (action == 2 || action == 3)
+    bedlevel.set_z_drop_limit_check(true);
+  else
+    bedlevel.set_z_drop_limit_check(false);
+
+  // if (smprinter.fdm->get_fdm_fault_state(FDM_FAULT_EXTRUDER_STATE)) {
+  //   LOG_I("refuse probe sensor calibration because of extruder state error!\n");
+  //   ret = E_EXCEPTION;
+  //   goto EXIT;
+  // }
+
+  switch (action) {
+    case 0:
+      LOG_I("probe sensor calibration left extruder auto detect\n");
+      // clear live_z_offset
+      bedlevel.pre_bedlevel_clear_live_z_offset();
+
+      if (!motion_platform_svc.is_all_axes_homed()) {
+        ret = E_FAILURE;
+        goto EXIT;
+      }
+
+      smprinter.fdm->tool_change(0);
+
+      bedlevel.set_end_leveling_process_status(false);
+      smprinter.fdm->extruder_status_check_ctrl(EXTRUDER_STATUS_IDLE);
+      motion_platform_svc.disable_leveling();
+      motion_platform_svc.moveto_xy(x, y, 60);
+      motion_platform_svc.moveto_z(20, 30);
+      motion_platform_svc.enable_z_probe();
+      smprinter.fdm->set_probe_sensor(PROBE_SENSOR_LEFT_OPTOCOUPLER);
+      smprinter.set_extruder_check_state(EXTRUDER_STATUS_IDLE);
+      bedlevel.hotend_triggered_z_[0] = motion_platform_svc.probe_at_point(x, y, PROBE_PT_RAISE);
+      smprinter.set_extruder_check_state(EXTRUDER_STATUS_CHECK);
+      LOG_I("hotend_triggered_z%d: %f\n", 0, bedlevel.hotend_triggered_z_[0]);
+      break;
+    case 1:
+      LOG_I("probe sensor calibration right extruder auto detect\n");
+      motion_platform_svc.enable_z_probe();
+      if (bedlevel.hotend_triggered_z_[0] < 20)
+        motion_platform_svc.moveto_z(20, 30);
+      smprinter.fdm->tool_change(1, false);
+      smprinter.fdm->set_probe_sensor(PROBE_SENSOR_RIGHT_OPTOCOUPLER);
+      smprinter.set_extruder_check_state(EXTRUDER_STATUS_IDLE);
+      bedlevel.hotend_triggered_z_[1] = motion_platform_svc.probe_at_point(x, y, PROBE_PT_RAISE);
+      // if the z is too low lift the z
+      set_current_from_steppers_for_axis(Z_AXIS);
+      sync_plan_position();
+      if (motion_platform_svc.get_current_position(Z_AXIS) < 20)
+        motion_platform_svc.moveto_z(20, 30);
+      smprinter.set_extruder_check_state(EXTRUDER_STATUS_CHECK);
+      LOG_I("hotend_triggered_z%d: %f\n", 1, bedlevel.hotend_triggered_z_[1]);
+      break;
+    case 2:
+      LOG_I("probe sensor calibration right extruder manual detect\n");
+      motion_platform_svc.enable_z_probe();
+      // motion_platform_svc.disable_z_probe();
+      // smprinter.fdm->tool_change(1, false);
+      break;
+    case 3:
+      LOG_I("probe sensor calibration left extruder manual detect\n");
+      set_current_from_steppers_for_axis(Z_AXIS);
+      sync_plan_position();
+      bedlevel.hotend_touch_bed_z_[1] = motion_platform_svc.get_current_position(Z_AXIS);
+      LOG_I("hotend_touch_bed_z1: %f\n", bedlevel.hotend_touch_bed_z_[1]);
+      motion_platform_svc.enable_z_probe();
+      // motion_platform_svc.disable_z_probe();
+      if (bedlevel.hotend_touch_bed_z_[1] < 20)
+        motion_platform_svc.moveto_z(20, 30);
+      smprinter.fdm->tool_change(0, false);
+      break;
+    default:
+      ret = E_FAILURE;
+      break;
+  }
+
+EXIT:
+  // send request as the result of execution
+  index              = 0;
+  msg->data[index++] = ret;
+  msg->length        = index;
+  msg->cmd_set       = SACP_CMD_SET_CALIBRATE_FDM;
+  msg->cmd_id        = BEDLEVEL_REQ_CMD_ID_PROBE_SENSOR_CALIBRATION_RESULT;
+  msg->attr          = 0;
+  host_hmi.send_sync(msg, recv_buffer, &recv_len, 2000, 3);
+  return ret;
+}
+
+static err_code_t hmi_req_callback_set_live_z_offset(void *obj, sacp_hmi_message_t *msg) {
+  BedLevelService &bedlevel = *(BedLevelService *)obj;
+  err_code_t ret = E_SUCCESS;
+  uint8_t e = msg->data[1];
+  float offset;
+  uint8_t index = 0;
+  uint8_t  recv_buffer[4];
+  uint16_t recv_len = 4;
+  offset = (float)(msg->data[2] | (msg->data[3] << 8) | (msg->data[4] << 16) | (msg->data[5] << 24)) / 1000;
+
+  LOG_I("hmi request set live z offset, e: %d, offset: %f\n", e, offset);
+
+  // response to hmi first
+  index = 0;
+  msg->data[index++] = E_SUCCESS;
+  msg->length = index;
+  host_hmi.send_ack(msg);
+
+  if (motion_platform_svc.homing_now == true) {
+    ret = E_BUSY;
+    LOG_W("homing now, z_offset is not allowed to be adjusted\n");
+    goto EXIT;
+  }
+
+  if (!(smprinter.get_sys_status() == SYSTEM_STATUS_PAUSED || \
+      smprinter.get_sys_status() == SYSTEM_STATUS_IDLE ||   \
+      smprinter.on_printing())) {
+    ret = E_INVALID_STATE;
+    LOG_W("current state z_offset is not allowed to be adjusted\n");
+    goto EXIT;
+  }
+
+  if (ABS(offset) > LIVE_Z_OFFSET_LIMIT) {
+    ret = E_PARAM;
+    LOG_I("offset exceed limit\n");
+    goto EXIT;
+  }
+
+  if (e > smprinter.fdm->get_extruders_count() - 1) {
+    ret = E_PARAM;
+    goto EXIT;
+  }
+
+  bedlevel.set_live_z_offset(e, offset);
+  if (bedlevel.live_z_offset[e] != offset)
+    ret = E_FAILURE;
+
+  // send request as the result of execution
+  index              = 0;
+  msg->data[index++] = ret;
+  msg->length        = index;
+  msg->cmd_set       = SACP_CMD_SET_CALIBRATE_FDM;
+  msg->cmd_id        = BEDLEVEL_ERQ_CMD_ID_SET_LIVE_Z_OFFSET_RESULT;
+  msg->attr          = 0;
+  host_hmi.send_sync(msg, recv_buffer, &recv_len, 2000, 3);
+  return ret;
+
+EXIT:
+  // send request as the result of execution
+  index              = 0;
+  msg->data[index++] = ret;
+  msg->length        = index;
+  msg->cmd_set       = SACP_CMD_SET_CALIBRATE_FDM;
+  msg->cmd_id        = BEDLEVEL_ERQ_CMD_ID_SET_LIVE_Z_OFFSET_RESULT;
+  msg->attr          = 0;
+  host_hmi.send_sync(msg, recv_buffer, &recv_len, 2000, 3);
+  return ret;
+}
+
+static err_code_t hmi_req_callback_get_live_z_offset(void *obj, sacp_hmi_message_t *msg) {
+  BedLevelService &bedlevel = *(BedLevelService *)obj;
+  uint16_t index = 0;
+  uint8_t key = msg->data[0];
+
+  // result
+  msg->data[index++] = E_SUCCESS;
+
+  // key
+  msg->data[index++] = key;
+
+  // array size
+  uint8_t extruders = smprinter.fdm->get_extruders_count();
+  msg->data[index++] = extruders;
+
+  for (uint32_t i = 0; i < extruders; i++) {
+    msg->data[index++] = i;
+    int32_t offset = (int32_t)(bedlevel.live_z_offset[i] * 1000);
+    msg->data[index++] = offset & 0xff;
+    msg->data[index++] = offset >> 8;
+    msg->data[index++] = offset >> 16;
+    msg->data[index++] = offset >> 24;
+    LOG_I("hmi reqeust get live z offset, extruder: %d, offset: %f\n", i, bedlevel.live_z_offset[i]);
+  }
+
+  msg->length = index;
+  host_hmi.send_ack(msg);
+  return E_SUCCESS;
+}
+
+bool BedLevelService::get_end_leveling_process_status() {
+  return end_of_leveling_process;
+}
+
+void BedLevelService::set_end_leveling_process_status(bool status) {
+  end_of_leveling_process = status;
+}
+
+bool BedLevelService::is_bedleveled() {
+  return motion_platform_svc.get_leveling_state();
+}
+
+uint8_t BedLevelService::get_bedlevel_mode() {
+  return bedlevel_mode;
+}
+
+err_code_t BedLevelService::set_bedlevel_mode(uint8_t mode) {
+  switch (mode) {
+    case BEDLEVEL_MODE_IDLE:
+      bedlevel_mode = BEDLEVEL_MODE_IDLE;
+      break;
+    case BEDLEVEL_MODE_AUTO:
+      bedlevel_mode = BEDLEVEL_MODE_AUTO;
+      break;
+    case BEDLEVEL_MODE_MANUAL:
+      bedlevel_mode = BEDLEVEL_MODE_MANUAL;
+      break;
+    case BEDLEVEL_MODE_AUTO_BED_DETECTION:
+      bedlevel_mode = BEDLEVEL_MODE_AUTO_BED_DETECTION;
+      break;
+    case BEDLEVEL_MODE_MANUAL_BED_DETECTION:
+      bedlevel_mode = BEDLEVEL_MODE_MANUAL_BED_DETECTION;
+      break;
+    case BEDLEVEL_MODE_PROBE_SENSOR_CALIBRATE:
+      bedlevel_mode = BEDLEVEL_MODE_PROBE_SENSOR_CALIBRATE;
+      break;
+    case BEDLEVEL_MODE_XY_CALIBRATION:
+      bedlevel_mode = BEDLEVEL_MODE_XY_CALIBRATION;
+      break;
+    default:
+      return E_PARAM;
+      break;
+  }
+
+  return E_SUCCESS;
+}
+
+err_code_t BedLevelService::set_leveling_limit(float x_min, float x_max, float y_min, float y_max) {
+  motion_platform_svc.sync_leveling_limit_to_platform(x_min, x_max, y_min, y_max);
+  return E_SUCCESS;
+}
+
+err_code_t BedLevelService::set_leveling_grids(uint8_t grids) {
+  motion_platform_svc.set_leveling_grids(grids);
+  bedlevel_svc.z_compensation_[0] = 0;
+  bedlevel_svc.z_compensation_[1] = 0;
+  return E_SUCCESS;
+}
+
+err_code_t BedLevelService::set_z_values(float z, uint8_t i, uint8_t j) {
+  z_values_[i][j] = z;
+  return E_SUCCESS;
+}
+
+err_code_t BedLevelService::refresh_leveling_data() {
+  motion_platform_svc.disable_leveling();
+  motion_platform_svc.sync_z_values_to_platform(0);
+  motion_platform_svc.extrapolate_unprobed_points();
+  motion_platform_svc.interpolate_virt_points();
+  motion_platform_svc.print_leveling_grid();
+  motion_platform_svc.print_leveling_grid_virt();
+  motion_platform_svc.disable_z_probe();
+  motion_platform_svc.save_settings();
+  motion_platform_svc.enable_leveling();
+  return E_SUCCESS;
+}
+
+err_code_t BedLevelService::start_probe_test(uint8_t b, float x, float y) {
+  if (b == 0) {
+    return E_PARAM;
+  }
+
+  motion_platform_svc.disable_leveling();
+  motion_platform_svc.enable_z_probe();
+  motion_platform_svc.moveto_xy(x, y, 80);
+
+  // calibrate extruder0 first
+  smprinter.fdm->set_probe_sensor(PROBE_SENSOR_LEFT_OPTOCOUPLER);
+  motion_platform_svc.moveto_z(20, 30);
+  smprinter.fdm->tool_change(0);
+
+  for (uint32_t i = 0; i < b; i++) {
+    float z_value = motion_platform_svc.probe_at_point(x, y, PROBE_PT_RAISE);
+    LOG_I("\n");
+    LOG_I("probed_times%d: %f\n", i, z_value);
+    LOG_I("\n");
+  }
+
+  return E_SUCCESS;
+}
+
+err_code_t BedLevelService::start_manual_bed_leveling(uint8_t grids) {
+  end_of_leveling_process = false;
+
+  LOG_I("start manual bed level, grids: %d\n", grids);
+
+  // motion_platform_svc.set_leveling_grids(grids);
+  set_bedlevel_env_info(grids);
+  manual_leveling_point_index_ = GRID_MAX_POINTS;
+  manual_leveling_point_sum = 0;
+
+  // clear live_z_offset
+  pre_bedlevel_clear_live_z_offset();
+
+  return E_SUCCESS;
+}
+
+err_code_t BedLevelService::goto_leveling_point(uint8_t index) {
+  if (index == 1) {
+    smprinter.fdm->tool_change(0);
+
+    motion_platform_svc.disable_leveling();
+    motion_platform_svc.disable_z_probe();
+
+    if (smprinter.fdm->get_device_id() == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
+      motion_platform_svc.moveto_z(20, 30);
+    } else if (smprinter.fdm->get_device_id() == MODULE_DEVICE_ID_FDM_1EXTRUDER_2019) {
+      motion_platform_svc.moveto_z(34, 30);
+    }
+  }
+
+  if ((index <= env_info.grid_max_points_x * env_info.grid_max_points_y) && (index > 0)) {
+    if (manual_leveling_point_index_ <= env_info.grid_max_points_x * env_info.grid_max_points_y) {
+      manual_leveling_z_values_[manual_leveling_point_index_] = motion_platform_svc.get_current_position(Z_AXIS);
+      LOG_I("P[%d]: (%.2f, %.2f, %.2f)\n",manual_leveling_point_index_, motion_platform_svc.get_current_position(X_AXIS), motion_platform_svc.get_current_position(Y_AXIS), motion_platform_svc.get_current_position(Z_AXIS));
+
+      float z_limit = 34;
+      float z_height = motion_platform_svc.get_current_position(Z_AXIS);
+      if (smprinter.fdm->get_device_id() == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021)
+        z_limit = 20;
+      z_height += 3;
+      NOMORE(z_height, z_limit);
+      motion_platform_svc.moveto_z(z_height, 10);
+    }
+
+    manual_leveling_point_sum++;
+    // move to new point
+    manual_leveling_point_index_ = index - 1;
+    motion_platform_svc.moveto_xy(_BEDLEVEL_ENV_GET_MESH_X(manual_leveling_point_index_ % env_info.grid_max_points_x), _BEDLEVEL_ENV_GET_MESH_Y(manual_leveling_point_index_ / env_info.grid_max_points_y), 180);
+  }
+
+  return E_SUCCESS;
+}
+err_code_t BedLevelService::finish_manual_bed_leveling () {
+
+  manual_leveling_z_values_[manual_leveling_point_index_] = motion_platform_svc.get_current_position(Z_AXIS);
+  LOG_I("P[%d]: (%.2f, %.2f, %.2f)\n",manual_leveling_point_index_, motion_platform_svc.get_current_position(X_AXIS), motion_platform_svc.get_current_position(Y_AXIS), motion_platform_svc.get_current_position(Z_AXIS));
+  uint32_t i, j;
+
+  if (manual_leveling_point_sum == env_info.grid_max_points_x * env_info.grid_max_points_y) {
+    LOG_I("manual bedlevel real finish\n");
+    end_of_leveling_process = true;
+  } else {
+    return E_FAILURE;
+  }
+
+  for (j = 0; j < env_info.grid_max_points_y; j++) {
+    for (i = 0; i < env_info.grid_max_points_x; i++) {
+      LOG_I("i: %d, j: %d\n", i, j);
+      LOG_I("index: %d, value: %f\n", j * env_info.grid_max_points_x + i, manual_leveling_z_values_[j * env_info.grid_max_points_x + i]);
+      z_values_[i][j] = manual_leveling_z_values_[j * env_info.grid_max_points_x + i];
+    }
+  }
+
+  return E_SUCCESS;
+}
+
+err_code_t BedLevelService::start_auto_bed_leveling(uint8_t grids, sacp_hmi_message_t *msg) {
+  err_code_t ret = E_SUCCESS;
+  bool visited[GRID_MAX_NUM][GRID_MAX_NUM];
+  static int direction [4][2] = {{1, 0}, {0, 1}, {-1, 0}, {0, -1}};
+  memset(visited, 0, sizeof(visited[0][0]) * GRID_MAX_NUM * GRID_MAX_NUM);
+
+  int cur_x = 0;
+  int cur_y = 0;
+  float z;
+  int dir_idx = 0;
+
+  // need_to_abort_auto_bedlevel = false;
+  set_end_leveling_process_status(false);
+
+  // motion_platform_svc.set_leveling_grids(grids);
+  set_bedlevel_env_info(grids);      // prevent the number of non-corresponding grids from being saved directly to flash
+
+  // clear live_z_offset
+  pre_bedlevel_clear_live_z_offset();
+
+  smprinter.fdm->tool_change(0);
+
+  smprinter.fdm->extruder_status_check_ctrl(EXTRUDER_STATUS_IDLE);
+
+  motion_platform_svc.disable_leveling();
+  motion_platform_svc.enable_z_probe();
+  if (smprinter.fdm->get_device_id() == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
+    LOG_I("set left optocoupler as probe sensor\n");
+    smprinter.fdm->set_probe_sensor(PROBE_SENSOR_LEFT_OPTOCOUPLER);
+  } else if (smprinter.fdm->get_device_id() == MODULE_DEVICE_ID_FDM_1EXTRUDER_2019) {
+    smprinter.fdm->set_probe_sensor(PROBE_SENSOR_PROXIMITY_SWITCH);
+    LOG_I("set right optocoupler as probe sensor\n");
+  }
+
+  motion_platform_svc.moveto_z(20, 30);
+
+  msg->cmd_set = SACP_CMD_SET_CALIBRATE_FDM;
+  msg->cmd_id  = BEDLEVEL_CMD_ID_REPORT_BEDLEVEL_POINT;
+  msg->attr    = 0;
+  msg->length  = 3;
+
+  smprinter.set_extruder_check_state(EXTRUDER_STATUS_IDLE);
+
+  for (int k = 0; k < env_info.grid_max_points_x * env_info.grid_max_points_y; ++k) {
+    LOG_I("Probing No. %d\n", k);
+    LOG_I("x: %f, y: %f\n", _BEDLEVEL_ENV_GET_MESH_X(cur_x), _BEDLEVEL_ENV_GET_MESH_Y(cur_y));
+    if (need_to_abort_auto_bedlevel == true) {
+      // need_to_abort_auto_bedlevel = false;
+      ret = E_SUCCESS;
+      goto EXIT;
+    }
+
+    if (k < (env_info.grid_max_points_x * env_info.grid_max_points_y - 1)) {
+      z = motion_platform_svc.probe_at_point(_BEDLEVEL_ENV_GET_MESH_X(cur_x), _BEDLEVEL_ENV_GET_MESH_Y(cur_y), PROBE_PT_RAISE);
+    } else {
+      z = motion_platform_svc.probe_at_point(_BEDLEVEL_ENV_GET_MESH_X(cur_x), _BEDLEVEL_ENV_GET_MESH_Y(cur_y), PROBE_PT_RAISE);
+    }
+    z_values_[cur_x][cur_y] = z;
+    visited[cur_x][cur_y] = true;
+    if (isnan(z)) {
+      LOG_E("auto probing fail !\n");
+      reset_bed_level();
+      smprinter.set_extruder_check_state(EXTRUDER_STATUS_CHECK);
+      ret = E_FAILURE;
+      goto EXIT;
+    }
+
+    msg->data[0] = E_SUCCESS;
+    msg->data[1] = (uint8_t)(cur_y * env_info.grid_max_points_x + cur_x + 1);
+    msg->data[2] = 0;
+
+    if (need_to_abort_auto_bedlevel) {
+      ret = E_SUCCESS;
+      goto EXIT;
+    }
+
+    host_hmi.send_ack(msg);
+
+    int new_x = cur_x + direction[dir_idx][0];
+    int new_y = cur_y + direction[dir_idx][1];
+
+    if (new_x >= env_info.grid_max_points_x || new_x < 0 || new_y >= env_info.grid_max_points_y || new_y < 0
+      || visited[new_x][new_y]) {
+      dir_idx = (dir_idx + 1) % 4; // turn 90 degree
+      new_x = cur_x + direction[dir_idx][0];
+      new_y = cur_y + direction[dir_idx][1];
+    }
+
+    cur_x = new_x;
+    cur_y = new_y;
+  }
+
+  end_of_leveling_process = true;
+
+EXIT:
+  smprinter.set_extruder_check_state(EXTRUDER_STATUS_CHECK);
+  return ret;
+}
+
+err_code_t BedLevelService::probe_sensor_calibration(float x, float y) {
+  // check wehter the nozzle could reach the position
+
+  motion_platform_svc.disable_leveling();
+  motion_platform_svc.enable_z_probe();
+  motion_platform_svc.moveto_xy(x, y, 80);
+
+  // calibrate extruder0 first
+  smprinter.fdm->set_probe_sensor(PROBE_SENSOR_LEFT_OPTOCOUPLER);
+  motion_platform_svc.moveto_z(20, 30);
+  smprinter.fdm->tool_change(0);
+  hotend_triggered_z_[0] = motion_platform_svc.probe_at_point(x, y, PROBE_PT_RAISE);
+  LOG_I("hotend0 triggered z: %f\n", hotend_triggered_z_[0]);
+
+  // calibrate extruder1
+  smprinter.fdm->tool_change(1, false);
+  smprinter.fdm->set_probe_sensor(PROBE_SENSOR_RIGHT_OPTOCOUPLER);
+  hotend_triggered_z_[1] = motion_platform_svc.probe_at_point(x, y, PROBE_PT_RAISE);
+  LOG_I("hotend1 triggered z: %f\n", hotend_triggered_z_[1]);
+
+  motion_platform_svc.disable_z_probe();
+  motion_platform_svc.update_position_from_platform();
+
+  return E_SUCCESS;
+}
+
+err_code_t BedLevelService::confirm_probe_sensor_calibration(uint8_t e) {
+  motion_platform_svc.update_position_from_platform();
+  hotend_touch_bed_z_[e] = motion_platform_svc.sm_current_position[Z_AXIS];
+  LOG_I("hotend%d_touch_bed_z: %f\n", e, hotend_touch_bed_z_[e]);
+  float stroke_temp = motion_platform_svc.sm_current_position[Z_AXIS] - CALIBRATION_PAPER_THICKNESS - hotend_triggered_z_[e];
+  LOG_I("extruder%d: %f\n", e, stroke_temp);
+
+  if (e == 0) {
+    z_compensation_[0] = stroke_temp;
+    motion_platform_svc.enable_leveling();
+    motion_platform_svc.moveto_z(motion_platform_svc.sm_current_position[Z_AXIS] + 100, 30);
+    smprinter.fdm->set_hotend_offset_z(hotend_touch_bed_z_[0] - hotend_touch_bed_z_[1]);
+    LOG_I("hotend_offset_z: %f\n", hotend_touch_bed_z_[0] - hotend_touch_bed_z_[1]);
+    motion_platform_svc.save_settings();
+  } else if (e == 1) {
+    z_compensation_[1] = stroke_temp;
+    motion_platform_svc.moveto_z(motion_platform_svc.sm_current_position[Z_AXIS] + 1, 10);
+    smprinter.fdm->tool_change(0, false);
+  }
+
+  return E_SUCCESS;
+}
+
+err_code_t BedLevelService::work_height_auto_detection() {
+  // check wehter the nozzle could reach the position
+
+  // read grids
+  // todo
+  motion_platform_svc.set_leveling_grids(5);
+
+  motion_platform_svc.disable_leveling();
+  motion_platform_svc.enable_z_probe();
+  motion_platform_svc.moveto_xy(_GET_MESH_X(2), _GET_MESH_Y(2), 80);
+  motion_platform_svc.moveto_z(20, 30);
+
+  // calibrate extruder0 first
+  smprinter.fdm->set_probe_sensor(PROBE_SENSOR_LEFT_OPTOCOUPLER);
+  smprinter.fdm->tool_change(0);
+  hotend_triggered_z_[0] = motion_platform_svc.probe_at_point(_GET_MESH_X(2), _GET_MESH_Y(2), PROBE_PT_RAISE);
+  float hotend0_height = hotend_triggered_z_[0] - z_compensation_[0];
+  LOG_I("hotend0 triggered z: %f\n", hotend_triggered_z_[0]);
+
+  // calibrate extruder1
+  smprinter.fdm->tool_change(1, false);
+  smprinter.fdm->set_probe_sensor(PROBE_SENSOR_RIGHT_OPTOCOUPLER);
+  hotend_triggered_z_[1] = motion_platform_svc.probe_at_point(_GET_MESH_X(2), _GET_MESH_Y(2), PROBE_PT_RAISE);
+  float hotend1_height = hotend_triggered_z_[1] - z_compensation_[1];
+  LOG_I("hotend1 triggered z: %f\n", hotend_triggered_z_[1]);
+
+  SERIAL_ECHOLNPGM("hotend offset_z: %f\n", hotend0_height - hotend1_height);
+  smprinter.fdm->set_hotend_offset_z(hotend0_height - hotend1_height);
+
+  motion_platform_svc.disable_z_probe();
+  motion_platform_svc.update_position_from_platform();
+
+  return E_SUCCESS;
+}
+
+err_code_t BedLevelService::apply_live_z_offset(uint8_t e) {
+  motion_platform_svc.synchronize_planner();
+  float cur_z = motion_platform_svc.get_current_position(Z_AXIS);
+  motion_platform_svc.moveto_z(cur_z + live_z_offset[e], 5);
+  motion_platform_svc.sm_current_position[Z_AXIS] = cur_z;
+  motion_platform_svc.sync_plan_position_to_platform();
+  LOG_I("Apply Z offset: %.2f\n", live_z_offset[e]);
+  return E_SUCCESS;
+}
+
+err_code_t BedLevelService::unapply_live_z_offset(uint8_t e) {
+  motion_platform_svc.synchronize_planner();
+  float cur_z = motion_platform_svc.get_current_position(Z_AXIS);
+  motion_platform_svc.moveto_z(cur_z - live_z_offset[e], 5);
+  motion_platform_svc.sm_current_position[Z_AXIS] = cur_z;
+  motion_platform_svc.sync_plan_position_to_platform();
+  LOG_I("Unapply Z offset: %.2f\n", live_z_offset[e]);
+  return E_SUCCESS;
+}
+
+void BedLevelService::set_live_z_offset(uint8_t e, float offset) {
+  if (live_z_offset[e] != offset) {
+    bool use_babystep = false;
+    live_z_offset_changed = true;
+    LOG_I("z cur height changed: %f\n", offset - live_z_offset[e]);
+    if (e == smprinter.fdm->get_active_extruder()) {
+      err_code_t ret = E_FAILURE;
+      // bool req_pause = false;
+      if (smprinter.on_printing()) {
+        use_babystep = true;
+        ret = E_SUCCESS;
+        // ret = job_ctrl_svc.req_pause(PUASE_LIVE_Z_OFFSET, NULL, NULL);
+        // if (ret == E_SUCCESS)
+        //   req_pause = true;
+      }
+      else {
+        if (smprinter.get_sys_status() == SYSTEM_STATUS_PAUSED || smprinter.get_sys_status() == SYSTEM_STATUS_IDLE) {
+          ret = E_SUCCESS;
+        }
+      }
+
+      if (ret != E_SUCCESS) {
+        LOG_E("The current state does not allow modification of live_z_offset\n");
+        return;
+      }
+
+      if (motion_platform_svc.homing_now == true) {
+        LOG_E("homing now, z_offset is not allowed to be adjusted\n");
+        return;
+      }
+
+      // TODO: add plus timeout to jump out
+      // while(smprinter.get_sys_status() != SYSTEM_STATUS_PAUSED &&
+      //       smprinter.get_sys_status() != SYSTEM_STATUS_IDLE) {
+      //   motion_platform_svc.synchronize_planner();
+      // }
+
+      if (!use_babystep) {
+        motion_platform_svc.synchronize_planner();
+        float cur_z = motion_platform_svc.get_current_position(Z_AXIS);
+        motion_platform_svc.moveto_z(cur_z + (offset - live_z_offset[e]), 5);
+        motion_platform_svc.sm_current_position[Z_AXIS] = cur_z;
+        motion_platform_svc.sync_plan_position_to_platform();
+      }
+      else {
+        extern Babystep babystep;
+        taskENTER_CRITICAL();
+        babystep.add_mm(Z_AXIS, offset - live_z_offset[e]);
+        taskEXIT_CRITICAL();
+      }
+
+      // if (req_pause) {
+      //   job_ctrl_svc.req_resume(0, NULL, NULL, RESUME_TYPE_LIVE_Z_OFFSET);
+      // }
+    }
+    live_z_offset[e] = offset;
+    if (smprinter.get_sys_status() == SYSTEM_STATUS_IDLE) {
+      LOG_I("save live_z_offset\n");
+      live_z_offset_changed = false;
+      SnapmakerSettings *smsettings = smprinter.get_settings();
+      smsettings->bedlevel_settings.live_z_offset[e] = live_z_offset[e];
+      motion_platform_svc.save_settings();
+    }
+  } else {
+    LOG_I("live_z_offset no changes\n");
+  }
+}
+
+void BedLevelService::auto_probe_sensor_calibration() {
+  // go home if needed
+  if (!motion_platform_svc.is_all_axes_homed()) {
+    motion_platform_svc.run_gcode((char *)"G28", true);
+  }
+
+  // disable bedlevel
+  motion_platform_svc.disable_leveling();
+  motion_platform_svc.enable_z_probe();
+
+  // move to destination
+  motion_platform_svc.moveto_xyz(AUTO_PROBE_SENSOR_X_POSITION, AUTO_PROBE_SENSOR_Y_POSITION, AUTO_PROBE_SENSOR_Z_POSITION, 40);
+
+  // conductive probe
+  smprinter.fdm->set_probe_sensor(PROBE_SENSOR_LEFT_CONDUCTIVE);
+  float left_nozzle_touch_bed_z = motion_platform_svc.probe_at_point(AUTO_PROBE_SENSOR_X_POSITION, AUTO_PROBE_SENSOR_Y_POSITION, PROBE_PT_RAISE);
+  LOG_I("left_nozzle_touch_bed_z: %f\n", left_nozzle_touch_bed_z);
+
+  // optocoupler probe
+  smprinter.fdm->set_probe_sensor(PROBE_SENSOR_LEFT_OPTOCOUPLER);
+  float left_nozzle_detect_bed_z = motion_platform_svc.probe_at_point(AUTO_PROBE_SENSOR_X_POSITION, AUTO_PROBE_SENSOR_Y_POSITION, PROBE_PT_RAISE);
+  LOG_I("left_nozzle_detect_bed_z: %f\n", left_nozzle_detect_bed_z);
+
+  // raise and toolchange
+  motion_platform_svc.moveto_z(motion_platform_svc.get_current_position(Z_AXIS) + 5, 30);
+  ToolHeadFDM *fdm = (ToolHeadFDM *)module_svc.get_module(MODULE_DEVICE_ID_FDM_2EXTRUDER_2021, 0);
+  if (!fdm) {
+    return;
+  }
+
+  fdm->tool_change(1, false);
+
+  // conductive probe
+  smprinter.fdm->set_probe_sensor(PROBE_SENSOR_RIGHT_CONDUCTIVE);
+  float right_nozzle_touch_bed_z = motion_platform_svc.probe_at_point(AUTO_PROBE_SENSOR_X_POSITION, AUTO_PROBE_SENSOR_Y_POSITION, PROBE_PT_RAISE);
+  LOG_I("right_nozzle_touch_bed_z: %f\n", right_nozzle_touch_bed_z);
+
+  // optocoupler probe
+  smprinter.fdm->set_probe_sensor(PROBE_SENSOR_RIGHT_OPTOCOUPLER);
+  float right_nozzle_detect_bed_z = motion_platform_svc.probe_at_point(AUTO_PROBE_SENSOR_X_POSITION, AUTO_PROBE_SENSOR_Y_POSITION, PROBE_PT_RAISE);
+  LOG_I("right_nozzle_detect_bed_z: %f\n", right_nozzle_detect_bed_z);
+
+  // caculate and save
+  bedlevel_svc.z_compensation_[0] = left_nozzle_touch_bed_z - left_nozzle_detect_bed_z;
+  bedlevel_svc.z_compensation_[1] = right_nozzle_touch_bed_z - right_nozzle_detect_bed_z;
+  LOG_I("z_compensation_: %f, %f", bedlevel_svc.z_compensation_[0], bedlevel_svc.z_compensation_[1]);
+  LOG_I("hotend offset z: %f\n", left_nozzle_touch_bed_z - right_nozzle_touch_bed_z);
+  fdm->set_hotend_offset(left_nozzle_touch_bed_z - right_nozzle_touch_bed_z, Z_AXIS);
+  fdm->save_z_compensation_to_module(bedlevel_svc.z_compensation_);
+
+  motion_platform_svc.disable_z_probe();
+
+  // raise and toolchange
+  motion_platform_svc.moveto_z(motion_platform_svc.get_current_position(Z_AXIS) + 100, 30);
+  fdm->tool_change(0, false);
+}
+
+void BedLevelService::auto_hotend_offset_calibration() {
+  // go home if needed
+  if (!motion_platform_svc.is_all_axes_homed()) {
+    motion_platform_svc.run_gcode((char *)"G28", true);
+  }
+
+  // disable bedlevel
+  motion_platform_svc.disable_leveling();
+
+  // move to destination
+  motion_platform_svc.moveto_xyz(AUTO_HOTEND_OFFSET_CALIBRATION_X_POSITION, AUTO_HOTEND_OFFSET_CALIBRATION_Y_POSITION, AUTO_HOTEND_OFFSET_CALIBRATION_Z_POSITION, 40);
+
+  smprinter.fdm->set_probe_sensor(PROBE_SENSOR_LEFT_CONDUCTIVE);
+
+  // left nozzle x direction detect
+  motion_platform_svc.enable_x_probe();
+  float x_position_restore = motion_platform_svc.get_current_position(X_AXIS);
+  float left_nozzle_x1 = motion_platform_svc.probe_x(motion_platform_svc.get_current_position(X_AXIS) - 15);
+  motion_platform_svc.disable_x_probe();
+  LOG_I("left_nozzle_x1: %f\n", left_nozzle_x1);
+  motion_platform_svc.moveto_x(motion_platform_svc.get_current_position(X_AXIS) + 6, 10);
+  motion_platform_svc.enable_x_probe();
+  float left_nozzle_x2 = motion_platform_svc.probe_x(motion_platform_svc.get_current_position(X_AXIS) + 25);
+  LOG_I("left_nozzle_x2: %f\n", left_nozzle_x2);
+  motion_platform_svc.disable_x_probe();
+  motion_platform_svc.moveto_x(x_position_restore, 10);
+
+  // left nozzle y direction detect
+  motion_platform_svc.enable_y_probe();
+  float y_position_restore = motion_platform_svc.get_current_position(Y_AXIS);
+  float left_nozzle_y1 = motion_platform_svc.probe_y(motion_platform_svc.get_current_position(Y_AXIS) - 15);
+  LOG_I("left_nozzle_y1: %f\n", left_nozzle_y1);
+  motion_platform_svc.disable_y_probe();
+  motion_platform_svc.moveto_y(motion_platform_svc.get_current_position(Y_AXIS) + 6, 10);
+  motion_platform_svc.enable_y_probe();
+  float left_nozzle_y2 = motion_platform_svc.probe_y(motion_platform_svc.get_current_position(Y_AXIS) + 25);
+  LOG_I("left_nozzle_y2: %f\n", left_nozzle_y2);
+  motion_platform_svc.disable_y_probe();
+  motion_platform_svc.moveto_y(y_position_restore, 10);
+
+  // raise and toolchange
+  motion_platform_svc.moveto_z(motion_platform_svc.get_current_position(Z_AXIS) + 1.3, 30);
+  ToolHeadFDM *fdm = (ToolHeadFDM *)module_svc.get_module(MODULE_DEVICE_ID_FDM_2EXTRUDER_2021, 0);
+  if (!fdm) {
+    return;
+  }
+
+  fdm->tool_change(1, false);
+
+  smprinter.fdm->set_probe_sensor(PROBE_SENSOR_RIGHT_CONDUCTIVE);
+
+  // right nozzle x direction detect
+  motion_platform_svc.enable_x_probe();
+  x_position_restore = motion_platform_svc.get_current_position(X_AXIS);
+  float right_nozzle_x1 = motion_platform_svc.probe_x(motion_platform_svc.get_current_position(X_AXIS) - 15);
+  LOG_I("right_nozzle_x1: %f\n", right_nozzle_x1);
+  motion_platform_svc.disable_x_probe();
+  motion_platform_svc.moveto_x(motion_platform_svc.get_current_position(X_AXIS) + 6, 10);
+  motion_platform_svc.enable_x_probe();
+  float right_nozzle_x2 = motion_platform_svc.probe_x(motion_platform_svc.get_current_position(X_AXIS) + 25);
+  LOG_I("right_nozzle_x2: %f\n", right_nozzle_x2);
+  motion_platform_svc.disable_x_probe();
+  motion_platform_svc.moveto_x(x_position_restore, 10);
+
+  // right nozzle y direction detect
+  motion_platform_svc.enable_y_probe();
+  y_position_restore = motion_platform_svc.get_current_position(Y_AXIS);
+  float right_nozzle_y1 = motion_platform_svc.probe_y(motion_platform_svc.get_current_position(Y_AXIS) - 15);
+  LOG_I("right_nozzle_y1: %f\n", right_nozzle_y1);
+  motion_platform_svc.disable_y_probe();
+  motion_platform_svc.moveto_y(motion_platform_svc.get_current_position(Y_AXIS) + 6, 10);
+  motion_platform_svc.enable_y_probe();
+  float right_nozzle_y2 = motion_platform_svc.probe_y(motion_platform_svc.get_current_position(Y_AXIS) + 25);
+  LOG_I("right_nozzle_y2: %f\n", right_nozzle_y2);
+  motion_platform_svc.disable_y_probe();
+  motion_platform_svc.moveto_y(y_position_restore, 10);
+
+  // caculate and save
+  float x_offset, y_offset, z_offset;
+  smprinter.fdm->get_hotend_offset(x_offset, y_offset, z_offset);
+  float x_offset_tmp = (left_nozzle_x2 - left_nozzle_x1)/2 - (right_nozzle_x2 - right_nozzle_x1)/2;
+  float y_offset_tmp = (left_nozzle_y2 - left_nozzle_y1)/2 - (right_nozzle_y2 - right_nozzle_y1)/2;
+  x_offset += x_offset_tmp;
+  y_offset += y_offset_tmp;
+  LOG_I("hotend_offset: %f, %f, %f\n", x_offset, y_offset, z_offset);
+  fdm->set_hotend_offset(x_offset, X_AXIS);
+  fdm->set_hotend_offset(y_offset, Y_AXIS);
+
+  // raise
+  motion_platform_svc.moveto_z(motion_platform_svc.get_current_position(Z_AXIS) + 100, 30);
+  fdm->tool_change(0, false);
+}
+
+void BedLevelService::toolhead_auto_calibation() {
+  auto_probe_sensor_calibration();
+  // auto_hotend_offset_calibration();
+}
+
+void BedLevelService::update_soft_endstop_max_z() {
+  ToolHeadFDM *fdm = (ToolHeadFDM *)module_svc.get_module(MODULE_DEVICE_ID_FDM_2EXTRUDER_2021, 0);
+  if (!fdm) {
+    return;
+  }
+
+  uint8_t active_extruder = fdm->get_active_extruder();
+  if (active_extruder > EXTRUDERS - 1) {
+    return;
+  }
+  motion_platform_svc.update_soft_endstops(Z_AXIS, 1, -live_z_offset[active_extruder]);
+}
+
+void BedLevelService::report_probe_sensor_compensation() {
+  ToolHeadFDM *fdm = (ToolHeadFDM *)module_svc.get_module(MODULE_DEVICE_ID_FDM_2EXTRUDER_2021, 0);
+  if (!fdm) {
+    return;
+  }
+
+  if (fdm->get_device_id() != MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
+    return;
+  }
+
+  LOG_I("compensation, extruder0: %f, extruder1: %f\n", z_compensation_[0], z_compensation_[1]);
+}
+
+bool BedLevelService::get_z_drop_limit_status() {
+  bool ret = false;
+  SystemStatus sys_staus = smprinter.get_sys_status();
+
+  // To reduce the impact range, the limit is only detected in leveling mode
+  if (sys_staus == SYSTEM_STATUS_PROBE_SENSOR_CALIBRATION || sys_staus == SYSTEM_STATUS_MANUAL_BED_DETECTION) {
+    if (z_drop_limit_check && endstops.z_probe_enabled && smprinter.get_probe_state()) {
+      ret = true;
+    }
+  }
+  LOG_I("sys_staus: %d, z_drop_limit_check: %d, z_probe_enabled: %d, state: %d\n", sys_staus, z_drop_limit_check, endstops.z_probe_enabled, smprinter.get_probe_state());
+  return ret;
+}
+
+bool BedLevelService::set_bedlevel_env_info(uint8_t grids) {
+  if (grids < 2 || grids > 11) {
+    LOG_E("set bedlevel env: error grids, grids: %d\n", grids);
+    return false;
+  }
+
+  env_info.grid_max_points_x = grids;
+  env_info.grid_max_points_y = grids;
+  env_info.grid_max_cells_x  = env_info.grid_max_points_x - 1;
+  env_info.grid_max_cells_y  = env_info.grid_max_points_y - 1;
+
+  if (smprinter.fdm->get_device_id() == MODULE_DEVICE_ID_FDM_1EXTRUDER_2019) {
+    env_info.startx = SINGLE_EXTRUDER_X_BILINEAR_START_POINT;
+    env_info.endx   = SINGLE_EXTRUDER_X_BILINEAR_END_POINT;
+    env_info.starty = SINGLE_EXTRUDER_Y_BILINEAR_START_POINT;
+    env_info.endy   = SINGLE_EXTRUDER_Y_BILINEAR_END_POINT;
+  }
+  else {
+    env_info.startx = DOUBLE_EXTRUDER_X_BILINEAR_START_POINT;
+    env_info.endx   = DOUBLE_EXTRUDER_X_BILINEAR_END_POINT;
+    env_info.starty = DOUBLE_EXTRUDER_Y_BILINEAR_START_POINT;
+    env_info.endy   = DOUBLE_EXTRUDER_Y_BILINEAR_END_POINT;
+  }
+
+  env_info.bilinear_grid_spacing[X_AXIS] = (env_info.endx - env_info.startx) / (env_info.grid_max_points_x - 1);
+  env_info.bilinear_grid_spacing[Y_AXIS] = (env_info.endy - env_info.starty) / (env_info.grid_max_points_y - 1);
+  env_info.bilinear_start[X_AXIS] = RAW_X_POSITION(env_info.startx);
+  env_info.bilinear_start[Y_AXIS] = RAW_Y_POSITION(env_info.starty);
+  env_info.valid = true;
+  LOG_I("set bedlevel env: startx: %f, endx: %f, starty: %f, endy: %f\n", env_info.startx, env_info.endx, env_info.starty, env_info.endy);
+  return true;
+}
+
+void BedLevelService::pre_bedlevel_clear_live_z_offset(void) {
+  SnapmakerSettings * smsettings = NULL;
+  // clear live_z_offset
+  if (live_z_offset[active_extruder])
+    bedlevel_svc.unapply_live_z_offset(active_extruder);
+  live_z_offset[0] = 0;
+  live_z_offset[1] = 0;
+  smsettings = smprinter.get_settings();
+  if (!smsettings) {
+    LOG_I("[%s] get smsettings pointer fail\n");
+    return;
+  }
+  smsettings->bedlevel_settings.live_z_offset[0] = 0;
+  smsettings->bedlevel_settings.live_z_offset[1] = 0;
+  motion_platform_svc.save_settings();
+}

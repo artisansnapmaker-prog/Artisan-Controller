@@ -1,0 +1,865 @@
+/*
+ * Snapmaker2-Controller Firmware
+ * Copyright (C) 2019-2020 Snapmaker [https://github.com/Snapmaker]
+ *
+ * This file is part of Snapmaker2-Controller
+ * (see https://github.com/Snapmaker/Snapmaker2-Controller)
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+#include "../config.h"
+#include "../common/debug.h"
+#include "../host/sacp_module.h"
+#include "../common/utility.h"
+#include "../snapmaker.h"
+#include "system.h"
+#include "motion_platform.h"
+#include "client_node.h"
+
+
+SemaphoreHandle_t AT_CCMRAM ClientNode::_lock;
+ClientNode AT_CCMRAM *ClientNode::client_node_tab[MAX_CLIENT_NODE_NUM];
+
+client_node_onoffline_handle_t AT_CCMRAM ClientNode::client_node_onoffline_cb_tab[CLIENT_NODE_ONFFLINE_NOTIFY_CB_MAX];
+
+SemaphoreHandle_t AT_CCMRAM ClientNode::sacp_msg_copy_lock;
+sacp_hmi_message_t AT_CCMRAM ClientNode::sacp_msg_copy[MAX_SACP_MSG_COPY];
+bool AT_CCMRAM ClientNode::sacp_msg_copy_occupy[MAX_SACP_MSG_COPY];
+
+
+void ClientNode::class_init(void) {
+  err_code_t ret;
+
+  LOG_I("Client node: client node class int\r\n");
+
+  for (uint8_t i = 0; i < MAX_CLIENT_NODE_NUM; i++) {
+    ClientNode *new_cn = new ClientNode(IVALID_PEER, IVALID_CH);
+    configASSERT(new_cn);
+    new_cn->init();
+    client_node_tab[i] = new_cn;
+  }
+
+  for (uint32_t i = 0; i < CLIENT_NODE_ONFFLINE_NOTIFY_CB_MAX; i++) {
+    client_node_onoffline_cb_tab[i].obj = NULL;
+    client_node_onoffline_cb_tab[i].cb = NULL;
+  }
+
+  _lock = xSemaphoreCreateMutex();
+  configASSERT(_lock);
+
+  sacp_msg_copy_lock = xSemaphoreCreateMutex();
+  configASSERT(sacp_msg_copy_lock);
+  for (uint32_t i = 0; i < MAX_SACP_MSG_COPY; i++) {
+    sacp_msg_copy_occupy[i] = false;
+  }
+
+  LOG_I("Client node: register SACP cmd set and cmd id callback\r\n");
+  ret = E_SUCCESS;
+  // job control
+  ret |= host_hmi.apply_cmd_set_handle(CMD_SET_JOB_CTRL, CMD_ID_JOB_CTRL_NUM);
+  ret |= host_hmi.register_callback(CMD_SET_JOB_CTRL, CMD_ID_JOB_GET_GCODE_FILE_INFO, NULL, sacp_cb);
+  ret |= host_hmi.register_callback(CMD_SET_JOB_CTRL, CMD_ID_JOB_CTRL_START, NULL, sacp_cb, SACP_CB_ATTR_BLOCKED_WITH_MOTION);
+  ret |= host_hmi.register_callback(CMD_SET_JOB_CTRL, CMD_ID_JOB_CTRL_PAUSE, NULL, sacp_cb, SACP_CB_ATTR_BLOCKED_WITHOUT_MOTION);
+  ret |= host_hmi.register_callback(CMD_SET_JOB_CTRL, CMD_ID_JOB_CTRL_RESUME, NULL, sacp_cb, SACP_CB_ATTR_BLOCKED_WITH_MOTION);
+  ret |= host_hmi.register_callback(CMD_SET_JOB_CTRL, CMD_ID_JOB_CTRL_STOP, NULL, sacp_cb);
+  ret |= host_hmi.register_callback(CMD_SET_JOB_CTRL, CMD_ID_JOB_SET_FEEDRATE_PERCENTAGE, NULL, sacp_cb);
+  ret |= host_hmi.register_callback(CMD_SET_JOB_CTRL, CMD_ID_JOB_GET_FEEDRATE_PERCENTAGE, NULL, sacp_cb);
+  ret |= host_hmi.register_callback(CMD_SET_JOB_CTRL, CMD_ID_JOB_SET_FLOWRATE_PERCENTAGE, NULL, sacp_cb);
+  ret |= host_hmi.register_callback(CMD_SET_JOB_CTRL, CMD_ID_JOB_GET_FLOWRATE_PERCENTAGE, NULL, sacp_cb);
+
+  // register subscibtion
+  LOG_I("Client node: register SACP subscription callback\r\n");
+  ret |= host_hmi.register_subscription(  CMD_SET_JOB_CTRL,
+                                          SUB_ID_JOB_CTRL_CUR_LINE_NUM,
+                                          (void *)job_ctrl_linenum_sub_cb,
+                                          job_ctrl_linenum_sub_cb);
+
+  ret |= host_hmi.register_new_route_handle(NULL, on_new_client_node);
+
+  if (E_SUCCESS != ret) {
+    LOG_E("Client node: can not register sacp callback\r\n");
+    while(1);
+  }
+}
+
+void ClientNode::on_new_client_node(void *obj, sacp_route_table_t *rt) {
+  bool notify = false;
+  ClientNode *cn;
+
+  if (SACP_ROUTE_STA_ONLINE == rt->status) {
+    if ((cn = find_client_node(rt->peer, rt->ch))) {
+      notify = true;
+    }
+    else {
+      cn = malloc_client_node(rt->peer, rt->ch);
+      if (cn) {
+        notify = true;
+      }
+      else {
+        LOG_E("client_node: can not malloc client node for peer %d ch %d\r\n", rt->peer, rt->ch);
+      }
+    }
+  }
+
+  if (notify) {
+    LOG_I("client_node: [%x:%u] status change %u\r\n", rt->peer, rt->ch, rt->status);
+    for (uint32_t idx = 0; idx < CLIENT_NODE_ONFFLINE_NOTIFY_CB_MAX; idx++) {
+      if (client_node_onoffline_cb_tab[idx].cb != NULL) {
+        client_node_onoffline_cb_tab[idx].cb(client_node_onoffline_cb_tab[idx].obj, cn->id, rt->status);
+      }
+    }
+  }
+}
+
+err_code_t ClientNode::sacp_cb(void *obj, sacp_hmi_message_t *msg) {
+  ClientNode *cn;
+
+  cn = find_client_node(msg->peer, msg->ch);
+  if (cn) {
+    return cn->sacp_handle(cn, msg);
+  }
+  else {
+    ClientNode *new_cn = malloc_client_node(msg->peer, msg->ch);
+    if (!new_cn) {
+      LOG_E("Client node: can not malloc a client node\r\n");
+      host_hmi.send_ack(msg, SACP_RET_NO_MEM);
+      return E_FAILURE;
+    }
+
+    return new_cn->sacp_handle(cn, msg);
+  }
+}
+
+ClientNode *ClientNode::find_client_node(uint32_t peer, uint8_t ch) {
+  for(uint8_t i = 0; i < MAX_CLIENT_NODE_NUM; i++) {
+    if (client_node_tab[i] && peer == client_node_tab[i]->peer && ch == client_node_tab[i]->ch) {
+      return client_node_tab[i];
+    }
+  }
+  return NULL;
+}
+
+ClientNode *ClientNode::find_client_node(uint8_t id) {
+  if (id >= MAX_CLIENT_NODE_NUM) {
+    LOG_E("ClientNode: invalid client id[%u]\n", id);
+    return NULL;
+  }
+
+  return client_node_tab[id];
+}
+
+uint8_t ClientNode::client_id(uint32_t peer, uint8_t ch) {
+  for(uint8_t i = 0; i < MAX_CLIENT_NODE_NUM; i++) {
+    if (client_node_tab[i] && peer == client_node_tab[i]->peer && ch == client_node_tab[i]->ch) {
+      return i;
+    }
+  }
+
+  return IVALID_CLIENT_ID;
+}
+
+ClientNode * ClientNode::malloc_client_node(uint32_t peer, uint8_t ch) {
+  ClientNode *ret = NULL;
+
+  LOCK(_lock, 0);
+  for(uint8_t i = 0; i < MAX_CLIENT_NODE_NUM; i++) {
+    if (client_node_tab[i] && IVALID_PEER == client_node_tab[i]->peer) {
+      client_node_tab[i]->peer = peer;
+      client_node_tab[i]->ch = ch;
+      client_node_tab[i]->id = i;
+      ret = client_node_tab[i];
+      break;
+    }
+  }
+  UNLOCK(_lock);
+
+  return ret;
+}
+
+err_code_t ClientNode::del_client_node(uint32_t peer, uint8_t ch) {
+  ClientNode *cn = find_client_node(peer, ch);
+  if (!cn)
+    return E_FAILURE;
+  return del_client_node(cn);
+}
+
+err_code_t ClientNode::del_client_node(uint8_t id) {
+  ClientNode *cn = find_client_node(id);
+  if (!cn)
+    return E_FAILURE;
+  return del_client_node(cn);
+}
+
+err_code_t ClientNode::del_client_node(ClientNode *cn) {
+  // TODO: should we need to lock?
+  cn->peer = IVALID_PEER;
+  cn->ch = IVALID_CH;
+  return E_SUCCESS;
+}
+
+ClientNode *ClientNode::touch_client(uint32_t peer, uint8_t ch) {
+  ClientNode *cn = find_client_node(peer, ch);
+  if (cn) {
+    cn->ch = ch;
+    return cn;
+  }
+  else {
+    return malloc_client_node(peer, ch);
+  }
+}
+
+err_code_t ClientNode::register_on_client_node_online(void *obj, client_node_onoffline_cb cb) {
+  if (!cb)
+    return E_FAILURE;
+
+  for (uint32_t i = 0; i < CLIENT_NODE_ONFFLINE_NOTIFY_CB_MAX; i++) {
+    if (client_node_onoffline_cb_tab[i].cb == NULL) {
+      client_node_onoffline_cb_tab[i].cb = cb;
+      client_node_onoffline_cb_tab[i].obj = obj;
+      return E_SUCCESS;
+    }
+  }
+
+  return E_FAILURE;
+}
+
+bool ClientNode::get_batch_gcode(uint8_t client_id, req_batch_gcode_t &req_batch_gcode, res_batch_gcode_t &res_batch_gcode) {
+  ClientNode *cn;
+
+  cn = find_client_node(client_id);
+  if (cn) {
+    return cn->sacp_get_batch_gcode(req_batch_gcode, res_batch_gcode);
+  }
+  else {
+    LOG_E("Client node: can not find this client");
+    return false;
+  }
+}
+
+uint16_t ClientNode::job_ctrl_linenum_sub_cb(void *obj, uint8_t *buffer) {
+  uint32_t ln;
+  ln = job_ctrl_svc.get_cur_linenum();
+
+  buffer[0] = E_SUCCESS;              // result
+  _32_TO_LITTLE_STREAM(ln, buffer+1);   // line number
+  return 5;
+}
+
+uint16_t ClientNode::sys_hardtick_sub_cb(void *obj, uint8_t *buffer) {
+  buffer[0] = E_SUCCESS;
+  buffer[1] = smprinter.get_sys_status();
+  return 2;
+}
+
+err_code_t ClientNode::issue_client(uint8_t id, uint8_t issue_ret) {
+  // report status change reasone
+  ClientNode *client;
+
+  sacp_hmi_message_t msg;
+  uint8_t tx_buf[1];
+  uint8_t rx_buf[8];
+  uint16_t rx_len = 8;
+
+  msg.cmd_set = CMD_SET_JOB_CTRL;
+  msg.cmd_id  = CMD_ID_JOB_CTRL_ISSUE;
+  msg.data    = tx_buf;
+  msg.length  = 1;
+  msg.attr    = 0;
+  tx_buf[0]   = issue_ret;
+
+  for (uint8_t i = 0; i < MAX_CLIENT_NODE_NUM; i++) {
+    client = ClientNode::find_client_node(i);
+    if (!client || client->peer == SACP_HOST_INVALID)
+      continue;
+
+    msg.ch = client->ch;
+    msg.peer = client->peer;
+
+    if (msg.peer == SACP_HOST_ID_SCREEN) {
+      rx_buf[0] = E_SUCCESS;
+      if (E_SUCCESS != host_hmi.send_sync(&msg, rx_buf, &rx_len)) {
+        LOG_E("Client node: Issue failure, failed to send msg\r\n");
+        // return E_FAILURE;
+      }
+
+      if (E_SUCCESS != rx_buf[0]) {
+        LOG_E("Client node: Issue failure, result is not success\r\n");
+        // return E_FAILURE;
+      }
+    }
+    else {
+      if (host_hmi.send(&msg))
+        LOG_E("Client node: Issue failure, failed to send msg, host[%u:%u]\r\n", client->peer, client->ch);
+    }
+  }
+
+  return E_SUCCESS;
+}
+
+ClientNode::ClientNode(uint32_t peer, uint8_t ch): peer(peer), ch(ch) {
+
+}
+
+err_code_t ClientNode::init(void) {
+  peer = SACP_HOST_INVALID;
+  ch   = SACP_HMI_CH_INVALID;
+
+  return E_SUCCESS;
+}
+
+sacp_hmi_message_t *ClientNode::malloc_sacp_msg_node(void) {
+  sacp_hmi_message_t *node = NULL;
+
+  LOCK(sacp_msg_copy_lock, 0);
+  for (uint32_t i = 0; i < MAX_SACP_MSG_COPY; i++) {
+    if (!sacp_msg_copy_occupy[i]) {
+      sacp_msg_copy_occupy[i] = true;
+      node = &sacp_msg_copy[i];
+      break;
+    }
+  }
+  UNLOCK(sacp_msg_copy_lock);
+
+  return node;
+}
+
+err_code_t ClientNode::free_sacp_msg_node(sacp_hmi_message_t *sacp_msg) {
+  err_code_t ret = E_FAILURE;
+
+  LOCK(sacp_msg_copy_lock, 0);
+  for (uint32_t i = 0; i < MAX_SACP_MSG_COPY; i++) {
+    if (sacp_msg == &sacp_msg_copy[i]) {
+      sacp_msg_copy_occupy[i] = false;
+      ret = E_SUCCESS;
+      break;
+    }
+  }
+  UNLOCK(sacp_msg_copy_lock);
+
+  return ret;
+}
+
+
+void ClientNode::job_request_cb(void *p, uint8_t result) {
+  err_code_t ret;
+  uint8_t recv_buff[4];
+  uint16_t recv_len = 4;
+
+  sacp_hmi_message_t *copy_msg = (sacp_hmi_message_t *)p;
+
+  if (!copy_msg) {
+    LOG_W("ClientNode:job_request_cb: msg is NULL, sys status[%u]\n", smprinter.get_sys_status());
+    return;
+  }
+
+  copy_msg->attr = 0;
+  copy_msg->length = 1;
+  copy_msg->data = &result;
+
+  if ((ret = host_hmi.send_sync(copy_msg, recv_buff, &recv_len)) != E_SUCCESS) {
+    LOG_E("ClientNode: failted to notify HMI, ret: %u\n", ret);
+  }
+
+  free_sacp_msg_node(copy_msg);
+}
+
+
+void ClientNode::timer_cb(void *p) {
+  LOG_I("Send hardtick if need\r\n");
+}
+
+bool ClientNode::sacp_get_batch_gcode(req_batch_gcode_t &req_batch_gcode, res_batch_gcode_t &res_batch_gcode) {
+  err_code_t ret;
+  uint16_t out_len;
+  sacp_hmi_message_t s_msg;
+  uint8_t buf[SEND_BUF_SIZE];
+
+  if (res_batch_gcode.gcode_str == NULL || req_batch_gcode.buf_len < 1) {
+    LOG_E("client_node: res_batch_gcode param error, buf_len: %d\r\n", req_batch_gcode.buf_len);
+    return false;
+  }
+
+  // 11 is the start of linenumber end of linenumber and so on
+  if (req_batch_gcode.buf_len + 11 > SEND_BUF_SIZE) {
+    LOG_E("client_node: sacp_get_batch_gcode req buf len too large\r\n");
+    return false;
+  }
+
+  s_msg.ch = ch;
+  s_msg.peer = peer;
+  s_msg.attr = 0;
+  s_msg.data = buf;
+  s_msg.cmd_set = CMD_SET_JOB_CTRL;
+  s_msg.cmd_id = CMD_ID_JOB_CTRL_REQ_GCODE;
+  _32_TO_LITTLE_STREAM(req_batch_gcode.line_num, buf);
+  _16_TO_LITTLE_STREAM((req_batch_gcode.buf_len - 1), buf + 4);
+  s_msg.length = 6;
+  out_len = SEND_BUF_SIZE;
+  ret = host_hmi.send_sync(&s_msg, buf, &out_len, 500);
+  if (E_SUCCESS == ret) {
+    if(out_len < 8){
+      LOG_E("Client node: batch gcode response lenght error, must > 8, but get %d\r\n", out_len);
+      return false;
+    }
+    uint8_t *p = buf;
+    res_batch_gcode.result = p[0]; p += 1;
+    res_batch_gcode.start_line_num = LITTLE_STREAM_TO_32(p); p += 4;
+    res_batch_gcode.end_line_num = LITTLE_STREAM_TO_32(p); p+= 4;
+    uint16_t str_len = LITTLE_STREAM_TO_16(p); p += 2;
+    // LOG_I("client_node: start line %d, end line %d, strlen %d\r\n", res_batch_gcode.start_line_num, res_batch_gcode.end_line_num, str_len);
+    // LOG_I("gcode string: %s\r\n", (char *)p);
+    if (str_len >= req_batch_gcode.buf_len) {
+      LOG_E("Client node: get too much data, not enough space, data len %d, buff len %d\r\n", str_len, req_batch_gcode.buf_len - 1);
+      return false;
+    }
+
+    if (str_len)
+      memcpy(res_batch_gcode.gcode_str, p, str_len);
+
+    res_batch_gcode.gcode_str[str_len] = '\0';
+    return true;
+  }
+  else {
+    LOG_E("Client node: send sync failed in when get gcode, return %d\r\n", ret);
+    return false;
+  }
+}
+
+err_code_t ClientNode::sacp_handle(ClientNode *client, sacp_hmi_message_t *msg) {
+
+  switch (msg->cmd_id) {
+    case CMD_ID_JOB_GET_GCODE_FILE_INFO:
+      return get_gcode_info(msg);
+    break;
+
+    case CMD_ID_JOB_CTRL_START:
+      return req_start_job(client, msg);
+    break;
+
+    case CMD_ID_JOB_CTRL_PAUSE:
+      return req_pause_job(client, msg);
+    break;
+
+    case CMD_ID_JOB_CTRL_RESUME:
+      return req_resume_job(client, msg);
+    break;
+
+    case CMD_ID_JOB_CTRL_STOP:
+      return req_stop_job(client, msg);
+    break;
+
+    case CMD_ID_JOB_SET_FEEDRATE_PERCENTAGE:
+      return req_set_feedrate_percentage(msg);
+    break;
+
+    case CMD_ID_JOB_GET_FEEDRATE_PERCENTAGE:
+      return req_get_feedrate_percentage(msg);
+    break;
+
+    case CMD_ID_JOB_SET_FLOWRATE_PERCENTAGE:
+      return req_set_flowrate_percentage(msg);
+      break;
+
+    case CMD_ID_JOB_GET_FLOWRATE_PERCENTAGE:
+      return req_get_flowrate_percentage(msg);
+      break;
+
+    default:
+      LOG_E("Client node: Unkonw command id %d in command set %d\r\n", msg->cmd_id, msg->cmd_set);
+      return E_FAILURE;
+    break;
+  }
+}
+
+err_code_t ClientNode::get_gcode_info(sacp_hmi_message_t* msg) {
+  uint16_t str_len;
+  struct GcodeFileInfo *gfi;
+  uint8_t *p = msg->data;
+
+  gfi = job_ctrl_svc.get_gcode_info();
+  if (gfi) {
+    p[0] = SACP_RET_SUCCESS;
+
+    _16_TO_LITTLE_STREAM(GCODE_MD5_LENGTH, p);
+    p += 2;
+    memcpy(p, gfi->MD5, GCODE_MD5_LENGTH);
+    p += GCODE_MD5_LENGTH;
+
+    str_len = strlen((char *)gfi->name);
+    _16_TO_LITTLE_STREAM(str_len, p);
+    p += 2;
+    memcpy(p, gfi->name, str_len);
+    p += str_len;
+  }
+  else {
+    p[0] = SACP_RET_JOB_GCODE_FILE_NO_EXIT;
+
+    // dummy data
+    _16_TO_LITTLE_STREAM(GCODE_MD5_LENGTH, p);
+    p += 2;
+    memset(p, 0, GCODE_MD5_LENGTH);
+    p += GCODE_MD5_LENGTH;
+
+    _16_TO_LITTLE_STREAM(GCODE_FILE_NAME_SIZE, p);
+    p += 2;
+    memset(p, 0, GCODE_FILE_NAME_SIZE);
+    p += GCODE_FILE_NAME_SIZE;
+  }
+  msg->length = p - msg->data;
+  return host_hmi.send(msg);
+}
+
+err_code_t ClientNode::req_start_job(ClientNode *client, sacp_hmi_message_t *msg) {
+  err_code_t ret;
+  uint16_t str_len;
+  toolHeadType type;
+  struct GcodeFileInfo gfi;
+  sacp_hmi_message_t *msg_cp;
+  uint8_t *p;
+
+  uint8_t recv_buff[4];
+  uint16_t recv_len = 4;
+
+  LOG_I("client_node: client %d  peer: %d request start a job at sta %u ext map type: %d\r\n", \
+          client->id, client->peer, smprinter.get_sys_status(), smprinter.get_extruder_map_type());
+
+  p = msg->data;
+  // check MD5
+  str_len = LITTLE_STREAM_TO_16(p);
+  p += 2;
+
+  // will change the first byte, so put it to str_len firstly above
+  msg->data[0] = E_SUCCESS;
+  msg->length = 1;
+  host_hmi.send_ack(msg);
+
+  // prepare data for ACK
+  msg->cmd_id = CMD_ID_JOB_CTRL_NOTIFY_START;
+  msg->attr   = 0;
+  msg->length = 1;
+
+  if (!smprinter.get_cur_toolhead()) {
+    LOG_E("Client node: no toolhead!\r\n");
+    msg->data[0] = SACP_RET_JOB_NO_TOOLHEAD;
+    if ((ret = host_hmi.send_sync(msg, recv_buff, &recv_len)) != E_SUCCESS) {
+      LOG_E("failted to notify HMI START, ret: %u\n", ret);
+    }
+    return ret;
+  }
+
+  if (str_len < GCODE_MD5_LENGTH) {
+    LOG_E("Client node: MD5 length error\r\n");
+
+    msg->data[0] = SACP_RET_JOB_IVALID_GCODE_FILE;
+    if ((ret = host_hmi.send_sync(msg, recv_buff, &recv_len)) != E_SUCCESS) {
+      LOG_E("failted to notify HMI START, ret: %u\n", ret);
+    }
+    return ret;
+  }
+
+  memcpy(gfi.MD5, p, str_len);
+  p += str_len;
+
+  // check gcode filename
+  str_len = LITTLE_STREAM_TO_16(p);
+  p += 2;
+  if (str_len > GCODE_FILE_NAME_SIZE-1) {
+    LOG_E("Client node: file name too long\r\n");
+    msg->data[0] = SACP_RET_JOB_IVALID_GCODE_FILE;
+    if ((ret = host_hmi.send_sync(msg, recv_buff, &recv_len)) != E_SUCCESS) {
+      LOG_E("failted to notify HMI START, ret: %u\n", ret);
+    }
+    return ret;
+  }
+  memcpy(gfi.name, p, str_len);
+  gfi.name[str_len] = '\0';
+  p += str_len;
+
+  // check print type: fdm cnc laser
+  type = toolHeadType(p[0]);
+  if (type >= TH_TYPE_UNKNOW) {
+    LOG_E("Client node: unknow job type %d\r\n", type);
+    msg->data[0] = SACP_RET_UNSUPPORT_PARAM;
+    if ((ret = host_hmi.send_sync(msg, recv_buff, &recv_len)) != E_SUCCESS) {
+      LOG_E("failted to notify HMI START, ret: %u\n", ret);
+    }
+    return ret;
+  }
+
+  // starting
+  msg_cp = malloc_sacp_msg_node();
+  if (!msg_cp) {
+    LOG_E("client_node: can not malloc sacp msg copy\r\n");
+    msg->data[0] = SACP_RET_NO_RESC;
+    if ((ret = host_hmi.send_sync(msg, recv_buff, &recv_len)) != E_SUCCESS) {
+      LOG_E("failted to notify HMI START, ret: %u\n", ret);
+    }
+    return ret;
+  }
+
+  LOG_I("peer: %d, ch: %d: request print %s!!!\n", client->peer, client->ch, gfi.name);
+  *msg_cp = *msg;
+  ret = job_ctrl_svc.req_start(id, &gfi, type, job_request_cb, msg_cp);
+  if (E_SUCCESS != ret) {
+    free_sacp_msg_node(msg_cp);
+    LOG_E("client_node: failed to req start\r\n");
+    msg->data[0] = ret;
+    if ((ret = host_hmi.send_sync(msg, recv_buff, &recv_len)) != E_SUCCESS) {
+      LOG_E("failted to notify HMI START, ret: %u\n", ret);
+    }
+    return ret;
+  }
+
+  return E_SUCCESS;
+}
+
+err_code_t ClientNode::req_pause_job(ClientNode *client, sacp_hmi_message_t* msg) {
+  err_code_t ret;
+  sacp_hmi_message_t *msg_cp;
+
+  uint8_t recv_buff[4];
+  uint16_t recv_len = 4;
+
+  LOG_I("Client node: %d client %d request pause a job at sta %u\r\n", millis(), client->id, smprinter.get_sys_status());
+
+  // ACK firstly
+  msg->data[0] = E_SUCCESS;
+  msg->length = 1;
+  host_hmi.send_ack(msg);
+
+  // prepare data for ACK
+  msg->cmd_id = CMD_ID_JOB_CTRL_NOTIFY_PAUSE;
+  msg->attr   = 0;
+  msg->length = 1;
+
+  msg_cp = malloc_sacp_msg_node();
+  if (!msg_cp) {
+    LOG_E("client_node: can not malloc sacp msg copy\r\n");
+    msg->data[0] = SACP_RET_NO_RESC;
+    if ((ret = host_hmi.send_sync(msg, recv_buff, &recv_len)) != E_SUCCESS) {
+      LOG_E("failted to notify HMI PAUSE, ret: %u\n", ret);
+    }
+    return ret;
+  }
+
+  *msg_cp = *msg;
+  ret = job_ctrl_svc.req_pause(PAUSE_CLIENT_REQ, job_request_cb, msg_cp);
+  if (E_SUCCESS != ret) {
+    free_sacp_msg_node(msg_cp);
+    LOG_E("client_node: failed to req pause\r\n");
+    msg->data[0] = ret;
+    if ((ret = host_hmi.send_sync(msg, recv_buff, &recv_len)) != E_SUCCESS) {
+      LOG_E("failted to notify HMI PAUSE, ret: %u\n", ret);
+    }
+    return ret;
+  }
+
+  return E_SUCCESS;
+}
+
+err_code_t ClientNode::req_resume_job(ClientNode *client, sacp_hmi_message_t* msg) {
+  err_code_t ret;
+  sacp_hmi_message_t *msg_cp;
+
+  uint8_t recv_buff[4];
+  uint16_t recv_len = 4;
+
+  LOG_I("Client node: client %d request resume a job at sta %u\r\n", client->id, smprinter.get_sys_status());
+
+  // ACK firstly
+  msg->data[0] = E_SUCCESS;
+  msg->length = 1;
+  host_hmi.send_ack(msg);
+
+  // prepare data for ACK
+  msg->cmd_id = CMD_ID_JOB_CTRL_NOTIFY_RESUME;
+  msg->attr   = 0;
+  msg->length = 1;
+
+  msg_cp = malloc_sacp_msg_node();
+  if (!msg_cp) {
+    LOG_E("client_node: can not malloc sacp msg copy\r\n");
+    msg->data[0] = SACP_RET_NO_RESC;
+    if ((ret = host_hmi.send_sync(msg, recv_buff, &recv_len)) != E_SUCCESS) {
+      LOG_E("failted to notify HMI RESUME, ret: %u\n", ret);
+    }
+    return ret;
+  }
+
+  *msg_cp = *msg;
+  ret = job_ctrl_svc.req_resume(id, job_request_cb, msg_cp);
+  if (E_SUCCESS != ret) {
+    free_sacp_msg_node(msg_cp);
+    LOG_E("client_node: failed to req resume\r\n");
+    msg->data[0] = ret;
+    if ((ret = host_hmi.send_sync(msg, recv_buff, &recv_len)) != E_SUCCESS) {
+      LOG_E("failted to notify HMI RESUME, ret: %u\n", ret);
+    }
+    return ret;
+  }
+
+  return E_SUCCESS;
+}
+
+err_code_t ClientNode::req_stop_job(ClientNode *client, sacp_hmi_message_t* msg) {
+  err_code_t ret;
+  sacp_hmi_message_t *msg_cp;
+
+  uint8_t recv_buff[4];
+  uint16_t recv_len = 4;
+
+  LOG_I("Client node: client %d request stop a job at sta %u\r\n", client->id, smprinter.get_sys_status());
+
+  // ACK firstly
+  msg->data[0] = E_SUCCESS;
+  msg->length = 1;
+  host_hmi.send_ack(msg);
+
+  // prepare data for ACK
+  msg->cmd_id = CMD_ID_JOB_CTRL_NOTIFY_STOP;
+  msg->attr   = 0;
+  msg->length = 1;
+
+  msg_cp = malloc_sacp_msg_node();
+  if (!msg_cp) {
+    LOG_E("client_node: can not malloc sacp msg copy\r\n");
+    msg->data[0] = SACP_RET_NO_RESC;
+    if ((ret = host_hmi.send_sync(msg, recv_buff, &recv_len)) != E_SUCCESS) {
+      LOG_E("failted to notify HMI STOP, ret: %u\n", ret);
+    }
+    return ret;
+  }
+  *msg_cp = *msg;
+  // ret = job_ctrl_svc.req_stop(STOP_CLIENT_REQ, SACP_JOB_PAUSE_ISSUE_RET_STOP_CLIENT_REQ, job_req_stop_cb, msg_cp);
+  ret = job_ctrl_svc.req_stop(STOP_CLIENT_REQ, SACP_JOB_PAUSE_ISSUE_RET_STOP_CLIENT_REQ, job_request_cb, msg_cp);
+  if (E_SUCCESS != ret) {
+    free_sacp_msg_node(msg_cp);
+    LOG_E("client_node: failed to req stop\r\n");
+    msg->data[0] = ret;
+    if ((ret = host_hmi.send_sync(msg, recv_buff, &recv_len)) != E_SUCCESS) {
+      LOG_E("failted to notify HMI STOP, ret: %u\n", ret);
+    }
+    return ret;
+  }
+
+  // abort heating with blocked when stop working
+  motion_platform_svc.abort_heating();
+
+  return E_SUCCESS;
+}
+
+err_code_t ClientNode::req_set_feedrate_percentage(sacp_hmi_message_t* msg) {
+  err_code_t ret = E_SUCCESS;
+
+  // get current toolhead
+  ModuleBase *cur_toolhead = smprinter.get_cur_toolhead();
+  if (!cur_toolhead) {
+    ret = E_HARDWARE;
+    goto EXIT;
+  }
+
+  ret = cur_toolhead->set_feedrate_percentage(msg->data, msg->length);
+
+EXIT:
+  // response to hmi
+  host_hmi.send_ack(msg, ret);
+  return ret;
+}
+
+err_code_t ClientNode::req_get_feedrate_percentage(sacp_hmi_message_t* msg) {
+  err_code_t ret = E_SUCCESS;
+  uint8_t key;
+  uint16_t index = 0;
+  uint16_t length = 0;
+
+  key = msg->data[0];
+
+  // get current toolhead
+  ModuleBase *cur_toolhead = smprinter.get_cur_toolhead();
+  if (!cur_toolhead) {
+    ret = E_HARDWARE;
+    goto EXIT;
+  }
+
+  length = cur_toolhead->get_feedrate_percentage(&(msg->data[2]));
+
+EXIT:
+  index = 0;
+  msg->data[index++] = ret;
+  msg->data[index++] = key;
+  msg->length = index + length;
+
+  host_hmi.send_ack(msg);
+  return ret;
+}
+
+err_code_t ClientNode::req_set_flowrate_percentage(sacp_hmi_message_t* msg) {
+  err_code_t ret = E_SUCCESS;
+
+  // uint8_t key = msg->data[0];
+  uint8_t e = msg->data[1];
+  int16_t flowrate_percentage = msg->data[2] | (msg->data[3] << 8);
+
+  ToolHeadFDM *fdm = (ToolHeadFDM *)module_svc.get_module(MODULE_DEVICE_ID_FDM_2EXTRUDER_2021, 0);
+  if (!fdm) {
+    fdm = (ToolHeadFDM *)module_svc.get_module(MODULE_DEVICE_ID_FDM_1EXTRUDER_2019, 0);
+    if (!fdm) {
+      ret = E_FAILURE;
+      goto EXIT;
+    }
+  }
+
+  ret = fdm->set_extruders_flowrate_percentage(flowrate_percentage, e);
+
+  // response to hmi
+  host_hmi.send_ack(msg, ret);
+
+EXIT:
+  return ret;
+}
+
+err_code_t ClientNode::req_get_flowrate_percentage(sacp_hmi_message_t* msg) {
+  err_code_t ret = E_SUCCESS;
+  uint8_t key;
+  int16_t extruder0_flowrate_percentage;
+  int16_t extruder1_flowrate_percentage;
+  uint16_t index;
+
+  ToolHeadFDM *fdm = (ToolHeadFDM *)module_svc.get_module(MODULE_DEVICE_ID_FDM_2EXTRUDER_2021, 0);
+  if (!fdm) {
+    fdm = (ToolHeadFDM *)module_svc.get_module(MODULE_DEVICE_ID_FDM_1EXTRUDER_2019, 0);
+    if (!fdm) {
+      ret = E_FAILURE;
+      goto EXIT;
+    }
+  }
+
+  key = msg->data[0];
+  extruder0_flowrate_percentage = fdm->get_extruders_flowrate_percentage(0);
+  extruder1_flowrate_percentage = fdm->get_extruders_flowrate_percentage(1);
+
+  index = 0;
+  msg->data[index++] = ret;
+  msg->data[index++] = key;
+  msg->data[index++] = 2;
+  msg->data[index++] = extruder0_flowrate_percentage & 0xff;
+  msg->data[index++] = (extruder0_flowrate_percentage >> 8) & 0xff;
+  msg->data[index++] = extruder1_flowrate_percentage & 0xff;
+  msg->data[index++] = (extruder1_flowrate_percentage >> 8) & 0xff;
+  msg->length = index;
+  host_hmi.send_ack(msg);
+
+EXIT:
+  return ret;
+}

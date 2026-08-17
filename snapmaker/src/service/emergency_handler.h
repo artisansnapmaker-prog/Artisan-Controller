@@ -1,0 +1,59 @@
+#ifndef SNAPMAKER_EMERGENCY_HANDLER_SERVICE_H_
+#define SNAPMAKER_EMERGENCY_HANDLER_SERVICE_H_
+
+#include "../common/debug.h"
+#include "../common/error.h"
+#include "../host/sacp_hmi.h"
+
+#define JOB_ENV_MAX_SIZE                      (1024)
+#define JOB_ENV_BACKUP_NUM                    (4)
+#define EMERGENCY_ENV_SIZE                    (JOB_ENV_BACKUP_NUM * JOB_ENV_MAX_SIZE)
+
+enum EmergencyStopSource {
+  EMERGENCY_STOP_SOURCE_BUTTON,
+  EMERGENCY_STOP_SOURCE_POWER_LOSS,
+
+  EMERGENCY_STOP_SOURCE_MAX
+};
+
+class EmergencyHandler {
+  public:
+    EmergencyHandler() {
+      memset(env, 0x00, EMERGENCY_ENV_SIZE);
+      memset(&msg_notify_stop, 0x00, sizeof(sacp_hmi_message_t));
+      memset(&msg_notify_recovery, 0x00, sizeof(sacp_hmi_message_t));
+    }
+
+    void init();
+
+    void prepare_flash(bool is_forced=false);
+
+    uint8_t read_button();
+    void emergency_stop();
+    void power_loss();
+
+    void background();
+
+    err_code_t save_env_manually(uint8_t *env, uint32_t size);
+
+    static err_code_t hmi_cb_check_recovery_info(void *obj, sacp_hmi_message_t *msg);
+    static err_code_t hmi_cb_req_recovery_job(void *obj, sacp_hmi_message_t *msg);
+    static err_code_t hmi_cb_clear_record(void *obj, sacp_hmi_message_t *msg);
+
+    static void job_cb_notify_emergency_stop(void *p, uint8_t result);
+    static void job_cb_notify_recovery(void *p, uint8_t result);
+
+  private:
+    bool check_record();
+    void req_stop_job();
+
+    static sacp_hmi_message_t msg_notify_stop, msg_notify_recovery;
+    uint8_t button_state;
+    uint8_t powerloss_state;
+    bool record_avail;
+
+    uint8_t env[EMERGENCY_ENV_SIZE];
+};
+
+extern EmergencyHandler emergency_hdl;
+#endif

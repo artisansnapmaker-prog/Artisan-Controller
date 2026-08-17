@@ -1,0 +1,239 @@
+/*
+ * Snapmaker2-Controller Firmware
+ * Copyright (C) 2019-2020 Snapmaker [https://github.com/Snapmaker]
+ *
+ * This file is part of Snapmaker2-Controller
+ * (see https://github.com/Snapmaker/Snapmaker2-Controller)
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+#ifndef SNAPMAKER_CLIENT_NODE_H_
+#define SNAPMAKER_CLIENT_NODE_H_
+
+
+#include <functional>
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+#include "config.h"
+#include "../common/error.h"
+#include "../common/ring_buffer.h"
+#include "../common/type.h"
+#include "../host/sacp.h"
+#include "../host/sacp_hmi.h"
+#include "job_ctrl.h"
+
+
+#define MAX_CLIENT_NODE_NUM                           SACP_ROUTE_TABLE_DYNAMIC_MAX
+#define MAX_SACP_MSG_COPY                             2
+#define SEND_BUF_SIZE                                 (512 + 16)
+// TODO: this should define in the SACP
+#define IVALID_PEER                                   0xFFFFFFFF
+#define IVALID_CH                                     0xFF
+#define IVALID_CLIENT_ID                              (0xFF)
+
+#define CMD_SET_JOB_CTRL                              (0xAC)
+#define CMD_ID_JOB_GET_GCODE_FILE_INFO                (0x00)
+#define CMD_ID_JOB_CTRL_ISSUE                         (0x01)
+#define CMD_ID_JOB_CTRL_REQ_GCODE                     (0x02)
+#define CMD_ID_JOB_CTRL_START                         (0x03)
+#define CMD_ID_JOB_CTRL_PAUSE                         (0x04)
+#define CMD_ID_JOB_CTRL_RESUME                        (0x05)
+#define CMD_ID_JOB_CTRL_STOP                          (0x06)
+#define CMD_ID_JOB_CTRL_NOTIFY_START                  (0x14)
+#define CMD_ID_JOB_CTRL_NOTIFY_PAUSE                  (0x15)
+#define CMD_ID_JOB_CTRL_NOTIFY_RESUME                 (0x16)
+#define CMD_ID_JOB_CTRL_NOTIFY_STOP                   (0x17)
+#define CMD_ID_JOB_CTRL_REQ_POWERLOSS_INFO            (0x07)
+#define CMD_ID_JOB_CTRL_REQ_POWERLOSS_RECOVERY        (0x08)
+#define CMD_ID_JOB_CTRL_NOTIFY_POWERLOSS_RECOVERY     (0x18)
+#define CMD_ID_JOB_CTRL_REQ_POWERLOSS_CLEAR           (0x09)
+
+#define CMD_ID_JOB_SET_FEEDRATE_PERCENTAGE            (0x0e)
+#define CMD_ID_JOB_GET_FEEDRATE_PERCENTAGE            (0x0f)
+#define CMD_ID_JOB_SET_FLOWRATE_PERCENTAGE            (0x10)
+#define CMD_ID_JOB_GET_FLOWRATE_PERCENTAGE            (0x11)
+#define CMD_ID_JOB_CTRL_NUM                           (18)
+#define SUB_ID_JOB_CTRL_CUR_LINE_NUM                  (0xA0)
+
+#define CMD_SET_SYS                                   (1)
+#define CMD_ID_SYS_SET_ECHO_LOG                       (10)
+#define CMD_ID_SYS_SET_PC_CH_PRO                      (11)  // TODO: should we need this cmd id?
+#define CMD_ID_SYS_SET_DEBUG_MODE                     (12)  // TODO: should we need this cmd id?
+#define CMD_ID_SYS_NUM                                (3)
+#define SUB_ID_SYS_HARDTICK                           (0xA0)
+
+#define SACP_RET_SUCCESS                              E_SUCCESS
+#define SACP_RET_EXECUTING                            E_EXECUTING
+#define SACP_RET_TRANS_TIMEOUT                        E_TRANS_TIMEOUT
+#define SACP_RET_EXECUTING_TIMEOUT                    E_EXE_TIMEOUT
+#define SACP_RET_UNSUPPORT_CMD_SET                    E_INVALID_CMD_SET
+#define SACP_RET_UNSUPPORT_CMD_ID                     E_INVALID_CMD_ID
+#define SACP_RET_UNSUPPORT_PARAM                      E_PARAM
+#define SACP_RET_UNSUPPORT_MOUDLE_KEY                 E_INVALID_MODULE_KEY
+#define SACP_RET_NO_MEM                               E_NO_MEM
+#define SACP_RET_NO_RESC                              E_NO_RESRC
+#define SACP_RET_FAILURE                              E_FAILURE
+#define SACP_RET_BUSY                                 E_BUSY
+
+#define SACP_RET_PRIVATE_BASE                         (PRIVATE_ERROR_BASE)
+#define SACP_RET_JOB_LAST_GCODE_PACK                  (SACP_RET_PRIVATE_BASE + 1)
+#define SACP_RET_JOB_NOT_IN_IDLE_STATUS               (SACP_RET_PRIVATE_BASE + 2)
+#define SACP_RET_JOB_NO_HOME                          (SACP_RET_PRIVATE_BASE + 3)
+#define SACP_RET_JOB_IVALID_GCODE_FILE                (SACP_RET_PRIVATE_BASE + 4)
+#define SACP_RET_JOB_NOT_IN_WORKING_STATUS            (SACP_RET_PRIVATE_BASE + 5)
+#define SACP_RET_JOB_NOT_IN_PAUSE_STATUS              (SACP_RET_PRIVATE_BASE + 6)
+#define SACP_RET_JOB_IVALID_POWER_LOSE_DATA           (SACP_RET_PRIVATE_BASE + 7)
+#define SACP_RET_JOB_POWER_LOSE_CHECK_FAILURE         (SACP_RET_PRIVATE_BASE + 8)
+#define SACP_RET_JOB_GCODE_FILE_NO_EXIT               (SACP_RET_PRIVATE_BASE + 9)
+#define SACP_RET_JOB_SAVE_ENV_FAILURE                 (SACP_RET_PRIVATE_BASE + 10)
+#define SACP_RET_JOB_RESUME_ENV_FAILURE               (SACP_RET_PRIVATE_BASE + 11)
+#define SACP_RET_JOB_UNKNOW_STOP_TPYE                 (SACP_RET_PRIVATE_BASE + 12)
+#define SACP_RET_JOB_RECOVER_ENV_FAILED               (SACP_RET_PRIVATE_BASE + 13)
+#define SACP_RET_JOB_UNMATCHED_TOOLHEAD               (SACP_RET_PRIVATE_BASE + 14)
+#define SACP_RET_JOB_STANDBY_FAILED                   (SACP_RET_PRIVATE_BASE + 15)
+#define SACP_RET_JOB_NO_TOOLHEAD                      (SACP_RET_PRIVATE_BASE + 16)
+#define SACP_RET_JOB_TOOLHEAD_OFFLINE                 (SACP_RET_PRIVATE_BASE + 17)
+#define SACP_RET_JOB_EXCEPTION_BAN                    (SACP_RET_PRIVATE_BASE + 18)
+#define SACP_RET_JOB_FDM_EXTRUDER_STATE               (SACP_RET_PRIVATE_BASE + 19)
+#define SACP_RET_JOB_FDM_NOZZLE_TYPE                  (SACP_RET_PRIVATE_BASE + 20)
+#define SACP_RET_JOB_FDM_NOZZLE_TEMP                  (SACP_RET_PRIVATE_BASE + 21)
+#define SACP_RET_JOB_FDM_FILAMENT_RUNOUT              (SACP_RET_PRIVATE_BASE + 22)
+#define SACP_RET_JOB_CNC_OVERCURRENT                  (SACP_RET_PRIVATE_BASE + 23)
+#define SACP_RET_JOB_CNC_P_TEMP_EXCE                  (SACP_RET_PRIVATE_BASE + 24)
+#define SACP_RET_JOB_CNC_M_TEMP_EXCE                  (SACP_RET_PRIVATE_BASE + 25)
+#define SACP_RET_JOB_CNC_V_POWER_EXCE                 (SACP_RET_PRIVATE_BASE + 26)
+#define SACP_RET_JOB_ENCLOSURE_DOOR_OPEN              (SACP_RET_PRIVATE_BASE + 27)
+#define SACP_RET_JOB_LASER_IMU_CONNECTION             (SACP_RET_PRIVATE_BASE + 28)
+#define SACP_RET_JOB_LASER_TUBE_TEMP_TOO_HIGH         (SACP_RET_PRIVATE_BASE + 29)
+#define SACP_RET_JOB_LASER_ABNORMAL_ATTTUDE           (SACP_RET_PRIVATE_BASE + 30)
+#define SACP_RET_JOB_LASER_INVLAID_PWN_PIN            (SACP_RET_PRIVATE_BASE + 31)
+#define SACP_RET_JOB_LASER_TUBE_TEMP_TOO_LOW          (SACP_RET_PRIVATE_BASE + 32)
+#define SACP_RET_JOB_LASER_IMU_OVERTEMP               (SACP_RET_PRIVATE_BASE + 33)
+#define SACP_RET_JOB_LASER_FAN_EXCEPTION              (SACP_RET_PRIVATE_BASE + 34)
+#define SACP_RET_JOB_LASER_NO_INSERT_ENCLOSURE        (SACP_RET_PRIVATE_BASE + 35)
+#define SACP_RET_JOB_LASER_FIRE_TRIGGER               (SACP_RET_PRIVATE_BASE + 36)
+
+
+#define SACP_JOB_PAUSE_ISSUE_RET_FINISH                         (0)
+#define SACP_JOB_PAUSE_ISSUE_RET_GCODE_PAUSE                    (1)
+#define SACP_JOB_PAUSE_ISSUE_RET_GCODE_FILAMENT_RUNOUT          (2)
+#define SACP_JOB_PAUSE_ISSUE_RET_FILAMENT_RUNOUT                (3)
+#define SACP_JOB_PAUSE_ISSUE_RET_STALL_PROTECTION               (4)
+#define SACP_JOB_PAUSE_ISSUE_RET_ABNORMAL_TEMP_PROTECTION       (5)
+#define SACP_JOB_PAUSE_ISSUE_RET_IVALID_GCODE_LINE_NUMBER       (6)
+#define SACP_JOB_PAUSE_ISSUE_RET_GET_GCODE_FAILURE              (7)
+#define SACP_JOB_PAUSE_ISSUE_RET_EMERGENCY_STOP                 (8)
+#define SACP_JOB_PAUSE_ISSUE_RET_TOOLHEAD_RESUME_FAILURE        (9)
+#define SACP_JOB_PAUSE_ISSUE_RET_STOP_PARAM_ERR                 (10)
+#define SACP_JOB_PAUSE_ISSUE_RET_STOP_FAILURE                   (11)
+#define SACP_JOB_PAUSE_ISSUE_RET_STOP_CLIENT_REQ                (12)
+#define SACP_JOB_PAUSE_ISSUE_RET_PAUSE_PARAM_ERR                (13)
+#define SACP_JOB_PAUSE_ISSUE_RET_SAVE_ENV_FAILURE               (14)
+#define SACP_JOB_PAUSE_ISSUE_RET_PAUSE_FAILURE                  (15)
+#define SACP_JOB_PAUSE_ISSUE_RET_DOOR_OPEN                      (16)
+#define SACP_JOB_PAUSE_ISSUE_RET_WRONG_EXTRUDER                 (17)
+#define SACP_JOB_PAUSE_ISSUE_RET_WRONG_NOZZLE                   (18)
+#define SACP_JOB_PAUSE_ISSUE_RET_WRONG_HOTEND_TEMP              (19)
+#define SACP_JOB_PAUSE_ISSUE_RET_EXCEPTION                      (20)
+#define SACP_JOB_PAUSE_ISSUE_RET_REQ_RESUME                     (21)
+#define SACP_JOB_PAUSE_ISSUE_RET_EXCEPTION_STOP                 (22)
+#define SACP_JOB_PAUSE_ISSUE_RET_UNKNOW_ERR                     (255)
+
+#define CLIENT_NODE_ONFFLINE_NOTIFY_CB_MAX                      (32)
+
+//Types of event function callbacks
+typedef std::function<err_code_t(sacp_hmi_message_t&)> evevnt_cb_f;
+
+typedef struct {
+  uint32_t line_num;
+  uint16_t buf_len;
+} req_batch_gcode_t;
+
+typedef struct {
+  err_code_t result;
+  uint32_t start_line_num;
+  uint32_t end_line_num;
+  uint8_t *gcode_str;
+} res_batch_gcode_t;
+
+typedef void (*client_node_onoffline_cb)(void * obj, uint8_t id, SACPRouteStatus status);
+typedef struct {
+  client_node_onoffline_cb cb;
+  void *obj;
+} client_node_onoffline_handle_t;
+
+class ClientNode {
+  // Class define
+  public:
+    static void class_init(void);
+
+    static void on_new_client_node(void *obj, sacp_route_table_t *rt);
+    static void subscription_client_node_hardtick(ClientNode *cn);
+
+    static ClientNode *find_client_node(uint32_t peer, uint8_t ch);
+    static ClientNode *find_client_node(uint8_t id);
+    static uint8_t client_id(uint32_t peer, uint8_t ch);
+    static ClientNode *malloc_client_node(uint32_t peer, uint8_t ch);
+    static err_code_t del_client_node(uint32_t peer, uint8_t ch);
+    static err_code_t del_client_node(uint8_t id);
+    static err_code_t del_client_node(ClientNode *cn);
+    static ClientNode *touch_client(uint32_t peer, uint8_t ch);
+    static err_code_t register_on_client_node_online(void *obj, client_node_onoffline_cb cb);
+
+    static err_code_t sacp_cb(void *obj, sacp_hmi_message_t *);
+    static bool get_batch_gcode(uint8_t client_id, req_batch_gcode_t &req_batch_gcode, res_batch_gcode_t &res_batch_gcode);
+    static uint16_t job_ctrl_linenum_sub_cb(void *obj, uint8_t *buffer);
+    static uint16_t sys_hardtick_sub_cb(void *obj, uint8_t *buffer);
+    static err_code_t issue_client(uint8_t peer, uint8_t issue_ret);
+
+    static SemaphoreHandle_t sacp_msg_copy_lock;
+    static sacp_hmi_message_t sacp_msg_copy[MAX_SACP_MSG_COPY];
+    static bool sacp_msg_copy_occupy[MAX_SACP_MSG_COPY];
+
+    static sacp_hmi_message_t *malloc_sacp_msg_node(void);
+    static err_code_t free_sacp_msg_node(sacp_hmi_message_t*);
+    static void job_request_cb(void *p, uint8_t result);
+
+  private:
+    static SemaphoreHandle_t _lock;
+    static ClientNode* client_node_tab[MAX_CLIENT_NODE_NUM];
+    static client_node_onoffline_handle_t client_node_onoffline_cb_tab[CLIENT_NODE_ONFFLINE_NOTIFY_CB_MAX];
+
+  // Instance define
+  public:
+    ClientNode(uint32_t peer, uint8_t ch);
+    err_code_t init(void);
+    void timer_cb(void *p);
+    bool sacp_get_batch_gcode(req_batch_gcode_t &req_batch_gcode, res_batch_gcode_t &res_batch_gcode);
+
+    uint32_t peer;
+    uint8_t ch;
+    uint8_t id;
+
+  private:
+    err_code_t sacp_handle(ClientNode *client, sacp_hmi_message_t*);
+    err_code_t get_gcode_info(sacp_hmi_message_t*);
+    err_code_t req_start_job(ClientNode *client, sacp_hmi_message_t*);
+    err_code_t req_pause_job(ClientNode *client, sacp_hmi_message_t*);
+    err_code_t req_resume_job(ClientNode *client, sacp_hmi_message_t*);
+    err_code_t req_stop_job(ClientNode *client, sacp_hmi_message_t*);
+    err_code_t req_set_feedrate_percentage(sacp_hmi_message_t* msg);
+    err_code_t req_get_feedrate_percentage(sacp_hmi_message_t* msg);
+    err_code_t req_set_flowrate_percentage(sacp_hmi_message_t* msg);
+    err_code_t req_get_flowrate_percentage(sacp_hmi_message_t* msg);
+};
+
+#endif  // #ifndef SNAPMAKER_CLIENT_NODE_H_

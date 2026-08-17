@@ -1,0 +1,1937 @@
+#include "sacp_hmi.h"
+#include "snapmaker.h"
+
+#include "../service/motion_platform.h"
+
+static AT_CCMRAM uint8_t queue_buffer_to_marlin[SACP_PDU_MAX_SIZE];
+static AT_CCMRAM StaticMessageBuffer_t queue_strcut_to_marlin;
+
+static AT_CCMRAM uint8_t queue_buffer_to_system[SACP_PDU_MAX_SIZE];
+static AT_CCMRAM StaticMessageBuffer_t queue_strcut_to_system;
+
+static AT_CCMRAM uint8_t queue_buffer_to_event[SACP_PDU_MAX_SIZE];
+static AT_CCMRAM StaticMessageBuffer_t queue_strcut_to_event;
+
+static AT_CCMRAM uint8_t queue_buffer_to_wait_node[SACP_HMI_WAITING_NODE_MAX][SACP_PDU_MAX_SIZE];
+static AT_CCMRAM StaticMessageBuffer_t queue_strcut_to_wait_node[SACP_HMI_WAITING_NODE_MAX];
+
+static AT_CCMRAM uint8_t serial_tx_buffer_pc[SACP_PDU_MAX_SIZE];
+static AT_CCMRAM uint8_t serial_rx_buffer_pc[SACP_PDU_MAX_SIZE];
+
+static AT_CCMRAM uint8_t serial_tx_buffer_screen[SACP_PDU_MAX_SIZE];
+static AT_CCMRAM uint8_t serial_rx_buffer_screen[SACP_PDU_MAX_SIZE];
+
+HostSACPHMI AT_CCMRAM host_hmi(SACP_VER_1, SACP_HOST_ID_CONTROLLER);
+
+static AT_CCMRAM StackType_t stack_hmi_event_thread[HMI_EVENT_TASK_STACK_SIZE];
+static AT_CCMRAM StackType_t stack_hmi_recv_thread[HMI_RECV_TASK_STACK_SIZE];
+
+static AT_CCMRAM StaticTask_t tcb_hmi_event;
+static AT_CCMRAM StaticTask_t tcb_hmi_recv;
+
+TaskHandle_t thandle_hmi_event = NULL;
+TaskHandle_t thandle_hmi_blocked_event = NULL;
+
+// hmi recv handler
+static void hmi_recv_handler(void *param) {
+  UNUSED(param);
+  for (;;) {
+    host_hmi.handle_receive();
+
+    vTaskDelay(pdMS_TO_TICKS(5));
+  }
+}
+
+//handler for hmi non-blocked events
+static void hmi_event_handler(void *param) {
+  UNUSED(param);
+  for (;;) {
+    host_hmi.handle_events();
+
+    taskYIELD();
+  }
+}
+
+// handler for hmi blocked events
+static void hmi_blocked_event_handler(void *param) {
+  UNUSED(param);
+  for (;;) {
+    host_hmi.handle_events();
+
+    taskYIELD();
+  }
+}
+
+err_code_t HostSACPHMI::init(TaskHandle_t event_task, SemaphoreHandle_t recv_signal) {
+  waiting_lock = xSemaphoreCreateMutex();
+  configASSERT(waiting_lock);
+
+  for (int i = 0; i < SACP_HMI_WAITING_NODE_MAX; i++) {
+      waiting_nodes[i].queue = xMessageBufferCreateStatic(SACP_PDU_MAX_SIZE, queue_buffer_to_wait_node[i],
+                                                          &queue_strcut_to_wait_node[i]);
+    configASSERT(waiting_nodes[i].queue);
+    waiting_nodes[i].status = SACP_WAITING_NODE_STA_IDLE;
+  }
+
+  for (int i = 0; i < SACP_HMI_CH_MAX; i++) {
+    channels[i].lock = xSemaphoreCreateMutex();
+    configASSERT(channels[i].lock);
+  }
+
+  subscription_lock = xSemaphoreCreateMutex();
+  configASSERT(subscription_lock);
+
+  // setup links
+  link_pc.set_serial(&MSerial1);
+  link_pc.set_irq_priority(MARLIN_SERIAL_IRQ_PRIORITY);
+
+  // setup RX
+  link_pc.set_sec_rx_buffer(serial_rx_buffer_pc, SACP_PDU_MAX_SIZE);
+
+  // setup TX
+  link_pc.set_sec_tx_buffer(serial_tx_buffer_pc, SACP_PDU_MAX_SIZE);
+
+  // initialize HMI
+  MSerial2.begin(115200);
+  link_screen.set_serial(&MSerial2);
+  // setup RX
+  link_screen.set_sec_rx_buffer(serial_rx_buffer_screen, SACP_PDU_MAX_SIZE);
+  // setup TX
+  link_screen.set_sec_tx_buffer(serial_tx_buffer_screen, SACP_PDU_MAX_SIZE);
+
+  MSerial2.uart2_rx_dma1_init();
+
+  link_screen.set_irq_priority(HMI_SERIAL_IRQ_PRIORITY);
+
+  // active second channel
+  link_screen.set_active_channel(MARLIN_SERIAL_CHANNEL_SECOND);
+
+  add_channel(SACP_HMI_CH_PC, &link_pc);
+  add_channel(SACP_HMI_CH_SCREEN, &link_screen);
+
+  events_normal = xMessageBufferCreateStatic(SACP_PDU_MAX_SIZE, queue_buffer_to_event, &queue_strcut_to_event);
+  configASSERT(events_normal);
+
+  events_blocked_without_motion = xMessageBufferCreateStatic(SACP_PDU_MAX_SIZE, queue_buffer_to_system, &queue_strcut_to_system);
+  configASSERT(events_blocked_without_motion);
+
+  events_with_motion = xMessageBufferCreateStatic(SACP_PDU_MAX_SIZE, queue_buffer_to_marlin, &queue_strcut_to_marlin);
+  configASSERT(events_with_motion);
+
+  for (int i = 0; i < SACP_ROUTE_TABLE_DYNAMIC_MAX; i++) {
+    rt_dynamic[i].peer = SACP_HOST_INVALID;
+    rt_dynamic[i].ch   = SACP_HMI_CH_MAX;
+    rt_dynamic[i].ver  = SACP_VER_INVALID;
+    rt_dynamic[i].status = SACP_ROUTE_STA_INVALID;
+  }
+
+  for (int i = 0; i < SACP_ROUTE_TABLE_HANDLE_MAX; i++) {
+    new_route_handle[i].cb  = NULL;
+    new_route_handle[i].obj = NULL;
+  }
+
+  // init result cache manager
+  for (int i = 0; i < SACP_ROUTE_TABLE_DYNAMIC_MAX; i++) {
+    result_cache[i].peer      = SACP_HOST_INVALID;
+    result_cache[i].ch        = SACP_HMI_CH_MAX;
+    result_cache[i].cahced    = 0;
+    result_cache[i].last_seq  = 0;
+    result_cache[i].lock      = xSemaphoreCreateMutex();
+    configASSERT(result_cache[i].lock);
+    result_cache[i].write_index = 0;
+    for (int j = 0; j < SACP_ROUTE_RESULT_CACHE_MAX; j++)
+      result_cache[i].nodes[j] = NULL;
+  }
+
+  list_init(&result_cache_pool.head);
+  sacp_result_node_t *nodes = (sacp_result_node_t *)pvPortMalloc(sizeof(sacp_result_node_t) * \
+                              SACP_ROUTE_RESULT_CACHE_MAX * SACP_ROUTE_TABLE_DYNAMIC_MAX);
+  configASSERT(nodes);
+  for (int i = 0; i < SACP_ROUTE_RESULT_CACHE_MAX * SACP_ROUTE_TABLE_DYNAMIC_MAX; i++) {
+    list_add_tail(&nodes->node, &result_cache_pool.head);
+    nodes++;
+  }
+  result_cache_pool.free = SACP_ROUTE_RESULT_CACHE_MAX * SACP_ROUTE_TABLE_DYNAMIC_MAX;
+  result_cache_pool.lock = xSemaphoreCreateMutex();
+  configASSERT(result_cache_pool.lock);
+
+  TaskHandle_t hmi_recv_task;
+
+  LOG_I("Creating HMI receive task...");
+  hmi_recv_task = xTaskCreateStatic((TaskFunction_t)hmi_recv_handler, "hmi_recv", HMI_RECV_TASK_STACK_SIZE,
+        recv_signal, HMI_RECV_TASK_PRIORITY, stack_hmi_recv_thread, &tcb_hmi_recv);
+  if (!hmi_recv_task) {
+    LOG_E(LOG_RESULT_FAIL);
+    while(1);
+  }
+  else {
+    LOG_I(LOG_RESULT_OK);
+  }
+
+  LOG_I("Creating HMI event task...");
+  thandle_hmi_event = xTaskCreateStatic((TaskFunction_t)hmi_event_handler, "hmi_event", HMI_EVENT_TASK_STACK_SIZE,
+        NULL, HMI_EVENT_TASK_PRIORITY, stack_hmi_event_thread, &tcb_hmi_event);
+  if (!thandle_hmi_event) {
+    LOG_E(LOG_RESULT_FAIL);
+    while(1);
+  }
+  else {
+    LOG_I(LOG_RESULT_OK);
+  }
+
+  LOG_I("Creating HMI blocked event task...");
+  if (xTaskCreate((TaskFunction_t)hmi_blocked_event_handler, "hmi_blocked_event", HMI_BLOCKED_EVENT_TASK_STACK_SIZE,
+        NULL, HMI_BLOCKED_EVENT_TASK_PRIORITY,  &thandle_hmi_blocked_event) != pdPASS) {
+    LOG_E(LOG_RESULT_FAIL);
+    while(1);
+  } else if (!thandle_hmi_blocked_event) {
+    LOG_E(LOG_RESULT_FAIL);
+  }
+  else {
+    LOG_I(LOG_RESULT_OK);
+  }
+
+  return E_SUCCESS;
+}
+
+
+err_code_t HostSACPHMI::add_channel(SACPChannel ch, LinkUART *link) {
+  if (ch >= SACP_HMI_CH_MAX) {
+    return E_PARAM;
+  }
+
+  if (channels[ch].link) {
+    return E_NO_RESRC;
+  }
+
+  xSemaphoreTake(channels[ch].lock, portMAX_DELAY);
+  channels[ch].link = link;
+  xSemaphoreGive(channels[ch].lock);
+
+  return E_SUCCESS;
+}
+
+
+err_code_t HostSACPHMI::apply_cmd_set_handle(uint8_t cmd_set, uint8_t length) {
+  sacp_hmi_handle_t *handles = NULL;
+
+  if (cmd_set_handle[cmd_set]) {
+    LOG_W("register cmd set [%x] repeatly\n", cmd_set);
+    return E_INVALID_STATE;
+  }
+
+  LOG_I("apply new handle, cmd set[%x], length[%u]\n", cmd_set, length);
+
+  handles = (sacp_hmi_handle_t *)pvPortMalloc(sizeof(sacp_hmi_handle_t) * length);
+  if (!handles) {
+    LOG_E("failed to apply hanle!\n");
+    return E_NO_MEM;
+  }
+
+  for (int i = 0; i < length; i++) {
+    handles[i].ack_cb = NULL;
+    handles[i].req_cb = NULL;
+    handles[i].cb_attr = 0;
+    handles[i].obj    = NULL;
+    handles[i].cmd_id = SACP_CMD_ID_INVALID;
+    handles[i].version = SACP_VER_INVALID;
+  }
+
+  taskENTER_CRITICAL();
+  cmd_set_handle[cmd_set] = handles;
+  cmd_set_handle_len[cmd_set] = length;
+  taskEXIT_CRITICAL();
+
+  return E_SUCCESS;
+}
+
+
+err_code_t HostSACPHMI::register_callback(uint8_t cmd_set, uint8_t cmd_id, void *obj, sacp_hmi_callback cb,
+                                          uint32_t attr/*=0*/, uint8_t ver/*=SACP_VER_INVALID*/) {
+  int i = 0;
+  sacp_hmi_handle_t *handle =NULL;
+
+  if (ver == SACP_VER_INVALID) {
+    // LOG_I("register CB with default ver[%u]\n", this->version);
+    ver = this->version;
+  }
+
+  if (!cmd_set_handle[cmd_set] || cmd_set_handle_len[cmd_set] == 0) {
+    LOG_E("you didn't registered handle for cmd[%x:%x]\n", cmd_set, cmd_id);
+    return E_NO_RESRC;
+  }
+
+  if ((attr & SACP_CB_ATTR_ACK) && (ver == SACP_VER_0)) {
+    LOG_E("cannot register ACK callback[%x:%x] for V0\n", cmd_set, cmd_id);
+    return E_PARAM;
+  }
+
+  handle = cmd_set_handle[cmd_set];
+  for (i = 0; i < cmd_set_handle_len[cmd_set]; i++) {
+    if (handle[i].cmd_id == SACP_CMD_ID_INVALID) {
+      break;
+    }
+    else if (handle[i].cmd_id == cmd_id) {
+      if(handle[i].version != ver) {
+        LOG_I("will register same cmd[%x:%x] CB for other ver[%u]\n", cmd_set, cmd_id, ver);
+        continue;
+      }
+
+      // V0 won't allow register ACK callback
+      if (attr & SACP_CB_ATTR_ACK) {
+        if (handle[i].ack_cb == NULL)
+          break;
+      }
+      else {
+        if (handle[i].req_cb == NULL)
+          break;
+      }
+
+      LOG_W("will overwirte handle of [%x:%x] for ver[%u]\n", cmd_set, cmd_id, ver);
+      break;
+    }
+  }
+
+  if (i >= cmd_set_handle_len[cmd_set]) {
+    LOG_E("no available callback handle for cmd[%x:%x] of ver[%u]\n", cmd_set, cmd_id, ver);
+    return E_NO_RESRC;
+  }
+
+  cmd_set_handle[cmd_set][i].cmd_id  = cmd_id;
+  cmd_set_handle[cmd_set][i].obj     = obj;
+  cmd_set_handle[cmd_set][i].cb_attr = attr;
+  cmd_set_handle[cmd_set][i].version = ver;
+
+  if ((attr & SACP_CB_ATTR_ACK) && (ver == SACP_VER_1)) {
+    cmd_set_handle[cmd_set][i].ack_cb = cb;
+    // LOG_I("register V[%u] CB for ACK[%x:%x]\n", ver, cmd_set, cmd_id, i);
+  }
+  else {
+    cmd_set_handle[cmd_set][i].req_cb = cb;
+    // LOG_I("register V[%u] CB for REQ[%x:%x]\n", ver, cmd_set, cmd_id, i);
+  }
+
+  return E_SUCCESS;
+}
+
+
+/* send legacy message, there is only one bytes for command id in legacy messages
+ * parameters:
+ * message  - message to be sent
+ * out      - buffer to receive ACK from peer host
+ * out_len  - caller should specify the length of out buffer, and function will return the length of buffer received
+ * timeout  - time to wait ACK from peer host
+ * retry    - if peer doesn't ack us, will try to send request out again with 'retry' times
+*/
+err_code_t HostSACPHMI::send_sync_legacy(sacp_hmi_message_t *message, uint8_t *out, uint16_t *out_len,
+                                          uint32_t timeout/*=2000ms*/, uint8_t retry/*=2*/) {
+  int node_index  = 0;
+  size_t recv_len = 0;
+  err_code_t ret  = E_SUCCESS;
+
+  if (!message || !out || !out_len) {
+    LOG_I("invalid param!\n");
+    return E_PARAM;
+  }
+
+  if (message->ch > SACP_HMI_CH_MAX || !channels[message->ch].link) {
+    LOG_E("invalid sacp hmi channel[%u]\n", message->ch);
+    return E_PARAM;
+  }
+
+  if (xSemaphoreTake(waiting_lock, pdMS_TO_TICKS(timeout)) != pdPASS) {
+    LOG_E("no avail waiting node for cmd[%x]!\n", message->cmd_set, message->cmd_id);
+    return E_NO_RESRC;
+  }
+
+  for (; node_index < SACP_HMI_WAITING_NODE_MAX; node_index++) {
+    if (waiting_nodes[node_index].status == SACP_WAITING_NODE_STA_IDLE) {
+      waiting_nodes[node_index].status  = SACP_WAITING_NODE_STA_INUSE_V0_LEGACY;
+      waiting_nodes[node_index].cmd_set = message->cmd_set + 1;
+      waiting_nodes[node_index].ch      = message->ch;
+      break;
+    }
+  }
+  xSemaphoreGive(waiting_lock);
+
+  if (node_index >= SACP_HMI_WAITING_NODE_MAX) {
+    // node waiting for us
+    LOG_E("no avail waiting node for cmd[%x]!\n", message->cmd_set);
+    return E_NO_RESRC;
+  }
+
+  // legacy API is only available for V0
+  message->ver = SACP_VER_0;
+  message->attr |= (SACP_MESSAGE_ATTR_SET_VER | SACP_MESSAGE_ATTR_SET_SEQ);
+
+  xMessageBufferReset(waiting_nodes[node_index].queue);
+
+  retry++;
+  for (; retry > 0; retry--) {
+    if ((ret = send(message)) != E_SUCCESS) {
+      LOG_I("send sync failed\n");
+      vTaskDelay(pdMS_TO_TICKS(timeout>>1));
+      continue;
+    }
+
+    recv_len = xMessageBufferReceive(waiting_nodes[node_index].queue, out, *out_len, pdMS_TO_TICKS(timeout));
+    if (recv_len < 1) {
+      ret = E_EXE_TIMEOUT;
+      continue;
+    }
+
+    *out_len = recv_len;
+    ret = E_SUCCESS;
+    break;
+  }
+
+  // release node of wait queue
+  if (xSemaphoreTake(waiting_lock, pdMS_TO_TICKS(timeout)) == pdPASS) {
+    waiting_nodes[node_index].status = SACP_WAITING_NODE_STA_IDLE;
+    xSemaphoreGive(waiting_lock);
+  }
+  else {
+    LOG_E("cannot get lock for sacp module sync, cmd[%x]!\n", message->cmd_set);
+    waiting_nodes[node_index].status = SACP_WAITING_NODE_STA_IDLE;
+    return E_NO_RESRC;
+  }
+
+  return ret;
+}
+
+/* send message and wait its ACK
+ * Parameters:
+ *  message - point to your message
+ *  out     - to save the ACK from peer
+ *  out_len - when you call this API, you should tell it the length of buffer 'out' with out_len.
+ *            when you get the ACK save in 'out', out_len will be the length of ACK
+ *  timeout - the timeout to wait ACK from peer, its has a default value in declaration
+ *  retry   - if peer doesn't ack us, will try to send request out again with 'retry' times
+*/
+err_code_t HostSACPHMI::send_sync(sacp_hmi_message_t *message, uint8_t *out, uint16_t *out_len,
+                                  uint32_t timeout/*=2000ms*/, uint8_t retry/*=2*/) {
+  int node_index  = 0;
+  size_t recv_len = 0;
+  err_code_t ret  = E_SUCCESS;
+
+  if (!message || !out || !out_len) {
+    LOG_I("invalid param!\n");
+    return E_PARAM;
+  }
+
+  if (message->attr & SACP_MESSAGE_ATTR_ACK) {
+    LOG_I("cannot send ACK by this API!\n");
+    return E_FAILURE;
+  }
+
+  if (message->ch > SACP_HMI_CH_MAX || !channels[message->ch].link) {
+    LOG_E("invalid sacp hmi channel[%u]\n", message->ch);
+    return E_PARAM;
+  }
+
+  sacp_channel_t &channel = channels[message->ch];
+
+  // won't update sequence when it is ACK or USERs want to set sequence by themself
+  if (!(message->attr & SACP_MESSAGE_ATTR_SET_SEQ)) {
+    xSemaphoreTake(channel.lock, portMAX_DELAY);
+    message->seq = channel.seq++;
+    xSemaphoreGive(channel.lock);
+  }
+
+  // set the flag, then API send() won't update the seq
+  message->attr |= SACP_MESSAGE_ATTR_SET_SEQ;
+
+  if (xSemaphoreTake(waiting_lock, pdMS_TO_TICKS(timeout)) != pdPASS) {
+    LOG_E("no avail waiting node for cmd[%x:%x]!\n", message->cmd_set, message->cmd_id);
+    return E_NO_RESRC;
+  }
+
+  for (; node_index < SACP_HMI_WAITING_NODE_MAX; node_index++) {
+    if (waiting_nodes[node_index].status == SACP_WAITING_NODE_STA_IDLE) {
+      waiting_nodes[node_index].status  = SACP_WAITING_NODE_STA_INUSE_V1;
+      waiting_nodes[node_index].cmd_set = message->cmd_set;
+      waiting_nodes[node_index].cmd_id  = message->cmd_id;
+      waiting_nodes[node_index].seq     = message->seq;
+      waiting_nodes[node_index].ch      = message->ch;
+      waiting_nodes[node_index].peer    = message->peer;
+      break;
+    }
+  }
+  xSemaphoreGive(waiting_lock);
+
+  if (node_index >= SACP_HMI_WAITING_NODE_MAX) {
+    // node waiting for us
+    LOG_E("no avail waiting node for cmd[%x:%x]!\n", message->cmd_set, message->cmd_id);
+    return E_NO_RESRC;
+  }
+
+  xMessageBufferReset(waiting_nodes[node_index].queue);
+
+  retry++;
+  for (; retry > 0; retry--) {
+    if ((ret = send(message)) != E_SUCCESS) {
+      LOG_I("send sync failed\n");
+      vTaskDelay(pdMS_TO_TICKS(timeout>>1));
+      continue;
+    }
+
+    recv_len = xMessageBufferReceive(waiting_nodes[node_index].queue, out, *out_len, pdMS_TO_TICKS(timeout));
+    if (recv_len < 1) {
+      ret = E_EXE_TIMEOUT;
+      continue;
+    }
+
+    *out_len = recv_len;
+    ret = E_SUCCESS;
+    break;
+  }
+
+  // release node of wait queue
+  if (xSemaphoreTake(waiting_lock, pdMS_TO_TICKS(timeout)) == pdPASS) {
+    waiting_nodes[node_index].status = SACP_WAITING_NODE_STA_IDLE;
+    xSemaphoreGive(waiting_lock);
+  }
+  else {
+    LOG_E("cannot get lock for sacp module sync, cmd[%x:%x]!\n", message->cmd_set, message->cmd_id);
+    waiting_nodes[node_index].status = SACP_WAITING_NODE_STA_IDLE;
+    return E_NO_RESRC;
+  }
+
+  return ret;
+}
+
+
+err_code_t HostSACPHMI::test_interface(sacp_hmi_message_t *message) {
+  return handle_message(*message);
+}
+
+
+err_code_t HostSACPHMI::test_interface(uint16_t cmd_set, uint16_t cmd_id, uint8_t *data, uint16_t length) {
+  sacp_hmi_message_t msg;
+  uint8_t buffer[768];
+
+  msg.ch      = SACP_HMI_CH_PC;
+  msg.attr    = 0;
+  msg.cmd_set = cmd_set;
+  msg.cmd_id  = cmd_id;
+  msg.peer    = SACP_HOST_ID_LUBAN;
+  msg.ver     = SACP_VER_1;
+  msg.seq     = channels[SACP_HMI_CH_PC].seq;
+  msg.data    = buffer;
+  msg.length  = length;
+
+  if (data) {
+    for (int i = 0; i < length; i++) {
+      buffer[i] = data[i];
+    }
+  }
+
+  return handle_message(msg);
+}
+
+
+err_code_t HostSACPHMI::send_ack(sacp_hmi_message_t *message, uint8_t result) {
+  message->data = &result;
+  message->length = 1;
+  message->attr   = SACP_MESSAGE_ATTR_ACK;
+
+  return send(message);
+}
+
+
+err_code_t HostSACPHMI::send_ack(sacp_hmi_message_t *message, uint8_t *data, uint16_t length) {
+  message->data = data;
+  message->length = length;
+  message->attr   = SACP_MESSAGE_ATTR_ACK;
+
+  return send(message);
+}
+
+
+err_code_t HostSACPHMI::send(sacp_hmi_message_t *message) {
+  err_code_t ret = E_SUCCESS;
+  uint8_t buffer[SACP_V1_PDU_MAX_SIZE];
+  uint16_t length = SACP_V1_PDU_MAX_SIZE;
+
+  if (message->ch > SACP_HMI_CH_MAX || !channels[message->ch].link) {
+    LOG_E("invalid sacp hmi channel[%u]\n", message->ch);
+    return E_PARAM;
+  }
+
+  sacp_channel_t &channel = channels[message->ch];
+
+  // conditions which WILL NOT change sequence of message:
+  // 1. is an ACK, and user won't update the sequence,
+  //    generally sequence of ACK is same with its request except the publish message
+  // 2. user want to specify sequence of a request by themselves
+  if ((message->attr & SACP_MESSAGE_ATTR_ACK/* is ACK */ && message->attr & SACP_MESSAGE_ATTR_UPDATE_ACK_SEQ)
+      || (!(message->attr & SACP_MESSAGE_ATTR_ACK)/* is request*/ && !(message->attr & SACP_MESSAGE_ATTR_SET_SEQ))) {
+    xSemaphoreTake(channel.lock, portMAX_DELAY);
+    message->seq = channel.seq++;
+    xSemaphoreGive(channel.lock);
+  }
+
+  if (!(message->attr & SACP_MESSAGE_ATTR_SET_VER)) {
+    message->ver = version;
+  }
+
+  if ((ret = package(message, buffer, &length)) != E_SUCCESS) {
+    LOG_E("failed to package message[%u, %u], ret[%u]\n", message->cmd_set, message->cmd_id, ret);
+    return ret;
+  }
+
+#if 1
+  // TODO: some bugs in write_multi() to be fix, so use write() to send data
+  xSemaphoreTake(channel.lock, portMAX_DELAY);
+  for (int i = 0; i < length; i++) {
+    channel.link->write(buffer[i]);
+  }
+  xSemaphoreGive(channel.lock);
+
+  // cache result of ACK for events with BLOCKED attribute
+  if (smprinter.is_in_motion_thread() || xTaskGetCurrentTaskHandle() == thandle_hmi_blocked_event) {
+    if (message->attr & SACP_MESSAGE_ATTR_ACK && !(message->attr & SACP_MESSAGE_ATTR_UPDATE_ACK_SEQ))
+      cache_result(message->peer, message->ch, message->seq, (message->length)? message->data[0] : E_FAILURE);
+  }
+
+  return E_SUCCESS;
+
+#else
+  int write_length = 0;
+  int i = 0;
+  for (; i < 100; i++) {
+    write_length += channel.link->write_multi(buffer + write_length, length);
+    if (write_length <= 0) {
+      LOG_E("cannot wirte sacp hmi to channel[%u]\n", message->ch);
+      return E_HARDWARE;
+    }
+
+    if (write_length < length && length > 0) {
+      length -= (uint16_t)write_length;
+      vTaskDelay(pdMS_TO_TICKS(1));
+      continue;
+    }
+    else
+      break;
+  }
+
+  if (i < 100) {
+    return E_SUCCESS;
+  }
+  else {
+    LOG_E("failed to send message[%u, %u]\n", message->cmd_set, message->cmd_id);
+    return E_FAILURE;
+  }
+#endif
+}
+
+err_code_t HostSACPHMI::parse_packets(sacp_channel_t &channel) {
+  sacp_parser_t &parser = channel.parser;
+  LinkUART *link = channel.link;
+  err_code_t ret = E_FAILURE;
+  int avail_bytes = 0;
+  uint8_t header_checksum;
+  uint16_t calc_checksum, recv_checksum;
+
+  int c1, c2;
+
+  if (!link) {
+    return ret;
+  }
+
+  avail_bytes = link->available();
+
+  switch (parser.status) {
+  case SACP_PARSER_STA_IDLE:
+    if (avail_bytes < SACP_FRONT_HEADER_MIN_SIZE)
+      return E_NO_RESRC;
+
+    c1 = -1;
+    c2 = link->read();
+
+    while (c2 >= 0 && avail_bytes-- > 0) {
+      if (c1 == SACP_FRAME_SOF_1 && c2 == SACP_FRAME_SOF_2) {
+        parser.status = SACP_PARSER_STA_GOT_SOF;
+        break;
+      }
+      c1 = c2;
+      c2 = link->read();
+    }
+
+    if (c1 == SACP_FRAME_SOF_1 && c2 < 0) {
+      parser.status = SACP_PARSER_STA_GOT_SOF1;
+      parser.next_timeout = millis() + 5;
+    }
+
+    // to here:
+    // SACP_PARSER_STA_GOT_SOF indicates buffer maybe contain available data.
+    // SACP_PARSER_STA_GOT_SOF1 indicate no data in the buffer, should break the cases.
+    if (parser.status != SACP_PARSER_STA_GOT_SOF) {
+      // didn't get SOF or just get SOF1
+      break;
+    }
+
+    avail_bytes = link->available();
+    parser.next_timeout = millis() + 5;
+
+  case SACP_PARSER_STA_GOT_SOF1:
+    // to here, the status maybe SACP_PARSER_STA_GOT_SOF
+    if (parser.status == SACP_PARSER_STA_GOT_SOF1) {
+      if (avail_bytes <= 0) {
+        if (ELAPSED(millis(), parser.next_timeout)) {
+          // if timeout on waiting for SOF2, reset parser
+          parser.status = SACP_PARSER_STA_IDLE;
+        }
+        return E_NO_RESRC;
+      }
+
+      if (link->read() != SACP_FRAME_SOF_2) {
+        // byte follow SOF1 is not SOF2, need break out
+        parser.status = SACP_PARSER_STA_IDLE;
+        break;
+      }
+
+      parser.status = SACP_PARSER_STA_GOT_SOF;
+
+      avail_bytes = link->available();
+      // wait up to 5 ms for font header
+      parser.next_timeout = millis() + 5;
+    }
+
+  case SACP_PARSER_STA_GOT_SOF:
+    if (avail_bytes < SACP_FRONT_HEADER_MIN_SIZE - 2) {
+      // if we have waited it for enough time, reset the parser
+      if (ELAPSED(millis(), parser.next_timeout)) {
+        parser.status = SACP_PARSER_STA_IDLE;
+        LOG_I("parse_packets line: %d:\n", __LINE__);
+        break;
+      }
+      else {
+        // continue to wait
+        break;
+      }
+    }
+
+    parser.buffer[0] = SACP_FRAME_SOF_1;
+    parser.buffer[1] = SACP_FRAME_SOF_2;
+
+    for (int i = 2; i < SACP_FRONT_HEADER_MIN_SIZE; i++) {
+      parser.buffer[i] = link->read();
+    }
+
+    if (parser.buffer[SACP_FRAME_INDEX_VER] == SACP_VER_1) {
+      // parse header of V1
+      header_checksum = calc_crc8(parser.buffer, SACP_V1_FRONT_HEADER_SIZE - 1);
+      if (header_checksum != parser.buffer[SACP_V1_FRAME_INDEX_CRC8]) {
+        LOG_E("V1: invalid crc8: recv[%x], calc[%x]\n", parser.buffer[SACP_V1_FRAME_INDEX_CRC8], header_checksum);
+        parser.status = SACP_PARSER_STA_IDLE;
+        break;
+      }
+      else {
+        parser.status = SACP_PARSER_STA_GOT_HEAD;
+        parser.next_timeout = millis() + 100;
+        avail_bytes   = link->available();
+        parser.length = parser.buffer[SACP_V1_FRAME_INDEX_LEN_H]<<8 | parser.buffer[SACP_V1_FRAME_INDEX_LEN_L];
+        parser.ver    = SACP_VER_1;
+      }
+
+      if (parser.length > (SACP_V1_PDU_MAX_SIZE - SACP_FRONT_HEADER_MIN_SIZE)) {
+        LOG_E("V1: length[%u] of packet from host[%u] is out of range[%u]\n",
+              parser.length, parser.buffer[SACP_V1_FRAME_INDEX_RECV_ID], SACP_V1_PDU_MAX_SIZE);
+        parser.status = SACP_PARSER_STA_IDLE;
+        break;
+      }
+    }
+    else {
+    // if (parser.buffer[SACP_FRAME_INDEX_VER] == SACP_VER_0) {
+      // parse header of V0
+      header_checksum = parser.buffer[SACP_V0_FRAME_INDEX_LEN_H]^parser.buffer[SACP_V0_FRAME_INDEX_LEN_L];
+      if (header_checksum != parser.buffer[SACP_V0_FRAME_INDEX_LEN_CHK]) {
+        LOG_E("V0: invalid length check: recv[%x], calc[%x]\n", parser.buffer[SACP_V0_FRAME_INDEX_LEN_CHK],
+            header_checksum);
+        parser.status = SACP_PARSER_STA_IDLE;
+        break;
+      }
+      else {
+        parser.status = SACP_PARSER_STA_GOT_HEAD;
+        parser.next_timeout = millis() + 100;
+        avail_bytes   = link->available();
+        // because it has been read SACP_FRONT_HEADER_MIN_SIZE bytes
+        // from UART buffer to parser buffer, and SACP_FRONT_HEADER_MIN_SIZE = 7.
+        // parser.length is total length of whole packet - 8
+        // so we are waiting for (parser.length + (8 - 7)) bytes
+        parser.length = (parser.buffer[SACP_V0_FRAME_INDEX_LEN_H]<<8 | parser.buffer[SACP_V0_FRAME_INDEX_LEN_L]) + 1;
+        parser.ver    = SACP_VER_0;
+      }
+
+      if (parser.length > (SACP_PDU_MAX_SIZE - SACP_V0_NON_PAYPLOAD_SIZE - 1)) {
+        LOG_E("V0: length[%u] of packetis out of range[%u]\n",
+              parser.length, SACP_PDU_MAX_SIZE);
+        parser.status = SACP_PARSER_STA_IDLE;
+        break;
+      }
+    }
+    // else {
+    //   // unsupported version
+    //   LOG_E("Unsupported SACP Ver[%u]\n", parser.buffer[SACP_FRAME_INDEX_VER]);
+    //   parser.status = SACP_PARSER_STA_IDLE;
+    //   break;
+    // }
+
+  case SACP_PARSER_STA_GOT_HEAD:
+    if (avail_bytes < parser.length) {
+      // if we have waited it for enough time, reset the parser
+      if (ELAPSED(millis(), parser.next_timeout)) {
+        parser.status = SACP_PARSER_STA_IDLE;
+        LOG_I("parse_packets line: %d: time out!!!  avail_bytes: %d, parser.length: %d\n", __LINE__, avail_bytes, parser.length);
+        break;
+      }
+      else {
+        // continue to wait
+        break;
+      }
+    }
+
+    if (parser.ver == SACP_VER_1) {
+      // read all data payload except the checksum
+      if (link->read_multi(parser.buffer + SACP_FRONT_HEADER_MIN_SIZE,
+        parser.length) != parser.length) {
+        LOG_E("V1: cannot read enough sacp hmi message!\n");
+        parser.status = SACP_PARSER_STA_IDLE;
+        break;
+      }
+    }
+    else {
+      if (link->read_multi(parser.buffer + SACP_FRONT_HEADER_MIN_SIZE,
+        parser.length) != parser.length) {
+        LOG_E("V0: cannot read enough sacp hmi message!\n");
+        parser.status = SACP_PARSER_STA_IDLE;
+        break;
+      }
+    }
+
+    if (parser.ver == SACP_VER_1) {
+      recv_checksum = *(uint16_t *)(parser.buffer + SACP_V1_FRONT_HEADER_SIZE + parser.length - 2);
+      calc_checksum = calculate_checksum(parser.buffer + SACP_V1_FRONT_HEADER_SIZE, parser.length - 2);
+
+      if (recv_checksum != calc_checksum) {
+        LOG_I("V1: invalid checksum: recv[%x], calc[%x], cmd[%x:%x]\n", recv_checksum, calc_checksum,
+        parser.buffer[SACP_V1_FRAME_INDEX_CMD_SET], parser.buffer[SACP_V1_FRAME_INDEX_CMD_ID]);
+        parser.status = SACP_PARSER_STA_IDLE;
+        break;
+      }
+    }
+    else {
+      recv_checksum = (uint16_t)(parser.buffer[SACP_V0_FRAME_INDEX_CHK_H]<<8 |
+                                  parser.buffer[SACP_V0_FRAME_INDEX_CHK_L]);
+      parser.length -= 1;
+      calc_checksum = calculate_checksum(parser.buffer + SACP_V0_NON_PAYPLOAD_SIZE, parser.length);
+
+      if (recv_checksum != calc_checksum) {
+        LOG_I("V0: invalid checksum: recv[%x], calc[%x], cmd[%x:%x]\n", recv_checksum, calc_checksum,
+        parser.buffer[SACP_V0_FRAME_INDEX_EVENT_ID], parser.buffer[SACP_V0_FRAME_INDEX_OPCODE]);
+        parser.status = SACP_PARSER_STA_IDLE;
+        break;
+      }
+    }
+
+    ret = E_SUCCESS;
+
+    if (parser.ver == SACP_VER_1) {
+      // length include the two bytes checksum
+      parser.length += SACP_V1_FRONT_HEADER_SIZE;
+      parser.status = SACP_PARSER_STA_GOT_MESSAGE;
+    }
+    else {
+      parser.length += SACP_V0_NON_PAYPLOAD_SIZE;
+      parser.status = SACP_PARSER_STA_GOT_MESSAGE;
+    }
+    break;
+
+  case SACP_PARSER_STA_GOT_MESSAGE:
+    ret = E_SUCCESS;
+    break;
+
+  default:
+    break;
+  }
+
+  return ret;
+}
+
+
+struct __packed EventHandle {
+  sacp_hmi_handle_t *handle;
+  uint16_t length: 12;
+  uint16_t version: 4;
+  uint8_t  channel;
+};
+
+MessageBufferHandle_t HostSACPHMI::get_event_queue_by_cmd(uint8_t *buffer, uint8_t channel) {
+  uint8_t cmd_set;
+  uint16_t cmd_id;
+  uint16_t length;
+  uint16_t seq = 0;
+  uint8_t  result;
+  sacp_hmi_message_t msg;
+  sacp_hmi_handle_t *handle = NULL;
+
+  EventHandle *event_handle = (EventHandle *)buffer;
+
+  if (buffer[SACP_FRAME_INDEX_VER] == SACP_VER_1) {
+    cmd_set = buffer[SACP_V1_FRAME_INDEX_CMD_SET];
+    cmd_id = buffer[SACP_V1_FRAME_INDEX_CMD_ID];
+    length = (buffer[SACP_V1_FRAME_INDEX_LEN_H]<<8 | buffer[SACP_V1_FRAME_INDEX_LEN_L]) & 0x0FFF;
+  }
+  else if (buffer[SACP_FRAME_INDEX_VER] == SACP_VER_0) {
+    cmd_set = buffer[SACP_V0_FRAME_INDEX_EVENT_ID];
+    length = (buffer[SACP_V0_FRAME_INDEX_LEN_H]<<8 | buffer[SACP_V0_FRAME_INDEX_LEN_L]) & 0x0FFF;
+    if (length < 2) {
+      LOG_E("for now didn't support single command of V0!\n");
+      return NULL;
+    }
+    cmd_id = buffer[SACP_V0_FRAME_INDEX_OPCODE];
+  }
+  else {
+    LOG_E("didn't support version[%u]\n", buffer[SACP_FRAME_INDEX_VER]);
+    return NULL;
+  }
+
+  seq = buffer[SACP_V1_FRAME_INDEX_SEQ_H]<<8 | buffer[SACP_V1_FRAME_INDEX_SEQ_L];
+
+  if (!cmd_set_handle[cmd_set] || cmd_set_handle_len[cmd_set] == 0) {
+    LOG_E("nobody apply cmd set handle for cmd[%x:%x]\n", cmd_set, cmd_id);
+    if (buffer[SACP_FRAME_INDEX_VER] != SACP_VER_1)
+      return NULL;
+    // use flash resource to save CPU resource
+    msg.peer    = buffer[SACP_V1_FRAME_INDEX_SENDER_ID];
+    msg.attr    = buffer[SACP_V1_FRAME_INDEX_ATTR];
+    msg.cmd_set = cmd_set;
+    msg.cmd_id  = cmd_id;
+    msg.ver     = buffer[SACP_V1_FRAME_INDEX_VER];
+    msg.seq     = seq;
+    msg.ch      = channel;
+
+    send_ack(&msg, E_INVALID_CMD_SET);
+    return NULL;
+  }
+
+  //cmd_set_handle[cmd_set][i].cmd_id == cmd_id
+  for (int i = 0; i < cmd_set_handle_len[cmd_set]; i++) {
+    if ((cmd_set_handle[cmd_set][i].cmd_id == cmd_id) &&
+        (cmd_set_handle[cmd_set][i].version == buffer[SACP_FRAME_INDEX_VER])) {
+      handle = &cmd_set_handle[cmd_set][i];
+      break;
+    }
+  }
+
+  if (!handle) {
+    LOG_E("nobody have registered handle for cmd[%x:%x]\n", cmd_set, cmd_id);
+    if (buffer[SACP_FRAME_INDEX_VER] != SACP_VER_1)
+      return NULL;
+    // use flash resource to save CPU resource
+    msg.peer    = buffer[SACP_V1_FRAME_INDEX_SENDER_ID];
+    msg.attr    = buffer[SACP_V1_FRAME_INDEX_ATTR];
+    msg.cmd_set = cmd_set;
+    msg.cmd_id  = cmd_id;
+    msg.ver     = buffer[SACP_V1_FRAME_INDEX_VER];
+    msg.seq     = seq;
+    msg.ch      = channel;
+
+    send_ack(&msg, E_INVALID_CMD_ID);
+    return NULL;
+  }
+
+  // change thr front 7 bytes to save handle
+  event_handle->handle  = handle;
+  event_handle->channel = channel;
+  event_handle->version = buffer[SACP_FRAME_INDEX_VER]; // for now only support V1
+  event_handle->length  = length;
+
+  if (handle->cb_attr & SACP_CB_ATTR_BLOCKED_WITH_MOTION) {
+    // check sequence
+    if (!is_retransmited_request(buffer[SACP_V1_FRAME_INDEX_SENDER_ID], channel, seq, &result)) {
+      /*if (thread_blocked_with_motion_busy || motion_platform_svc.marlin_is_paused()) {*/
+      // TODO: re-check condition!!!
+      if (thread_blocked_with_motion_busy) {
+        LOG_E("Drop cmd[%x:%x]\n", cmd_set, cmd_id);
+        msg.peer    = buffer[SACP_V1_FRAME_INDEX_SENDER_ID];
+        msg.attr    = buffer[SACP_V1_FRAME_INDEX_ATTR];
+        msg.cmd_set = cmd_set;
+        msg.cmd_id  = cmd_id;
+        msg.ver     = buffer[SACP_V1_FRAME_INDEX_VER];
+        msg.seq     = seq;
+        msg.ch      = channel;
+        send_ack(&msg, E_MACHINE_PROCESS_BLOCK);
+        return NULL;
+      }
+      else
+        return events_with_motion;
+    }
+  }
+  else if (handle->cb_attr & SACP_CB_ATTR_BLOCKED_WITHOUT_MOTION) {
+    // check sequence
+    if (!is_retransmited_request(buffer[SACP_V1_FRAME_INDEX_SENDER_ID], channel, seq, &result)) {
+      if (thread_blocked_without_motion_busy) {
+        LOG_E("Drop cmd[%x:%x]\n", cmd_set, cmd_id);
+        msg.peer    = buffer[SACP_V1_FRAME_INDEX_SENDER_ID];
+        msg.attr    = buffer[SACP_V1_FRAME_INDEX_ATTR];
+        msg.cmd_set = cmd_set;
+        msg.cmd_id  = cmd_id;
+        msg.ver     = buffer[SACP_V1_FRAME_INDEX_VER];
+        msg.seq     = seq;
+        msg.ch      = channel;
+        send_ack(&msg, E_MACHINE_PROCESS_BLOCK);
+        return NULL;
+      }
+      else
+        return events_blocked_without_motion;
+    }
+  }
+  else {
+    return events_normal;
+  }
+
+  // to here, request we have acked prevously, just send result
+  msg.peer    = buffer[SACP_V1_FRAME_INDEX_SENDER_ID];
+  msg.attr    = buffer[SACP_V1_FRAME_INDEX_ATTR];
+  msg.cmd_set = cmd_set;
+  msg.cmd_id  = cmd_id;
+  msg.ver     = event_handle->version;
+  msg.seq     = seq;
+  msg.ch      = event_handle->channel;
+
+  send_ack(&msg, result);
+  return NULL;
+}
+
+void HostSACPHMI::record_new_route(uint32_t peer, uint8_t ch, uint8_t ver) {
+  bool notify = false;
+  int i = 0;
+
+  for (; i < SACP_ROUTE_TABLE_DYNAMIC_MAX; i++) {
+    if (rt_dynamic[i].peer != SACP_HOST_INVALID) {
+      if (rt_dynamic[i].peer == peer &&
+          rt_dynamic[i].ch == ch &&
+          rt_dynamic[i].ver == ver) {
+        // has recored this route already
+        if (rt_dynamic[i].status != SACP_ROUTE_STA_ONLINE) {
+          // if route is not online, set it to online
+          rt_dynamic[i].status = SACP_ROUTE_STA_ONLINE;
+          notify = true;
+        }
+        // jump out
+        break;
+      }
+      else {
+        // not same one, check next one
+        continue;
+      }
+    }
+    else {
+      // nobody is same with new one, record it
+      rt_dynamic[i].peer = peer;
+      rt_dynamic[i].ch = ch;
+      rt_dynamic[i].ver= ver;
+      rt_dynamic[i].status = SACP_ROUTE_STA_ONLINE;
+      notify = true;
+      break;
+    }
+  }
+
+  if (notify) {
+    LOG_I("new route id:%u, ch:%u, ver:%u online!\n", peer, ch, ver);
+    for (int j = 0; j < SACP_ROUTE_TABLE_HANDLE_MAX; j++) {
+      if (new_route_handle[j].cb) {
+        new_route_handle[j].cb(new_route_handle[j].obj, &rt_dynamic[i]);
+      }
+    }
+  }
+}
+
+
+err_code_t HostSACPHMI::forward_message(uint32_t id, uint8_t *pdu, uint32_t length) {
+  if (id >= SACP_HOST_ID_MAX || !pdu || length > SACP_PDU_MAX_SIZE) {
+    LOG_E("invalid parameters for forwarding message!");
+    return E_PARAM;
+  }
+
+  if (static_route[id].ch >= SACP_HMI_CH_MAX) {
+    LOG_E("invalid channel of static route!");
+    return E_PARAM;
+  }
+
+  sacp_channel_t &channel = channels[static_route[id].ch];
+
+  LOG_I("will forward cmd[%x:%x] to host[%u] in ch[%u]\n", pdu[SACP_V1_FRAME_INDEX_CMD_SET],
+        pdu[SACP_V1_FRAME_INDEX_CMD_ID], pdu[SACP_V1_FRAME_INDEX_RECV_ID], static_route[id].ch);
+
+  // TODO: some bugs in write_multi() to be fix, so use write() to send data
+  xSemaphoreTake(channel.lock, portMAX_DELAY);
+  for (uint32_t i = 0; i < length; i++) {
+    channel.link->write(pdu[i]);
+  }
+  xSemaphoreGive(channel.lock);
+
+  return E_SUCCESS;
+}
+
+
+void HostSACPHMI::handle_receive() {
+  MessageBufferHandle_t tmp_queue = NULL;
+  MessageBufferHandle_t event_queue = NULL;
+  uint32_t seq;
+  uint8_t *parser_buff = NULL;
+  uint16_t buffer_len = 0;
+  uint8_t version;
+
+  for (int i = 0; i < SACP_HMI_CH_MAX; i++) {
+    if (parse_packets(channels[i]) != E_SUCCESS)
+      continue;
+
+    parser_buff = channels[i].parser.buffer;
+    buffer_len  = channels[i].parser.length;
+    version     = channels[i].parser.ver;
+
+    if (parser_buff[SACP_V1_FRAME_INDEX_VER] == SACP_VER_1) {
+      if (parser_buff[SACP_V1_FRAME_INDEX_RECV_ID] != host_id) {
+        LOG_E("recv id of msg[%x, %x] isn't me!, %d, %d\n", parser_buff[SACP_V1_FRAME_INDEX_CMD_SET],
+            parser_buff[SACP_V1_FRAME_INDEX_CMD_ID], parser_buff[SACP_V1_FRAME_INDEX_RECV_ID], host_id);
+
+        // forward message
+        forward_message(parser_buff[SACP_V1_FRAME_INDEX_RECV_ID], parser_buff, buffer_len);
+        channels[i].parser.status = SACP_PARSER_STA_IDLE;
+        continue;
+      }
+    }
+
+    tmp_queue   = NULL;
+    if (version == SACP_VER_1) {
+      seq = parser_buff[SACP_V1_FRAME_INDEX_SEQ_H]<<8 | parser_buff[SACP_V1_FRAME_INDEX_SEQ_L];
+      if (xSemaphoreTake(waiting_lock, 0) == pdPASS) {
+        for (int j = 0; j < SACP_HMI_WAITING_NODE_MAX; j++) {
+          if (waiting_nodes[j].status != SACP_WAITING_NODE_STA_INUSE_V1)
+            continue;
+
+          if (waiting_nodes[j].cmd_set == parser_buff[SACP_V1_FRAME_INDEX_CMD_SET] &&
+              waiting_nodes[j].cmd_id == parser_buff[SACP_V1_FRAME_INDEX_CMD_ID] &&
+              waiting_nodes[j].peer == parser_buff[SACP_V1_FRAME_INDEX_SENDER_ID] &&
+              waiting_nodes[j].ch == i &&
+              waiting_nodes[j].seq == seq) {
+            tmp_queue = waiting_nodes[j].queue;
+            break;
+          }
+        }
+        xSemaphoreGive(waiting_lock);
+      }
+    }
+    else {
+      if (xSemaphoreTake(waiting_lock, 0) == pdPASS) {
+        for (int j = 0; j < SACP_HMI_WAITING_NODE_MAX; j++) {
+          if (waiting_nodes[j].status == SACP_WAITING_NODE_STA_INUSE_V0) {
+            if (waiting_nodes[j].cmd_set == parser_buff[SACP_V0_FRAME_INDEX_EVENT_ID] &&
+                waiting_nodes[j].cmd_id == parser_buff[SACP_V0_FRAME_INDEX_OPCODE] &&
+                waiting_nodes[j].ch == i) {
+              tmp_queue = waiting_nodes[j].queue;
+              break;
+            }
+          }
+          if (waiting_nodes[j].status == SACP_WAITING_NODE_STA_INUSE_V0_LEGACY) {
+            if (waiting_nodes[j].cmd_set == parser_buff[SACP_V0_FRAME_INDEX_EVENT_ID] &&
+                waiting_nodes[j].ch == i) {
+              tmp_queue = waiting_nodes[j].queue;
+              break;
+            }
+          }
+        }
+        xSemaphoreGive(waiting_lock);
+      }
+    }
+
+    // if (version == SACP_VER_1)
+    //   LOG_I("recv ch[%u] v1 msg[%x:%x], attr[%x], seq[%u]\n", i, parser_buff[SACP_V1_FRAME_INDEX_CMD_SET],
+    //         parser_buff[SACP_V1_FRAME_INDEX_CMD_ID], parser_buff[SACP_V1_FRAME_INDEX_ATTR],
+    //         parser_buff[SACP_V1_FRAME_INDEX_SEQ_H]<<8 | parser_buff[SACP_V1_FRAME_INDEX_SEQ_L]);
+    // else
+    //   LOG_I("recv ch[%u] v0 msg[%x]\n", i, parser_buff[SACP_V0_FRAME_INDEX_EVENT_ID]);
+
+    if (!events_normal || !events_blocked_without_motion || !events_with_motion) {
+      channels[i].parser.status = SACP_PARSER_STA_IDLE;
+      continue;
+    }
+
+    // if someone is waiting this message, send to it
+    if (tmp_queue) {
+      if (version == SACP_VER_1) {
+        // just send the payload part except cmd set and cmd id
+        xMessageBufferSend(tmp_queue, parser_buff + SACP_V1_FRAME_INDEX_PAYLOAD,
+          buffer_len - SACP_V1_PDU_MIN_SIZE, pdMS_TO_TICKS(100));
+      }
+      else {
+        // just send the payload part except cmd set and cmd id
+        xMessageBufferSend(tmp_queue, &parser_buff[SACP_V0_FRAME_INDEX_EVENT_ID],
+          buffer_len - SACP_V0_NON_PAYPLOAD_SIZE, pdMS_TO_TICKS(100));
+      }
+
+      channels[i].parser.status = SACP_PARSER_STA_IDLE;
+      continue;
+    }
+
+    // for now, won't support handle V0 events async
+    // if (version != SACP_VER_1) {
+    //   channels[i].parser.status = SACP_PARSER_STA_IDLE;
+    //   LOG_I("for now, won't support handle V0 events async\n");
+    //   // continue;
+    // }
+
+    event_queue = get_event_queue_by_cmd(parser_buff, i);
+    if (!event_queue) {
+      LOG_I("no event queue for msg[%x:%x]\n", parser_buff[SACP_V1_FRAME_INDEX_CMD_SET], parser_buff[SACP_V1_FRAME_INDEX_CMD_ID]);
+      channels[i].parser.status = SACP_PARSER_STA_IDLE;
+      continue;
+    }
+
+    // check if we have callback for this message, if yes, send it to event thread
+    // data send to event thread doesn't include the 2 bytes checksum
+    xMessageBufferSend(event_queue, parser_buff, buffer_len, pdMS_TO_TICKS(100));
+
+    // reset the parser to tell it we have toke message
+    channels[i].parser.status = SACP_PARSER_STA_IDLE;
+  }
+}
+
+
+err_code_t HostSACPHMI::handle_message(sacp_hmi_message_t &msg) {
+  sacp_hmi_handle_t *handle = NULL;
+  bool busy_flag;
+
+  if (!cmd_set_handle[msg.cmd_set] || cmd_set_handle_len[msg.cmd_set] == 0) {
+    LOG_E("nobody have registered handle for cmd[%x:%x]\n", msg.cmd_set, msg.cmd_id);
+    return E_INVALID_CMD_SET;
+  }
+
+  for (int i = 0; i < cmd_set_handle_len[msg.cmd_set]; i++) {
+    if (cmd_set_handle[msg.cmd_set][i].cmd_id == msg.cmd_id) {
+      handle = &cmd_set_handle[msg.cmd_set][i];
+      break;
+    }
+  }
+
+  return handle_message(msg, handle, busy_flag);
+}
+
+err_code_t HostSACPHMI::handle_message(sacp_hmi_message_t &msg, sacp_hmi_handle_t *handle, bool &busy_flag, MessageBufferHandle_t queue) {
+  err_code_t ret = E_FAILURE;
+
+  if (!handle) {
+    LOG_E("no handle for cmd[%x:%x], ver[%u]\n", msg.cmd_set, msg.cmd_id, msg.ver);
+    if (msg.ver == SACP_VER_1)
+      return send_ack(&msg, E_INVALID_CMD_ID);
+    else
+      return E_INVALID_CMD_ID;
+  }
+
+  if (msg.ver == SACP_VER_1) {
+    if (msg.attr & SACP_MESSAGE_ATTR_ACK) {
+      if (handle->ack_cb) {
+        taskENTER_CRITICAL();
+        busy_flag = true;
+        taskEXIT_CRITICAL();
+
+        if (queue)
+          xMessageBufferReset(queue);
+        ret = handle->ack_cb(handle->obj, &msg);
+
+        taskENTER_CRITICAL();
+        busy_flag = false;
+        taskEXIT_CRITICAL();
+
+        return ret;
+      }
+      else {
+        LOG_E("no V[%u] callback for ACK[%x:%x]\n", msg.ver, msg.cmd_set, msg.cmd_id);
+      }
+    }
+    else {
+      if (handle->req_cb) {
+        taskENTER_CRITICAL();
+        busy_flag = true;
+        taskEXIT_CRITICAL();
+
+        if (queue)
+          xMessageBufferReset(queue);
+        ret = handle->req_cb(handle->obj, &msg);
+
+        taskENTER_CRITICAL();
+        busy_flag = false;
+        taskEXIT_CRITICAL();
+        return ret;
+      }
+      else {
+        LOG_E("no V[%u] callback for REQ[%x:%x]\n", msg.ver, msg.cmd_set, msg.cmd_id);
+      }
+    }
+
+    return send_ack(&msg, E_INVALID_CMD_ID);
+  }
+  else {
+    // for now, callback type of V0 must be request
+    if (handle->req_cb) {
+      return handle->req_cb(handle->obj, &msg);
+    }
+    else {
+      LOG_E("no V[%u] callback for cmd[%x:%x]\n", msg.ver, msg.cmd_set, msg.cmd_id);
+    }
+  }
+
+  return E_INVALID_CMD_ID;
+}
+
+
+MessageBufferHandle_t HostSACPHMI::get_event_queue_by_thread() {
+  if (smprinter.is_in_motion_thread()) {
+    return events_with_motion;
+  }
+  else if (xTaskGetCurrentTaskHandle() == thandle_hmi_blocked_event) {
+    return events_blocked_without_motion;
+  }
+  else {
+    return events_normal;
+  }
+}
+
+void HostSACPHMI::handle_events() {
+  MessageBufferHandle_t event_queue = NULL;
+  sacp_hmi_message_t    msg;
+
+  uint16_t    length;
+  uint16_t    pdu_length;
+  uint8_t     buffer[SACP_V1_PDU_MAX_SIZE];
+  EventHandle *event_handle;
+  bool *busy_flag;
+
+  if (smprinter.is_in_motion_thread()) {
+    event_queue = events_with_motion;
+    busy_flag   = &thread_blocked_with_motion_busy;
+  }
+  else if (xTaskGetCurrentTaskHandle() == thandle_hmi_blocked_event) {
+    event_queue = events_blocked_without_motion;
+    busy_flag   = &thread_blocked_without_motion_busy;
+  }
+  else {
+    event_queue = events_normal;
+    busy_flag   = &thread_normal_busy;
+  }
+
+
+  if (!event_queue)
+    return;
+
+  length = xMessageBufferReceive(event_queue, buffer, SACP_PDU_MAX_SIZE, 0);
+
+  if (!length) {
+    return;
+  }
+
+  if (length < SACP_PDU_MIN_SIZE) {
+    LOG_E("invalid message, len[%u]\n", length);
+    return;
+  }
+
+  event_handle = (EventHandle *)buffer;
+
+  if (event_handle->version == SACP_VER_1) {
+    pdu_length = event_handle->length + SACP_V1_FRONT_HEADER_SIZE;
+  }
+  else if (event_handle->version  == SACP_VER_0) {
+    pdu_length = event_handle->length + SACP_V0_NON_PAYPLOAD_SIZE;
+  }
+  else {
+    LOG_E("invalid version[%u] of HMI envent\n", event_handle->version);
+    return;
+  }
+
+  if (length != pdu_length) {
+    LOG_E("invalid message, len[%u], pdu len[%u], even len[%u]\n", length, pdu_length, event_handle->length);
+    return;
+  }
+
+  msg.ver = event_handle->version;
+  msg.ch  = event_handle->channel;
+
+  if (event_handle->version == SACP_VER_1) {
+    msg.length  = event_handle->length - SACP_V1_REAR_HEADER_SIZE - 2;
+    msg.cmd_set = buffer[SACP_V1_FRAME_INDEX_CMD_SET];
+    msg.cmd_id  = buffer[SACP_V1_FRAME_INDEX_CMD_ID];
+    msg.peer    = buffer[SACP_V1_FRAME_INDEX_SENDER_ID];
+    msg.attr    = buffer[SACP_V1_FRAME_INDEX_ATTR];
+    msg.seq     = buffer[SACP_V1_FRAME_INDEX_SEQ_H]<<8 | buffer[SACP_V1_FRAME_INDEX_SEQ_L];
+    msg.data    = buffer + (SACP_V1_FRONT_HEADER_SIZE + SACP_V1_REAR_HEADER_SIZE);
+
+  }
+  else if (event_handle->version == SACP_VER_0) {
+    if (event_handle->length < 2) {
+      LOG_E("for now didn't support single command of V0!\n");
+      return;
+    }
+
+    // check if this message is received from new route
+    // record_new_route(0, event_handle->channel, SACP_VER_0);
+
+    msg.length  = event_handle->length - 2;
+    msg.cmd_set = buffer[SACP_V0_FRAME_INDEX_EVENT_ID];
+    msg.cmd_id  = buffer[SACP_V0_FRAME_INDEX_OPCODE];
+    msg.attr    = 0;
+    msg.data    = &buffer[SACP_V0_FRAME_INDEX_DATA];
+  }
+
+  handle_message(msg, event_handle->handle, *busy_flag, (event_queue == events_normal)? NULL : event_queue);
+
+  if (event_handle->version == SACP_VER_1) {
+    // check if this message is received from new route
+    // for now only record node for V1
+    record_new_route(buffer[SACP_V1_FRAME_INDEX_SENDER_ID], event_handle->channel, SACP_VER_1);
+  }
+}
+
+
+err_code_t HostSACPHMI::register_subscription(uint8_t cmd_set, uint8_t cmd_id, void *obj,
+  sacp_hmi_subscribe_callback cb, sacp_hmi_subscribe_notify_cb notify_cb/*=NULL*/) {
+
+  int i = 0, j = 0;
+  sacp_subscription_handle_t *handle = NULL;
+
+  for (; i < SACP_SUBSCRIPTION_NODE_MAX; i++) {
+    if (subscription_nodes[i].cmd_set == cmd_set &&
+        subscription_nodes[i].cmd_id == cmd_id) {
+      handle = subscription_nodes[i].handle;
+      break;
+    }
+
+    if (subscription_nodes[i].handle == NULL)
+      break;
+  }
+
+  // check if same obj has registered subscription cb
+  while (handle) {
+    if (handle->obj == obj) {
+      xSemaphoreTake(subscription_lock, portMAX_DELAY);
+      handle->cb = cb;
+      xSemaphoreGive(subscription_lock);
+
+      LOG_I("this obj has registered subscription cb\n");
+      return E_SUCCESS;
+    }
+
+    if (handle->next)
+      handle = handle->next;
+    else
+      break;
+  }
+
+  // to here, need to get new free handle
+  for (; j < SACP_SUBSCRIPTION_HANDLE_MAX; j++) {
+    if (subscription_handles[j].cb == NULL)
+      break;
+  }
+
+  if (j < SACP_SUBSCRIPTION_HANDLE_MAX) {
+    xSemaphoreTake(subscription_lock, portMAX_DELAY);
+    // if got free handle, do initialization
+    subscription_handles[j].obj = obj;
+    subscription_handles[j].cb = cb;
+    subscription_handles[j].next = NULL;
+    subscription_handles[j].notify_cb = notify_cb;
+    xSemaphoreGive(subscription_lock);
+  }
+  else {
+    LOG_I("no free static handle for subscription[%x:%x]\n", cmd_set, cmd_id);
+    return E_NO_RESRC;
+  }
+
+  xSemaphoreTake(subscription_lock, portMAX_DELAY);
+  if (handle != NULL) {
+    // other one has registered subscription node for these cmd_set&cmd_id
+    handle->next = &subscription_handles[j];
+  }
+  else {
+    // nobody register subscription node for these cmd_set&cmd_id
+    subscription_nodes[i].cmd_set = cmd_set;
+    subscription_nodes[i].cmd_id  = cmd_id;
+    subscription_nodes[i].handle = &subscription_handles[j];
+  }
+  xSemaphoreGive(subscription_lock);
+
+  return E_SUCCESS;
+}
+
+
+static void subscription_timer_cb(TimerHandle_t timer) {
+  uint8_t buffer[SACP_PDU_MAX_SIZE];
+  uint16_t index = 0;
+  sacp_hmi_message_t msg;
+
+  sacp_subscription_client_t *client = (sacp_subscription_client_t *)pvTimerGetTimerID(timer);
+  sacp_subscription_node_t   *node = NULL;
+  sacp_subscription_handle_t *handle = NULL;
+
+  if (!client || !client->node) {
+    return;
+  }
+
+  node = client->node;
+  if (!node->handle) {
+    return;
+  }
+
+  handle = node->handle;
+  while (handle) {
+    if (handle->cb)
+      index += handle->cb(handle->obj, buffer + index);
+    handle = handle->next;
+  }
+
+  msg.peer = client->peer;
+  msg.ch   = client->ch;
+  msg.cmd_set = node->cmd_set;
+  msg.cmd_id  = node->cmd_id;
+  msg.attr    = SACP_MESSAGE_ATTR_ACK | SACP_MESSAGE_ATTR_UPDATE_ACK_SEQ;
+  msg.data    = buffer;
+  msg.length  = index;
+
+  host_hmi.send(&msg);
+
+  return;
+}
+
+
+err_code_t HostSACPHMI::handle_subscription(void *obj, sacp_hmi_message_t *msg) {
+  HostSACPHMI &host = *(HostSACPHMI *)obj;
+  err_code_t  ret = E_SUCCESS;
+
+  uint16_t period;
+  uint8_t  cmd_set;
+  uint8_t  cmd_id;
+
+  int client_index = 0;
+  int node_index   = 0;
+
+  sacp_subscription_client_t *client = NULL;
+  sacp_subscription_node_t   *node   = NULL;
+  sacp_subscription_handle_t *handle = NULL;
+  TimerHandle_t               timer  = NULL;
+
+  if (msg->length < 4) {
+    LOG_E("invalid data length[%u] for subscription!\n", msg->length);
+    ret = E_PARAM;
+    goto out_subscript;
+  }
+
+  cmd_set = msg->data[0];
+  cmd_id  = msg->data[1];
+  period  = msg->data[2] | msg->data[3]<<8;
+
+  LOG_I("subscribe cmd[%x:%x], period[%u]!\n", cmd_set, cmd_id, period);
+
+  if (period < SACP_SUBSCRIPTION_PERIOD_INVALID) {
+    LOG_E("period is less than [%d]\n", SACP_SUBSCRIPTION_PERIOD_INVALID);
+    ret = E_PARAM;
+    goto out_subscript;
+  }
+
+  // check firstly if someone has register this node of cmd_set & cmd_id
+  for (; node_index < SACP_SUBSCRIPTION_NODE_MAX; node_index++) {
+    // if yes, break out, and node_index record the available node
+    if (host.subscription_nodes[node_index].cmd_set == cmd_set &&
+        host.subscription_nodes[node_index].cmd_id == cmd_id) {
+      break;
+    }
+  }
+
+  // node is out of range, indicating nobody register handler
+  if (node_index >= SACP_SUBSCRIPTION_NODE_MAX) {
+    LOG_W("no body registered subscription node for [%x:%x]\n", cmd_set, cmd_id);
+    ret = E_NO_RESRC;
+    goto out_subscript;
+  }
+
+  // check if there is one same client has subscribed this node before
+  client = &host.subscription_clients[0];
+  for (; client_index < SACP_SUBSCRIPTION_CLIENT_MAX; client_index++) {
+    if (!client)
+      break;
+
+    node = client->node;
+
+    // if have same peer and ch, indicate the client send same request again
+    // maybe it just want to change period
+    if (client->peer == msg->peer && client->ch == msg->ch) {
+      if (!node) {
+        LOG_I("client didn't subscribe message ok last time!\n");
+        break;
+      }
+
+      if (node->cmd_set == cmd_set && node->cmd_id == cmd_id) {
+        if (client->period != period) {
+          LOG_I("same client has registered same node, update period!\n");
+          // update period and return
+          xTimerChangePeriod(client->timer, period, portMAX_DELAY);
+          client->period = period;
+        }
+        else {
+          LOG_I("same client has registered same node with same period!\n");
+        }
+        // got same client, same period, return success
+        goto out_subscript;
+      }
+    }
+
+    if (!node) {
+      // client subcribe message firstly
+      // there is new available client
+      LOG_V("client subscribe message firstly!\n");
+      break;
+    }
+
+    client++;
+  }
+
+  if (client_index >= SACP_SUBSCRIPTION_CLIENT_MAX || !client) {
+    LOG_E("no avaliable client for subscription[%x:%x]\n", cmd_set, cmd_id);
+    ret = E_NO_RESRC;
+    goto out_subscript;
+  }
+
+  // add new client
+  // create timer firstly
+  timer = xTimerCreate(NULL, pdMS_TO_TICKS(period),
+  pdTRUE, (void *)client, subscription_timer_cb);
+  if (!timer) {
+    LOG_E("cannot create timer for subscription[%x:%x]\n", cmd_set, cmd_id);
+    return host_hmi.send_ack(msg, E_NO_MEM);
+  }
+
+  // save parameters
+  xSemaphoreTake(host.subscription_lock, portMAX_DELAY);
+  client->peer   = msg->peer;
+  client->ch     = msg->ch;
+  client->period = period;
+  client->node   = &host.subscription_nodes[node_index];
+  client->timer  = timer;
+  xSemaphoreGive(host.subscription_lock);
+
+  // start timer
+  if (xTimerStart(timer, portMAX_DELAY) != pdPASS) {
+    LOG_E("failed to start timer for subscription[%x:%x]\n", cmd_set, cmd_id);
+    ret = E_FAILURE;
+
+    if (xTimerDelete(client->timer, portMAX_DELAY) != pdPASS) {
+      LOG_E("failed to delete Timer!!\n");
+    }
+
+    xSemaphoreTake(host.subscription_lock, portMAX_DELAY);
+    client->peer   = SACP_V1_HOST_INVALID;
+    client->ch     = SACP_HMI_CH_MAX;
+    client->period = portMAX_DELAY;
+    client->node   = NULL;
+    client->timer  = NULL;
+    xSemaphoreGive(host.subscription_lock);
+  }
+  else {
+    LOG_I("subscribe success!\n");
+    handle = client->node->handle;
+    while (handle) {
+      if (handle->notify_cb)
+        handle->notify_cb(handle->obj, msg->peer, msg->ch, SACP_SUBS_NOTIFY_TYPE_SUBSCRIBE);
+
+      handle = handle->next;
+    }
+  }
+
+out_subscript:
+  return host_hmi.send_ack(msg, ret);
+}
+
+
+err_code_t HostSACPHMI::handle_unsubscription(void *obj, sacp_hmi_message_t *msg) {
+  HostSACPHMI &host = *(HostSACPHMI *)obj;
+  err_code_t  ret   = E_SUCCESS;
+  uint8_t     cmd_set;
+  uint8_t     cmd_id;
+
+  sacp_subscription_client_t *client = NULL;
+  sacp_subscription_node_t   *node   = NULL;
+  sacp_subscription_handle_t *handle = NULL;
+
+  if (msg->length < 2) {
+    LOG_E("invalid data length[%u] for unsubscription!\n", msg->length);
+    ret = E_PARAM;
+    goto out_unsubscript;
+  }
+
+  cmd_set = msg->data[0];
+  cmd_id  = msg->data[1];
+
+  LOG_I("unsubscript cmd[%x:%x]!\n", cmd_set, cmd_id);
+
+  // check if client has register this node of cmd_set & cmd_id
+  client = &host.subscription_clients[0];
+  for (int i = 0; i < SACP_SUBSCRIPTION_CLIENT_MAX; i++) {
+    if (!client)
+      break;
+
+    // if have same peer and ch, indicate the client send same request again
+    // maybe it just want to change period
+    if (client->peer == msg->peer && client->ch == msg->ch) {
+      node = client->node;
+
+      if (!node) {
+        LOG_E("a client with peer and ch but no valid node!\n");
+        continue;
+      }
+
+      if (node->cmd_set != cmd_set || node->cmd_id != cmd_id)
+        continue;
+
+      if (client->timer) {
+        if (xTimerDelete(client->timer, portMAX_DELAY) != pdPASS) {
+          LOG_E("failed to delete Timer!!\n");
+        }
+      }
+
+      // deinit client
+      xSemaphoreTake(host.subscription_lock, portMAX_DELAY);
+      client->peer   = SACP_V1_HOST_INVALID;
+      client->timer  = NULL;
+      client->node   = NULL;
+      client->ch     = SACP_HMI_CH_MAX;
+      client->period = 0;
+      xSemaphoreGive(host.subscription_lock);
+
+      handle = node->handle;
+      while (handle) {
+        if (handle->notify_cb)
+          handle->notify_cb(handle->obj, msg->peer, msg->ch, SACP_SUBS_NOTIFY_TYPE_UNSUBSCRIBE);
+
+        handle = handle->next;
+      }
+
+      goto out_unsubscript;
+    }
+
+    client++;
+  }
+
+  LOG_E("cannot found match client for unsubscribe [%x:%x]\n", cmd_set, cmd_id);
+  ret = E_PARAM;
+
+out_unsubscript:
+
+  return host_hmi.send_ack(msg, ret);
+}
+
+
+err_code_t HostSACPHMI::handle_unsubscription_by_peer(void *obj, sacp_hmi_message_t *msg) {
+  HostSACPHMI &host = *(HostSACPHMI *)obj;
+
+  if (!obj || !msg || msg->length < 1) {
+    LOG_W("handle_unsubscription param error\n");
+    return host_hmi.send_ack(msg, E_PARAM);
+  }
+
+  LOG_I("unsubscribe peer: %d, ch: %d\n", msg->data[0], msg->ch);
+
+  host.unsubscribe_by_peer(msg->data[0], msg->ch);
+
+  return host_hmi.send_ack(msg, E_SUCCESS);
+}
+
+
+err_code_t HostSACPHMI::unsubscribe_by_peer(uint32_t peer, uint32_t ch) {
+  sacp_subscription_client_t *client = NULL;
+  sacp_subscription_handle_t *handle = NULL;
+
+  LOG_I("clear subscription of peer[%x:%x]!\n", peer, ch);
+
+  client = &subscription_clients[0];
+  for (int i = 0; i < SACP_SUBSCRIPTION_CLIENT_MAX; i++) {
+    // if have same peer and ch, indicate the client send same request again
+    // maybe it just want to change period
+    if (client->peer == peer && client->ch == ch) {
+      // send notification
+      if (client->node) {
+        handle = client->node->handle;
+        while (handle) {
+          if (handle->notify_cb)
+            handle->notify_cb(handle->obj, peer, ch, SACP_SUBS_NOTIFY_TYPE_UNSUBSCRIBE);
+
+          handle = handle->next;
+        }
+      }
+
+      if (client->timer) {
+        if (xTimerDelete(client->timer, portMAX_DELAY) != pdPASS) {
+          LOG_E("failed to delete Timer!!\n");
+        }
+      }
+
+      // deinit client
+      xSemaphoreTake(subscription_lock, portMAX_DELAY);
+      client->peer   = SACP_V1_HOST_INVALID;
+      client->timer  = NULL;
+      client->node   = NULL;
+      client->ch     = SACP_HMI_CH_MAX;
+      client->period = 0;
+      xSemaphoreGive(subscription_lock);
+    }
+
+    client++;
+  }
+
+  return E_SUCCESS;
+}
+
+
+err_code_t HostSACPHMI::register_new_route_handle(void *obj, sacp_hmi_notify_new_route_cb cb) {
+  int i = 0;
+
+  LOG_I("register route notify cb");
+
+  for (; i < SACP_ROUTE_TABLE_HANDLE_MAX; i++) {
+    if (new_route_handle[i].cb == NULL) {
+      new_route_handle[i].cb  = cb;
+      new_route_handle[i].obj = obj;
+      break;
+    }
+  }
+
+  if (i >= SACP_ROUTE_TABLE_HANDLE_MAX) {
+    return E_NO_RESRC;
+  }
+
+  return E_SUCCESS;
+}
+
+void HostSACPHMI::cache_result(uint32_t id, uint8_t ch, uint16_t sequence, uint8_t result) {
+  sacp_result_node_t *result_node = NULL;
+  sacp_result_cache_t *cache_node = result_cache;
+  for (int i = 0; i < SACP_ROUTE_TABLE_DYNAMIC_MAX; i++) {
+    if (cache_node->peer == id && cache_node->ch == ch) {
+
+      xSemaphoreTake(cache_node->lock, portMAX_DELAY);
+      // to avoid use 'goto'
+      do {
+        if (cache_node->cahced >= SACP_ROUTE_RESULT_CACHE_MAX) {
+          // there is SACP_ROUTE_RESULT_CACHE_MAX nodes for every route
+          result_node = cache_node->nodes[cache_node->write_index];
+        }
+        else {
+          // apply new free node and save the last one
+          result_node = malloc_result_node();
+          if (!result_node) {
+            LOG_E("HostSACPHMI: no free result cache!\n");
+            break;;
+          }
+          cache_node->nodes[cache_node->write_index] = result_node;
+          // add new node in array
+          cache_node->cahced++;
+        }
+
+        if (++cache_node->write_index >= SACP_ROUTE_RESULT_CACHE_MAX)
+          cache_node->write_index = 0;
+
+        result_node->seq    = sequence;
+        result_node->result = result;
+
+        if (sequence <= cache_node->last_seq) {
+          if (cache_node->last_seq - sequence > 0x7FFF) {
+            // sequence is overload
+            cache_node->last_seq = sequence;
+          }
+        }
+        else
+          cache_node->last_seq = sequence;
+
+      } while (0);
+      xSemaphoreGive(cache_node->lock);
+
+      break;
+    }
+
+    cache_node++;
+  }
+}
+
+bool HostSACPHMI::is_retransmited_request(uint32_t id, uint8_t ch, uint16_t sequence, uint8_t *result) {
+  sacp_result_node_t *result_node = NULL;
+  sacp_result_cache_t *cache_node = result_cache;
+  bool ret = false;
+
+  for (int i = 0; i < SACP_ROUTE_TABLE_DYNAMIC_MAX; i++) {
+    if (cache_node->peer == id && cache_node->ch == ch) {
+      if (sequence - cache_node->last_seq > 0 || cache_node->last_seq - sequence > 0x7FFF) {
+        // it's not a retransmitted request
+        return ret;
+      }
+
+      result_node = cache_node->nodes[0];
+      for (int j = 0; j < cache_node->cahced; j++) {
+        xSemaphoreTake(cache_node->lock, portMAX_DELAY);
+        if (result_node->seq == sequence) {
+          if (result) {
+            *result = result_node->result;
+            ret = true;
+          }
+          xSemaphoreGive(cache_node->lock);
+          break;
+        }
+        xSemaphoreGive(cache_node->lock);
+
+        result_node++;
+      }
+      break;
+    }
+
+    cache_node++;
+  }
+
+  return ret;
+}
+
+sacp_result_node_t *HostSACPHMI::malloc_result_node() {
+  sacp_result_node_t *node = NULL;
+
+  xSemaphoreTake(result_cache_pool.lock, portMAX_DELAY);
+
+  // to avoid 'goto'
+  do {
+    if (result_cache_pool.free == 0)
+      break;
+
+    node = list_first_entry(&result_cache_pool.head, sacp_result_node_t, node);
+
+    result_cache_pool.free--;
+
+  } while (0);
+
+  xSemaphoreGive(result_cache_pool.lock);
+
+  return node;
+}
+
+
+void HostSACPHMI::free_result_node(sacp_result_node_t *node) {
+  if (!node)
+    return;
+
+  xSemaphoreTake(result_cache_pool.lock, portMAX_DELAY);
+
+  list_add_tail(&node->node, &result_cache_pool.head);
+
+  result_cache_pool.free++;
+
+  xSemaphoreGive(result_cache_pool.lock);
+
+  return;
+}
+

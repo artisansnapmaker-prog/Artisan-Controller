@@ -1,0 +1,1966 @@
+#include "../../../Marlin/src/module/motion.h"
+#include "../../../Marlin/src/module/temperature.h"
+#include "../../../Marlin/src/module/AxisManager.h"
+
+#include "snapmaker.h"
+// #include "src/HAL/HAL.h"
+#include "src/pins/pins.h"
+#include "src/core/serial.h"
+
+#include "common/utility.h"
+
+#include "host/sacp.h"
+
+#include "service/module.h"
+#include "service/system.h"
+#include "service/motion_platform.h"
+#include "service/emergency_handler.h"
+#include "service/client_node.h"
+#include "service/job_ctrl.h"
+#include "service/upgrade/upgrade_service.h"
+#include "service/upgrade/sm2_upgrade.h"
+
+#include "HAL/interrupt.h"
+#include "HAL/core.h"
+
+#include "module/linear_virt.h"
+
+SnapmakerPrinter smprinter;
+
+TaskHandle_t thandle_marlin = NULL;
+TaskHandle_t thandle_system = NULL;
+
+static AT_CCMRAM StackType_t stack_system_thread[SYSTEM_TASK_STACK_SIZE];
+
+static AT_CCMRAM StaticTask_t tcb_system;
+
+static AT_CCMRAM StackType_t stack_timer[configTIMER_TASK_STACK_DEPTH];
+static AT_CCMRAM StaticTask_t tcb_timer;
+
+static AT_CCMRAM StackType_t stack_idle[configMINIMAL_STACK_SIZE];
+static AT_CCMRAM StaticTask_t tcb_idle;
+
+extern "C" {
+  void vApplicationGetIdleTaskMemory(StaticTask_t **ppxIdleTaskTCBBuffer,
+  StackType_t **ppxIdleTaskStackBuffer,
+  uint32_t *pulIdleTaskStackSize)
+  {
+  *ppxIdleTaskTCBBuffer=&tcb_idle;
+  *ppxIdleTaskStackBuffer=stack_idle;
+  *pulIdleTaskStackSize=configMINIMAL_STACK_SIZE;
+  }
+
+  void vApplicationGetTimerTaskMemory( StaticTask_t **ppxTimerTaskTCBBuffer,
+                                            StackType_t **ppxTimerTaskStackBuffer,
+                                            uint32_t *pulTimerTaskStackSize ) {
+  *ppxTimerTaskTCBBuffer=&tcb_timer;
+  *ppxTimerTaskStackBuffer=stack_timer;
+  *pulTimerTaskStackSize=configTIMER_TASK_STACK_DEPTH;
+  }
+}
+
+// dynamic pins defination and default value
+
+int16_t Z2_STEP_PIN_var = PB4;
+int16_t Z2_DIR_PIN_var = PB3;
+int16_t Z2_ENABLE_PIN_var = PB2;
+int16_t Z2_MAX_PIN_var = PE7;
+int16_t Z2_UART_PIN_var = PD12;
+int16_t Z2_STANDBY_PIN_var = PB5;
+int16_t Z2_DETECT_PIN_var = PC3;
+
+int16_t Z_STEP_PIN_var = PB7;
+int16_t Z_DIR_PIN_var = PB6;
+int16_t Z_ENABLE_PIN_var = PB2;
+int16_t Z_MIN_PIN_var = PC0;     // fake pin
+int16_t Z_MAX_PIN_var = PE8;
+int16_t Z_UART_PIN_var = PD13;
+int16_t Z_STANDBY_PIN_var = PE3;
+int16_t Z_DETECT_PIN_var = PA0;
+
+int16_t Y2_STEP_PIN_var = PE6;
+int16_t Y2_DIR_PIN_var = PE5;
+int16_t Y2_ENABLE_PIN_var = PB2;
+int16_t Y2_MAX_PIN_var = PE9;
+int16_t Y2_UART_PIN_var = PD14;
+int16_t Y2_STANDBY_PIN_var = PE4;
+int16_t Y2_DETECT_PIN_var = PA1;
+
+int16_t Y_STEP_PIN_var = PC6;
+int16_t Y_DIR_PIN_var = PD15;
+int16_t Y_ENABLE_PIN_var = PB2;
+int16_t Y_MAX_PIN_var = PE10;
+int16_t Y_UART_PIN_var = PC8;
+int16_t Y_STANDBY_PIN_var = PC7;
+int16_t Y_DETECT_PIN_var = PA2;
+
+int16_t X_STEP_PIN_var = PB14;
+int16_t X_DIR_PIN_var = PD9;
+int16_t X_ENABLE_PIN_var = PB2;
+int16_t X_MIN_PIN_var = PE11;
+int16_t X_UART_PIN_var = PC9;
+int16_t X_STANDBY_PIN_var = PD8;
+int16_t X_DETECT_PIN_var = PA3;
+
+int16_t E0_STEP_PIN_var = PE14;
+int16_t E0_DIR_PIN_var = PB10;
+int16_t E0_ENABLE_PIN_var = PB11;
+
+int16_t E1_STEP_PIN_var = PE14;
+int16_t E1_DIR_PIN_var = PB10;
+int16_t E1_ENABLE_PIN_var = PB11;
+
+int16_t I_STEP_PIN_var = PA15;
+int16_t I_DIR_PIN_var = PC10;
+int16_t I_ENABLE_PIN_var = PC11;
+
+int16_t J_STEP_PIN_var = PB15;
+int16_t J_DIR_PIN_var = PC12;
+int16_t J_ENABLE_PIN_var = PD2;
+
+
+motor_pins_t pins_map[PORT_INDEX_MAX] = {
+  {PB4, PB3, PB5, PE7, PD12}, // L1
+  {PB7, PB6, PE3, PE8, PD13}, // L2
+  {PE6, PE5, PE4, PE9, PD14}, // L3
+  {PC6, PD15, PC7, PE10, PC8},  // L4
+  {PB14, PD9, PD8, PE11, PC9},  // L5
+  {PE14, PB10, PB11, -1, -1}, // P1
+  {PA15, PC10, PC11, -1, -1}, // P2
+  {PB15, PC12, PD2, -1, -1}   // P3
+};
+
+int16_t linear_detect_pins[] = {
+L1_DETECT_PIN,
+L2_DETECT_PIN,
+L3_DETECT_PIN,
+L4_DETECT_PIN,
+L5_DETECT_PIN
+};
+
+struct MachineSize {
+  uint16_t x;
+  uint16_t y;
+  uint16_t z;
+} machine_size[SNAPMAKER_MODEL_MAX] = {
+  { 150, 150, 150}, /* A150 */
+  { 250, 250, 250}, /* A250 */
+  { 350, 350, 350}, /* A350 */
+  { X_MAX_POS, Y_MAX_POS, Z_MAX_POS}, /* A400 */
+  { 250, 250, 250}  /* J1 */
+};
+
+struct __packed MachineSizeInfo {
+  uint8_t axis_number;
+  coordinate_info_t axis_length[3];
+  uint8_t home_offset_number;
+  coordinate_info_t home_offset[3];
+};
+
+typedef struct __packed MachineInfo {
+  uint8_t  model;
+  uint8_t  hw_ver;
+  uint32_t sn;
+  uint16_t fw_ver_len;
+  char     fw_ver[0];
+} machine_info_t;
+
+typedef struct __packed ProductionSN {
+  uint16_t str_len;
+  char     sn[0];
+} production_sn_t;
+
+extern uint32_t resume_file_line;
+extern bool resume_relative_switch;
+
+#define PC_PORT_PROTOCOL_GCODE  (0)
+#define PC_PORT_PROTOCOL_SACP   (1)
+#define PC_PORT_PROTOCOL_MAX    (PC_PORT_PROTOCOL_SACP)
+
+// HMI subscription callbacks
+uint16_t SnapmakerPrinter::hmi_cb_publish_system_status(void *obj, uint8_t *buffer) {
+  SnapmakerPrinter *printer = (SnapmakerPrinter *)obj;
+  buffer[0] = E_SUCCESS;
+  buffer[1] = printer->sys_status;
+  buffer[2] = motion_platform_svc.is_moving();
+
+  return 3;
+}
+
+// HMI event callback
+err_code_t SnapmakerPrinter::hmi_cb_request_reboot(void *obj, sacp_hmi_message_t *msg) {
+  err_code_t ret = E_SUCCESS;
+  uint8_t  recv_buffer[4];
+  uint16_t recv_len = 4;
+
+  LOG_I("hmi_cb_request_reboot\n");
+  host_hmi.send_ack(msg, E_SUCCESS);
+
+  msg->cmd_id = SACP_CMD_ID_GLOABL_NOTIFY_START_REBOOT;
+  msg->length = 0;
+  msg->attr   = 0;
+
+  ret = host_hmi.send_sync(msg, recv_buffer, &recv_len);
+  if (ret != E_SUCCESS) {
+    LOG_E("failed to notify host that we will reboot!\n");
+  }
+
+  disable_all_interrupts();
+  reboot();
+  while(1);
+  return ret;
+}
+
+err_code_t SnapmakerPrinter::hmi_cb_get_machine_info(void *obj, sacp_hmi_message_t *msg) {
+  SnapmakerPrinter *printer = (SnapmakerPrinter *)obj;
+  char ver[] = SHORT_BUILD_VERSION;
+  int i = 0;
+
+  machine_info_t *info = (machine_info_t *)(msg->data + 1);
+  production_sn_t *psn;
+
+  msg->data[0] = E_SUCCESS;
+
+  info->model      = (uint8_t)printer->model;
+  info->hw_ver     = printer->hw_ver;
+  info->sn         = *(uint32_t *)(ADDR_CONTROLLER_SN);
+  LOG_I("Controller SN: 0x%x!\n", info->sn);
+
+  for (; i < 32; i++) {
+    info->fw_ver[i] = ver[i];
+    if (ver[i] == 0)
+      break;
+  }
+
+  info->fw_ver_len = i;
+
+  // product serial number
+  psn = (production_sn_t *)(msg->data + 1 + sizeof(machine_info_t) + i);
+  psn->str_len = 20;
+  raw_production_sn_t *rb_psn = (raw_production_sn_t *)(ADDR_PRODUCTION_SN);
+  if (rb_psn->checksum == host_hmi.calculate_checksum((uint8_t *)rb_psn->sn, PRODUCTION_SN_STRING_LENGTH)) {
+    strncpy(psn->sn, rb_psn->sn, 20);
+    LOG_I("product SN: %s\n", rb_psn->sn);
+  }
+  else if (rb_psn->checksum_backup == host_hmi.calculate_checksum((uint8_t *)rb_psn->sn_backup, PRODUCTION_SN_STRING_LENGTH)) {
+    strncpy(psn->sn, rb_psn->sn_backup, 20);
+    LOG_I("product SN: %s\n", rb_psn->sn_backup);
+  }
+  else {
+    memset(psn->sn, '6', 20);
+    LOG_E("invalid product SN!\n");
+  }
+
+  msg->length = sizeof(machine_info_t) + i + 1 + 22;
+
+  LOG_I("report machine info, len[0x%x]\n", msg->length);
+
+  return host_hmi.send_ack(msg);
+}
+
+err_code_t SnapmakerPrinter::hmi_cb_get_machine_size(void *obj, sacp_hmi_message_t *msg) {
+  MachineSizeInfo *msize;
+
+  msg->data[0] = E_SUCCESS;
+
+  msize = (MachineSizeInfo *)(msg->data + 1);
+  msize->axis_number = 3;
+  msize->axis_length[0].axis  = AXIS_KEY_X1;
+  msize->axis_length[0].value = machine_size[SNAPMAKER_MODEL_A400].x * 1000;
+  msize->axis_length[1].axis  = AXIS_KEY_Y1;
+  msize->axis_length[1].value = machine_size[SNAPMAKER_MODEL_A400].y * 1000;
+  msize->axis_length[2].axis  = AXIS_KEY_Z1;
+  msize->axis_length[2].value = machine_size[SNAPMAKER_MODEL_A400].z * 1000;
+
+  msize->home_offset_number = 3;
+  msize->home_offset[0].axis = AXIS_KEY_X1;
+  msize->home_offset[0].value = motion_platform_svc.get_home_offset(X_AXIS);
+  msize->home_offset[1].axis = AXIS_KEY_Y1;
+  msize->home_offset[1].value = motion_platform_svc.get_home_offset(Y_AXIS);
+  msize->home_offset[2].axis = AXIS_KEY_Z1;
+  msize->home_offset[2].value = motion_platform_svc.get_home_offset(Z_AXIS);
+
+  msg->length = sizeof(MachineSizeInfo) + 1;
+
+  LOG_I("report machine size, len[0x%x]\n", msg->length);
+
+  err_code_t ret = host_hmi.send_ack(msg);
+
+  debug.set_boot_log_state(false);
+
+  return ret;
+}
+
+err_code_t SnapmakerPrinter::hmi_cb_set_protocol_for_PC(void *obj, sacp_hmi_message_t *msg) {
+  SnapmakerPrinter *printer = (SnapmakerPrinter *)obj;
+  err_code_t ret = E_SUCCESS;
+
+  if (printer->on_working()) {
+    LOG_E("Cannot change protocol when working\n");
+    return host_hmi.send_ack(msg, E_INVALID_STATE);
+  }
+
+  if (msg->data[0] > PC_PORT_PROTOCOL_MAX) {
+    LOG_E("unsupport protocol[%u] for PC\n", msg->data[0]);
+    return host_hmi.send_ack(msg, E_PARAM);
+  }
+
+  LOG_I("set protocol[%u] for PC port\n", msg->data[0]);
+
+  sacp_channel_t *ch = host_hmi.get_channel(SACP_HMI_CH_PC);
+  // check if the active channel in link is same with
+  // the one host want to set
+  if (msg->data[0] == PC_PORT_PROTOCOL_GCODE) {
+    if (ch->link->get_active_ch() != MARLIN_SERIAL_CHANNEL_ORIGINAL) {
+      // send ack firstly
+      ret = host_hmi.send_ack(msg, E_SUCCESS);
+      if (msg->ch == SACP_HMI_CH_PC) {
+        // waiting the message to be sent out
+        vTaskDelay(pdMS_TO_TICKS(100));
+      }
+      // then change the protocol of PC to Gcode
+      ch->link->set_active_channel(MARLIN_SERIAL_CHANNEL_ORIGINAL);
+    }
+    else {
+      ret = host_hmi.send_ack(msg, E_SUCCESS);
+    }
+  }
+  else {
+    if (ch->link->get_active_ch() != MARLIN_SERIAL_CHANNEL_SECOND) {
+      ch->link->set_active_channel(MARLIN_SERIAL_CHANNEL_SECOND);
+    }
+    ret = host_hmi.send_ack(msg, E_SUCCESS);
+  }
+
+  return ret;
+}
+
+err_code_t SnapmakerPrinter::hmi_cb_run_gcode(void *obj, sacp_hmi_message_t *msg) {
+  err_code_t ret = E_SUCCESS;
+  char buf[96];
+  memset(buf, '\0', sizeof(buf));
+
+  uint16_t length = msg->data[0] | msg->data[1] << 8;
+  if (length >= 96) {
+    ret = E_PARAM;
+    host_hmi.send_ack(msg, ret);
+    goto EXIT;
+  }
+
+  memcpy(buf, &msg->data[2], length);
+  ret = host_hmi.send_ack(msg, ret);
+  ret = motion_platform_svc.run_gcode(buf);
+
+EXIT:
+  return ret;
+}
+
+err_code_t SnapmakerPrinter::hmi_cb_do_factory_reset(void *obj, sacp_hmi_message_t *msg) {
+  err_code_t ret;
+
+  LOG_I("hmi_cb_do_factory_reset\n");
+
+  if (msg->length < 1) {
+    LOG_E("cmd[%x:%x]: length should be 1\n", msg->cmd_set, msg->cmd_id);
+    return host_hmi.send_ack(msg, E_PARAM);
+  }
+
+  motion_platform_svc.reset_settings();
+
+  motion_platform_svc.save_settings();
+
+  ret = module_svc.factory_reset();
+
+  return host_hmi.send_ack(msg, ret);
+}
+
+
+err_code_t SnapmakerPrinter::hmi_cb_get_board_temp(void *obj, sacp_hmi_message_t *msg) {
+  int32_t *p;
+
+  LOG_I("hmi_cb_get_board_temp\n");
+
+  msg->data[0] = E_SUCCESS;
+
+  // array
+  msg->data[1] = 1;
+
+  // info
+  // index
+  msg->data[2] = 0;
+  p = (int32_t *)(msg->data + 3);
+
+  *p = (int32_t)(motion_platform_svc.get_motherboard_current_temp(0) * 1000);
+
+  msg->length = 2 + 5 * 1;
+
+  return host_hmi.send_ack(msg);
+ }
+
+
+err_code_t SnapmakerPrinter::hmi_cb_set_machine_enter_replace_mode(void *obj, sacp_hmi_message_t *msg) {
+  err_code_t ret = E_SUCCESS;
+  SystemStatus ret_status = SYSTEM_STATUS_IDLE;
+  bool change_work_mode = false;
+  uint32_t domains = 0;
+  SnapmakerPrinter *printer = (SnapmakerPrinter *)obj;
+
+  if (!msg || !obj || msg->length != 1) {
+    LOG_E("[%s] got a invalid parameter\n",__FUNCTION__);
+    return host_hmi.send_ack(msg, E_PARAM);
+  }
+
+  if (printer->set_sys_status(SYSTEM_STATUS_REPLACE_MODE, &ret_status)) {
+    LOG_E("[%s] enter replace mode fail, cur system sta: %d\n",__FUNCTION__, ret_status);
+    return host_hmi.send_ack(msg, E_FAILURE);
+  }
+
+  change_work_mode = msg->data[0];
+  LOG_I("[%s] change_work_mode: %d\n", __FUNCTION__, change_work_mode);
+
+  if (!change_work_mode)
+    domains |= POWER_DOMAIN_4P_ADDON;
+
+  domains |= (POWER_DOMAIN_MOTIVE_POWER | POWER_DOMAIN_8P_TOOLHEAD | POWER_DOMAIN_8P_MOTOR | POWER_DOMAIN_BED);
+  module_svc.machine_replace_mode_deinit(change_work_mode);
+  printer->disable_power_domain(domains);
+
+  if ((ret = host_hmi.send_ack(msg, E_SUCCESS)) != E_SUCCESS) {
+    LOG_E("[%s] failed to ack hmi, ret[%u]\n", __FUNCTION__, ret);
+  }
+  return ret;
+}
+
+static void system_thread(void *p) {
+  // must init hmi firstly
+  host_hmi.init(NULL, NULL);
+  host_hmi.apply_cmd_set_handle(SACP_CMD_SET_GLOBAL_REQ, 30);
+
+  // must do init before initializing modules, by scott
+  ClientNode::class_init();
+
+  system_svc.init();
+  emergency_hdl.init();
+
+  debug.post_init();
+
+  // add process esp_32 upgrade
+  host_hmi.apply_cmd_set_handle(SSTP_ESP32_UPDATE_FW_EVENT_ASK, FDM_REQ_CMD_ID_SUM  + 5);
+
+  // must initialize bed leveling before initializing modules
+  bedlevel_svc.init();
+
+  // module init
+  module_svc.init();
+
+  motion_platform_svc.init();
+  job_ctrl_svc.init();
+  upgrade_svc.init();
+  sm2_module_upgrade_init();
+
+  host_hmi.register_callback(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_SUBSCRIPT,
+      (void *)&host_hmi, HostSACPHMI::handle_subscription);
+  host_hmi.register_callback(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_UNSUBSCRIPT,
+      (void *)&host_hmi, HostSACPHMI::handle_unsubscription);
+  host_hmi.register_callback(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_UNSUBSCRIPT_BY_PEER,
+      (void *)&host_hmi, HostSACPHMI::handle_unsubscription_by_peer);
+
+  host_hmi.register_callback(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOBAL_REQ_RUN_GOCDE,
+      (void *)&smprinter, SnapmakerPrinter::hmi_cb_run_gcode);
+
+  host_hmi.register_subscription(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_HEARTBEAT,
+      (void *)&smprinter, SnapmakerPrinter::hmi_cb_publish_system_status);
+
+  host_hmi.register_callback(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_GET_MACHINE_INFO,
+      (void *)&smprinter, SnapmakerPrinter::hmi_cb_get_machine_info);
+  host_hmi.register_callback(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_GET_MACHINE_SIZE,
+      (void *)&smprinter, SnapmakerPrinter::hmi_cb_get_machine_size);
+  host_hmi.register_callback(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_SET_PC_PROTOCOL,
+      (void *)&smprinter, SnapmakerPrinter::hmi_cb_set_protocol_for_PC);
+
+  host_hmi.register_callback(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_FACTORY_RESET,
+      (void *)&smprinter, SnapmakerPrinter::hmi_cb_do_factory_reset);
+
+  host_hmi.register_callback(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_REBOOT,
+      (void *)&smprinter, SnapmakerPrinter::hmi_cb_request_reboot);
+
+  host_hmi.register_callback(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_ENTRY_REPLACE_MODE,
+      (void *)&smprinter, SnapmakerPrinter::hmi_cb_set_machine_enter_replace_mode);
+
+  host_hmi.register_callback(SACP_CMD_SET_GLOBAL_REQ, SACP_CMD_ID_GLOABL_REQ_GET_BOARD_TEMP,
+      (void *)&smprinter, SnapmakerPrinter::hmi_cb_get_board_temp);
+
+  smprinter.check_system_voltage();
+  smprinter.get_hw_version();
+  debug.set_boot_log_state(false);
+
+  BedVirtual::work_mode_bed_check();
+
+  LinearVirtual::check_initialization();
+
+  smprinter.laser_enable_env_check();
+  if (smprinter.get_toolhead_type() == TH_TYPE_UNKNOW) {
+    LOG_E("No toolhead plugged!\n");
+    system_svc.raise_exception(MODULE_DEVICE_ID_A400_CONTROLLER, CONTROLLER_EXCEP_STA_NO_TOOLHEAD,
+                                0, EXCEP_BAN_WORKING);
+  }
+
+  // forced update of speed parameters
+  motion_platform_svc.run_gcode((char*)"M203 X200 Y200 Z40 B45");
+  motion_platform_svc.run_gcode((char*)"M201 X2000 Y2000 Z500");
+  motion_platform_svc.run_gcode((char*)"M205 V5");
+  motion_platform_svc.run_gcode((char*)"M204 S1000");
+
+  // loop
+  for (;;) {
+    module_svc.background_thread();
+    system_svc.background_thread();
+    emergency_hdl.background();
+    smprinter.security_check();
+    upgrade_svc.loop();
+    debug.send_sacp_log_routine();
+
+    taskYIELD();
+  }
+}
+
+
+void SnapmakerPrinter::pre_init(void) {
+  // !!! cannot show log here!!!
+
+  // deinit the serial, and disable the interrupt
+  // to avoid be impact by bootloader
+  MSerial1.end();
+  MSerial2.end();
+  NVIC_DisableIRQ(USART1_IRQn);
+  NVIC_DisableIRQ(USART2_IRQn);
+
+  // avoid turn on laser
+  pinMode(pins_map[PORT_INDEX_P1].step, OUTPUT);
+  digitalWrite(pins_map[PORT_INDEX_P1].step, HIGH);
+  pinMode(pins_map[PORT_INDEX_P2].step, OUTPUT);
+  digitalWrite(pins_map[PORT_INDEX_P2].step, HIGH);
+  pinMode(pins_map[PORT_INDEX_P2].step, OUTPUT);
+  digitalWrite(pins_map[PORT_INDEX_P3].step, HIGH);
+
+  // enable the power to do TMC initialization in arduino setup()
+  pinMode(POWER_CTRL_MOTIVE, OUTPUT);
+  // digitalWrite(POWER_CTRL_MOTIVE, POWER_CTRL_ON);
+
+  pinMode(POWER_CTRL_8P_MOTOR, OUTPUT);
+  // digitalWrite(POWER_CTRL_8P_MOTOR, POWER_CTRL_ON);
+
+  enable_power_domain(POWER_DOMAIN_MOTIVE_POWER | POWER_DOMAIN_8P_MOTOR);
+
+  pinMode(TMC_EN, OUTPUT);
+  digitalWrite(TMC_EN, TMC_EN_OFF);
+
+
+  pinMode(X_STANDBY_PIN_var, OUTPUT);
+  digitalWrite(X_STANDBY_PIN_var, HIGH);
+  pinMode(Y_STANDBY_PIN_var, OUTPUT);
+  digitalWrite(Y_STANDBY_PIN_var, HIGH);
+  pinMode(Y2_STANDBY_PIN_var, OUTPUT);
+  digitalWrite(Y2_STANDBY_PIN_var, HIGH);
+  pinMode(Z_STANDBY_PIN_var, OUTPUT);
+  digitalWrite(Z_STANDBY_PIN_var, HIGH);
+  pinMode(Z2_STANDBY_PIN_var, OUTPUT);
+  digitalWrite(Z2_STANDBY_PIN_var, HIGH);
+
+  digitalWrite(TMC_EN, TMC_EN_ON);
+
+  // configure the voltage detect pins
+  pinMode(VOL1_DETECT_PIN, INPUT_ANALOG);
+  pinMode(VOL2_DETECT_PIN, INPUT_ANALOG);
+  pinMode(HARDWARE_VERSION_PIN, INPUT_ANALOG);
+
+  // configure LED pins
+  pinMode(LED_RED_PIN, OUTPUT);
+  pinMode(LED_GREEN_PIN, OUTPUT);
+  pinMode(LED_BLUE_PIN, OUTPUT);
+  digitalWrite(LED_RED_PIN, HIGH);
+  digitalWrite(LED_GREEN_PIN, HIGH);
+  digitalWrite(LED_BLUE_PIN, HIGH);
+
+}
+
+
+void SnapmakerPrinter::post_init() {
+
+  extern uint32_t _sccmram, _eccmram;
+  extern uint32_t __bss_start__, __bss_end__;
+  extern uint32_t _sdata, _edata;
+
+  uint32_t *ccram_start = &_sccmram, *ccram_end = &_eccmram;
+  uint32_t *data_start = &_sdata, *data_end = &_edata;
+  uint32_t *bss_start = &__bss_start__, *bss_end = &__bss_end__;
+
+  uint32_t next_ms = millis() + 500;
+
+  LOG_I("\nCCRAM\t, start: 0x%08x, end: 0x%08x, size: %.3f kBytes\n", ccram_start, ccram_end, (ccram_end - ccram_start) * 4 / 1024.0);
+  LOG_I("Data\t, start: 0x%08x, end: 0x%08x, size: %.3f kBytes\n", data_start, data_end, (data_end - data_start) * 4 / 1024.0);
+  LOG_I("BSS\t, start: 0x%08x, end: 0x%08x, size: %.3f kBytes\n\n", bss_start, bss_end, (bss_end - bss_start) * 4 / 1024.0);
+
+  system_crash_info_parse(1);
+
+  if ((int)(CCRAM_SIZE - (ccram_end - ccram_start)) < 256) {
+    LOG_E("\n\nThe remaining space of CCRAM is too small!!!\n");
+    digitalWrite(LED_RED_PIN, LOW);
+    digitalWrite(LED_GREEN_PIN, LOW);
+    digitalWrite(LED_BLUE_PIN, LOW);
+
+    while (1) {
+      if (ELAPSED(millis(), next_ms)) {
+        digitalToggle(LED_RED_PIN);
+        next_ms = millis() + 500;
+      }
+    }
+  }
+
+  // enable power
+  pinMode(POWER_CTRL_8P_TOOLHEAD, OUTPUT);
+  // digitalWrite(POWER_CTRL_8P_TOOLHEAD, POWER_CTRL_ON);
+
+  pinMode(POWER_CTRL_BED, OUTPUT);
+  // digitalWrite(POWER_CTRL_BED, POWER_CTRL_ON);
+
+  pinMode(POWER_CTRL_HMI, OUTPUT);
+  // digitalWrite(POWER_CTRL_HMI, POWER_CTRL_ON);
+
+  pinMode(POWER_CTRL_4P_ADDON, OUTPUT);
+  // digitalWrite(POWER_CTRL_4P_ADDON, POWER_CTRL_ON);
+
+  enable_power_domain(POWER_DOMAIN_8P_TOOLHEAD | POWER_DOMAIN_BED | POWER_DOMAIN_HMI | \
+    POWER_DOMAIN_4P_ADDON);
+
+  debug.init();
+
+  thandle_system = xTaskCreateStatic((TaskFunction_t)system_thread, "system", SYSTEM_TASK_STACK_SIZE,
+        (void *)(this), SYSTEM_TASK_PRIORITY,  stack_system_thread, &tcb_system);
+  if (!thandle_system) {
+    // LOG_E(LOG_RESULT_FAIL);
+    while(1);
+  }
+  else {
+    // LOG_I(LOG_RESULT_OK);
+  }
+
+  sys_status = SYSTEM_STATUS_IDLE;
+  status_lock = xSemaphoreCreateMutex();
+  configASSERT(status_lock);
+  vTaskStartScheduler();
+}
+
+void SnapmakerPrinter::update_gcode_file_pass_line_number(uint32_t l, uint8_t mark) {
+  if (smprinter.on_printing() && mark == job_ctrl_svc.get_job_print_mark()) {
+    gcode_file_pass_line_number = l;
+    job_ctrl_svc.update_gcode_file_pass_line_number(l);
+  }
+}
+
+
+void SnapmakerPrinter::register_module(uint16_t type, ModuleBase *module) {
+  switch (type) {
+  case MODULE_DEVICE_ID_FDM_1EXTRUDER_2019:
+    fdm = (ToolHeadFDM *)module;
+    // restore settings for input shaper
+    for (int i = 0; i < SHAPER_AXIS_COUNT; i++) {
+      axisManager.input_shaper_set(i, (int)settings.fdm1_shaper_settings[i].type,
+        settings.fdm1_shaper_settings[i].freq, settings.fdm1_shaper_settings[i].zeta);
+    }
+    break;
+
+  case MODULE_DEVICE_ID_CNC_50W_2019:
+    cnc = (ToolHeadCNC *)module;
+    break;
+
+  case MODULE_DEVICE_ID_LASER_1P6W_2019:
+    laser = (ToolHeadLaser *)module;
+    break;
+
+  case MODULE_DEVICE_ID_LINEAR_TBS_2019:
+    break;
+
+  case MODULE_DEVICE_ID_LIGHT_BAR:
+    break;
+
+  case MODULE_DEVICE_ID_ENCLOSURE_2020:
+    enclosure = (Enclosure *)module;
+    break;
+
+  case MODULE_DEVICE_ID_ROTARY_2020:
+    rotary = (Rotary *)module;
+    break;
+
+  case MODULE_DEVICE_ID_PURIFIER_2021:
+    purifier = (Purifier *)module;
+    break;
+
+  case MODULE_DEVICE_ID_EMERGENCY_STOP_2021:
+    break;
+
+  case MODULE_DEVICE_ID_CNC_TOOL_SETTING:
+    break;
+
+  case MODULE_DEVICE_ID_PRINT_V_SM1:
+    break;
+
+  case MODULE_DEVICE_ID_FAN:
+    break;
+
+  case MODULE_DEVICE_ID_LINEAR_TMC_2021:
+    break;
+
+  case MODULE_DEVICE_ID_FDM_2EXTRUDER_2021:
+    fdm = (ToolHeadFDM *)module;
+    // restore settings for input shaper
+    for (int i = 0; i < SHAPER_AXIS_COUNT; i++) {
+      axisManager.input_shaper_set(i, (int)settings.fdm2_shaper_settings[i].type,
+        settings.fdm2_shaper_settings[i].freq, settings.fdm2_shaper_settings[i].zeta);
+    }
+    break;
+
+  case MODULE_DEVICE_ID_LASER_10W_2021:
+  case MODULE_DEVICE_ID_LASER_20W_2023:
+  case MODULE_DEVICE_ID_LASER_40W_2023:
+  case MODULE_DEVICE_ID_LASER_RED_2W_2023:
+    laser = (ToolHeadLaser *)module;
+    break;
+
+  case MODULE_DEVICE_ID_CNC_200W_2021:
+    cnc = (ToolHeadCNC200W *)module;
+    break;
+
+  case MODULE_DEVICE_ID_ENCLOSURE_A400_2022:
+  	enclosure = (EnclosureA400 *)module;
+    break;
+
+  case MODULE_DEVICE_ID_DRYBOX:
+    drybox = (DryBox *)module;
+    break;
+
+  case MODULE_DEVICE_ID_A400_LINEAR:
+    break;
+
+  case MODULE_DEVICE_ID_A400_BED:
+    break;
+
+  case MODULE_DEVICE_ID_SM2_BED:
+    break;
+
+  default:
+    break;
+  }
+}
+
+// CNC related function interface
+void SnapmakerPrinter::set_spindle_power(uint8_t new_power, bool is_update_power) {
+  if (cnc_online_check()) {
+    cnc->set_output_power(new_power, is_update_power);
+  }
+  else {
+    LOG_I("%s\n",!cnc ? "CNC not recognised" : "CNC offline");
+  }
+}
+
+void SnapmakerPrinter::set_spindle_rpm(uint16_t rpm, bool is_update_rpm) {
+  if (cnc_online_check()) {
+    if (cnc->set_output_rpm(rpm, is_update_rpm) == E_INVALID_CMD) {
+       LOG_I("The current module does not support setting rpm\n");
+    }
+  }
+  else {
+    LOG_I("%s\n",!cnc ? "CNC not recognised" : "CNC offline");
+  }
+}
+
+uint16_t SnapmakerPrinter::get_spindle_rpm(void) {
+  uint16_t spindle_rpm = 0;
+  if (cnc_online_check()) {
+    spindle_rpm = cnc->get_rpm();
+  }
+  else {
+    LOG_I("%s\n",!cnc ? "CNC not recognised" : "CNC offline");
+  }
+  return spindle_rpm;
+}
+
+void SnapmakerPrinter::get_spindle_status(void) {
+  if (cnc_online_check()) {
+    cnc->report_cnc_status_info();
+  }
+  else {
+    LOG_I("%s\n",!cnc ? "CNC not recognised" : "CNC offline");
+  }
+}
+
+void SnapmakerPrinter::set_spindle_run_mode(CNCSpeedControlMode mode) {
+  if (cnc_online_check()) {
+    if (cnc->set_run_mode(mode) == E_INVALID_CMD) {
+      LOG_I("The current module does not support setting run mode\n");
+    }
+  }
+  else {
+    LOG_I("%s\n",!cnc ? "CNC not recognised" : "CNC offline");
+  }
+}
+
+void SnapmakerPrinter::start_spindle_self_test(void) {
+  if (cnc_online_check()) {
+    cnc->start_spindle_self_test();
+  }
+  else {
+    LOG_I("%s\n",!cnc ? "CNC not recognised" : "CNC offline");
+  }
+}
+
+void SnapmakerPrinter::spindle_debug_config(uint8_t cmd, uint32_t param) {
+  if (cnc_online_check()) {
+    if (cnc->debug_function(cmd, param) == E_INVALID_CMD) {
+      LOG_I("The current module does not know this operation\n");
+    }
+  }
+  else {
+    LOG_I("%s\n",!cnc ? "CNC not recognised" : "CNC offline");
+  }
+}
+
+void SnapmakerPrinter::spindle_hmi_self_test_interface(uint8_t test_type, uint32_t param) {
+  if (cnc)
+    cnc->cnc_hmi_self_test_interface(test_type, param);
+}
+
+// ENCLOSURE related function interface
+void SnapmakerPrinter::set_enclosure_light_bar(uint8_t new_level) {
+  if (enclosure_online_check()) {
+    enclosure->set_light_bar(new_level);
+  }
+  else {
+    LOG_I("%s\n",!enclosure ? "ENCLOSURE not recognised" : "ENCLOSURE offline");
+  }
+}
+
+void SnapmakerPrinter::set_enclosure_fan_speed(uint8_t new_speed) {
+  if (enclosure_online_check()) {
+    enclosure->set_fan_speed(new_speed);
+  }
+  else {
+    LOG_I("%s\n",!enclosure ? "ENCLOSURE not recognised" : "ENCLOSURE offline");
+  }
+}
+
+void SnapmakerPrinter::report_enclosure_status() {
+  if (enclosure_online_check()) {
+    enclosure->report_enclosure_status();
+  }
+  else {
+    LOG_I("%s\n",!enclosure ? "ENCLOSURE not recognised" : "ENCLOSURE offline");
+  }
+}
+
+void SnapmakerPrinter::enclosure_hmi_self_test_interface(uint8_t test_type, uint32_t param) {
+  if (enclosure)
+    enclosure->enclosure_hmi_self_test_interface(test_type, param);
+}
+
+uint8_t SnapmakerPrinter::get_enclosure_door_status(void) {
+  uint8_t door_sta = 0;
+  if (enclosure)
+    door_sta = enclosure->get_door_check();
+  return door_sta;
+}
+
+void SnapmakerPrinter::security_check() {
+  uint8_t door_sta = 0;
+
+  if (enclosure) {
+    door_sta = enclosure->get_door_check();
+  }
+
+  if (laser) {
+    float limit_power = LASER_POWER_NORMA_LIMIT;
+
+    if (door_sta)
+      limit_power = LASER_POWER_SAFE_LIMIT;
+
+    if (laser->get_safety_lock() || !smprinter.enclosure_is_insert())
+      limit_power = LASER_POWER_SAFE_LOCK_LIMIT;
+
+    if (laser->get_power_limit() !=  limit_power)
+      laser->set_power_limit(limit_power);
+  }
+
+  uint8_t err_sta = thermalManager.get_bed_error_sta();
+  if (err_sta >= 1 && err_sta <= 3) {
+    thermalManager.set_bed_error_sta(0xFF);
+    LOG_E("[%s] bed_error_sta: %d.\r\n", __FUNCTION__, err_sta);
+    smprinter.raise_exception(SM_EXCEP_OWNER_BED, BED_EXCEP_STA_ERROR_MOS_SW_CTRL,
+                          EXCEP_ACT_PAUSE_WORKING | EXCEP_ACT_DISABLE_HEATING_BED | EXCEP_ACT_DISABLE_POWER_BED,
+                          EXCEP_BAN_ENABLE_POWER_BED | EXCEP_BAN_HEATING_BED);
+  }
+}
+// API for puase
+void SnapmakerPrinter::pause_trigger(uint8_t pause_reason) {
+  job_ctrl_svc.req_pause((enum JobPauseType)pause_reason, NULL, NULL);
+}
+
+// API for home
+void SnapmakerPrinter::reset_home_offset() {
+  home_offset.x = -17.5;
+  home_offset.y = -6;
+  home_offset.z = 0;
+  home_offset.i = 0;
+  home_offset.j = 0;
+}
+
+// API for gcode
+bool SnapmakerPrinter::get_gcode_from_job(uint8_t *cmd, uint16_t max_len, uint32_t *line, uint8_t *mark) {
+  return job_ctrl_svc.consume_a_gcode(cmd, max_len, line, mark);
+}
+
+ModuleBase *SnapmakerPrinter::get_cur_toolhead(void) {
+
+  if (fdm && !cnc && !laser) {
+    return fdm;
+  }
+
+  if (cnc && !fdm && !laser) {
+    return cnc;
+  }
+
+  if (laser && !fdm && !cnc) {
+    return laser;
+  }
+
+  return NULL;
+}
+
+// The toolhead type should get from toolhead
+toolHeadType SnapmakerPrinter::get_toolhead_type(void) {
+
+  if (fdm && !cnc && !laser) {
+    return TH_TYPE_3DP;
+  }
+
+  if (cnc && !fdm && !laser) {
+    return TH_TYPE_CNC;
+  }
+
+  if (laser && !fdm && !cnc) {
+    return TH_TYPE_LASER;
+  }
+
+  return TH_TYPE_UNKNOW;
+}
+
+enum SystemStatus SnapmakerPrinter::get_sys_status(void) {
+  return sys_status;
+}
+
+err_code_t SnapmakerPrinter::set_sys_status(enum SystemStatus req_status, enum SystemStatus *ret_status) {
+  err_code_t ret = E_FAILURE;
+  SystemStatus sys_status_bak = sys_status;
+  LOCK(status_lock, 0xFFFFFFFF);
+  switch (req_status)
+  {
+  case SYSTEM_STATUS_IDLE:
+    sys_status = req_status;
+    ret = E_SUCCESS;
+    break;
+
+  /*********************************************************************************/
+  // job control start
+  case SYSTEM_STATUS_STARTING:
+    if (SYSTEM_STATUS_IDLE == sys_status) {
+      sys_status = req_status;
+      ret = E_SUCCESS;
+    }
+    else {
+      ret = E_BUSY;
+    }
+    break;
+
+  case SYSTEM_STATUS_PRINTING:
+    if (SYSTEM_STATUS_STARTING == sys_status || SYSTEM_STATUS_RESUMING == sys_status) {
+      sys_status = req_status;
+      ret = E_SUCCESS;
+    }
+    else {
+      ret = E_BUSY;
+    }
+    break;
+
+  case SYSTEM_STATUS_PAUSING:
+    if ((SYSTEM_STATUS_PRINTING == sys_status) || (SYSTEM_STATUS_XY_CALIBRATING_PRINTING == sys_status) || \
+        (SYSTEM_STATUS_LASER_CALIBRATION_PRINTING == sys_status)) {
+      sys_status = req_status;
+      ret = E_SUCCESS;
+    }
+    else {
+      ret = E_BUSY;
+    }
+    break;
+
+  case SYSTEM_STATUS_PAUSED:
+    if (SYSTEM_STATUS_PAUSING == sys_status) {
+      sys_status = req_status;
+      ret = E_SUCCESS;
+    }
+    else {
+      ret = E_BUSY;
+    }
+    break;
+
+  case SYSTEM_STATUS_STOPING:
+    if (SYSTEM_STATUS_PRINTING == sys_status ||
+        SYSTEM_STATUS_PAUSED == sys_status ||
+        SYSTEM_STATUS_PAUSING == sys_status ||
+        SYSTEM_STATUS_FINISHING == sys_status) {
+      sys_status = req_status;
+      ret = E_SUCCESS;
+    }
+    else {
+      ret = E_BUSY;
+    }
+    break;
+
+  case SYSTEM_STATUS_STOPED:
+    if (SYSTEM_STATUS_STOPING == sys_status) {
+      sys_status = req_status;
+      ret = E_SUCCESS;
+    }
+    else {
+      ret = E_BUSY;
+    }
+    break;
+
+  case SYSTEM_STATUS_FINISHING:
+    if (SYSTEM_STATUS_PRINTING == sys_status) {
+      sys_status = req_status;
+      ret = E_SUCCESS;
+    }
+    else {
+      ret = E_BUSY;
+    }
+    break;
+
+  case SYSTEM_STATUS_COMPLETED:
+    sys_status = req_status;
+    ret = E_SUCCESS;
+    break;
+
+  case SYSTEM_STATUS_RESUMING:
+    if (SYSTEM_STATUS_PAUSED == sys_status || SYSTEM_STATUS_RECOVERING == sys_status) {
+      sys_status = req_status;
+      ret = E_SUCCESS;
+    }
+    else {
+      ret = E_BUSY;
+    }
+    break;
+  // job control end
+  /*********************************************************************************/
+
+  // emergency handler start
+  /*********************************************************************************/
+  case SYSTEM_STATUS_RECOVERING:
+    if (SYSTEM_STATUS_IDLE == sys_status) {
+      sys_status = req_status;
+      ret = E_SUCCESS;
+    }
+    else {
+      ret = E_BUSY;
+    }
+    break;
+
+  case SYSTEM_STATUS_EMERGENCY_STOP:
+    if (!on_working()) {
+      // when system is working, we request it enter stop firstly
+      // then set system to this status
+      sys_status = req_status;
+      ret = E_SUCCESS;
+    }
+    else {
+      ret = E_BUSY;
+    }
+    break;
+
+  case SYSTEM_STATUS_POWER_LOSS:
+    sys_status = req_status;
+    ret = E_SUCCESS;
+    break;
+
+  // emergency handler end
+  /*********************************************************************************/
+
+
+  // replace mode start
+  /*********************************************************************************/
+
+  case SYSTEM_STATUS_REPLACE_MODE:
+    if (sys_status == SYSTEM_STATUS_IDLE) {
+      sys_status = req_status;
+      ret = E_SUCCESS;
+    }
+    break;
+
+  // replace mode end
+  /*********************************************************************************/
+
+
+  // laser calibration start
+  /*********************************************************************************/
+  case SYSTEM_STATUS_LASER_DETECT_THICKNESS_AUTO:
+  case SYSTEM_STATUS_LASER_DETECT_PLATFORM_POSITION:
+  case SYSTEM_STATUS_LASER_CAMERA_CAPTURE:
+  case SYSTEM_STATUS_LASER_DETECT_FOCAL_LENGTH:
+  case SYSTEM_STATUS_LASER_DETECT_4AXIS_CENTER_POSITION:
+    if (sys_status != SYSTEM_STATUS_IDLE &&
+        sys_status != SYSTEM_STATUS_LASER_CALIBRATION_PRINTING && \
+        (!(sys_status == SYSTEM_STATUS_PAUSED && \
+          (job_ctrl_svc.get_status_before_start() >= SYSTEM_STATUS_LASER_CAMERA_CAPTURE && \
+           job_ctrl_svc.get_status_before_start() <= SYSTEM_STATUS_LASER_DETECT_4AXIS_CENTER_POSITION)))) {
+      ret = E_FAILURE;
+    }
+    else {
+      sys_status = req_status;
+      ret = E_SUCCESS;
+    }
+    break;
+
+  case SYSTEM_STATUS_LASER_CALIBRATION_PRINTING:
+    if ((sys_status <= SYSTEM_STATUS_LASER_CALI_END && sys_status >= SYSTEM_STATUS_LASER_CALI_START) || \
+        ((sys_status == SYSTEM_STATUS_PAUSED || sys_status == SYSTEM_STATUS_RESUMING) && \
+          (job_ctrl_svc.get_status_before_start() >= SYSTEM_STATUS_LASER_CAMERA_CAPTURE && \
+           job_ctrl_svc.get_status_before_start() <= SYSTEM_STATUS_LASER_DETECT_4AXIS_CENTER_POSITION))) {
+      sys_status = req_status;
+      ret = E_SUCCESS;
+    }
+    else {
+      ret = E_FAILURE;
+    }
+    break;
+  // laser calibration end
+  /*********************************************************************************/
+
+
+  // CNC start
+  /*********************************************************************************/
+  case SYSTEM_STATUS_CNC_CALIBRATING:
+    // TODO: more situations to consider
+    if (SYSTEM_STATUS_CNC_CALIBRATING == sys_status || sys_status == SYSTEM_STATUS_IDLE) {
+      sys_status = req_status;
+      ret = E_SUCCESS;
+    }
+    else {
+      ret = E_BUSY;
+    }
+  break;
+  // CNC end
+  /*********************************************************************************/
+
+
+    // FDM start
+  /*********************************************************************************/
+  case SYSTEM_STATUS_XY_CALIBRATING:
+    if (sys_status == SYSTEM_STATUS_IDLE ||
+        SYSTEM_STATUS_XY_CALIBRATING_PRINTING == sys_status || ((sys_status == SYSTEM_STATUS_PAUSED) && \
+        job_ctrl_svc.get_status_before_start() == SYSTEM_STATUS_XY_CALIBRATING)) {
+      sys_status = req_status;
+      ret = E_SUCCESS;
+    } else {
+      ret = E_BUSY;
+    }
+    break;
+
+  case SYSTEM_STATUS_XY_CALIBRATING_PRINTING:
+    if (sys_status == SYSTEM_STATUS_XY_CALIBRATING || ((sys_status == SYSTEM_STATUS_PAUSED || sys_status == SYSTEM_STATUS_RESUMING) && \
+        job_ctrl_svc.get_status_before_start() == SYSTEM_STATUS_XY_CALIBRATING)) {
+      sys_status = req_status;
+      ret = E_SUCCESS;
+    } else {
+      ret = E_BUSY;
+    }
+    break;
+
+  case SYSTEM_STATUS_AUTO_BEDLEVEL:
+    if (sys_status == SYSTEM_STATUS_IDLE) {
+      sys_status = req_status;
+      ret = E_SUCCESS;
+    } else {
+      ret = E_BUSY;
+    }
+    break;
+
+  case SYSTEM_STATUS_MANUAL_BEDLEVEL:
+    if (sys_status == SYSTEM_STATUS_IDLE) {
+      sys_status = req_status;
+      ret = E_SUCCESS;
+    } else {
+      ret = E_BUSY;
+    }
+    break;
+
+  case SYSTEM_STATUS_AUTO_BED_DETECTION:
+    if (sys_status == SYSTEM_STATUS_IDLE) {
+      sys_status = req_status;
+      ret = E_SUCCESS;
+    } else {
+      ret = E_BUSY;
+    }
+    break;
+
+  case SYSTEM_STATUS_MANUAL_BED_DETECTION:
+    if (sys_status == SYSTEM_STATUS_IDLE) {
+      sys_status = req_status;
+      ret = E_SUCCESS;
+    } else {
+      ret = E_BUSY;
+    }
+    break;
+
+  case SYSTEM_STATUS_PROBE_SENSOR_CALIBRATION:
+    if (sys_status == SYSTEM_STATUS_IDLE) {
+      sys_status = req_status;
+      ret = E_SUCCESS;
+    } else {
+      ret = E_BUSY;
+    }
+    break;
+  // FDM end
+  /*********************************************************************************/
+
+
+  // Upgrade start
+  /*********************************************************************************/
+  case SYSTEM_STATUS_APP_UPGRADE:
+  case SYSTEM_STATUS_MODULE_UPGRADE:
+    if (sys_status == SYSTEM_STATUS_IDLE ||
+        sys_status == SYSTEM_STATUS_MODULE_UPGRADE ||
+        sys_status == SYSTEM_STATUS_APP_UPGRADE) {
+      sys_status = req_status;
+      ret = E_SUCCESS;
+    } else {
+      ret = E_BUSY;
+    }
+  break;
+  // Upgrade end
+  /*********************************************************************************/
+
+
+  default:
+    ret = E_FAILURE;
+    break;
+  }
+
+  if (ret_status)
+    *ret_status = sys_status;
+  UNLOCK(status_lock);
+
+  LOG_I("snapmaker: pre system status: %d, system enter: %d, req system status:%d\r\n", sys_status_bak, sys_status, req_status);
+
+  return ret;
+}
+
+err_code_t SnapmakerPrinter::can_start_work(void) {
+  ModuleBase *toolhead;
+  err_code_t ret;
+
+  switch (sys_status) {
+    case SYSTEM_STATUS_IDLE:
+    case SYSTEM_STATUS_XY_CALIBRATING:
+    case SYSTEM_STATUS_LASER_CAMERA_CAPTURE:
+    case SYSTEM_STATUS_LASER_DETECT_FOCAL_LENGTH:
+    case SYSTEM_STATUS_LASER_DETECT_4AXIS_CENTER_POSITION:
+      break;
+
+    default:
+      return E_INVALID_STATE;
+  }
+
+  toolhead = get_cur_toolhead();
+  if (!toolhead) {
+    return E_JOB_NO_TOOLHEAD;
+  }
+
+  if (toolhead->get_status() == MODULE_STATUS_OFFLINE) {
+    return E_JOB_TOOLHEAD_OFFLINE;
+  }
+
+  ret = toolhead->prepare_start();
+  if (ret != E_SUCCESS) {
+    return ret;
+  }
+
+  // TODO: Subsequent use of the allow_working function intercepts such scenarios
+  if (smprinter.get_enclosure_door_status()) {
+    LOG_E("can not start job as door left open, or enclosure offline\r\n");
+    return E_JOB_ENCLOSURE_DOOR_OPEN;
+  }
+
+  if (!system_svc.allow_working())
+    return E_JOB_EXCEPTION_BAN;
+
+  return E_SUCCESS;
+}
+
+err_code_t SnapmakerPrinter::can_resume_work(void) {
+  ModuleBase *toolhead;
+  err_code_t ret;
+
+  // status check
+  if (SYSTEM_STATUS_PAUSED != sys_status &&
+      SYSTEM_STATUS_RECOVERING != sys_status) {
+    return E_JOB_NOT_IN_PAUSE_STATUS;
+  }
+
+  toolhead = get_cur_toolhead();
+  if (!toolhead) {
+    return E_JOB_NO_TOOLHEAD;
+  }
+
+  if (toolhead->get_status() == MODULE_STATUS_OFFLINE) {
+    return E_JOB_TOOLHEAD_OFFLINE;
+  }
+
+  ret = toolhead->prepare_start();
+  if (ret != E_SUCCESS) {
+    return ret;
+  }
+
+  if (smprinter.get_enclosure_door_status()) {
+    LOG_E("can not start job as door left open, or enclosure offline\r\n");
+    return E_JOB_ENCLOSURE_DOOR_OPEN;
+  }
+
+  if (!system_svc.allow_working())
+    return E_JOB_EXCEPTION_BAN;
+
+  return E_SUCCESS;
+}
+
+bool SnapmakerPrinter::can_stop_work(void) {
+  switch (sys_status) {
+    case SYSTEM_STATUS_PRINTING:
+    case SYSTEM_STATUS_RESUMING:
+    case SYSTEM_STATUS_PAUSED:
+    case SYSTEM_STATUS_FINISHING:
+    case SYSTEM_STATUS_XY_CALIBRATING_PRINTING:
+    case SYSTEM_STATUS_LASER_CALIBRATION_PRINTING:
+      return true;
+
+    default:
+      return false;
+  }
+}
+
+bool SnapmakerPrinter::on_printing(void) {
+  switch (sys_status) {
+    case SYSTEM_STATUS_PRINTING:
+    case SYSTEM_STATUS_XY_CALIBRATING_PRINTING:
+    case SYSTEM_STATUS_LASER_CALIBRATION_PRINTING:
+      return true;
+
+    default:
+      return false;
+  }
+}
+
+bool SnapmakerPrinter::on_working() {
+  switch (sys_status) {
+    case SYSTEM_STATUS_STARTING:
+    case SYSTEM_STATUS_PAUSING:
+    case SYSTEM_STATUS_PAUSED:
+    case SYSTEM_STATUS_RESUMING:
+    case SYSTEM_STATUS_PRINTING:
+      return true;
+
+    default:
+      return false;
+  }
+}
+
+void SnapmakerPrinter::show_sys_info() {
+  LOG_I("sys state: %u\n", sys_status);
+  motion_platform_svc.show_coordiantes();
+}
+
+void SnapmakerPrinter::disable_power_domain(uint32_t domains) {
+  if (domains & POWER_DOMAIN_MOTIVE_POWER) {
+    power_domains &= (~POWER_DOMAIN_MOTIVE_POWER);
+    digitalWrite(POWER_CTRL_MOTIVE, POWER_CTRL_OFF);
+  }
+
+  if (domains & POWER_DOMAIN_8P_TOOLHEAD) {
+    power_domains &= (~POWER_DOMAIN_8P_TOOLHEAD);
+    digitalWrite(POWER_CTRL_8P_TOOLHEAD, POWER_CTRL_OFF);
+  }
+
+  if (domains & POWER_DOMAIN_8P_MOTOR) {
+    power_domains &= (~POWER_DOMAIN_8P_MOTOR);
+    digitalWrite(POWER_CTRL_8P_MOTOR, POWER_CTRL_OFF);
+  }
+
+  if (domains & POWER_DOMAIN_4P_ADDON) {
+    power_domains &= (~POWER_DOMAIN_4P_ADDON);
+    digitalWrite(POWER_CTRL_4P_ADDON, POWER_CTRL_OFF);
+  }
+
+  if (domains & POWER_DOMAIN_BED) {
+    power_domains &= (~POWER_DOMAIN_BED);
+    digitalWrite(POWER_CTRL_BED, POWER_CTRL_OFF);
+  }
+
+  if (domains & POWER_DOMAIN_HMI) {
+    power_domains &= (~POWER_DOMAIN_HMI);
+    digitalWrite(POWER_CTRL_HMI, POWER_CTRL_OFF);
+  }
+}
+
+void SnapmakerPrinter::enable_power_domain(uint32_t domains) {
+  uint32_t bans = system_svc.get_bans();
+
+  if (domains & POWER_DOMAIN_MOTIVE_POWER) {
+    if (bans & EXCEP_BAN_ENABLE_POWER_MOTIVE) {
+      //LOG_E("Exception: cannot ENABLE_POWER_MOTIVE!\n");
+    }
+    else {
+      digitalWrite(POWER_CTRL_MOTIVE, POWER_CTRL_ON);
+      power_domains |= POWER_DOMAIN_MOTIVE_POWER;
+    }
+  }
+
+  if (domains & POWER_DOMAIN_8P_TOOLHEAD) {
+    if (bans & EXCEP_BAN_ENABLE_POWER_8P_TOOLHEAD) {
+      //LOG_E("Exception: cannot ENABLE_POWER_8P_TOOLHEAD!\n");
+    }
+    else {
+      digitalWrite(POWER_CTRL_8P_TOOLHEAD, POWER_CTRL_ON);
+      power_domains |= POWER_DOMAIN_8P_TOOLHEAD;
+    }
+  }
+
+  if (domains & POWER_DOMAIN_8P_MOTOR) {
+    if (bans & EXCEP_BAN_ENABLE_POWER_8P_MOTOR) {
+      //LOG_E("Exception: cannot ENABLE_POWER_8P_MOTOR!\n");
+    }
+    else {
+      digitalWrite(POWER_CTRL_8P_MOTOR, POWER_CTRL_ON);
+      power_domains |= POWER_DOMAIN_8P_MOTOR;
+    }
+  }
+
+  if (domains & POWER_DOMAIN_4P_ADDON) {
+    if (bans & EXCEP_BAN_ENABLE_POWER_4P_ADDON) {
+      //LOG_E("Exception: cannot ENABLE_POWER_4P_ADDON!\n");
+    }
+    else {
+      digitalWrite(POWER_CTRL_4P_ADDON, POWER_CTRL_ON);
+      power_domains |= POWER_DOMAIN_4P_ADDON;
+    }
+  }
+
+  if (domains & POWER_DOMAIN_BED) {
+    if (bans & EXCEP_BAN_ENABLE_POWER_BED) {
+      //LOG_E("Exception: cannot ENABLE_POWER_BED!\n");
+    }
+    else {
+      digitalWrite(POWER_CTRL_BED, POWER_CTRL_ON);
+      power_domains |= POWER_DOMAIN_BED;
+    }
+  }
+
+  if (domains & POWER_DOMAIN_HMI) {
+    if (bans & EXCEP_BAN_ENABLE_POWER_HMI) {
+      //LOG_E("Exception: cannot ENABLE_POWER_HMI!\n");
+    }
+    else {
+      digitalWrite(POWER_CTRL_HMI, POWER_CTRL_ON);
+      power_domains |= POWER_DOMAIN_HMI;
+    }
+  }
+}
+
+void SnapmakerPrinter::reset_settings() {
+  // set to 0 firstly
+  memset(&settings, 0x00, sizeof(SnapmakerSettings));
+
+  // reset laser settings
+  settings.laser_platform_hight     = LASER_PLATFORM_HIGHT_DEFAULT;
+  settings.laser_4axis_center_hight = LASER_4AXIS_CENTER_HIGHT_DEFAULT;
+
+  // reset live_z_offset
+  settings.bedlevel_settings.live_z_offset[0] = BEDLEVEL_LIVE_Z_OFFSET_DEFAULT;
+  settings.bedlevel_settings.live_z_offset[1] = BEDLEVEL_LIVE_Z_OFFSET_DEFAULT;
+  bedlevel_svc.live_z_offset[0] = BEDLEVEL_LIVE_Z_OFFSET_DEFAULT;
+  bedlevel_svc.live_z_offset[1] = BEDLEVEL_LIVE_Z_OFFSET_DEFAULT;
+
+  // reset e axis steps per unit
+  settings.fdm_settings.single_extruder_steps_per_unit  = SINGLE_EXTRUDER_STEPS_PER_UNIT_DEFAULT;
+  settings.fdm_settings.dual_extruder_steps_per_unit[0] = DUAL_EXTRUDER_STEPS_PER_UNIT_DEFAULT;
+  settings.fdm_settings.dual_extruder_steps_per_unit[1] = DUAL_EXTRUDER_STEPS_PER_UNIT_DEFAULT;
+  if (fdm) {
+    fdm->reset_e_steps_per_unit();
+    fdm->reset_home_offset();
+  }
+
+  // reset your settings
+
+  // reset purifier settings
+  settings.purifier_settings.start_work_purifier_open_mask = PURIFIER_START_WORK_OPEN_DEFAULT_MASK;
+  settings.purifier_settings.fdm_stop_work_purifier_close_delay = PURIFIER_FDM_STOP_WORK_CLOSE_TIME_DELAY;
+  settings.purifier_settings.laser_stop_work_purifier_close_delay = PURIFIER_LASER_STOP_WORK_CLOSE_TIME_DELAY;
+  settings.purifier_settings.cnc_stop_work_purifier_close_delay = PURIFIER_CNC_STOP_WORK_CLOSE_TIME_DELAY;
+
+  // reset enclosure settings
+  settings.enclosure_settings.enclosure_check_enable_mask = ENCLOSURE_CHECK_ENABLE_DEFAULT_MASK;
+
+  // reset input shaper settings
+  for (int i = 0; i < SHAPER_AXIS_COUNT; i++) {
+    settings.fdm1_shaper_settings[i].freq = SHAPER_FREQ_DEFAULT;
+    settings.fdm1_shaper_settings[i].type = SHAPER_TYPE_DEFAULT;
+    settings.fdm1_shaper_settings[i].zeta = SHAPER_ZETA_DEFAULT;
+    settings.fdm2_shaper_settings[i].freq = SHAPER_FREQ_DEFAULT;
+    settings.fdm2_shaper_settings[i].type = SHAPER_TYPE_DEFAULT;
+    settings.fdm2_shaper_settings[i].zeta = SHAPER_ZETA_DEFAULT;
+    if (fdm) {
+      if (fdm->get_device_id() == MODULE_DEVICE_ID_FDM_1EXTRUDER_2019) {
+        axisManager.input_shaper_set(i, (int)settings.fdm1_shaper_settings[i].type,
+          settings.fdm1_shaper_settings[i].freq, settings.fdm1_shaper_settings[i].zeta);
+      }
+      else if (fdm->get_device_id() == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
+        axisManager.input_shaper_set(i, (int)settings.fdm2_shaper_settings[i].type,
+          settings.fdm2_shaper_settings[i].freq, settings.fdm2_shaper_settings[i].zeta);
+      }
+    }
+  }
+}
+
+void SnapmakerPrinter::report_probe_sensor_compensation() {
+  bedlevel_svc.report_probe_sensor_compensation();
+}
+
+void SnapmakerPrinter::raise_exception(SMExceptionOwner owner, uint8_t state,
+                                        uint32_t actions/* = 0*/, uint32_t ban/* = 0*/) {
+  ModuleBase *m;
+  switch (owner) {
+  case SM_EXCEP_OWNER_SYSTEM:
+    system_svc.raise_exception(MODULE_DEVICE_ID_A400_CONTROLLER, state, actions, ban);
+    break;
+
+  case SM_EXCEP_OWNER_TOOLHEAD:
+    m = get_cur_toolhead();
+    if (!m) {
+      LOG_E("toolhead offline, cannot raise exception with SM_EXCEP_OWNER_TOOLHEAD!!!\n");
+      system_svc.raise_exception(MODULE_DEVICE_ID_INVALID, state, actions, ban);
+      break;
+    }
+    system_svc.raise_exception(m->get_device_id(), state, actions, ban);
+    break;
+
+  case SM_EXCEP_OWNER_BED:
+    // m = module_svc.get_module(MODULE_DEVICE_ID_A400_BED, 0);
+    // if (!m) {
+    //   LOG_E("Bed offline, cannot raise exception with MODULE_DEVICE_ID_A400_BED!!!\n");
+    //   system_svc.raise_exception(MODULE_DEVICE_ID_INVALID, state, actions, ban);
+    //   break;
+    // }
+    if (get_toolhead_type() != TH_TYPE_3DP) {
+      actions &= (~(EXCEP_ACT_PAUSE_WORKING | EXCEP_ACT_STOP_WORKING | EXCEP_ACT_STOP_WITH_RECOVERY));
+    }
+    system_svc.raise_exception(MODULE_DEVICE_ID_A400_BED, state, actions, ban);
+    break;
+
+  case SM_EXCEP_OWNER_LINEAR_X:
+    m = module_svc.get_module(MODULE_DEVICE_ID_A400_LINEAR, MODULE_LINEAR_X1);
+    if (!m) {
+      LOG_E("Axis offline, cannot raise exception with SM_EXCEP_OWNER_LINEAR_X!!!\n");
+      system_svc.raise_exception(MODULE_DEVICE_ID_INVALID, state, actions, ban);
+      break;
+    }
+    system_svc.raise_exception(m->get_device_id(), state, actions, ban);
+    break;
+
+  case SM_EXCEP_OWNER_LINEAR_Y:
+    m = module_svc.get_module(MODULE_DEVICE_ID_A400_LINEAR, MODULE_LINEAR_Y1);
+    if (!m) {
+      LOG_E("Axis offline, cannot raise exception with MODULE_LINEAR_Y1!!!\n");
+      system_svc.raise_exception(MODULE_DEVICE_ID_INVALID, state, actions, ban);
+      break;
+    }
+    system_svc.raise_exception(m->get_device_id(), state, actions, ban);
+    break;
+
+  case SM_EXCEP_OWNER_LINEAR_Z:
+    m = module_svc.get_module(MODULE_DEVICE_ID_A400_LINEAR, MODULE_LINEAR_Z1);
+    if (!m) {
+      LOG_E("Axis offline, cannot raise exception with MODULE_LINEAR_Z1!!!\n");
+      system_svc.raise_exception(MODULE_DEVICE_ID_INVALID, state, actions, ban);
+      break;
+    }
+    system_svc.raise_exception(m->get_device_id(), state, actions, ban);
+    break;
+
+  case SM_EXCEP_OWNER_LINEAR_Y2:
+    m = module_svc.get_module(MODULE_DEVICE_ID_A400_LINEAR, MODULE_LINEAR_Y2);
+    if (!m) {
+      LOG_E("Axis offline, cannot raise exception with MODULE_LINEAR_Y2!!!\n");
+      system_svc.raise_exception(MODULE_DEVICE_ID_INVALID, state, actions, ban);
+      break;
+    }
+    system_svc.raise_exception(m->get_device_id(), state, actions, ban);
+    break;
+
+  case SM_EXCEP_OWNER_LINEAR_Z2:
+    m = module_svc.get_module(MODULE_DEVICE_ID_A400_LINEAR, MODULE_LINEAR_Z2);
+    if (!m) {
+      LOG_E("Axis offline, cannot raise exception with MODULE_LINEAR_Z2!!!\n");
+      system_svc.raise_exception(MODULE_DEVICE_ID_INVALID, state, actions, ban);
+      break;
+    }
+    system_svc.raise_exception(m->get_device_id(), state, actions, ban);
+    break;
+
+  default:
+    LOG_E("invlaid exception owner[%u]!!!\n", owner);
+    break;
+  }
+}
+
+void SnapmakerPrinter::clear_exception(SMExceptionOwner owner, uint8_t state) {
+  ModuleBase *m;
+  switch (owner) {
+  case SM_EXCEP_OWNER_SYSTEM:
+    system_svc.clear_exception(MODULE_DEVICE_ID_A400_CONTROLLER, state);
+    break;
+
+  case SM_EXCEP_OWNER_TOOLHEAD:
+    m = get_cur_toolhead();
+    if (!m) {
+      LOG_E("toolhead offline, cannot raise exception with SM_EXCEP_OWNER_TOOLHEAD!!!\n");
+      system_svc.clear_exception(MODULE_DEVICE_ID_INVALID, state);
+      break;
+    }
+    system_svc.clear_exception(m->get_device_id(), state);
+    break;
+
+  case SM_EXCEP_OWNER_BED:
+    m = module_svc.get_module(MODULE_DEVICE_ID_A400_BED, 0);
+    if (!m) {
+      LOG_E("Bed offline, cannot raise exception with MODULE_DEVICE_ID_A400_BED!!!\n");
+      system_svc.clear_exception(MODULE_DEVICE_ID_INVALID, state);
+      break;
+    }
+    system_svc.clear_exception(m->get_device_id(), state);
+    break;
+
+  case SM_EXCEP_OWNER_LINEAR_X:
+    m = module_svc.get_module(MODULE_DEVICE_ID_A400_LINEAR, MODULE_LINEAR_X1);
+    if (!m) {
+      LOG_E("Axis offline, cannot raise exception with SM_EXCEP_OWNER_LINEAR_X!!!\n");
+      system_svc.clear_exception(MODULE_DEVICE_ID_INVALID, state);
+      break;
+    }
+    system_svc.clear_exception(m->get_device_id(), state);
+    break;
+
+  case SM_EXCEP_OWNER_LINEAR_Y:
+    m = module_svc.get_module(MODULE_DEVICE_ID_A400_LINEAR, MODULE_LINEAR_Y1);
+    if (!m) {
+      LOG_E("Axis offline, cannot raise exception with MODULE_LINEAR_Y1!!!\n");
+      system_svc.clear_exception(MODULE_DEVICE_ID_INVALID, state);
+      break;
+    }
+    system_svc.clear_exception(m->get_device_id(), state);
+    break;
+
+  case SM_EXCEP_OWNER_LINEAR_Z:
+    m = module_svc.get_module(MODULE_DEVICE_ID_A400_LINEAR, MODULE_LINEAR_Z1);
+    if (!m) {
+      LOG_E("Axis offline, cannot raise exception with MODULE_LINEAR_Z1!!!\n");
+      system_svc.clear_exception(MODULE_DEVICE_ID_INVALID, state);
+      break;
+    }
+    system_svc.clear_exception(m->get_device_id(), state);
+    break;
+
+  case SM_EXCEP_OWNER_LINEAR_Y2:
+    m = module_svc.get_module(MODULE_DEVICE_ID_A400_LINEAR, MODULE_LINEAR_Y2);
+    if (!m) {
+      LOG_E("Axis offline, cannot raise exception with MODULE_LINEAR_Y2!!!\n");
+      system_svc.clear_exception(MODULE_DEVICE_ID_INVALID, state);
+      break;
+    }
+    system_svc.clear_exception(m->get_device_id(), state);
+    break;
+
+  case SM_EXCEP_OWNER_LINEAR_Z2:
+    m = module_svc.get_module(MODULE_DEVICE_ID_A400_LINEAR, MODULE_LINEAR_Z2);
+    if (!m) {
+      LOG_E("Axis offline, cannot raise exception with MODULE_LINEAR_Z2!!!\n");
+      system_svc.clear_exception(MODULE_DEVICE_ID_INVALID, state);
+      break;
+    }
+    system_svc.clear_exception(m->get_device_id(), state);
+    break;
+
+  default:
+    LOG_E("invlaid exception owner[%u]!!!\n", owner);
+    break;
+  }
+}
+
+bool SnapmakerPrinter::allow_moving() {
+  return system_svc.allow_moving();
+}
+
+bool SnapmakerPrinter::allow_heating_bed() {
+  return system_svc.allow_heating_bed();
+}
+
+bool SnapmakerPrinter::allow_heating_hotend()  {
+  return system_svc.allow_heating_hotend();
+}
+
+bool SnapmakerPrinter::allow_leveling()  {
+  return system_svc.allow_leveling();
+}
+
+bool SnapmakerPrinter::allow_turn_on_laser()  {
+  return system_svc.allow_turn_on_laser();
+}
+
+bool SnapmakerPrinter::allow_turn_on_cnc()  {
+  return system_svc.allow_turn_on_cnc();
+}
+
+
+bool SnapmakerPrinter::allow_homing() {
+  return system_svc.allow_homing();
+}
+
+
+void SnapmakerPrinter::check_system_voltage() {
+  // check if voltage of system is normal
+  uint32_t vol1_raw, vol2_raw;
+  float system_vol, motive_vol;
+
+  taskENTER_CRITICAL();
+  vol1_raw = analogRead(VOL1_DETECT_PIN);
+  vol2_raw = analogRead(VOL2_DETECT_PIN);
+  taskEXIT_CRITICAL();
+
+  system_vol = (vol1_raw * 11 * 3.3) / 4096;
+  motive_vol = (vol2_raw * 11 * 3.3) / 4096;
+
+  LOG_I("system vol: %.2fv, motive vol: %.2fv\n", system_vol, motive_vol);
+
+  if (system_vol < SYSTEM_VOL_LOWER_LIMIT || system_vol > SYSTEM_VOL_UPPER_LIMIT) {
+    LOG_E("system vol: %.2fv is out of range[%.2f:%.2f]\n", system_vol,
+          SYSTEM_VOL_LOWER_LIMIT, SYSTEM_VOL_UPPER_LIMIT);
+    system_svc.raise_exception(MODULE_DEVICE_ID_A400_CONTROLLER, CONTROLLER_EXCEP_STA_SYSTEM_VOLTAGE,
+    0, EXCEP_BAN_MOVING | EXCEP_BAN_WORKING);
+  }
+
+  if (motive_vol <  MOTIVE_VOL_LOWER_LIMIT || motive_vol > MOTIVE_VOL_UPPER_LIMIT) {
+    LOG_E("motive vol: %.2fv is out of range[%.2f:%.2f]\n", motive_vol,
+          MOTIVE_VOL_LOWER_LIMIT, MOTIVE_VOL_UPPER_LIMIT);
+    system_svc.raise_exception(MODULE_DEVICE_ID_A400_CONTROLLER, CONTROLLER_EXCEP_STA_MOTIVE_VOLTAGE,
+    0, EXCEP_BAN_MOVING | EXCEP_BAN_WORKING | EXCEP_BAN_HEATING_HOTEND | EXCEP_BAN_HEATING_BED |
+        EXCEP_BAN_TURN_ON_CNC | EXCEP_BAN_TURN_ON_LASER);
+  }
+}
+
+void SnapmakerPrinter::get_hw_version() {
+  uint32_t vol_raw;
+  uint32_t i = 0;
+  float ver_vol;
+
+  float vol_table[] = {
+    A400_HARDWARE_VER_0_VOL,
+    A400_HARDWARE_VER_1_VOL,
+    A400_HARDWARE_VER_2_VOL,
+    A400_HARDWARE_VER_3_VOL,
+    A400_HARDWARE_VER_4_VOL,
+    A400_HARDWARE_VER_5_VOL,
+    A400_HARDWARE_VER_6_VOL,
+    A400_HARDWARE_VER_7_VOL,
+  };
+
+  taskENTER_CRITICAL();
+  vol_raw = analogRead(HARDWARE_VERSION_PIN);
+  taskEXIT_CRITICAL();
+
+  ver_vol = (vol_raw * 3.3) / 4096;
+
+  for (; i < sizeof(vol_table); i++) {
+    if (ver_vol < (vol_table[i] + A400_HARDWARE_VER_DELTA) ||
+        ver_vol > (vol_table[i] - A400_HARDWARE_VER_DELTA)) {
+      break;
+    }
+  }
+
+  if (i >= sizeof(vol_table)) {
+    hw_ver = (uint8_t)SM_HW_VER_UNKNOWN;
+  }
+  else {
+    hw_ver = i;
+  }
+
+  LOG_I("vol: %.2fv, hw version: %u\n", ver_vol, hw_ver);
+}
+
+void SnapmakerPrinter::start_work_reset_feedrate() {
+  ModuleBase *module = get_cur_toolhead();
+  if (module)
+    module->start_work_reset_feedrate();
+}
+
+void SnapmakerPrinter::stop_work_reset_feedrate() {
+  ModuleBase *module = get_cur_toolhead();
+  if (module)
+    module->stop_work_reset_feedrate();
+}
+
+
+// must call in marlin idle()
+void SnapmakerPrinter::check_if_quickstop() {
+  if (!quick_stop) {
+    return;
+  }
+
+  quick_stop = false;
+
+  motion_platform_svc.do_quickstop();
+}
+
+bool SnapmakerPrinter::is_interrupt_block_heating(void) {
+  return (smprinter.get_sys_status() == SYSTEM_STATUS_PAUSING || job_ctrl_svc.get_req_stop_trigger());
+}
+
+bool SnapmakerPrinter::is_fdm_bed_level_mode(void) {
+  SystemStatus sys_staus = smprinter.get_sys_status();
+  return (sys_staus >= SYSTEM_STATUS_AUTO_BEDLEVEL && sys_staus <= SYSTEM_STATUS_PROBE_SENSOR_CALIBRATION);
+}
+
+bool SnapmakerPrinter::is_in_motion_thread() {
+  return xTaskGetCurrentTaskHandle() == thandle_marlin;
+}
+
+void SnapmakerPrinter::resume_relative_position_check(uint32_t cmd_line, uint8_t cmd_mark) {
+  // relative mode position recovery
+  if (resume_file_line != 0xFFFFFFFF) {
+    if (smprinter.on_printing() && resume_file_line == cmd_line && cmd_mark == job_ctrl_svc.get_job_print_mark()) {
+      resume_relative_switch = true;
+    }
+  }
+}
+
+void SnapmakerPrinter::resume_relative_position_clear(uint8_t cmd_mark) {
+  if (resume_relative_switch == true) {
+    resume_relative_switch = false;
+    job_ctrl_svc.reset_relative_line(cmd_mark);
+  }
+}
+
+uint8_t SnapmakerPrinter::homing_active_extruder_record(void) {
+  if (fdm)
+    return fdm->homing_active_extruder_record();
+  else
+    return HOTEND_INVALID_INDEX;
+}
+
+void SnapmakerPrinter::homing_active_extruder_clean(void) {
+  if (fdm)
+    fdm->homing_active_extruder_clean();
+}
+
+
+ShaperSettings *SnapmakerPrinter::get_shaper_settings() {
+  ModuleBase     *toolhead  = get_cur_toolhead();
+  ShaperSettings *ssettings = NULL;
+  AxisInputShaper *x_shaper = axisManager.axis[0].axis_input_shaper, *y_shaper = axisManager.axis[1].axis_input_shaper;
+
+  if (!toolhead) {
+    LOG_E("cannot setup shaper without toolhead plugged\n");
+    return NULL;
+  }
+
+  if (toolhead->get_device_id() == MODULE_DEVICE_ID_FDM_1EXTRUDER_2019) {
+    ssettings = smprinter.get_settings()->fdm1_shaper_settings;
+  }
+  else if (toolhead->get_device_id() == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021) {
+    ssettings = smprinter.get_settings()->fdm2_shaper_settings;
+  }
+  else {
+    LOG_E("can only setup input shaper with FDM toolhead plugged!\n");
+    LOG_I("X type: %s, frequency: %lf, zeta: %lf\n", input_shaper_type_name[x_shaper->type], x_shaper->frequency, x_shaper->zeta);
+    LOG_I("Y type: %s, frequency: %lf, zeta: %lf\n", input_shaper_type_name[y_shaper->type], y_shaper->frequency, y_shaper->zeta);
+  }
+
+  return ssettings;
+}
+
+uint8_t SnapmakerPrinter::get_extruders_count(void) {
+  if (fdm)
+    return fdm->get_extruders_count();
+  else
+    return 0;
+}
+
+bool SnapmakerPrinter::get_backup_current_position(xyze_pos_t &position) {
+  if (fdm && fdm->get_device_id() == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021)
+    return fdm->get_tool_change_back_position(position);
+  else
+    return false;
+}
+
+int8_t SnapmakerPrinter::extruder_map_convert(int8_t extruder_index) {
+ if (fdm && fdm->get_device_id() == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021)
+    return fdm->extruder_map_convert(extruder_index);
+  else
+    return extruder_index;
+}
+
+extruder_print_map_type SnapmakerPrinter::get_extruder_map_type(void) {
+ if (fdm && fdm->get_device_id() == MODULE_DEVICE_ID_FDM_2EXTRUDER_2021)
+    return fdm->get_extruder_map_type();
+  else
+    return NORMAL_MODE;
+}
+
+bool SnapmakerPrinter::is_has_crosslight_offset(void) {
+  if (laser && laser->is_there_cross_light()) {
+    return true;
+  }
+  return false;
+}
+
+void SnapmakerPrinter::set_inline_laser_power(float power) {
+  if (laser)
+    laser->set_inline_output_with_power(power);
+}
+
+void SnapmakerPrinter::set_inline_laser_pwm(uint16_t pwm) {
+  if (laser)
+    laser->set_inline_output_with_pwm(pwm);
+}
+
+void SnapmakerPrinter::laser_turn_on_isr(uint16_t pwm, bool is_sync_power, float sync_power) {
+  if (laser)
+    laser->laser_turn_on_isr(pwm, is_sync_power, sync_power);
+}
+
+uint8_t SnapmakerPrinter::get_laser_safety_state(void) {
+  uint8_t status = 0;
+  if (laser)
+    status = laser->get_safety_state();
+  return status;
+}
+
+extern "C" {
+  // hook for failing to apply memory in freeRTOS
+  void vApplicationMallocFailedHook( void ) {
+    return;
+  }
+};

@@ -1,0 +1,383 @@
+/*
+ * Snapmaker2-Controller Firmware
+ * Copyright (C) 2019-2020 Snapmaker [https://github.com/Snapmaker]
+ *
+ * This file is part of Snapmaker2-Controller
+ * (see https://github.com/Snapmaker/Snapmaker2-Controller)
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+#ifndef SNAPMAKER_TOOLHEAD_FDM_H_
+#define SNAPMAKER_TOOLHEAD_FDM_H_
+
+#include "base.h"
+#include "../../../../../Marlin/src/core/types.h"
+
+// #define USE_FDM_INTERRUPT_LOG
+
+#define EXTRUDERS 2
+#define EXTRUDER0_SWITCH_POSITION 0
+#define EXTRUDER1_SWITCH_POSITION 410
+#define GRID_MAX_NUM 11
+#define FDM_MAX_FAN_NUM 3
+
+#define SINGLE_EXTRUDER_SOFT_ENDSTOP_MIN_X      0
+#define SINGLE_EXTRUDER_SOFT_ENDSTOP_MAX_X      400
+#define DUAL_EXTRUDER_LEFT_SOFT_ENDSTOP_MAX_X   410
+#define DUAL_EXTRUDER_LEFT_SOFT_ENDSTOP_MIN_X   0
+#define DUAL_EXTRUDER_RIGHT_SOFT_ENDSTOP_MAX_X  410
+#define DUAL_EXTRUDER_RIGHT_SOFT_ENDSTOP_MIN_X  0
+
+#define DELAY_TURNOFF_TIME_MS      (5*60*1000)
+#define DUAL_EXTRUDER_SAFE_SPACE_MIN_X          35
+#define DUAL_EXTRUDER_SAFE_SPACE_MAX_X          35
+#define DUAL_EXTRUDER_SAFE_SPACE_MIN_Y          2
+#define DUAL_EXTRUDER_SAFE_SPACE_MAX_Y          2
+#define DUAL_EXTRUDER_SAFE_SPACE_MAX_Z          0
+#define TOOL_CHANGE_RAISE_SPACE                 0.5
+
+#define DEFAULT_HOTEND_OFFSET_X                 26
+#define DEFAULT_HOTEND_OFFSET_Y                 0
+#define DEFAULT_HOTEND_OFFSET_Z                 -1.5
+#define BIAS_HOTEND_OFFSET_X                    1.8
+#define BIAS_HOTEND_OFFSET_Y                    1.8
+#define BIAS_HOTEND_OFFSET_Z                    1.2
+
+#define CHECK_ONLINE_TIMEOUT  5000
+
+#define SINGLE_EXTRUDER_STEPS_PER_UNIT_DEFAULT  212.21
+#define DUAL_EXTRUDER_STEPS_PER_UNIT_DEFAULT    667.222
+
+#define HOTEND_INVALID_INDEX                    0xFF
+#define EXTRUDER_INVALID_STATUS_STABLE_CNT      0xFFFFFFFF
+#define EXTRUDER_STATUS_STABLE_CNT              10
+#define EXTRUDER_STATUS_CHECK_INTERVAL          50
+
+#define EXTRUDER_STATE_CHECK_WINDOW_CNT         100
+#define EXTRUDER_STATE_ERROR_EXCEED_NUMBER      2          // must be greater than 0
+#define EXTRUDER_STATE_ERROR_OVERTIME_CNT       30
+#define EXTRUDER_STATE_ERROR_CHECK_INIT_VALUE   0xFFFFFFFF
+
+#define FILAMENT_STABLE_CNT                     (10 + 1)
+#define FILAMENT_STATUS_CHECK_INTERVAL          50
+#define FILAMENT_INVALID_STATUS_STABLE_CNT      0xFFFFFFFF
+
+/****************************************************************************************
+reference links: https://snapmaker2.atlassian.net/wiki/spaces/SNAP/pages/1984987369/FDM
+****************************************************************************************/
+typedef enum {
+  FDM_REQ_CMD_ID_GET_TOOLHEAD_INFO     = 1,
+  FDM_REQ_CMD_ID_SET_HOTEND_TEMP       = 2,
+  FDM_REQ_CMD_ID_FILAMENT_DETECT_CTRL  = 4,
+  FDM_REQ_CMD_ID_SWITCH_EXTRUDER       = 5,
+  FDM_REQ_CMD_ID_SET_FAN_SPEED         = 6,
+  FDM_REQ_CMD_ID_SET_HOTEND_OFFSET     = 7,
+  FDM_REQ_CMD_ID_GET_HOTEND_OFFSET     = 8,
+  FDM_REQ_CMD_ID_EXTRUDER_MOTION       = 9,
+  FDM_REQ_CMD_ID_CHANGE_NOZZLE_CTRL    = 10,
+  FDM_REQ_CMD_ID_GET_EXTRUDER_MAP_TYPE = 0xd,
+  FDM_REQ_CMD_ID_SET_EXTRUDER_MAP_TYPE = 0xe,
+
+  FDM_REQ_CMD_ID_SUM                   = 11,      // Adding or deleting IDs requires changing this value
+
+
+  FDM_REQ_CMD_ID_SWITCH_EXTRUDER_RESULT = 0x0b,
+  FDM_REQ_CMD_ID_EXTRUDER_MOTION_RESULT = 0x0c,
+}fdm_req_cmd_id_e;
+
+typedef enum {
+  FDM_SUBSCRIPT_CMD_ID_EXTRUDER_INFO = 0xa0,
+  FDM_SUBSCRIPT_CMD_ID_FAN_INFO      = 0xa3,
+}fdm_subscript_cmd_id_e;
+
+typedef enum {
+  SINGLE_EXTRUDER_MODULE_FAN       = 0,
+  SINGLE_EXTRUDER_NOZZLE_FAN       = 1,
+  DUAL_EXTRUDER_LEFT_MODULE_FAN    = 0,
+  DUAL_EXTRUDER_RIGHT_MODULE_FAN   = 1,
+  DUAL_EXTRUDER_NOZZLE_FAN         = 2,
+}fan_e;
+typedef enum {
+  PROBE_SENSOR_PROXIMITY_SWITCH,
+  PROBE_SENSOR_LEFT_OPTOCOUPLER,
+  PROBE_SENSOR_RIGHT_OPTOCOUPLER,
+  PROBE_SENSOR_LEFT_CONDUCTIVE,
+  PROBE_SENSOR_RIGHT_CONDUCTIVE,
+  PROBE_SENSOR_INVALID,
+}probe_sensor_t;
+
+typedef struct {
+  uint8_t model;
+  float diameter;
+}hotend_type_info_t;
+
+typedef struct {
+  float single_extruder_steps_per_unit;
+  float dual_extruder_steps_per_unit[EXTRUDERS];
+}fdm_settings_t;
+
+#define HOTEND_INFO_MAX 10
+const hotend_type_info_t hotend_info[HOTEND_INFO_MAX] = {{.model = 2, .diameter = 0.4}, \
+                                                         {.model = 1, .diameter = 0.6}, \
+                                                         {.model = 1, .diameter = 0.8}, \
+                                                         {.model = 1, .diameter = 0.4}, \
+                                                         {.model = 1, .diameter = 0.2},\
+                                                         {.model = 0xff, .diameter = 0},\
+                                                         {.model = 0xff, .diameter = 0},\
+                                                         {.model = 0xff, .diameter = 0},\
+                                                         {.model = 0xff, .diameter = 0},\
+                                                         {.model = 0xff, .diameter = 0}
+                                                        };
+
+typedef struct {
+  int16_t current;
+  int16_t target;
+}hotend_temp_t;
+
+typedef enum {
+    EXTRUDER_STATUS_CHECK,
+    EXTRUDER_STATUS_IDLE,
+}extruder_status_e;
+
+typedef enum {
+  FDM_FAULT_EXTRUDER_STATE,
+  FDM_FAULT_NOZZLE_IDENTIFY,
+  FDM_FAULT_NOZZLE_TEMP,
+  FDM_FAULT_FILAMENT,
+  FDM_FAULT_EXTRUDER_HOME_FAILED,
+}fdm_fault_e;
+
+typedef enum {
+  EXTRUDER_WORK_STATE_STANDBY,
+  EXTRUDER_WORK_STATE_ACTIVE,
+  EXTRUDER_WORK_STATE_UNAVAILABLE,
+}extruder_work_state_e;
+
+typedef enum {
+  NORMAL_MODE,
+  SWAP_MODE,
+  // LEFT_NOZZLE_MODE,
+  // RIGHT_NOZZLE,
+}extruder_print_map_type;
+
+typedef struct {
+  uint8_t active_extruder;
+  int16_t feedrate_percentage[EXTRUDERS];
+  int16_t flowrate_percentage[EXTRUDERS];
+  float live_z_offset[EXTRUDERS];
+  float live_z_offset_changed;
+  uint8_t fan_speed[3];
+  int16_t target_temp[EXTRUDERS];
+  extruder_print_map_type extruder_map_type;
+} __attribute__((packed)) fdm_recovery_data_t;
+
+typedef enum {
+  GO_HOME,
+  MOVE_SYNC,
+  MOVE_ASYNC,
+}move_type_e;
+
+class ToolHeadFDM: public ModuleBase {
+  // public methods
+  public:
+    // construtor to do pre-init
+    ToolHeadFDM(uint8_t extruder, uint32_t mac, uint8_t key, uint8_t sub_index):
+    ModuleBase(mac, key, sub_index) {
+      fdm_state = 0;
+      extruder_status[0] = EXTRUDER_WORK_STATE_ACTIVE;
+      extruder_status[1] = EXTRUDER_WORK_STATE_STANDBY;
+      for (int i = 0; i < EXTRUDERS; i++) {
+        hotend_type[i] = 0xff;
+      }
+      for (int i = 0; i < EXTRUDERS; i++) {
+        hotend_temp[i].current = 0;
+        hotend_temp[i].target  = 0;
+      }
+      for (int i = 0; i < FDM_MAX_FAN_NUM; i++) {
+        fan_speed[i] = 0;
+      }
+      probe_state    = 0;
+      probe_sensor   = PROBE_SENSOR_PROXIMITY_SWITCH;
+      extruder_info  = 0;
+      current_extruder = 0;
+      target_extruder = 0;
+      active_extruder_bak = HOTEND_INVALID_INDEX;
+      hotend_type_initialized = false;
+      memset(hotend_offset, 0, sizeof(hotend_offset));
+      last_recv_time = 0;
+      is_fdm_online = true;
+      filament_state = 0;
+      filament_real_state = 0;
+      filament_check_tick = 0;
+      filament0_sta_stable_cnt = FILAMENT_INVALID_STATUS_STABLE_CNT;
+      filament1_sta_stable_cnt = FILAMENT_INVALID_STATUS_STABLE_CNT;
+      extruder_state = 0;
+      extruder_check_tick = 0;
+      extruder_sta_stable_cnt = EXTRUDER_INVALID_STATUS_STABLE_CNT;
+      backup_position_valid = false;
+      extruder_sta_check_window_cnt = EXTRUDER_STATE_ERROR_CHECK_INIT_VALUE;
+      extruder_sta_err_overtime_cnt = EXTRUDER_STATE_ERROR_CHECK_INIT_VALUE;
+      for (int i = 0; i < EXTRUDER_STATE_ERROR_EXCEED_NUMBER; i++) {
+        extruder_sta_err_exceed_cnt[i] = EXTRUDER_STATE_ERROR_CHECK_INIT_VALUE;
+      }
+      extruder_map_type = NORMAL_MODE;
+    }
+
+    bool check_online();
+    err_code_t pre_init();
+    err_code_t post_init();
+    err_code_t single_extruder_post_init();
+    err_code_t dual_extruder_post_init();
+    err_code_t deinit();
+    err_code_t save_env(uint8_t *env_buf, uint32_t &len);
+    err_code_t recover_env(uint8_t *env_buf, uint32_t &len);
+    err_code_t resume_env(uint8_t *env_buf, uint32_t &len);
+    err_code_t resume_finish();
+    err_code_t standby(void);
+    void prepare_to_start_a_new_print_job(void);
+    err_code_t prepare_start(void);
+    err_code_t set_feedrate_percentage(uint8_t *data, uint16_t length);
+    uint16_t get_feedrate_percentage(uint8_t *buffer);
+    err_code_t factory_reset();
+    void start_work_reset_feedrate();
+    void stop_work_reset_feedrate();
+
+    err_code_t probe_state_sync();
+    err_code_t hotend_type_sync();
+    err_code_t filament_state_sync();
+    err_code_t hotend_offset_sync();
+    err_code_t z_compensation_sync();
+    err_code_t hotend_pid_sync();
+    err_code_t right_extruder_pos_sync();
+    void set_probe_state(uint8_t state[]);
+    void set_probe_state(probe_sensor_t sensor, uint8_t state);
+    void report_pid(uint8_t *data);
+    void set_hotend_type(uint8_t *data);
+    void report_extruder_info(uint8_t *data);
+    uint8_t get_hotend_type(uint8_t e);
+    float get_hotend_diameter(uint8_t e);
+    void set_probe_sensor(probe_sensor_t sensor);
+    bool get_probe_state();
+    bool get_probe_state(probe_sensor_t sensor);
+    err_code_t set_pid(float p, float i, float d);
+    void update_hotend_temp(uint8_t *data);
+    err_code_t set_hotend_temp(int16_t temp, uint8_t e);
+    float get_hotend_temp(uint8_t e);
+    float get_hotend_target_temp(uint8_t e);
+    err_code_t set_fan_speed(uint8_t fan_index, uint16_t speed, uint8_t delay_time=0);
+    uint8_t get_fan_speed(uint8_t fan_index);
+    void update_filament_state(uint8_t *data);
+    uint8_t get_filament_state(uint8_t e);
+    uint8_t get_filament_state();
+    uint8_t get_filament_detection_state(uint8_t e);
+    uint32_t get_fdm_state();
+    void clear_fdm_state(fdm_fault_e state);
+    void get_fdm_state(fdm_fault_e state);
+    uint8_t get_fdm_fault_state(fdm_fault_e fault_type);
+    uint8_t get_extruder_status(uint8_t e);
+    err_code_t extruder_status_check_ctrl(extruder_status_e status);
+    err_code_t tool_change(uint8_t new_tool, bool compensate_z=true);
+    err_code_t tool_change_unlimited(uint8_t new_tool, bool compensate_z=true);
+    err_code_t switch_extruder(uint8_t e);
+    void switch_extruder_without_move(uint8_t e);
+    err_code_t get_hotend_offset(float &x_offset, float &y_offset, float &z_offset);
+    err_code_t set_hotend_offset(float offset, uint8_t axis);
+    void set_hotend_offset_z(float offset) { hotend_offset[2][1] = offset; }
+    uint8_t get_extruders_count();
+    err_code_t set_extruders_feedrate_percentage(int16_t percentage, uint8_t e);
+    int16_t get_extruders_feedrate_percentage(uint8_t e);
+    err_code_t set_extruders_flowrate_percentage(int16_t percentage, uint8_t e);
+    int16_t get_extruders_flowrate_percentage(uint8_t e);
+    err_code_t filament_detect_ctrl(uint8_t state, uint8_t e);
+    uint8_t get_active_extruder();
+    err_code_t save_hotend_offset_to_module(float offset, uint8_t axis);
+    err_code_t save_z_compensation_to_module(float *compensation);
+    float *get_hotend_pid(uint8_t e) { return pid; }
+    void fdm_exception_trigger(fdm_fault_e fault);
+    void fdm_exception_clear(fdm_fault_e fault);
+    uint8_t get_specified_fdm_state(fdm_fault_e fault);
+    void show_fdm_info();
+    void delay_turnoff_heating_process();
+    void dual_extruder_process_after_z_homed();
+    void report_hotend_offset();
+    void report_nozzle_type();
+    void set_axis_steps_per_unit(float value);
+    void report_steps_per_unit();
+    err_code_t right_extruder_move_to_destination(move_type_e type, float destination/* = 0*/);
+    void reset_e_steps_per_unit();
+    void reset_home_offset();
+    err_code_t set_right_extruder_pos(float raise_for_home_pos, float z_max_pos);
+    uint8_t homing_active_extruder_record(void);
+    void homing_active_extruder_clean(void);
+    void nozzle_fan_ctrl_check(void);
+    void filament_state_check(void);
+    void extruder_state_check(void);
+    bool extruder_state_pre_process(void);
+    bool get_tool_change_back_position(xyze_pos_t &position);
+    int8_t extruder_map_convert(int8_t extruder_index);
+    err_code_t set_extruder_map_type(extruder_print_map_type map_type);
+    extruder_print_map_type get_extruder_map_type(void);
+    bool get_hw_version_module(uint8_t &version);
+  // private methods
+  private:
+
+
+  // public properties
+  public:
+    float hotend_offset[3][EXTRUDERS];
+    bool is_fdm_online;
+
+  // private properties
+  private:
+    uint32_t fdm_state;
+    uint32_t filament_check_tick;
+    uint32_t filament0_sta_stable_cnt;
+    uint32_t filament1_sta_stable_cnt;
+    uint32_t extruder_check_tick;
+    uint32_t extruder_sta_stable_cnt;
+    uint32_t extruder_sta_err_exceed_cnt[EXTRUDER_STATE_ERROR_EXCEED_NUMBER];    // number of abnormal extruder status occurrences during the printing process
+    uint32_t extruder_sta_err_overtime_cnt;                                      // extruder status abnormal duration count during printing
+    uint32_t extruder_sta_check_window_cnt;
+    uint8_t extruder_state;
+    uint8_t probe_state;
+    probe_sensor_t probe_sensor;
+    uint8_t extruder_info;
+    uint8_t hotend_type[EXTRUDERS];
+    hotend_temp_t hotend_temp[EXTRUDERS];
+    uint8_t filament_state;
+    uint8_t filament_real_state;
+    uint8_t active_extruder_bak;
+    uint8_t current_extruder;
+    uint8_t target_extruder;
+    probe_sensor_t active_probe_sensor;
+    uint8_t filament_detect_mask;
+    extruder_work_state_e extruder_status[EXTRUDERS];
+    float hotend_diameter[EXTRUDERS];
+    uint8_t fan_speed[FDM_MAX_FAN_NUM];
+    int16_t extruders_feedrate_percentage[EXTRUDERS];
+    int16_t extruders_flowrate_percentage[EXTRUDERS];
+    uint8_t filament_detect_state[EXTRUDERS];
+    float pid[3];
+    bool hotend_type_initialized;
+    uint32_t turnoff_heating_time_elapsed;
+    uint32_t last_recv_time;
+    float single_extruder_steps_per_unit;
+    float dual_extruder_steps_per_unit[EXTRUDERS];
+    bool backup_position_valid;
+    xyze_pos_t backup_current_position;
+    extruder_print_map_type extruder_map_type;
+};
+
+#endif  // #ifndef SNAPMAKER_TOOLHEAD_FDM_H_
+

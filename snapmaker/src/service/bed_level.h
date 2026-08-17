@@ -1,0 +1,173 @@
+/*
+ * Snapmaker2-Controller Firmware
+ * Copyright (C) 2019-2020 Snapmaker [https://github.com/Snapmaker]
+ *
+ * This file is part of Snapmaker2-Controller
+ * (see https://github.com/Snapmaker/Snapmaker2-Controller)
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+#ifndef SNAPMAKER_BED_LEVEL_SERVICE_H_
+#define SNAPMAKER_BED_LEVEL_SERVICE_H_
+
+// #include "../config.h"
+// #include "motion_platform.h"
+#include "../config.h"
+#include "../module/toolhead_fdm.h"
+#include "../../../Marlin/src/core/types.h"
+
+#define CALIBRATION_PAPER_THICKNESS   0.1
+#define LIVE_Z_OFFSET_LIMIT           0.5
+
+/*************************************************************************************************************************************
+reference links: https://snapmaker2.atlassian.net/wiki/spaces/SNAP/pages/1984824804/FDM?focusedCommentId=2010743286#comment-2010743286
+*************************************************************************************************************************************/
+typedef enum {
+  BEDLEVEL_REQ_CMD_ID_SET_LEVEL_MODE           = 0x00,
+  BEDLEVEL_REQ_CMD_ID_START_LEVEL              = 0x03,
+  BEDLEVEL_REQ_CMD_ID_GOTO_PROBE_POINT         = 0x04,
+  BEDLEVEL_REQ_CMD_ID_EXIT_LEVEL               = 0x06,
+  BEDLEVEL_REQ_CMD_ID_GET_LEVEL_STATE          = 0x07,
+  BEDLEVEL_REQ_CMD_ID_ABORT_AUTO_BEDLEVEL      = 0x09,
+  BEDLEVEL_REQ_CMD_ID_BED_POSITION_DETECTION   = 0x12,
+  BEDLEVEL_REQ_CMD_ID_PROBE_SENSOR_CALIBRATION = 0x13,
+  BEDLEVEL_REQ_CMD_ID_SET_LIVE_Z_OFFSET        = 0x15,
+  BEDLEVEL_REQ_CMD_ID_GET_LIVE_Z_OFFSET        = 0x16,
+
+  BEDLEVEL_REQ_CMD_ID_SUM                      = 11,               // Adding or deleting IDs requires changing this value
+
+  BEDLEVEL_REQ_CMD_ID_GOTO_PROBE_POINT_RESULT         = 0x0b,
+  BEDLEVEL_REQ_CMD_ID_EXIT_LEVEL_RESULT               = 0x0c,
+  BEDLEVEL_REQ_CMD_ID_EXIT_AUTO_BEDLEVEL_RESULT       = 0x0e,
+  BEDLEVEL_REQ_CMD_ID_BED_POSITION_DETECTION_RESULT   = 0x17,
+  BEDLEVEL_REQ_CMD_ID_PROBE_SENSOR_CALIBRATION_RESULT = 0x18,
+  BEDLEVEL_ERQ_CMD_ID_SET_LIVE_Z_OFFSET_RESULT        = 0x19,
+
+  BEDLEVEL_CMD_ID_REPORT_BEDLEVEL_POINT        = 0xa1,
+
+}bedlevel_req_cmd_id_e;
+
+// level mode
+#define BEDLEVEL_MODE_IDLE                    0
+#define BEDLEVEL_MODE_AUTO                    2
+#define BEDLEVEL_MODE_MANUAL                  3
+#define BEDLEVEL_MODE_AUTO_BED_DETECTION      52
+#define BEDLEVEL_MODE_MANUAL_BED_DETECTION    53
+#define BEDLEVEL_MODE_PROBE_SENSOR_CALIBRATE  54
+#define BEDLEVEL_MODE_XY_CALIBRATION          101
+
+#define AUTO_PROBE_SENSOR_X_POSITION          229.2
+#define AUTO_PROBE_SENSOR_Y_POSITION          245
+#define AUTO_PROBE_SENSOR_Z_POSITION          20
+#define AUTO_HOTEND_OFFSET_CALIBRATION_X_POSITION  214.4
+#define AUTO_HOTEND_OFFSET_CALIBRATION_Y_POSITION  206
+#define AUTO_HOTEND_OFFSET_CALIBRATION_Z_POSITION  13.8
+
+#define BEDLEVEL_LIVE_Z_OFFSET_DEFAULT  0
+
+typedef struct {
+  float live_z_offset[EXTRUDERS];
+} __attribute__((packed)) bedlevel_settings_t;
+
+typedef struct {
+  bool     valid;
+  uint8_t  grid_max_points_x;
+  uint8_t  grid_max_points_y;
+  uint8_t  grid_max_cells_x;
+  uint8_t  grid_max_cells_y;
+  float    startx;
+  float    endx;
+  float    starty;
+  float    endy;
+  xy_pos_t bilinear_start;
+  xy_pos_t bilinear_grid_spacing;
+} BedlevelEnvInfo;
+
+class BedLevelService {
+  public:
+    BedLevelService() {
+      bedlevel_mode = BEDLEVEL_MODE_IDLE;
+      z_compensation_[0] = 1.5;
+      z_compensation_[1] = 1.5;
+      live_z_offset_changed = false;
+      need_to_abort_auto_bedlevel = false;
+      auto_bedlevel_enable = false;
+      z_drop_limit_check = false;
+      env_info.valid = false;
+      for (int i = 0; i < GRID_MAX_NUM; i++) {
+        for (int j = 0; j < GRID_MAX_NUM; j++) {
+          z_values_[i][j] = DEFAUT_LEVELING_HEIGHT;
+          manual_leveling_z_values_[i*GRID_MAX_NUM + j] = DEFAUT_LEVELING_HEIGHT;
+        }
+      }
+    }
+
+    void init();
+    err_code_t set_leveling_limit(float x_min, float x_max, float y_min, float y_max);
+    err_code_t set_leveling_grids(uint8_t grids);
+    err_code_t set_z_values(float z, uint8_t i, uint8_t j);
+    err_code_t refresh_leveling_data();
+    err_code_t start_probe_test(uint8_t b, float x, float y);
+    err_code_t start_manual_bed_leveling(uint8_t grids);
+    err_code_t goto_leveling_point(uint8_t index);
+    err_code_t finish_manual_bed_leveling();
+    err_code_t start_auto_bed_leveling(uint8_t grids, sacp_hmi_message_t *msg);
+    err_code_t probe_sensor_calibration(float x, float y);
+    err_code_t confirm_probe_sensor_calibration(uint8_t e);
+    err_code_t work_height_auto_detection();
+    err_code_t set_bedlevel_mode(uint8_t mode);
+    uint8_t get_bedlevel_mode();
+    bool is_bedleveled();
+    void set_end_leveling_process_status(bool status);
+    bool get_end_leveling_process_status();
+    err_code_t apply_live_z_offset(uint8_t e);
+    err_code_t unapply_live_z_offset(uint8_t e);
+    void set_live_z_offset(uint8_t e, float offset);
+    void auto_probe_sensor_calibration();
+    void auto_hotend_offset_calibration();
+    void toolhead_auto_calibation();
+    void update_soft_endstop_max_z();
+    void report_probe_sensor_compensation();
+    bool get_z_drop_limit_status(void);
+    void set_z_drop_limit_check(bool enable) { z_drop_limit_check = enable; }
+    bool set_bedlevel_env_info(uint8_t grids);
+    // void clear_bedlevel_env_info(void);
+    void pre_bedlevel_clear_live_z_offset(void);
+
+
+    float z_values_[GRID_MAX_NUM][GRID_MAX_NUM];
+    float z_compensation_[EXTRUDERS];
+    float detected_bed_z_values[EXTRUDERS];
+    float hotend_triggered_z_[EXTRUDERS] {DEFAUT_LEVELING_HEIGHT, DEFAUT_LEVELING_HEIGHT};
+    float hotend_touch_bed_z_[EXTRUDERS] {DEFAUT_LEVELING_HEIGHT, DEFAUT_LEVELING_HEIGHT};
+    float live_z_offset[EXTRUDERS] {0, 0};
+    bool live_z_offset_changed;
+    bool need_to_abort_auto_bedlevel;
+    bool auto_bedlevel_enable;
+    BedlevelEnvInfo  env_info;
+
+  private:
+    uint8_t bedlevel_mode;
+    uint8_t manual_leveling_point_index_ = 0;
+    uint8_t manual_leveling_point_sum = 0;
+    float manual_leveling_z_values_[GRID_MAX_NUM*GRID_MAX_NUM];
+    bool is_bed_leveled = false;
+    bool end_of_leveling_process;
+    bool z_drop_limit_check;
+};
+
+
+extern BedLevelService bedlevel_svc;
+
+#endif  // #ifndef SNAPMAKER_BED_LEVEL_SERVICE_H_

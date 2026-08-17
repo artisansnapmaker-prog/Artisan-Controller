@@ -1,0 +1,732 @@
+
+#ifndef SNAPMAKER_H_
+#define SNAPMAKER_H_
+
+#include <stdio.h>
+#include "config.h"
+#include "common/debug.h"
+#include "module/toolhead_cnc.h"
+#include "module/toolhead_laser.h"
+#include "module/toolhead_cnc_200w.h"
+#include "module/toolhead_fdm.h"
+#include "module/drybox.h"
+#include "module/enclosure.h"
+#include "module/enclosure_a400.h"
+#include "module/bed_virt.h"
+#include "module/rotary.h"
+#include "module/purifier.h"
+#include "service/bed_level.h"
+
+#include "../../../Marlin/src/core/types.h"
+
+#define EVENT_GROUP_MODULE_READY      (0x00000001)
+#define EVENT_GROUP_WAIT_FOR_HEATING  (0X00000002)
+
+#define POWER_DOMAIN_MOTIVE_POWER (0x1<<0)
+#define POWER_DOMAIN_8P_TOOLHEAD  (0x1<<1)
+#define POWER_DOMAIN_8P_MOTOR     (0x1<<2)
+#define POWER_DOMAIN_4P_ADDON     (0x1<<3)
+#define POWER_DOMAIN_BED          (0x1<<4)
+#define POWER_DOMAIN_HMI          (0x1<<5)
+
+
+#define SHAPER_AXIS_COUNT (2) // X & Y
+struct ShaperSettings {
+  int   type;
+  float freq;
+  float zeta;
+};
+
+struct SnapmakerSettings {
+  int32_t laser_platform_hight;
+  int32_t laser_4axis_center_hight;
+  bedlevel_settings_t bedlevel_settings;
+  fdm_settings_t fdm_settings;
+  PurifierWorkSettings purifier_settings;
+  EnclosureSettings enclosure_settings;
+  ShaperSettings fdm1_shaper_settings[SHAPER_AXIS_COUNT];
+  ShaperSettings fdm2_shaper_settings[SHAPER_AXIS_COUNT];
+};
+
+// settings defination
+#define SNAPMAKER_SETTINGS_STRUCT     SnapmakerSettings smsettings;
+
+#define SNAPMAKER_SETTINGS_WRITE()    uint8_t *smsettings = (uint8_t *)smprinter.get_settings();  \
+                                      for (uint32_t i = 0; i < sizeof(SnapmakerSettings); i++) { \
+                                        EEPROM_WRITE(smsettings[i]);  \
+                                      }
+
+#define SNAPMAKER_SETTINGS_READ()     uint8_t *smsettings = (uint8_t *)smprinter.get_settings();  \
+                                      for (uint32_t i = 0; i < sizeof(SnapmakerSettings); i++) { \
+                                        EEPROM_READ(smsettings[i]);  \
+                                      }
+
+#define SNAPMAKER_SETTINGS_RESET()    smprinter.reset_settings()
+
+enum SnapmakerModel {
+  SNAPMAKER_MODEL_A150,
+  SNAPMAKER_MODEL_A250,
+  SNAPMAKER_MODEL_A350,
+  SNAPMAKER_MODEL_A400,
+  SNAPMAKER_MODEL_J1,
+
+  SNAPMAKER_MODEL_MAX
+};
+
+struct SnapmakerHandle {
+  TaskHandle_t marlin;
+  TaskHandle_t hmi;
+  TaskHandle_t heartbeat;
+  TaskHandle_t can_recv;
+  TaskHandle_t can_event;
+
+  MessageBufferHandle_t event_queue;
+  EventGroupHandle_t    event_group;
+};
+typedef struct SnapmakerHandle* SnapmakerHandle_t;
+
+enum toolHeadType {
+  TH_TYPE_3DP = 0,
+  TH_TYPE_CNC,
+  TH_TYPE_LASER,
+  TH_TYPE_UNKNOW,
+};
+
+enum SystemStatus {
+  // job control
+  SYSTEM_STATUS_IDLE = 0,
+  SYSTEM_STATUS_STARTING,
+  SYSTEM_STATUS_PRINTING,
+  SYSTEM_STATUS_PAUSING,
+  SYSTEM_STATUS_PAUSED,
+  SYSTEM_STATUS_STOPING,
+  SYSTEM_STATUS_STOPED,
+  SYSTEM_STATUS_FINISHING,
+  SYSTEM_STATUS_COMPLETED,
+  SYSTEM_STATUS_RECOVERING,
+  SYSTEM_STATUS_RESUMING,
+
+  SYSTEM_STATUS_EMERGENCY_STOP,
+  SYSTEM_STATUS_POWER_LOSS,
+
+  SYSTEM_STATUS_REPLACE_MODE,
+
+  // 3DP calibration
+  SYSTEM_STATUS_XY_CALIBRATING = 31,
+  SYSTEM_STATUS_XY_CALIBRATING_PRINTING,
+  SYSTEM_STATUS_AUTO_BEDLEVEL,
+  SYSTEM_STATUS_MANUAL_BEDLEVEL,
+  SYSTEM_STATUS_AUTO_BED_DETECTION,
+  SYSTEM_STATUS_MANUAL_BED_DETECTION,
+  SYSTEM_STATUS_PROBE_SENSOR_CALIBRATION,
+
+  // Laser calibraiton
+  SYSTEM_STATUS_LASER_CALI_START = 63,
+  SYSTEM_STATUS_LASER_DETECT_THICKNESS_AUTO = SYSTEM_STATUS_LASER_CALI_START,
+  SYSTEM_STATUS_LASER_DETECT_PLATFORM_POSITION,
+  SYSTEM_STATUS_LASER_CAMERA_CAPTURE,
+  SYSTEM_STATUS_LASER_DETECT_FOCAL_LENGTH,
+  SYSTEM_STATUS_LASER_DETECT_4AXIS_CENTER_POSITION,
+  SYSTEM_STATUS_LASER_CALI_END = SYSTEM_STATUS_LASER_DETECT_4AXIS_CENTER_POSITION,
+  SYSTEM_STATUS_LASER_CALIBRATION_PRINTING,
+
+  // CNC calibration
+  SYSTEM_STATUS_CNC_CALIBRATING = 95,
+
+  // upgrade
+  SYSTEM_STATUS_APP_UPGRADE = 127,
+  SYSTEM_STATUS_MODULE_UPGRADE,
+};
+
+
+enum SMBoardPortIndex {
+  PORT_INDEX_L1,
+  PORT_INDEX_L2,
+  PORT_INDEX_L3,
+  PORT_INDEX_L4,
+  PORT_INDEX_L5,
+  PORT_INDEX_P1,
+  PORT_INDEX_P2,
+  PORT_INDEX_P3,
+  PORT_INDEX_MAX
+};
+
+typedef struct {
+  int16_t step;
+  int16_t dir;
+  int16_t enable;
+  int16_t endstop;
+  int16_t sw_uart;
+} motor_pins_t;
+
+extern motor_pins_t pins_map[PORT_INDEX_MAX];
+
+
+// ================= exception actions defination =================
+// make the action bit be same with the power domain bits, then we can
+// disable the power using the action bits
+#define EXCEP_ACT_DISABLE_POWER_MOTIVE          (POWER_DOMAIN_MOTIVE_POWER)
+#define EXCEP_ACT_DISABLE_POWER_8P_TOOLHEAD     (POWER_DOMAIN_8P_TOOLHEAD)
+#define EXCEP_ACT_DISABLE_POWER_8P_MOTOR        (POWER_DOMAIN_8P_MOTOR)
+#define EXCEP_ACT_DISABLE_POWER_4P_ADDON        (POWER_DOMAIN_4P_ADDON)
+#define EXCEP_ACT_DISABLE_POWER_BED             (POWER_DOMAIN_BED)
+#define EXCEP_ACT_DISABLE_POWER_HMI             (POWER_DOMAIN_HMI)
+// reserve bit[7:6] for power domain
+#define EXCEP_ACT_PAUSE_WORKING                 (1<<8)
+#define EXCEP_ACT_STOP_WORKING                  (1<<9)
+#define EXCEP_ACT_STOP_WITH_RECOVERY            (1<<10)
+#define EXCEP_ACT_DISABLE_HEATING_BED           (1<<11)
+#define EXCEP_ACT_DISABLE_HEATING_HOTEND        (1<<12)
+
+#define EXCEP_ACT_ALL                           (0x1FFF)
+
+// ================= exception ban defination =================
+#define EXCEP_BAN_ENABLE_POWER_MOTIVE         (POWER_DOMAIN_MOTIVE_POWER)
+#define EXCEP_BAN_ENABLE_POWER_8P_TOOLHEAD    (POWER_DOMAIN_8P_TOOLHEAD)
+#define EXCEP_BAN_ENABLE_POWER_8P_MOTOR       (POWER_DOMAIN_8P_MOTOR)
+#define EXCEP_BAN_ENABLE_POWER_4P_ADDON       (POWER_DOMAIN_4P_ADDON)
+#define EXCEP_BAN_ENABLE_POWER_BED            (POWER_DOMAIN_BED)
+#define EXCEP_BAN_ENABLE_POWER_HMI            (POWER_DOMAIN_HMI)
+// reserve bit[7:6] for power domain
+#define EXCEP_BAN_MOVING                      (1<<8)
+#define EXCEP_BAN_WORKING                     (1<<9)
+#define EXCEP_BAN_HEATING_HOTEND              (1<<10)
+#define EXCEP_BAN_HEATING_BED                 (1<<11)
+#define EXCEP_BAN_TURN_ON_LASER               (1<<12)
+#define EXCEP_BAN_TURN_ON_CNC                 (1<<13)
+#define EXCEP_BAN_HOMING                      (1<<14)
+
+#define EXCEP_BAN_ALL                         (0x3FFF)
+
+enum SMExceptionOwner {
+  SM_EXCEP_OWNER_SYSTEM,
+  SM_EXCEP_OWNER_TOOLHEAD,
+  SM_EXCEP_OWNER_BED,
+  SM_EXCEP_OWNER_LINEAR_X,
+  SM_EXCEP_OWNER_LINEAR_Y,
+  SM_EXCEP_OWNER_LINEAR_Z,
+  SM_EXCEP_OWNER_LINEAR_Y2,
+  SM_EXCEP_OWNER_LINEAR_Z2,
+};
+
+// exception state for controller
+enum SMControllerExceptionState {
+  CONTROLLER_EXCEP_STA_NO_TOOLHEAD = 1,
+  CONTROLLER_EXCEP_STA_UNKNOWN_MODEL,
+  CONTROLLER_EXCEP_STA_OVERTEMP,
+  CONTROLLER_EXCEP_STA_MISS_SETTINGS,
+  CONTROLLER_EXCEP_STA_HOME_FAILED,
+  CONTROLLER_EXCEP_STA_REPLACE_TOOLHEAD,
+  CONTROLLER_EXCEP_STA_SYSTEM_VOLTAGE,
+  CONTROLLER_EXCEP_STA_MOTIVE_VOLTAGE,
+  CONTROLLER_EXCEP_STA_POWER_LOSS,
+  CONTROLLER_EXCEP_STA_IS_GENERATE_FUNC,  // input shaper exception
+};
+
+// exception state for FDM toolhead
+enum FDMExceptionState {
+  FDM_EXCEP_STA_HEATING_FAILED_E0 = 1,
+  FDM_EXCEP_STA_HEATING_FAILED_E1,
+  FDM_EXCEP_STA_THERMAL_RUNAWAY_E0,
+  FDM_EXCEP_STA_THERMAL_RUNAWAY_E1,
+  FDM_EXCEP_STA_MINTEMP_ERROR_E0,
+  FDM_EXCEP_STA_MINTEMP_ERROR_E1,
+  FDM_EXCEP_STA_OVERTEMP_ERROR_E0,
+  FDM_EXCEP_STA_OVERTEMP_ERROR_E1,
+  FDM_EXCEP_STA_OFFLINE,
+  FDM_EXCEP_STA_NOZZLE_TYPE_ERROR,
+  FDM_EXCEP_STA_FILAMENT_RUNOUT,
+  FDM_EXCEP_STA_EXTRUDER_STATE_ERROR,
+  FDM_EXCEP_STA_PROBE_ERROR,
+  FDM_EXCEP_STA_PORT_ERROR,
+  FDM_EXCEP_STA_EXTRUDER_HOME_FAILED,
+  FDM_EXCEP_STA_POST_INIT_FAIL,
+  FDM_EXCEP_STA_EXTRUDER_ERROR_EXCEED_NUMBER,
+  FDM_EXCEP_STA_EXTRUDER_ERROR_OVERTIME
+};
+
+// exception state for heated Bed
+enum BedExceptionState {
+  BED_EXCEP_STA_HEATING_FAILED_ZONE0 = 1,
+  BED_EXCEP_STA_HEATING_FAILED_ZONE1,
+  BED_EXCEP_STA_THERMAL_RUNAWAY_ZONE0,
+  BED_EXCEP_STA_THERMAL_RUNAWAY_ZONE1,
+  BED_EXCEP_STA_MINTEMP_ERROR_ZONE0,
+  BED_EXCEP_STA_MINTEMP_ERROR_ZONE1,
+  BED_EXCEP_STA_OVERTEMP_ERROR_ZONE0,
+  BED_EXCEP_STA_OVERTEMP_ERROR_ZONE1,
+  BED_EXCEP_STA_INSERTED_ERROR_HEAD,
+  BED_EXCEP_STA_ABSENCE_WITH_3DP_HEAD,
+  BED_EXCEP_STA_ERROR_MOS_SW_CTRL
+};
+
+// exception state for drybox
+enum DryBoxExceptionState {
+  DRYBOX_EXCEP_STA_OVER_TEMP = 1,
+  DRYBOX_EXCEP_STA_PAUSE_HEATING,
+  DRYBOX_EXCEP_STA_OFFLINE,
+};
+
+// exception state for drybox
+enum RotaryExceptionState {
+  ROTARY_EXCEP_STA_PORT_ERROR = 1,
+};
+
+// exception state for emergency stop
+enum EmergencyStopExceptionState {
+  EMERGENCY_STOP_EXCEP_STA_TRIGGERRED = 1,
+};
+
+// exception state for emergency stop
+enum LaserExceptionState {
+  LASER_EXCEP_STA_NORMAL,
+  LASER_EXCEP_STA_IMU_EXCEPTION = 1,
+  LASER_EXCEP_STA_TUBE_TEMP_TOO_HIGH,
+  LASER_EXCEP_STA_ABNORMAL_ATTITUDE,
+  LASER_EXCEP_STA_PWM_PIN,
+  LASER_EXCEP_STA_FAN_RUN,
+  LASER_EXCEP_STA_FIRE_DECT,
+  LASER_EXCEP_STA_TUBE_TEMP_TOO_LOW = 9,
+  LASER_EXCEP_STA_IMU_TEMP_TOO_HIGH,
+  LASER_EXCEP_STA_PLUGGED_ERROR_PORT,
+  LASER_EXCEP_STA_OFFLINE,
+  LASER_EXCEP_STA_NO_INSERT_ENCLOSURE,
+};
+
+
+// exception state for cnc
+enum CNCExceptionState {
+  CNC_EXCEP_STA_STALLED =  1,
+  CNC_EXCEP_STA_HARD_PROTECT,
+  CNC_EXCEP_STA_OVERCURRENT,
+  CNC_EXCEP_STA_P_TEMP,
+  CNC_EXCEP_STA_M_TEMP,
+  CNC_EXCEP_STA_V_POWER,
+  CNC_EXCEP_STA_DETECT_PORT,
+  CNC_EXCEP_STA_OFFLINE
+};
+
+enum EnclosureExceptionState {
+  ENCLOSURE_EXCEP_STA_OFFLINE = 1,
+};
+
+enum PurifierExceptionState {
+  PURIFIER_EXCEP_STA_OFFLINE = 1,
+};
+
+enum LinearException {
+  LINEAR_EXCEP_STA_OFFLINE = 1,
+  LINEAR_EXCEP_STA_NO_LINEAR,
+  LINEAR_EXCEP_STA_MISS_X,
+  LINEAR_EXCEP_STA_MISS_Y,
+  LINEAR_EXCEP_STA_MISS_Z,
+  LINEAR_EXCEP_STA_LIMIT_Z_DOWN
+};
+
+// macros for SN
+#define ADDR_PRODUCTION_SN            (0x8007FBC)
+#define PRODUCTION_SN_STRING_LENGTH   (30)
+#define ADDR_CONTROLLER_SN            (0x8007FFC)
+
+typedef struct __packed RawProductionSN {
+  char sn[PRODUCTION_SN_STRING_LENGTH];  // include \0
+  uint16_t checksum;
+  char sn_backup[PRODUCTION_SN_STRING_LENGTH];  // include \0
+  uint16_t checksum_backup;
+} raw_production_sn_t;
+
+// wrapper of snapmaker for marlin
+class SnapmakerPrinter
+{
+  public:
+    /**
+     * Set by stepper in ISR, define as public for faster visite from stepper
+    */
+    uint32_t gcode_file_position;
+    uint32_t gcode_file_pass_line_number;
+    xyze_pos_t destination;
+    axis_bits_t axis_relative;
+    bool position_invalid;
+    void update_gcode_file_pass_line_number(uint32_t l, uint8_t mark);
+
+  public:
+    uint32_t power_domains;
+
+  public:
+    SnapmakerPrinter() {
+      #if MB(SM_CONTROLLER2022_V1)
+        model = SNAPMAKER_MODEL_A400;
+      #endif
+      power_domains = 0;
+    }
+
+    void pre_init();
+    void post_init();
+
+    // API for debug
+    void send_log_to_console(char *str) { debug.send_log_to_console(str); }
+    void send_log_to_host(char *str) { debug.send_log_to_host(str); }
+
+    // API for pause
+    void pause_trigger(uint8_t pause_reason);
+
+    // API for home
+    void reset_home_offset();
+
+    // API for gcode
+    bool get_gcode_from_job(uint8_t *cmd, uint16_t max_len, uint32_t *line, uint8_t *mark);
+
+    // API for marlin
+    // CNC
+    bool cnc_online_check(void) { return (cnc && cnc->check_online()); }
+    void set_spindle_power(uint8_t new_power, bool is_update_power=true);
+    void set_spindle_rpm(uint16_t rpm, bool is_update_rpm=true);
+    uint16_t get_spindle_rpm(void);
+    void get_spindle_status(void);
+    void set_spindle_run_mode(CNCSpeedControlMode mode);
+    void start_spindle_self_test(void);
+    void spindle_debug_config(uint8_t cmd, uint32_t param);   // CNC debug
+    void spindle_hmi_self_test_interface(uint8_t test_type, uint32_t param);
+
+    // Laser APIs for marlin
+    void set_laser_output(float power, bool is_map=true) {
+      if (laser)
+        laser->set_output(power, is_map);
+    }
+
+    void set_laser_update_power(float power, bool is_map=true) {
+      if (laser)
+        laser->update_power(power, is_map);
+    }
+
+    void turn_on_laser() {
+      if (laser)
+        laser->turn_on();
+    }
+
+    void turn_off_laser() {
+      if (laser)
+        laser->turn_off();
+    }
+
+    uint8_t get_laser_safety_state(void);
+
+    // FDM
+    void show_fdm_info(void) { if (fdm) fdm->show_fdm_info(); }
+    void homing_active_extruder_clean(void);
+    uint8_t get_extruders_count(void);
+    uint8_t homing_active_extruder_record(void);
+    int8_t extruder_map_convert(int8_t extruder_index);
+    extruder_print_map_type get_extruder_map_type(void);
+    void set_probe_sensor(probe_sensor_t sensor) {
+      if (fdm) {
+        fdm->set_probe_sensor(sensor);
+      }
+    }
+
+    bool get_probe_state() {
+      if (fdm) {
+        return fdm->get_probe_state();
+      }
+
+      return false;
+    }
+
+    bool get_probe_state(probe_sensor_t sensor) {
+      if (fdm) {
+        return fdm->get_probe_state(sensor);
+      }
+
+      return false;
+    }
+
+    uint8_t get_hotend_type(uint8_t e) {
+      if (fdm) {
+        return fdm->get_hotend_type(e);
+      }
+
+      return 0xff;
+    }
+
+    float get_hotend_temp(uint8_t e) {
+      if (fdm) {
+        return fdm->get_hotend_temp(e);
+      }
+
+      return 0;
+    }
+
+    void set_hotend_temp(int16_t temp, uint8_t heater_id) {
+      if (fdm) {
+        fdm->set_hotend_temp(temp, heater_id);
+      }
+    }
+
+    void set_fdm_fan_speed(uint8_t fan, uint16_t speed) {
+      if (fdm) {
+        fdm->set_fan_speed(fan, speed);
+      }
+    }
+
+    uint8_t runout_state(uint8_t e) {
+      if (fdm) {
+        return fdm->get_filament_state(e);
+      }
+
+      return 0;
+    }
+
+    uint8_t runout_state() {
+      if (fdm) {
+        return fdm->get_filament_state();
+      }
+
+      return 0;
+    }
+
+    uint32_t get_fdm_state() {
+      if (fdm) {
+        return fdm->get_fdm_state();
+      }
+
+      return 0;
+    }
+
+    void clear_fdm_state(fdm_fault_e state) {
+      if (fdm) {
+        return fdm->clear_fdm_state(state);
+      }
+    }
+
+    void switch_extruder_without_move(uint8_t e) {
+      if (fdm) {
+        fdm->switch_extruder_without_move(e);
+      }
+    }
+
+    void switch_extruder(uint8_t e) {
+      if (fdm) {
+        fdm->switch_extruder(e);
+      }
+    }
+
+    void tool_change(uint8_t new_tool) {
+      if (fdm) {
+        fdm->tool_change(new_tool);
+      }
+    }
+
+    float * get_hotend_pid(uint8_t e) {
+      if (fdm) {
+        return fdm->get_hotend_pid(e);
+      }
+
+      return NULL;
+    }
+
+    void set_extruder_check_state(uint8_t state) {
+      if (fdm) {
+        fdm->extruder_status_check_ctrl((extruder_status_e)state);
+      }
+    }
+
+    void fdm_exception_trigger(fdm_fault_e fault) {
+      if (fdm) {
+        fdm->fdm_exception_trigger(fault);
+      }
+    }
+
+    void dual_extruder_process_after_z_homed() {
+      if (fdm) {
+        fdm->dual_extruder_process_after_z_homed();
+      }
+    }
+
+    void report_hotend_offset() {
+      if (fdm) {
+        fdm->report_hotend_offset();
+      }
+    }
+
+    void report_nozzle_type() {
+      if (fdm) {
+        fdm->report_nozzle_type();
+      }
+    }
+
+    void report_probe_sensor_compensation();
+    void report_steps_per_unit() {
+      if (fdm) {
+        fdm->report_steps_per_unit();
+      }
+    }
+
+    void set_axis_steps_per_unit(float value) {
+      if (fdm) {
+        fdm->set_axis_steps_per_unit(value);
+      }
+    }
+
+    err_code_t right_extruder_move_to_destination(move_type_e type, float destination = 0) {
+      if (fdm) {
+        return fdm->right_extruder_move_to_destination(type, destination);
+      }
+
+      return E_HARDWARE;
+    }
+
+    uint8_t get_fdm_fault_state(fdm_fault_e fault_type) {
+      if (fdm) {
+        return fdm->get_fdm_fault_state(fault_type);
+      }
+
+      return 0;
+    }
+
+    uint8_t get_status() {
+      if (fdm) {
+        return fdm->get_status();
+      }
+
+      return 0;
+    }
+
+    // LASER
+    void set_laser_fan_speed(uint16_t speed) {}
+    void laser_enable_env_check(void) { if (laser) laser->check_insert_enclosure(); }
+    void show_laser_info(void) { if (laser) laser->show_status(); }
+    bool is_has_crosslight_offset(void);
+    void set_inline_laser_power(float power);
+    void set_inline_laser_pwm(uint16_t pwm);
+    void laser_turn_on_isr(uint16_t pwm, bool is_sync_power, float sync_power);
+    uint16_t laser_inline_pwm_power_floor() {
+      if (laser) return laser->get_inline_pwm_power_floor();
+      else return 0;
+    }
+    float laser_get_power() { if (laser) return laser->get_power_current(); else return 0; }
+    uint16_t laser_get_power_pwm() { if (laser) return laser->get_power_pwm(); else return 0; }
+
+    // DryBox
+    void set_drybox_temp(int16_t heater_temp, int16_t chamber_temp) {
+      if (drybox) {
+        drybox->set_temp(heater_temp, chamber_temp);
+      }
+    }
+
+    // Rotary
+    uint8_t rotary_status() {
+      if (rotary) {
+        return (uint8_t)(rotary->get_status());
+      }
+
+      return (uint8_t)MODULE_STATUS_OFFLINE;
+    }
+
+    // ENCLOSURE
+    bool enclosure_online_check(void) { return (enclosure && enclosure->check_online()); }
+    // the enclosure is considered to be inserted if enclosure pointer is not NULL
+    bool enclosure_is_insert(void) { return !!enclosure; }
+    void set_enclosure_light_bar(uint8_t new_level);
+    void set_enclosure_fan_speed(uint8_t new_speed);
+    void report_enclosure_status(void);
+    void enclosure_hmi_self_test_interface(uint8_t test_type, uint32_t param);
+    uint8_t get_enclosure_door_status(void);
+
+    void register_module(uint16_t type, ModuleBase *new_module);
+    void security_check(void);
+
+    ModuleBase *get_cur_toolhead(void);
+    toolHeadType get_toolhead_type(void);
+
+    enum SystemStatus get_sys_status(void);
+    err_code_t set_sys_status(enum SystemStatus req_status, enum SystemStatus *ret_status);
+    err_code_t can_start_work(void);
+    err_code_t can_resume_work(void);
+    bool can_stop_work(void);
+    bool on_printing(void);
+    bool on_working();
+
+    // callbacks for HMI
+    static err_code_t hmi_cb_run_gcode(void *obj, sacp_hmi_message_t *msg);
+    static err_code_t hmi_cb_request_reboot(void *obj, sacp_hmi_message_t *msg);
+    static uint16_t hmi_cb_publish_system_status(void *obj, uint8_t *buffer);
+    static err_code_t hmi_cb_get_machine_info(void *obj, sacp_hmi_message_t *msg);
+    static err_code_t hmi_cb_get_machine_size(void *obj, sacp_hmi_message_t *msg);
+    static err_code_t hmi_cb_set_protocol_for_PC(void *obj, sacp_hmi_message_t *msg);
+    static err_code_t hmi_cb_do_factory_reset(void *obj, sacp_hmi_message_t *msg);
+    static err_code_t hmi_cb_get_board_temp(void *obj, sacp_hmi_message_t *msg);
+
+    static err_code_t hmi_cb_set_machine_enter_replace_mode(void *obj, sacp_hmi_message_t *msg);
+
+    SnapmakerModel get_model() { return model; }
+    void show_sys_info();
+
+    void disable_power_domain(uint32_t domains);
+    void enable_power_domain(uint32_t domains);
+
+    void reset_settings();
+    SnapmakerSettings *get_settings() { return &settings; }
+
+    void raise_exception(SMExceptionOwner owner, uint8_t state, uint32_t actions = 0, uint32_t ban = 0);
+    void clear_exception(SMExceptionOwner owner, uint8_t state);
+    bool allow_moving();
+    bool allow_heating_bed();
+    bool allow_heating_hotend();
+    bool allow_leveling();
+    bool allow_turn_on_laser();
+    bool allow_turn_on_cnc();
+    bool allow_homing();
+
+    void check_system_voltage();
+
+    void get_hw_version();
+
+    void req_quick_stop() { quick_stop = true; }
+    void check_if_quickstop();
+    void start_work_reset_feedrate();
+    void stop_work_reset_feedrate();
+    void resume_relative_position_check(uint32_t cmd_line, uint8_t cmd_mark);
+    void resume_relative_position_clear(uint8_t cmd_mark);
+    bool get_backup_current_position(xyze_pos_t &position);
+
+    bool is_interrupt_block_heating(void);
+    bool is_fdm_bed_level_mode(void);
+
+    bool is_in_motion_thread();
+
+    ShaperSettings *get_shaper_settings();
+
+  private:
+    enum SystemStatus sys_status;
+    SemaphoreHandle_t status_lock;
+
+    SnapmakerModel model = SNAPMAKER_MODEL_MAX;
+    uint8_t hw_ver;
+
+    Rotary *rotary = NULL;
+
+    bool quick_stop = false;
+
+  // settings save into marlin
+  private:
+    SnapmakerSettings settings;
+
+
+  public:
+    /* ToolHeadFDM *_3dp = NULL; */
+    ToolHeadCNC *cnc = NULL;
+    ToolHeadLaser *laser = NULL;
+    ToolHeadFDM *fdm = NULL;
+    DryBox *drybox = NULL;
+    Enclosure *enclosure = NULL;
+    Purifier *purifier = NULL;
+    // toolhead fdm 1e
+    // toolhead laser 1.6w
+    // toolhead laser 10w
+};
+
+extern SnapmakerPrinter smprinter;
+
+extern TaskHandle_t thandle_marlin;
+extern TaskHandle_t thandle_system;
+#endif  // #ifndef SNAPMAKER_H_
